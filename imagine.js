@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.86.2
+//@display-name 🎨 이매진 v3.86.3
 //@api 3.0
-//@version 3.86.2
+//@version 3.86.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.86.2';
+    const VERSION = '3.86.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -146,7 +146,8 @@
     const msgHash = m => fnv(stripOurs(m?.data));
     const tidy = s => String(s ?? '').replace(/\s+/g, ' ').trim().replace(/^,+|,+$/g, '').trim();
     const joinTags = (...parts) => parts.flat().map(tidy).filter(Boolean).join(', ');
-    const withTags = (...parts) => parts.flat().flatMap(s => String(s ?? '').split(',')).map(tidy).filter(Boolean).join(' with ');
+    const TAG_JOIN = ' + ';
+    const withTags = (...parts) => parts.flat().flatMap(s => String(s ?? '').split(',')).map(tidy).filter(Boolean).join(TAG_JOIN);
     const grid = v => {
         const n = Number(v);
         if (!Number.isFinite(n)) return 0.5;
@@ -1322,8 +1323,8 @@ Return entries only for the characters in this list that the character sheet, lo
             const comma = /,\s*$/.test(prev) ? ',' : '';
             return `${top.slice(0, cut)}${joinTags(prev, add)}${comma}${s.slice(nl)}`;
         }
-        const head = s.slice(0, at).replace(/\s*\bwith\s*$/, '');
-        return `${withTags(head, add)} with ${s.slice(at)}`;
+        const head = s.slice(0, at).replace(/\s*(?:\bwith|\+)\s*$/, '');
+        return `${withTags(head, add)}${TAG_JOIN}${s.slice(at)}`;
     }
 
     const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
@@ -1381,13 +1382,13 @@ Return entries only for the characters in this list that the character sheet, lo
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
             let people = '';
             if (who.length >= 2) {
-                const personLine = k => `char${numOf(who[k])}: ${[withTags(`1${who[k].type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(' with ')}`;
+                const personLine = k => `char${numOf(who[k])}: ${[withTags(`1${who[k].type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
                 const lines = who.map((x, k) => k).filter(k => k !== sayAt).map(k => `${personLine(k)},`);
                 if (act) lines.push(act);
                 if (sayAt >= 0) lines.push(personLine(sayAt));
                 people = lines.join('\n');
             }
-            const solo = [withTags(head, idents.flat(), act), say].filter(Boolean).join(' with ');
+            const solo = [withTags(head, idents.flat(), act), say].filter(Boolean).join(TAG_JOIN);
             slots.push({
                 prompt: people || (who.length ? `char${numOf(who[0])}: ${solo}` : solo),
                 uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', type: types[0] ?? 'other',
@@ -1441,9 +1442,10 @@ Return entries only for the characters in this list that the character sheet, lo
     const stripColors = text => String(text ?? '').split('\n').map(line => {
         const at = line.search(SAY_RE);
         const head = at < 0 ? line : line.slice(0, at), tail = at < 0 ? '' : line.slice(at);
-        const out = head.split(',').map(part => part.split(/\s+with\s+/)
-            .map(a => /::/.test(a) ? a.trim() : a.replace(COLOR_RE, '').replace(/\s+/g, ' ').trim()).filter(a => a && !BARE_RE.test(a)).join(' with ')).filter(Boolean).join(', ');
-        if (tail) return out ? `${out} with ${tail}` : tail;
+        const j = /\s\+\s/.test(line) ? TAG_JOIN : ' with ';
+        const out = head.split(',').map(part => part.split(/\s+(?:with|\+)\s+/)
+            .map(a => /::/.test(a) ? a.trim() : a.replace(COLOR_RE, '').replace(/\s+/g, ' ').trim()).filter(a => a && !BARE_RE.test(a) && a !== '+').join(j)).filter(Boolean).join(', ');
+        if (tail) return out ? `${out}${j}${tail}` : tail;
         return out && /,\s*$/.test(head) ? `${out},` : out;
     }).join('\n');
     const MONO_TAGS = '2::monochrome, spot color, limited palette::, 2::vanishing point, Sense of space, long shot::';
