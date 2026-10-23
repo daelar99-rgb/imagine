@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.86.0
+//@display-name 🎨 이매진 v3.86.1
 //@api 3.0
-//@version 3.86.0
+//@version 3.86.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.86.0';
+    const VERSION = '3.86.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -1304,9 +1304,10 @@ Return entries only for the characters in this list that the character sheet, lo
     const dropGaze = text => tidy(String(text ?? '').split(',').filter(s => !/^(looking (?!back\b)|eye contact$|staring\b|gazing\b)/.test(tagCore(s))).join(',').replace(/,\s*,/g, ','));
     const dropViewer = text => tidy(String(text ?? '').replace(/\blooking at (the )?viewer\b,?/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,|,\s*$/g, ''));
     const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 80);
-    const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?\bText:[^,\n]*/gi, '');
+    const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?(?:\bspeech bubble with\s+)?\bText:[^,\n]*/gi, '');
+    const SAY_RE = /\b(?:speech bubble with )?Text:/;
     function addBeforeText(prompt, add) {
-        const s = String(prompt ?? ''), at = s.search(/\bText:/);
+        const s = String(prompt ?? ''), at = s.search(SAY_RE);
         if (!tidy(add)) return s;
         if (at < 0) return s.includes('\n') ? `${s.replace(/,?\s*$/, '')}, ${tidy(add)}` : joinTags(s, add);
         const nl = s.lastIndexOf('\n', at);
@@ -1365,7 +1366,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `Text: ${line}` : '';
+            const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `speech bubble with Text: ${line},` : '';
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
@@ -1429,7 +1430,7 @@ Return entries only for the characters in this list that the character sheet, lo
     const COLOR_RE = new RegExp(`\\b${COLOR_WORD}(?:[- ](?:and[- ])?${COLOR_WORD})*\\b-?`, 'gi');
     const BARE_RE = /^(?:hair|eyes|skin|theme|background)$/i;
     const stripColors = text => String(text ?? '').split('\n').map(line => {
-        const at = line.search(/\bText:/);
+        const at = line.search(SAY_RE);
         const head = at < 0 ? line : line.slice(0, at), tail = at < 0 ? '' : line.slice(at);
         const out = head.split(',').map(part => part.split(/\s+with\s+/)
             .map(a => /::/.test(a) ? a.trim() : a.replace(COLOR_RE, '').replace(/\s+/g, ' ').trim()).filter(a => a && !BARE_RE.test(a)).join(' with ')).filter(Boolean).join(', ');
@@ -3702,8 +3703,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     function renderPrompt(rec, disabled, idx) {
-        const draft = st.drafts[rec.key] ??= (rec.images ?? []).map(x => structuredClone(x.req));
         const orig = JSON.stringify((rec.images ?? []).map(x => x.req));
+        let dr = st.drafts[rec.key];
+        if (dr?.from !== orig) dr = st.drafts[rec.key] = { from: orig, reqs: (rec.images ?? []).map(x => structuredClone(x.req)) };
+        const draft = dr.reqs;
         const goBtn = h('button', { class: 'ix-btn main sm', type: 'button', disabled, onclick: () => draw(idx, 'edit', rec.key, structuredClone(draft)) });
         const undoBtn = h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { if (disabled) return; delete st.drafts[rec.key]; renderNow(); } }, '↩ 고치기 전으로');
         const stateTx = h('span', { class: 'ix-hint' });
