@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.84.0
+//@display-name 🎨 이매진 v3.84.1
 //@api 3.0
-//@version 3.84.0
+//@version 3.84.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/%EC%9D%B4%EB%A7%A4%EC%A7%84.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -10,7 +10,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.84.0';
+    const VERSION = '3.84.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/%EC%9D%B4%EB%A7%A4%EC%A7%84.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -218,7 +218,7 @@
         if (Array.isArray(presets) && presets.length) st.presets = presets.filter(p => p && p.id);
         if (set && typeof set === 'object' && !(set.sv >= 3)) {
             for (const p of st.presets) if (p.neg === NEG_V12) p.neg = DEFAULT_NEG;
-            savePresets();
+            save('nc:presets', st.presets);
         }
         if (set && typeof set === 'object' && !(set.sv >= 4)) {
             st.set.sv = 4;
@@ -417,6 +417,7 @@
     async function loadCast(chaId) {
         if (castCache.has(chaId)) return castCache.get(chaId);
         const v = await api.pluginStorage.getItem('nc:cast:' + chaId).catch(() => null);
+        if (castCache.has(chaId)) return castCache.get(chaId);
         const cast = v && Array.isArray(v.list) ? v : { list: [], at: 0 };
         cast.list = cast.list.filter(e => e && typeof e === 'object').map(normCast);
         castCache.set(chaId, cast);
@@ -427,6 +428,7 @@
     async function loadRecs(chaId) {
         if (recCache.has(chaId)) return recCache.get(chaId);
         const v = await api.pluginStorage.getItem('nc:img:' + chaId).catch(() => null);
+        if (recCache.has(chaId)) return recCache.get(chaId);
         const recs = v && typeof v === 'object' ? v : {};
         recCache.set(chaId, recs);
         return recs;
@@ -581,6 +583,7 @@
                 if (m?.chatId === id && (best < 0 || Math.abs(i - near) < Math.abs(best - near))) best = i;
             });
             if (best >= 0) return best;
+            if (Number.isInteger(idx) && list[idx]?.chatId) return -1;
         }
         if (key?.startsWith('#')) idx = Number(key.slice(1));
         return Number.isInteger(idx) && idx >= 0 && idx < list.length ? idx : -1;
@@ -1199,8 +1202,8 @@ Return entries only for the characters in this list that the character sheet, lo
         if (!n) return null;
         return cast.list.find(e => e.name.toLowerCase() === n)
             ?? cast.list.find(e => e.aliases?.some(a => a.toLowerCase() === n))
-            ?? cast.list.find(e => n.includes(e.name.toLowerCase()) || e.name.toLowerCase().includes(n))
-            ?? cast.list.find(e => [e.name, ...(e.aliases ?? [])].some(a => nameKey(a) === nameKey(n)))
+            ?? cast.list.find(e => e.name && (n.includes(e.name.toLowerCase()) || e.name.toLowerCase().includes(n)))
+            ?? cast.list.find(e => [e.name, ...(e.aliases ?? [])].some(a => a && nameKey(a) && nameKey(a) === nameKey(n)))
             ?? null;
     }
     const nameKey = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '').replace(/yeo/g, 'yu').replace(/eo/g, 'u').replace(/oo/g, 'u');
@@ -1481,7 +1484,7 @@ Return entries only for the characters in this list that the character sheet, lo
         let monsters = 0;
         for (const c of Array.isArray(img.chars) ? img.chars : []) {
             if (tidy(c?.type).toLowerCase() === 'monster') {
-                if (monsters++ || !tidy(c.tags)) continue;
+                if (!tidy(c.tags) || monsters++) continue;
                 chars.push({ c, e: null, monster: true });
                 if (chars.length >= 3) break;
                 continue;
@@ -1666,7 +1669,7 @@ Return entries only for the characters in this list that the character sheet, lo
                     body: JSON.stringify(body),
                 });
                 buf = new Uint8Array(await res.arrayBuffer());
-                if (res.ok) return firstImage(buf);
+                if (res.ok) return await firstImage(buf);
             } catch (error) {
                 if (flaky++ < 2 && !stopped()) { console.warn(LOG, 'NAI retry', error); await sleep(3000); continue; }
                 throw error;
@@ -1955,7 +1958,7 @@ Return entries only for the characters in this list that the character sheet, lo
             await saveRecs(chaId, recs);
             if (job.mode === 'edit') editSaved = key;
             await setArtistThumb(reqs[0]?.preset ?? st.presetId, firstBytes, out[0]?.path);
-            for (const x of old?.images ?? []) if (!images.includes(x)) thumbs.delete(x.path);
+            for (const x of old?.images ?? []) if (!images.includes(x)) dropThumb(x.path);
             failed.delete(key);
             st.ok = true;
             st.note = `${out.length}장을 그려 ${char.type === 'group' ? '패널 기록에' : '봇에'} 저장했습니다.`;
@@ -2259,6 +2262,15 @@ Output a single JSON object only:
         return { text: '[SOURCE]\n' + parts.join('\n\n'), sent: parts.length };
     }
 
+    function cbsWhole(t) {
+        let d = 0;
+        for (let i = 0; i < t.length; i++) {
+            if (t.startsWith('{{', i)) { d++; i++; }
+            else if (t.startsWith('}}', i)) { if (--d < 0) return false; i++; }
+            else if (!d && !/\s/.test(t[i])) return false;
+        }
+        return d === 0;
+    }
     function checkHide(item, byId, luaMode) {
         const t = byId[item?.target];
         if (!t) return 'unknown target';
@@ -2282,7 +2294,7 @@ Output a single JSON object only:
             return { kind, at, pos: at + body.length };
         }
         const cbs = find.trim();
-        if (!/^\{\{[\s\S]*\}\}$/.test(cbs)) return 'a "cbs" find must be one whole {{…}}';
+        if (!cbs.startsWith('{{') || !cbsWhole(cbs)) return 'a "cbs" find must be one whole {{…}} (no text between separate CBS)';
         const start = at + find.indexOf(cbs);
         const before = t.text.slice(0, start);
         if (before.lastIndexOf('<') > before.lastIndexOf('>')) return 'this CBS is inside an HTML tag; report that tag with kind "tag" instead';
@@ -2383,6 +2395,7 @@ Output a single JSON object only:
             hideStage(job, '숨길 그림을 찾는 중', [0, 0.85]);
             const char = await api.getCharacterFromIndex(job.ci);
             if (!char || char.chaId !== job.chaId) throw new Error('봇을 읽지 못했습니다.');
+            if (job.stop) throw stopError();
             const targets = hideTargets(char);
             if (!targets.length) {
                 setAssetOff(job.chaId, true);
@@ -2421,6 +2434,7 @@ Output a single JSON object only:
                     ({ ok, bad } = second);
                 }
             }
+            if (job.stop) throw stopError();
             if (!ok.length) {
                 setAssetOff(job.chaId, true);
                 await redrawChat().catch(error => console.warn(LOG, 'hide redraw', error));
@@ -3216,7 +3230,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'up-after' },
                 h('b', null, '설치가 끝나면'),
                 h('ul', null,
-                    h('li', null, '리수가 플러그인을 새로 설치하면서 ', h('b', null, 'NAI 키가 지워집니다'), '. 이매진 › 준비 탭에서 키를 다시 넣어 주세요.'),
                     h('li', null, '권한을 묻는 창이 뜨면 모두 허용(YES)을 누릅니다. 거절하면 그림이 그려지지 않습니다.'),
                     h('li', null, '초록색 + 가 보이지 않으면(예전 버전을 설치한 경우), 깃허브(github.com/daelar99-rgb/imagine)에서 이매진.js 를 받은 뒤 플러그인 목록 아래의 + 로 한 번 직접 설치합니다. 그다음부터는 + 가 뜹니다.'))));
         return pane;
@@ -3247,7 +3260,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     return;
                 }
                 clearTimeout(timer);
-                onFire();
+                armed = false;
+                btn.disabled = true;
+                Promise.resolve().then(onFire).catch(error => console.warn(LOG, 'arm', error)).finally(() => { btn.disabled = false; });
             },
         }, label);
         return btn;
@@ -3343,7 +3358,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const save = async () => {
             const k = input.value.trim();
             if (!k) return;
-            await setNaiKey(k);
+            try { await setNaiKey(k); } catch (error) { await api.alert?.('키를 저장하지 못했습니다: ' + (error?.message ?? error)); return; }
             if (st.view) st.view.hasKey = true;
             st.keyShow = false;
             st.keyDraft = '';
@@ -3369,7 +3384,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     },
                 }, st.keyShow ? '키 가리기' : '키 확인') : null,
                 full && v?.hasKey ? armButton('키 지우기', '한 번 더', async () => {
-                    await setNaiKey('');
+                    try { await setNaiKey(''); } catch (error) { await api.alert?.('키를 지우지 못했습니다: ' + (error?.message ?? error)); return; }
                     if (st.view) st.view.hasKey = false;
                     st.keyShow = false;
                     st.keyDraft = '';
@@ -3638,7 +3653,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 '🎬 씬 재구성', h('small', null, '모델이 이 답변의 장면부터 다시 골라 그립니다')),
             h('button', { type: 'button', role: 'menuitem', onclick: () => { ui.menu = ''; open ? st.promptOpen.delete(a.key) : st.promptOpen.add(a.key); renderNow(); } },
                 open ? '📝 프롬프트 창 닫기' : '📝 프롬프트 직접 고치기', h('small', null, '그림에 쓴 프롬프트를 열어 고친 뒤 그 글로 다시 그립니다')),
-            armButton(['🗑 이 그림 지우기', h('small', null, '채팅 · 봇 에셋에서 이 한 장을 뺍니다')], '한 번 더 누르면 지웁니다', async () => {
+            st.busy?.key === a.key || queued.has(a.key)
+                ? h('button', { type: 'button', role: 'menuitem', class: 'del', disabled: true }, '🗑 이 그림 지우기', h('small', null, '이 답변을 그리는 중이라 지금은 지울 수 없습니다'))
+                : armButton(['🗑 이 그림 지우기', h('small', null, '채팅 · 봇 에셋에서 이 한 장을 뺍니다')], '한 번 더 누르면 지웁니다', async () => {
                 ui.menu = '';
                 try { await removeImage(v.ci, v.chi, { chaId: v.chaId, type: v.group ? 'group' : 'char' }, a.key, a.i, x.name.toLowerCase()); }
                 catch (error) { st.err = error.message || String(error); }
@@ -3719,11 +3736,13 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             undoBtn,
             h('button', {
                 class: 'ix-btn sm', type: 'button',
-                onclick: async () => {
+                onclick: async ev => {
+                    const b = ev.currentTarget;
                     const text = draft.map(r => [r.base, ...(r.slots ?? []).map((s, k) => `[칸 ${k + 1}] ${s.prompt}`), `[부정] ${r.neg}`].join('\n')).join('\n\n');
-                    try { await navigator.clipboard.writeText(text); st.note = '프롬프트를 복사했습니다.'; } catch { st.note = '복사하지 못했습니다.'; }
-                    st.ok = false;
-                    renderNow();
+                    let done = true;
+                    try { await navigator.clipboard.writeText(text); } catch { done = false; }
+                    b.textContent = done ? '✓ 복사했습니다' : '복사하지 못했습니다';
+                    setTimeout(() => { if (b.isConnected) b.textContent = '📋 복사'; }, 1500);
                 },
             }, '📋 복사'),
             stateTx));
@@ -3748,6 +3767,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         thumbs.set(path, p);
         p.catch(() => thumbs.delete(path));
         return p;
+    }
+    function dropThumb(path) {
+        const p = thumbs.get(path);
+        if (!p) return;
+        thumbs.delete(path);
+        p.then(url => URL.revokeObjectURL(url), () => {});
     }
     function loadThumbs() {
         for (const img of ui.root?.querySelectorAll('img[data-path]') ?? []) {
@@ -4330,8 +4355,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const PT_INLAY_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<div class="risu-inlay-image">(\s*)<img\b/g;
     const PT_IMG_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<img\b/g;
     const GEN_TEXT = { idle: '이미지 생성', nokey: '이미지 생성 · NAI 키 필요' };
-    const GEN_BASE = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', boxSizing: 'border-box', width: 'max-content', minWidth: '8.3em', maxWidth: '100%', minHeight: '30px', margin: '8px 0 2px', padding: '3px 11px',
-        fontSize: '.78rem', lineHeight: '1.3', border: '1px solid #c7cdd6', userSelect: 'none' };
+    const GEN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '4px', boxSizing: 'border-box', width: 'max-content', minWidth: '8.3em', maxWidth: '100%', minHeight: '30px', margin: '8px 0 2px', padding: '3px 11px',
+        fontSize: '.78rem', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', userSelect: 'none' };
     const GEN_LOOKS = {
         idle: { color: '#fff', fontWeight: '700', background: '#141c2e', borderColor: '#c7cdd6', opacity: '1', cursor: 'pointer' },
         sub: { color: '#fff', fontWeight: '400', background: '#141c2e', borderColor: '#c7cdd6', opacity: '1', cursor: 'default' },
@@ -4341,6 +4366,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         bad: { color: '#fff', fontWeight: '700', background: '#b3261e', borderColor: '#8c1d18', opacity: '1', cursor: 'pointer' },
     };
     const cssOf = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v).join(';');
+    const cssImp = o => cssOf(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + ' !important'])));
     const PAUSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" style="flex:none">'
         + '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     const FILL_BLUE = '#2f4a8a';
@@ -4362,7 +4388,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (st.set.ubtn === 'none' || rootDenied()) return '';
         const off = keyKnown === false;
         return '{{#if {{and::{{equal::{{role}}::char}}::{{not::{{isfirstmsg}}}}}}}}'
-            + `<span class="nc-gen nc-at-{{chat_index}}" style="${cssOf({ ...GEN_BASE, ...GEN_LOOKS[off ? 'need' : 'idle'] })}">${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
+            + `<span class="nc-gen nc-at-{{chat_index}}" style="${cssImp(GEN_BASE)};${cssOf({ display: 'flex', ...GEN_LOOKS[off ? 'need' : 'idle'] })}">${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
             + '{{/if}}';
     }
     const RISU_ASSET_RE = /<div class="risu-inlay-image"><img src="([^"]*)" alt="\1" style="[^"]*"\/><\/div>\n?|<img src="([^"]*)" alt="\2" style="[^"]*"\/>|<video (?:controls autoplay|autoplay muted) loop><source src="[^"]*" type="video\/mp4"><\/video>\n?/g;
@@ -4400,7 +4426,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const out = [];
         for (const line of lines) {
             const key = keyOf(line);
-            if (!(key in values)) { out.push(line); continue; }
+            if (!Object.prototype.hasOwnProperty.call(values, key)) { out.push(line); continue; }
             if (!seen.has(key)) out.push(key + '=' + values[key]);
             seen.add(key);
         }
@@ -4567,7 +4593,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return 90 + 10 * (1 - Math.exp(-sec / 0.8));
     }
     function startTick() {
-        if (!root.tick) root.tick = setInterval(() => void rootQueue(() => paintBusy()), 400);
+        if (!root.tick) root.tick = setInterval(() => {
+            if (root.ticking) return;
+            root.ticking = true;
+            void rootQueue(() => paintBusy()).finally(() => { root.ticking = false; });
+        }, 400);
     }
     function stopTick() {
         clearInterval(root.tick);
@@ -4922,6 +4952,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const chat = await api.getChatFromIndex(ci, chi);
         if (!chat) return;
         if (chat.isStreaming) { await api.alert?.('답변이 나오는 중입니다. 끝난 뒤에 다시 눌러 주세요.'); return; }
+        if (st.busy?.key === key || queued.has(key)) { await api.alert?.('이 답변을 그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.'); return; }
         const i = findMsg(chat, key, idx);
         if (i < 0) return;
         const m = chat.message[i];
@@ -4940,7 +4971,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (rec) {
             const gone = (rec.images ?? []).filter(x => x.name.toLowerCase() === low);
             rec.images = (rec.images ?? []).filter(x => x.name.toLowerCase() !== low);
-            for (const x of gone) thumbs.delete(x.path);
+            for (const x of gone) dropThumb(x.path);
             if (!rec.images.length) delete recs[key];
             await saveRecs(char0.chaId, recs);
         }
@@ -4995,7 +5026,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (rec?.group) continue;
             const all = rec?.images ?? [], left = all.filter(x => !drop.has(String(x?.name ?? '').toLowerCase()));
             if (left.length === all.length) continue;
-            for (const x of all) if (!left.includes(x)) thumbs.delete(x.path);
+            for (const x of all) if (!left.includes(x)) dropThumb(x.path);
             if (left.length) rec.images = left; else delete recs[k];
             changed = true;
         }
@@ -5420,9 +5451,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         a.why = String(a.why ?? '');
         a.asked = !!a.asked;
         const usedO = new Set(['base', ...AC_OUTFIT_PRE.map(o => o[0])]), moved = {};
-        for (const o of [...(a.botOutfits ?? []), ...a.extra]) if (isObj(o) && AC_KEY_RE.test(o.key ?? '')) usedO.add(o.key);
+        for (const o of [...(a.botOutfits ?? []), ...a.extra]) if (isObj(o) && AC_OKEY_RE.test(o.key ?? '')) usedO.add(o.key);
         for (const o of [...(a.botOutfits ?? []), ...a.extra]) {
-            if (!isObj(o) || AC_KEY_RE.test(o.key ?? '')) continue;
+            if (!isObj(o) || AC_OKEY_RE.test(o.key ?? '')) continue;
             const key = acOutfitKey(o.en, usedO);
             if (typeof o.key === 'string') moved[o.key] = key;
             o.key = key;
@@ -5642,6 +5673,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const path = have.get(rn);
         const k = rn + '|' + path;
         if (!acs.refs.has(k)) {
+            for (const old of [...acs.refs.keys()]) if (old.startsWith(rn + '|')) acs.refs.delete(old);
             const p = acPng64(path);
             acs.refs.set(k, p);
             p.catch(() => acs.refs.delete(k));
@@ -5794,7 +5826,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         a.made = made;
         for (const [k, n] of Object.entries(a.refName)) if (drop.has(n) && n !== t.name) delete a.refName[k];
         for (const k of Object.keys(a.refOf)) if (drop.has(k) && k !== t.name) delete a.refOf[k];
-        for (const p of gone) if (p !== path) thumbs.delete(p);
+        for (const p of gone) if (p !== path) dropThumb(p);
         saveAst(run.chaId);
     }
     function acSwapIn(list, keyOf, drop, name, item) {
@@ -5866,7 +5898,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         delete a.prompts[name];
         for (const [k, n] of Object.entries(a.refName)) if (n === name) delete a.refName[k];
         for (const [k, n] of Object.entries(a.refOf)) if (k === name || n === name) delete a.refOf[k];
-        for (const p of gone) thumbs.delete(p);
+        for (const p of gone) dropThumb(p);
         saveAst(chaId);
         return { note };
     }
@@ -5925,7 +5957,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         for (const k of Object.keys(a.prompts)) if (mine.has(k)) delete a.prompts[k];
         for (const [k, n] of Object.entries(a.refName)) if (mine.has(n)) delete a.refName[k];
         for (const [k, n] of Object.entries(a.refOf)) if (mine.has(k) || mine.has(n)) delete a.refOf[k];
-        for (const p of gone) thumbs.delete(p);
+        for (const p of gone) dropThumb(p);
         saveAst(chaId);
         return { n: before - char.additionalAssets.length, lore: loreN, note };
     }
@@ -6042,13 +6074,15 @@ Rules:
     }
     const acRace = (t, work) => { if (!t) return work; work.catch(() => {}); return Promise.race([work, t.halt]); };
     async function acAskBot(a, char) {
-        if (acs.asking) return;
         const v = st.view;
+        if (acs.asking) { if (acs.askCha === v?.chaId) return; acs.askHalt?.onStop(); }
         const t = acs.askHalt = acHalt();
         acs.asking = true;
+        acs.askCha = v?.chaId;
         acs.askAt = Date.now();
         acs.askErr = '';
         acs.askStop = false;
+        let lost = false;
         render();
         try {
             const cs = acPicked(a);
@@ -6078,12 +6112,14 @@ Rules:
             a.why = tidy(res.why).slice(0, 200);
         } catch (error) {
             if (!error?.isStop) console.warn(LOG, 'asset ask', error);
-            acs.askStop = !!error?.isStop;
-            acs.askErr = acs.askStop ? '멈췄습니다.' : String(error?.message ?? error);
+            lost = acs.askHalt !== t;
+            if (!lost) {
+                acs.askStop = !!error?.isStop;
+                acs.askErr = acs.askStop ? '멈췄습니다.' : String(error?.message ?? error);
+            }
         }
-        a.asked = true;
-        acs.asking = false;
-        if (acs.askHalt === t) acs.askHalt = null;
+        if (!lost) a.asked = true;
+        if (acs.askHalt === t) { acs.asking = false; acs.askHalt = null; }
         if (v) saveAst(v.chaId);
         render();
     }
@@ -6142,7 +6178,7 @@ Rules:
         }
         const key = acOutfitKey(en, new Set(acOutfitList(a).map(o => o.key)));
         a.extra.push({ key, ko, en });
-        a.outfits = [...keys, key];
+        a.outfits = [...acOutfitKeys(a).filter(k => k !== key), key];
     }
     const AC_SP_SYSTEM = `You turn a special scene the user typed (any language) into a NovelAI (Danbooru tag) prompt for one standalone character portrait on a plain white background, for the roleplay bot below.
 Reply with one JSON object only, no other text: {"en":"comma-separated Danbooru tags","scene":"short English action name (e.g. aiming rifle)","icon":"one emoji"}
@@ -6500,9 +6536,9 @@ Rules:
             return [
                 hint(`고른 인물 ${cs.length}명(${cs.map(e => e.name).join(' · ')})을 고른 복장으로 그립니다. `,
                     h('button', { class: 'lnk', type: 'button', onclick: () => { a.outfits = allOn ? [] : list.map(o => o.key); keep(); renderNow(); } }, allOn ? '전체 해제' : '전체 선택')),
-                acs.asking ? h('button', { class: 'ix-btn run stp', type: 'button', title: '누르면 멈춥니다', style: 'width:100%;margin:10px 0 6px', onclick: () => acs.askHalt?.onStop() },
+                acs.asking && acs.askCha === v?.chaId ? h('button', { class: 'ix-btn run stp', type: 'button', title: '누르면 멈춥니다', style: 'width:100%;margin:10px 0 6px', onclick: () => acs.askHalt?.onStop() },
                     h('span', { class: 'gf', style: gaugeStyle(acs.askAt, 30) }), '봇 설명에서 복장 · 특수 장면을 찾는 중', loadDots(), h('span', { class: 'stp-x' }, '■ 멈추기'))
-                    : acs.askErr ? h('p', { class: 'of-hd' }, acs.askStop ? '복장 찾기를 멈췄습니다. ' : `봇에서 복장을 찾지 못했습니다: ${acs.askErr} `, h('button', { class: 'lnk', type: 'button', onclick: () => void acAskNow(a) }, '다시 찾기'))
+                    : acs.askErr && acs.askCha === v?.chaId ? h('p', { class: 'of-hd' }, acs.askStop ? '복장 찾기를 멈췄습니다. ' : `봇에서 복장을 찾지 못했습니다: ${acs.askErr} `, h('button', { class: 'lnk', type: 'button', onclick: () => void acAskNow(a) }, '다시 찾기'))
                     : a.why ? h('p', { class: 'of-hd' }, a.why) : null,
                 h('div', { class: 'who ofs' }, list.map(o => {
                     const on = keys.includes(o.key);
@@ -6621,8 +6657,8 @@ Rules:
                     hint(hasSp ? `한 장마다 「고정 외형 + 아래 감정 · 자세」로 그립니다. ${a.count === 10 ? '열째' : '맨 끝'} 칸은 ${a.special?.custom ? '직접 적은' : '봇에 맞춰 자동으로 고른'} 특수 장면(${sp.icon} ${sp.ko})입니다. 아래 칸에 적어 바꿀 수 있고, 프롬프트는 「변경」으로 고칩니다.`
                         : '한 장마다 「고정 외형 + 아래 감정 · 자세」로 그립니다. 적은 감정을 모델이 옮긴 태그이고, 특수 에셋은 없습니다. 프롬프트는 「변경」으로 고칩니다.'),
                     hasSp ? spRow() : null,
-                    !hasSp ? null : acs.asking ? h('p', { class: 'ix-hint' }, '봇에 맞는 특수 장면을 찾는 중', loadDots())
-                        : acs.askErr ? h('p', { class: 'ix-hint' }, '봇에 맞는 특수 장면 후보를 받지 못해 기본 후보를 씁니다. ', h('button', { class: 'lnk', type: 'button', onclick: () => void acAskNow(a) }, '다시 찾기')) : null,
+                    !hasSp ? null : acs.asking && acs.askCha === v?.chaId ? h('p', { class: 'ix-hint' }, '봇에 맞는 특수 장면을 찾는 중', loadDots())
+                        : acs.askErr && acs.askCha === v?.chaId ? h('p', { class: 'ix-hint' }, '봇에 맞는 특수 장면 후보를 받지 못해 기본 후보를 씁니다. ', h('button', { class: 'lnk', type: 'button', onclick: () => void acAskNow(a) }, '다시 찾기')) : null,
                     e ? h('div', { class: 'er' }, emos.map((emo, i) => {
                         const name = acName(sl[e.id], os[0]?.key ?? 'base', emo.key);
                         const p = acPrompt(a, e, emo);
