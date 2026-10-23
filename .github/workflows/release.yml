@@ -1,6 +1,7 @@
-# 이매진 릴리즈 자동화 v1.0.0
+# 이매진 릴리즈 자동화 v1.1.0
 # 깃허브 레포에 .github/workflows/release.yml 로 넣는다.
-# main 의 이매진.js 가 바뀌면 //@version 을 읽어 릴리즈 vX.Y.Z 를 만들고 imagine.js 로 첨부한다.
+# main 의 imagine.js 가 바뀌면 //@version 을 읽어 릴리즈 vX.Y.Z 를 만들고 imagine.js 를 첨부한다.
+# v1.1.0: 이매진.js 대신 imagine.js 를 본다. 이매진.js 는 옛 업데이트 주소용으로 3.85.1 에 멈춰 둔다.
 # 같은 판 릴리즈가 이미 있으면 imagine.js 만 바꿔 올린다 (같은 판 수정).
 # Actions 탭의 Run workflow 로 손으로 돌릴 수도 있다.
 
@@ -9,7 +10,7 @@ name: release
 on:
   push:
     branches: [main]
-    paths: ['이매진.js']
+    paths: ['imagine.js']
   workflow_dispatch:
 
 permissions:
@@ -24,8 +25,8 @@ jobs:
       - name: Read version
         id: ver
         run: |
-          v=$(grep -m1 '^//@version ' 이매진.js | awk '{print $2}' | tr -d '\r')
-          if [ -z "$v" ]; then echo "이매진.js 에 //@version 줄이 없습니다" >&2; exit 1; fi
+          v=$(grep -m1 '^//@version ' imagine.js | awk '{print $2}' | tr -d '\r')
+          if [ -z "$v" ]; then echo "imagine.js 에 //@version 줄이 없습니다" >&2; exit 1; fi
           echo "v=$v" >> "$GITHUB_OUTPUT"
 
       - name: Create or update release
@@ -33,7 +34,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ steps.ver.outputs.v }}
         run: |
-          cp 이매진.js imagine.js
           if gh release view "v$V" >/dev/null 2>&1; then
             gh release upload "v$V" imagine.js --clobber
           else
