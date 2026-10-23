@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.84.1
+//@display-name 🎨 이매진 v3.85.0
 //@api 3.0
-//@version 3.84.1
+//@version 3.85.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/%EC%9D%B4%EB%A7%A4%EC%A7%84.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -10,7 +10,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.84.1';
+    const VERSION = '3.85.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/%EC%9D%B4%EB%A7%A4%EC%A7%84.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -6818,10 +6818,9 @@ Rules:
                     acs.msg ? h('div', { class: 'fn-msg' }, msgBox('margin:0')) : null,
                     ptRow(),
                     h('div', { class: 'fn-go' },
-                        h('button', { class: 'ix-btn main', type: 'button', onclick: () => closePanel() }, '채팅으로 돌아가기'),
-                        h('button', { class: 'ix-btn', type: 'button', onclick: () => { ui.atab = 'list'; acs.menu = ''; renderNow(); } }, `에셋 목록 보기 · ${acListNames(a).length}장`)),
+                        h('button', { class: 'ix-btn main', type: 'button', onclick: () => closePanel() }, '채팅으로 돌아가기')),
                     h('details', { class: 'fn-fold', open: acs.fOpen, ontoggle: ev => { acs.fOpen = ev.currentTarget.open; } },
-                        h('summary', null, '그린 그림 고치기', h('small', null, '한 장씩 다시 그리기 · 프롬프트 변경')),
+                        h('summary', null, '에셋 보기', h('small', null, '그림을 누르면 다시 그리기 · 프롬프트 변경 · 지우기를 고를 수 있습니다')),
                         h('div', null, viewChips(false), ofSeg(), h('div', { class: 'as-g', style: 'margin-top:10px' }, tasks.map(t => tile(t))))),
                     h('details', { class: 'fn-fold', open: acs.mOpen, ontoggle: ev => { acs.mOpen = ev.currentTarget.open; } },
                         h('summary', null, '관리', h('small', null, '모두 다시 그리기 · 전체 지우기')),
