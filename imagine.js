@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.86.1
+//@display-name 🎨 이매진 v3.86.2
 //@api 3.0
-//@version 3.86.1
+//@version 3.86.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.86.1';
+    const VERSION = '3.86.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -33,7 +33,7 @@
     const ARTIST1 = { id: 'artist1', name: '프리셋1', pos: '0.4::artist:solipsist::, 0.2::artist:ebora::, 0.8::artist:tianliang duohe fangdongye::, 0.9::artist:freng::, 0.9::artist:modare::, 0.3::artist:balecxi::, 0.3::artist:miyu::, 0.2::artist:chamchami (cham22)::, 1.2::artist:xipa::, 0.4::artist:satou kukki::, 0.9::artist:sohn woohyoung::, 1.2::artist:ryusei hasida::, 0.8::artist:healthyman::, 0.8::artist:channel (caststation)::, 0.7::artist:conto::, 0.4::artist:mizumizuni::, 0.6::artist:ie (raarami)::, 0.5::artist:jp06 ::, 0.3::artist:freng::, 0.3::artist:modare::, 1.2::artist:horikoshi kohei::, year 2026, -5::artist collaboration::, -1::flat color::, masterpiece, very aesthetic, highres, absurdres, best quality, best illustration, 0.4::blender (medium), photorealistic::, no lineart, -2::picture frame, photo (object)::, high complexity', neg: 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, 2koma, detailed nose, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, unrealistic colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture', steps: 28, scale: 5, cfgRescale: 0.3, sampler: 'k_euler_ancestral' };
     const ARTIST2 = { id: 'artist2', name: '프리셋2', pos: '0.55::artist:rehu_(astd5787)::, 0.55::artist:ebora::, 0.7::artist:shindol::, 0.45::artist:reagan_long::, 0.45::artist:hitobashira_(1746164306)::, 0.6::artist:owler::, 0.6::artist:masoq::, 0.7::artist:sparrowl::, year 2025, year 2026, newest, 1.5::high complexity::, masterpiece, best quality, very aesthetic, absurdres, crisp shading, expert shading, high detail, dot nose, detailed background, -4::artist collaboration::, -2::simple illustration::, -2::monochrome, film grain, watercolor (medium)::, -2::official style, official art::, -2::no lineart::, -2::flat color::', neg: 'negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, artist logo, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, dithering, chromatic aberration, digital dissolve, halftone, screentone, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, 2koma, mutated, mutation, deformed, distorted, disfigured, bad anatomy, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, blurry eyes, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, muted color, unrealistic colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture', steps: 27, scale: 7, cfgRescale: 0.4, sampler: 'k_euler_ancestral' };
     const ARTIST3 = { id: 'artist3', name: '이매진 그림체 (삽화용)', pos: '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768)::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi::, 0.6::artist:ichigoh::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb::, 0.3::artist:weiyan (nbnbmwnl)::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, vanishing point, Sense of space::', neg: 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background' };
-    const ARTIST4 = { id: 'artist4', name: '이매진 그림체 (삽화용)', pos: '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768) ::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi ::, 0.6::artist:ichigoh ::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb ::, 0.3::artist:weiyan (nbnbmwnl) ::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail ::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, dramatic angle::, very aesthetic, masterpiece', neg: 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, unfinished face, simple face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background, sepia, white haze' };
+    const ARTIST4 = { id: 'artist4', name: '이매진 그림체', pos: '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768) ::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi ::, 0.6::artist:ichigoh ::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb ::, 0.3::artist:weiyan (nbnbmwnl) ::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail ::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, dramatic angle::, very aesthetic, masterpiece', neg: 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, unfinished face, simple face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background, sepia, white haze' };
     const OLD_ARTIST4_POS = '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768) ::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi ::, 0.6::artist:ichigoh ::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb ::, 0.3::artist:weiyan (nbnbmwnl) ::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail ::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, vanishing point, Sense of space, dramatic angle::';
     const OLD_ARTIST4_POS_3 = '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768) ::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi ::, 0.6::artist:ichigoh ::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb ::, 0.3::artist:weiyan (nbnbmwnl) ::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail ::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, vanishing point, Sense of space, dramatic angle::, very aesthetic, masterpiece';
     const OLD_ARTIST4_POS_2 = OLD_ARTIST4_POS_3 + ', no text';
@@ -80,7 +80,7 @@
         kind: 'comic',
         count: 1,
         size: 'tall',
-        sv: 28,
+        sv: 29,
         bubbles: true,
         loreMax: 0,
         castMax: 0,
@@ -397,6 +397,12 @@
             const i = st.presets.findIndex(p => p?.id === ARTIST4.id);
             if (i > 0) { st.presets.unshift(...st.presets.splice(i, 1)); save('nc:presets', st.presets); }
             st.set.sv = 28;
+            saveSet();
+        }
+        if (set && typeof set === 'object' && !(set.sv >= 29)) {
+            const x = st.presets.find(q => q.id === ARTIST4.id);
+            if (x && x.name === '이매진 그림체 (삽화용)') { x.name = ARTIST4.name; save('nc:presets', st.presets); }
+            st.set.sv = 29;
             saveSet();
         }
         st.set.tap = true;
@@ -1351,6 +1357,8 @@ Return entries only for the characters in this list that the character sheet, lo
         const p = preset();
         const [w, h] = SIZES[sizeNow()];
         const slots = [];
+        const nums = new Map();
+        const numOf = x => { if (!nums.has(x.key)) nums.set(x.key, nums.size + 1); return nums.get(x.key); };
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
             if (slots.length >= 4) break;
@@ -1362,6 +1370,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 who.push({ key, e, name: e?.name ?? name, type: e?.type ?? 'girl' });
                 if (who.length >= 2) break;
             }
+            for (const x of who) numOf(x);
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
@@ -1372,15 +1381,15 @@ Return entries only for the characters in this list that the character sheet, lo
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
             let people = '';
             if (who.length >= 2) {
-                const personLine = (k, n) => `char${n}: ${[withTags(`1${who[k].type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(' with ')}`;
-                const lines = who.map((x, k) => k).filter(k => k !== sayAt).map((k, i) => `${personLine(k, i + 1)},`);
+                const personLine = k => `char${numOf(who[k])}: ${[withTags(`1${who[k].type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(' with ')}`;
+                const lines = who.map((x, k) => k).filter(k => k !== sayAt).map(k => `${personLine(k)},`);
                 if (act) lines.push(act);
-                if (sayAt >= 0) lines.push(personLine(sayAt, who.length));
+                if (sayAt >= 0) lines.push(personLine(sayAt));
                 people = lines.join('\n');
             }
             const solo = [withTags(head, idents.flat(), act), say].filter(Boolean).join(' with ');
             slots.push({
-                prompt: people || (who.length ? `char1: ${solo}` : solo),
+                prompt: people || (who.length ? `char${numOf(who[0])}: ${solo}` : solo),
                 uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', type: types[0] ?? 'other',
                 name: who.map(x => x.name).join(' · '),
             });
@@ -4147,7 +4156,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 row('sw', '장르 태그', '모델이 그림마다 장르를 고르면 그 장르의 태그를 붙입니다.',
                     null,
                     toggle(s.genre !== false, () => setVal('genre', s.genre === false))),
-                row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 작가가 「이매진 그림체 (삽화용)」일 때만 동작합니다.',
+                row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 작가가 「이매진 그림체」일 때만 동작합니다.',
                     null,
                     toggle(s.dynamic !== false, () => setVal('dynamic', s.dynamic === false))),
                 dynMinRow()),
