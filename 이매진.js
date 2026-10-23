@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.82.2
+//@display-name 🎨 이매진 v3.84.0
 //@api 3.0
-//@version 3.82.2
+//@version 3.84.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/%EC%9D%B4%EB%A7%A4%EC%A7%84.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -10,57 +10,43 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.82.2';
-    const DEV_URL = 'https://github.com/daelar99-rgb';   
-    const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/%EC%9D%B4%EB%A7%A4%EC%A7%84.js';   
+    const VERSION = '3.84.0';
+    const DEV_URL = 'https://github.com/daelar99-rgb';
+    const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/%EC%9D%B4%EB%A7%A4%EC%A7%84.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
     const doc = document;
 
     const DEFAULT_POS = '0.4::artist:solipsist ::, 0.2::artist:ebora ::, 0.8::artist:tianliang duohe fangdongye ::, 0.9::artist:freng ::, 0.9::artist:modare ::, 0.3::artist:balecxi ::, 0.3::artist:miyu ::, 0.2::artist:chamchami (cham22) ::, 1.2::artist:xipa ::, 0.4::artist:satou kukki ::, 0.9::artist:sohn woohyoung ::, 1.2::artist:ryusei hasida ::, 0.8::artist:healthyman ::, 0.8::artist:channel (caststation) ::, 0.8::artist:conto ::, 0.4::artist:mizumizuni ::, 0.6::artist:ie (raarami) ::, 0.5::artist:jp06 ::, 1.2::artist:horikoshi kohei ::, year 2026, year 2025, -5::artist collaboration ::, -1::flat color ::, masterpiece, very aesthetic, highres, incredibly absurdres, best quality, best illustration, 0.4::blender (medium), photorealistic ::, high complexity, glossy cloth, 2::sound effects ::, motion blur, motion lines,';
     const DEFAULT_NEG = 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, fat, muscular, athletic, toned body, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy ::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers ::, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, unrealistic colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background,';
     const DEFAULT_PRESET = { id: 'default', name: '프리셋1 (v5f)', pos: DEFAULT_POS, neg: DEFAULT_NEG };
-    const OLD_DEFAULT_NAME = '기본 작가';   
-    const OLD_PRESET2_NAME = '프리셋2 (v4f)';   
-    
+    const OLD_DEFAULT_NAME = '기본 작가';
+    const OLD_PRESET2_NAME = '프리셋2 (v4f)';
     const PRESET2_POS = '2::artist:imamura ryou::, 1.5::artist:loliconder::, 1.5::artist:shigure s::, 1.5::artist:jabara tornado::, ::artist:teshima nari::, 0.5::artist:kerorira::, ::artist:fellatrix::, 2::artist:meme50 ::, 6::jaggy lines, cel shading, anime coloring::, -2::artist collaboration::, year 2025, year 2024, year 2023, -2::flat color, monochrome, upscaled, blurry::, -2::signature, artist name, artist socials, censored::, highres, absurdres, masterpiece, very aesthetic, best illustration';
     const PRESET2_NEG = 'logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist:xinzoruo, 2::artist:milkpanda::, artist:khyle., artist:bkub, artist:gaoo (frpjx283), 15::artist collaboration::, variant set, large variant set, 4koma, 2koma, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, empty eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, unsatisfactory, displeasing, very displeasing, bad illustration, bad portrait, puckered lips, thick lips, bags under eyes';
     const PRESET2 = { id: 'preset2', name: '프리셋2 (v4.5f)', pos: PRESET2_POS, neg: PRESET2_NEG };
-
     const PRESET3_POS = '2::motion lines, motion blur::, 1.2::artist:ask (askzy)::, 1.2::artist:hito (nito) ::, 1::sketch, jaggy lines, sketch lines, unfinished, messy lines ::, 2::spot color, monochrome::, rough sketch, limited palette, 2::DOF::, 2::dynamic angle::, 1::vanishing point::, 1.5::Sense of space::';
     const PRESET3_NEG = 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, fat, muscular, athletic, toned body, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background';
-    
     const OLD_PRESET3_POS = '2::motion lines, motion blur::, 1.2::artist:ask (askzy)::, 1.2::artist:hito (nito) ::, 1.5::sketch, jaggy lines, sketch lines, unfinished, messy lines ::, 2::spot color, monochrome::, rough sketch, limited palette, 2::DOF::, out focus, very aesthetic, masterpiece';
     const OLD_PRESET3_NEG = 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, fat, muscular, athletic, toned body, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background';
     const PRESET3 = { id: 'preset3', name: '프리셋3 (v5f)', pos: PRESET3_POS, neg: PRESET3_NEG };
-
     const ARTIST1 = { id: 'artist1', name: '프리셋1', pos: '0.4::artist:solipsist::, 0.2::artist:ebora::, 0.8::artist:tianliang duohe fangdongye::, 0.9::artist:freng::, 0.9::artist:modare::, 0.3::artist:balecxi::, 0.3::artist:miyu::, 0.2::artist:chamchami (cham22)::, 1.2::artist:xipa::, 0.4::artist:satou kukki::, 0.9::artist:sohn woohyoung::, 1.2::artist:ryusei hasida::, 0.8::artist:healthyman::, 0.8::artist:channel (caststation)::, 0.7::artist:conto::, 0.4::artist:mizumizuni::, 0.6::artist:ie (raarami)::, 0.5::artist:jp06 ::, 0.3::artist:freng::, 0.3::artist:modare::, 1.2::artist:horikoshi kohei::, year 2026, -5::artist collaboration::, -1::flat color::, masterpiece, very aesthetic, highres, absurdres, best quality, best illustration, 0.4::blender (medium), photorealistic::, no lineart, -2::picture frame, photo (object)::, high complexity', neg: 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, 2koma, detailed nose, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, unrealistic colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture', steps: 28, scale: 5, cfgRescale: 0.3, sampler: 'k_euler_ancestral' };
     const ARTIST2 = { id: 'artist2', name: '프리셋2', pos: '0.55::artist:rehu_(astd5787)::, 0.55::artist:ebora::, 0.7::artist:shindol::, 0.45::artist:reagan_long::, 0.45::artist:hitobashira_(1746164306)::, 0.6::artist:owler::, 0.6::artist:masoq::, 0.7::artist:sparrowl::, year 2025, year 2026, newest, 1.5::high complexity::, masterpiece, best quality, very aesthetic, absurdres, crisp shading, expert shading, high detail, dot nose, detailed background, -4::artist collaboration::, -2::simple illustration::, -2::monochrome, film grain, watercolor (medium)::, -2::official style, official art::, -2::no lineart::, -2::flat color::', neg: 'negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, artist logo, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, dithering, chromatic aberration, digital dissolve, halftone, screentone, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, 2koma, mutated, mutation, deformed, distorted, disfigured, bad anatomy, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, blurry eyes, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, muted color, unrealistic colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture', steps: 27, scale: 7, cfgRescale: 0.4, sampler: 'k_euler_ancestral' };
-    
     const ARTIST3 = { id: 'artist3', name: '이매진 그림체 (삽화용)', pos: '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768)::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi::, 0.6::artist:ichigoh::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb::, 0.3::artist:weiyan (nbnbmwnl)::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, vanishing point, Sense of space::', neg: 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background' };
-    
     const ARTIST4 = { id: 'artist4', name: '이매진 그림체 (삽화용)', pos: '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768) ::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi ::, 0.6::artist:ichigoh ::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb ::, 0.3::artist:weiyan (nbnbmwnl) ::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail ::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, dramatic angle::, very aesthetic, masterpiece', neg: 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, unfinished face, simple face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background, sepia, white haze' };
-    
     const OLD_ARTIST4_POS = '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768) ::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi ::, 0.6::artist:ichigoh ::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb ::, 0.3::artist:weiyan (nbnbmwnl) ::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail ::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, vanishing point, Sense of space, dramatic angle::';
-
     const OLD_ARTIST4_POS_3 = '0.5::utsuro (gokurakugai)::, 0.5::artist:sorani (kaeru0768) ::, 0.5::artist:dishwasher1910 ::, 0.6::artist:patzzi ::, 0.6::artist:ichigoh ::, 0.4::artist:shion 343 ::, 0.4::artist:kim eb ::, 0.3::artist:weiyan (nbnbmwnl) ::, 0.5::artist:mi 398 ::, 0.4::artist:lemonail ::, 2::sketch, jaggy lines, sketch lines, unfinished, messy lines, rough sketch, dynamic angle, DOF, vanishing point, Sense of space, dramatic angle::, very aesthetic, masterpiece';
     const OLD_ARTIST4_POS_2 = OLD_ARTIST4_POS_3 + ', no text';
     const OLD_ARTIST4_NEG = 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, fat, male, man, muscular, athletic, toned body, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, unfinished face, simple face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers::, bad leg, extra leg, distorted composition, bad perspective, multiple views, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background';
-    
     const NEG_BIAS_TAGS = ['fat', 'chubby', 'plump', 'obese', 'muscular', 'muscular male', 'muscular female', 'athletic', 'toned body', 'male', 'man', '1boy', 'old', 'old man', 'old woman', 'elderly', 'dark skin', 'dark-skinned male', 'dark-skinned female', 'tan', 'thick lips', 'puckered lips', 'bags under eyes'];
-    
     const BUILTIN_PRESETS = [ARTIST4, ARTIST1, ARTIST2];
-    
     const BUILTIN_THUMB = {
         artist4: 'data:image/webp;base64,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',
         artist1: 'data:image/webp;base64,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',
         artist2: 'data:image/webp;base64,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',
     };
-    
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
-    
     const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border';
-    
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -77,59 +63,57 @@
         ['k_dpmpp_2m_sde', 'DPM++ 2M SDE'],
         ['k_dpmpp_2m', 'DPM++ 2M'],
     ];
-    
     const SIZES = { tall: [832, 1216], wide: [1216, 832], tall2: [896, 1152], wide2: [1152, 896], square: [1024, 1024] };
     const SIZE_OPTS = [['tall', '세로 832×1216'], ['wide', '가로 1216×832'], ['tall2', '세로 896×1152'], ['wide2', '가로 1152×896'], ['square', '정사각 1024×1024']];
     const sizeName = k => SIZE_OPTS.find(o => o[0] === k)?.[1] ?? SIZE_OPTS[0][1];
     const modelName = id => MODELS.find(m => m[0] === id)?.[1] ?? id;
-    
     const MAX_SLOTS = 6;
     const MAX_RECORDS = 200;
     const KINDS = [['comic', '만화'], ['illust', '삽화']];
     const DEFAULT_SET = {
         model: 'nai-diffusion-4-5-full',
-        auto: true,          
-        llm: 'submodel',     
-        acLlm: 'submodel',   
-        acPresetId: '',      
-        kind: 'comic',       
-        count: 1,            
-        size: 'tall',        
-        sv: 28,              
+        auto: true,
+        llm: 'submodel',
+        acLlm: 'submodel',
+        acPresetId: '',
+        kind: 'comic',
+        count: 1,
+        size: 'tall',
+        sv: 28,
         bubbles: true,
-        loreMax: 0,          
-        castMax: 0,          
-        userFirst: false,    
-        dynamic: true,       
-        dynMin: 9,           
-        genre: true,         
+        loreMax: 0,
+        castMax: 0,
+        userFirst: false,
+        dynamic: true,
+        dynMin: 9,
+        genre: true,
         steps: 28,
         scale: 5,
         cfgRescale: 0,
         sampler: 'k_euler_ancestral',
-        pc: '480',           
-        mo: '80',            
-        tap: true,           
-        ubtn: 'all',         
-        setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },   
-        assetOff: [],        
-        ptOff: [],           
-        panelBtn: true,      
-        webp: true,          
-        vars: true,          
-        head: '',            
-        extra: '',           
+        pc: '480',
+        mo: '80',
+        tap: true,
+        ubtn: 'all',
+        setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
+        assetOff: [],
+        ptOff: [],
+        panelBtn: true,
+        webp: true,
+        vars: true,
+        head: '',
+        extra: '',
     };
 
     const st = {
         set: { ...DEFAULT_SET },
         presets: BUILTIN_PRESETS.map(p => ({ ...p })),
         presetId: ARTIST1.id,
-        view: null,          
+        view: null,
         busy: null,
         note: '', err: '', ok: false,
         promptOpen: new Set(),
-        drafts: {},          
+        drafts: {},
         persona: null,
         jobs: 0,
     };
@@ -145,16 +129,13 @@
         for (let i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 0x01000193); }
         return (x >>> 0).toString(36);
     }
-
     const PT_TAG_RE = /<div class="nc-pt[^"]*">(\{\{(?:image|img)::(c_[a-z0-9]+_[a-z0-9]+_[a-z0-9]+)\}\})<\/div>|(\{\{(?:image|img)::(c_[a-z0-9]+_[a-z0-9]+_[a-z0-9]+)\}\})/g;
     const wrapPortraits = text => typeof text === 'string' && text.includes('::c_')
         ? text.replace(PT_TAG_RE, (m, t1, n1, t2, n2) => `<div class="nc-pt nc-pt-${n1 ?? n2}">${t1 ?? t2}</div>`) : text;
-    
     const PT_UNWRAP_RE = /<div class="nc-pt[^"]*">(\{\{(?:image|img)::c_[a-z0-9_]+\}\})<\/div>/g;
     const unwrapPortraits = text => typeof text === 'string' && text.includes('nc-pt') ? text.replace(PT_UNWRAP_RE, '$1') : text;
     const TAG_RE = /\s*(?:<div class="nc-fig[^"]*">\{\{(?:image|img)::nc_[a-z0-9_]+\}\}<\/div>|\{\{(?:image|img)::nc_[a-z0-9_]+\}\})/gi;
     const figTag = name => `<div class="nc-fig nc-id-${name}">{{image::${name}}}</div>`;
-    
     const PC_SIZES = [['240', '240'], ['320', '320'], ['400', '400'], ['480', '480'], ['560', '560']];
     const MO_SIZES = [['20', '20%'], ['40', '40%'], ['60', '60%'], ['80', '80%'], ['100', '100%']];
     const PC_RANGE = [100, 1600];
@@ -163,16 +144,13 @@
     const stripOurs = s => String(s ?? '').replace(TAG_RE, '').replace(/\s+$/, '');
     const msgHash = m => fnv(stripOurs(m?.data));
     const tidy = s => String(s ?? '').replace(/\s+/g, ' ').trim().replace(/^,+|,+$/g, '').trim();
-    
     const joinTags = (...parts) => parts.flat().map(tidy).filter(Boolean).join(', ');
-    
     const withTags = (...parts) => parts.flat().flatMap(s => String(s ?? '').split(',')).map(tidy).filter(Boolean).join(' with ');
     const grid = v => {
         const n = Number(v);
         if (!Number.isFinite(n)) return 0.5;
         return [0.1, 0.3, 0.5, 0.7, 0.9].reduce((a, b) => Math.abs(b - n) < Math.abs(a - n) ? b : a);
     };
-    
     const CELL_COLS = 'ABCDE';
     const CELL_RE = /^\s*([A-E])\s*([1-5])\s*$/i;
     const xyOfCell = cell => {
@@ -180,19 +158,15 @@
         return m ? { x: (1 + CELL_COLS.indexOf(m[1].toUpperCase()) * 2) / 10, y: (1 + (m[2] - 1) * 2) / 10 } : null;
     };
     const cellOf = (x, y) => CELL_COLS[Math.round((grid(x) - 0.1) / 0.2)] + (Math.round((grid(y) - 0.1) / 0.2) + 1);
-    
     const charSlotsOf = req => (req?.slots ?? []).filter(sl => (sl.kind ?? 'char') === 'char');
     const coordsOn = req => !!req?.useCoords && (req.panels ?? 1) === 1 && charSlotsOf(req).length >= 2;
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
     };
-    
     const varName = name => String(name ?? '').trim().replace(/\s+/g, '_').replace(/[:{}|$]/g, '') || 'x';
-    
     function plainText(s, max) {
         let t = stripOurs(s)
-            
             .replace(/<(Thoughts|think|thinking)>[\s\S]*?<\/\1>/gi, '')
             .replace(/<style[\s\S]*?<\/style>/gi, '')
             .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -212,7 +186,7 @@
         return Object.assign(new Error('중단했습니다.'), { isStop: true });
     }
 
-    let sizeMoved = false;   
+    let sizeMoved = false;
     async function loadPrefs() {
         const [set, presets, presetId] = await Promise.all([
             api.pluginStorage.getItem('nc:set').catch(() => null),
@@ -221,18 +195,14 @@
         ]);
         if (set && typeof set === 'object') {
             st.set = { ...DEFAULT_SET, ...set };
-            
             if (!(set.sv >= 2)) { st.set.count = 1; delete st.set.format; }
             delete st.set.ctx;
             delete st.set.boyFix;
-            
             if (!(set.sv >= 4)) {
                 if (!set.ubtn) st.set.ubtn = set.btn === 'none' ? 'none' : 'all';
-                
                 st.set.setup = { model: true, kind: true, count: true, preset: true };
             }
             delete st.set.inline;
-
             delete st.set.botImg;
             delete st.set.botHide;
             delete st.set.btn;
@@ -246,7 +216,6 @@
         st.set.assetOff = Array.isArray(st.set.assetOff) ? [...new Set(st.set.assetOff.filter(x => typeof x === 'string' && x))] : [];
         st.set.ptOff = Array.isArray(st.set.ptOff) ? [...new Set(st.set.ptOff.filter(x => typeof x === 'string' && x))] : [];
         if (Array.isArray(presets) && presets.length) st.presets = presets.filter(p => p && p.id);
-        
         if (set && typeof set === 'object' && !(set.sv >= 3)) {
             for (const p of st.presets) if (p.neg === NEG_V12) p.neg = DEFAULT_NEG;
             savePresets();
@@ -255,19 +224,16 @@
             st.set.sv = 4;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 5)) {
             if (st.set.setup.kind) st.set.setup.model = true;
             st.set.sv = 5;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 6)) {
             st.set.panelBtn = true;
             st.set.sv = 6;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 8) && st.presets.length) {
             st.presets = st.presets.filter(p => p.id !== 'comic');
             const d = st.presets.find(p => p.id === DEFAULT_PRESET.id);
@@ -277,14 +243,12 @@
             st.set.sv = 8;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 9)) {
             if (st.set.pc === '400') { st.set.pc = DEFAULT_SET.pc; sizeMoved = true; }
             if (st.set.mo === '100') { st.set.mo = DEFAULT_SET.mo; sizeMoved = true; }
             st.set.sv = 9;
             saveSet();
         }
-
         if (set && typeof set === 'object' && !(set.sv >= 10)) {
             const p2 = st.presets.find(p => p.id === PRESET2.id);
             if (p2 && p2.name === OLD_PRESET2_NAME) { p2.name = PRESET2.name; save('nc:presets', st.presets); }
@@ -292,26 +256,22 @@
             st.set.sv = 10;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 11)) {
             st.set.acLlm = st.set.llm === 'model' ? 'model' : 'submodel';
             st.set.sv = 11;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 12)) {
             const su = st.set.setup ?? {};
             if (su.model || su.kind || su.preset || su.count) st.set.setup = { ...su, llm: true };
             st.set.sv = 12;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 13) && st.presets.length) {
             if (!st.presets.some(p => p.id === PRESET3.id)) { st.presets.push({ ...PRESET3 }); save('nc:presets', st.presets); }
             st.set.sv = 13;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 14)) {
             const p3 = st.presets.find(p => p.id === PRESET3.id);
             if (p3 && (p3.pos === OLD_PRESET3_POS || p3.neg === OLD_PRESET3_NEG)) {
@@ -322,7 +282,6 @@
             st.set.sv = 14;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 15) && st.presets.length) {
             st.presets = [...BUILTIN_PRESETS.map(p => ({ ...p })), ...st.presets.filter(p => !OLD_BUILTIN_IDS.includes(p.id) && !BUILTIN_PRESETS.some(b => b.id === p.id))];
             if (!st.presets.some(p => p.id === presetId)) save('nc:preset', ARTIST1.id);
@@ -330,13 +289,11 @@
             st.set.sv = 15;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 16) && st.presets.length) {
             if (!st.presets.some(p => p.id === ARTIST3.id)) { st.presets.push({ ...ARTIST3 }); save('nc:presets', st.presets); }
             st.set.sv = 16;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 17)) {
             const fix = t => typeof t === 'string' ? t.replace(/(artist:(?:jp06|dishwasher1910|shion 343|mi 398))::/g, '$1 ::') : t;
             let changed = false;
@@ -345,7 +302,6 @@
             st.set.sv = 17;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 18)) {
             const x = st.presets.find(q => q.id === ARTIST3.id);
             if (x && typeof x.pos === 'string') {
@@ -355,20 +311,17 @@
             st.set.sv = 18;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 19)) {
             const x = st.presets.find(q => q.id === ARTIST3.id);
             if (x && x.name === '이매진 그림체') { x.name = ARTIST3.name; save('nc:presets', st.presets); }
             st.set.sv = 19;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 20) && st.presets.length) {
             if (!st.presets.some(p => p.id === ARTIST4.id)) { st.presets.push({ ...ARTIST4 }); save('nc:presets', st.presets); }
             st.set.sv = 20;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 21)) {
             const x = st.presets.find(q => q.id === ARTIST4.id);
             if (x && (x.pos === OLD_ARTIST4_POS || x.neg === OLD_ARTIST4_NEG)) {
@@ -379,14 +332,12 @@
             st.set.sv = 21;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 22)) {
             const x = st.presets.find(q => q.id === ARTIST4.id);
             if (x && x.pos === OLD_ARTIST4_POS_2) { x.pos = ARTIST4.pos; save('nc:presets', st.presets); }
             st.set.sv = 22;
             saveSet();
         }
-        
         let moved = null;
         if (set && typeof set === 'object' && !(set.sv >= 23)) {
             const had = st.presets.some(q => q.id === ARTIST3.id);
@@ -398,7 +349,6 @@
             st.set.sv = 23;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 24)) {
             const x = st.presets.find(q => q.id === ARTIST4.id);
             if (x && typeof x.pos === 'string' && x.pos.includes('rough sketch, dynamic angle, DOF, vanishing point, Sense of space, dramatic angle::')) {
@@ -408,13 +358,11 @@
             st.set.sv = 24;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 25)) {
             st.set.webp = true;
             st.set.sv = 25;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 26)) {
             const x = st.presets.find(q => q.id === ARTIST4.id);
             if (x && typeof x.neg === 'string') {
@@ -433,7 +381,6 @@
             st.set.sv = 26;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 27)) {
             let changed = false;
             for (const p of st.presets) {
@@ -445,14 +392,12 @@
             st.set.sv = 27;
             saveSet();
         }
-        
         if (set && typeof set === 'object' && !(set.sv >= 28)) {
             const i = st.presets.findIndex(p => p?.id === ARTIST4.id);
             if (i > 0) { st.presets.unshift(...st.presets.splice(i, 1)); save('nc:presets', st.presets); }
             st.set.sv = 28;
             saveSet();
         }
-        
         st.set.tap = true;
         if (!st.presets.length) st.presets = BUILTIN_PRESETS.map(p => ({ ...p }));
         const want = moved ?? presetId;
@@ -462,7 +407,6 @@
     const savePresets = () => { save('nc:presets', st.presets); save('nc:preset', st.presetId); };
     const preset = () => st.presets.find(p => p.id === st.presetId) ?? st.presets[0] ?? ARTIST1;
     const acPreset = () => st.presets.find(p => p.id === st.set.acPresetId) ?? preset();
-    
     const presetGen = p => ({
         steps: clampInt(p?.steps ?? st.set.steps, 1, 50, 28),
         scale: Math.min(10, Math.max(1, Number(p?.scale ?? st.set.scale) || 5)),
@@ -504,9 +448,7 @@
     const WEAR_KEYS = WEAR.map(w => w[0]);
     const LOOK_AT = WEAR_KEYS.indexOf('top');
     const emptyWear = () => Object.fromEntries(WEAR_KEYS.map(k => [k, '']));
-    
     const isNone = v => /^(?:none|없음)$/i.test(tidy(v));
-
     const HEADWEAR = /\b(?:hat|cap|beret|beanie|hood|helmet|crown|tiara|visor|bonnet|headdress|headscarf|turban|headwear|veil|circlet)\b/i;
     const COVERS_BOTTOM = /\b(?:dress|one-piece|gown|robe|kimono|yukata|leotard|bodysuit|swimsuit|jumpsuit|overalls|bikini|cheongsam|qipao)\b/i;
     function absentTags(val, none) {
@@ -517,9 +459,7 @@
         if (none('shoes')) out.push('no shoes');
         return out;
     }
-
     const BODY_AT = WEAR_KEYS.indexOf('height');
-    
     let wearBrief = false;
     const OUTFIT_KEYS = ['top', 'bottom', 'shoes'];
     const briefWear = v => tidy(String(v ?? '').split(',').map(tidy).find(Boolean)?.replace(/\s+with\s+.*$/i, ''));
@@ -527,10 +467,8 @@
         const v = WEAR_KEYS.map(k => !wearBrief ? val(k) : k === 'bangs' ? '' : OUTFIT_KEYS.includes(k) ? briefWear(val(k)) : val(k));
         return [type, ...v.slice(0, BODY_AT), look, ...v.slice(BODY_AT), ...absentTags(val, none)];
     };
-    
     const HAIR_TAG = /\b(?:hair|bangs|twintails|twin tails|ponytail|braids?|braided|hair bun|double bun|sidelocks|ahoge|bob cut|hime cut|drill hair|pigtails|updo|ringlets|afro|mohawk|undercut|bald|hairclip|hairband)\b/i;
     const NOT_HAIR = /\b(?:facial hair|body hair|pubic hair|chest hair|arm hair)\b/i;
-    
     const BANGS_TAG = /\bbangs\b|\bhair between eyes\b|\bhair over (?:one|both) eyes?\b|\bparted bangs\b/i;
     const HAIRCOLOR_TAG = /\b(?:black|brown|blonde?|red|blue|green|pink|purple|white|silver|gr[ae]y|orange|aqua|multicolored|gradient|streaked|two-tone|platinum blonde|ginger|inner)\s+hair$/i;
     const EYES_TAG = /(?:^|\s)eyes$|\bheterochromia\b|\bpupils$/i;
@@ -540,7 +478,6 @@
     const OLD_WEAR = ['hat', 'hair', 'outfit', 'legs'];
     const isOldWear = w => OLD_WEAR.some(k => k in w) && !WEAR_KEYS.some(k => k !== 'shoes' && k in w);
     const tagsOf = t => String(t ?? '').split(',').map(tidy).filter(Boolean);
-    
     function fromOldWear(w, look, now) {
         const out = {};
         const put = (k, t) => { if (t.length) out[k] = joinTags(out[k] ?? '', t); };
@@ -555,7 +492,6 @@
             for (const t of tagsOf(w.outfit)) (BOTTOM_TAG.test(t) ? bottom : top).push(t);
             if (!none(w.legs)) bottom.push(...tagsOf(w.legs));
             put('top', top); put('bottom', bottom);
-            
             if (now && tidy(w.outfit) && !bottom.length) out.bottom = 'none';
         }
         if (tidy(w.shoes)) out.shoes = tidy(w.shoes);
@@ -568,7 +504,6 @@
         }
         return { wear: out, look: rest };
     }
-    
     function normCast(e) {
         let old = null;
         if (e.wear && typeof e.wear === 'object') {
@@ -596,10 +531,8 @@
             if (v && typeof v === 'object') {
                 const wear = {};
                 for (const [id, w] of Object.entries(v.wear ?? {})) if (w && typeof w === 'object') wear[id] = { ...w };
-                
                 const old = v.outfits && typeof v.outfits === 'object' ? v.outfits : {};
                 for (const [id, o] of Object.entries(old)) if (tidy(o)) (wear[id] ??= {}).outfit ??= tidy(o);
-                
                 for (const [id, w] of Object.entries(wear)) if (isOldWear(w)) wear[id] = fromOldWear(w, null, true).wear;
                 const seeded = v.seeded === true || Object.keys(old).length > 0;
                 const out = { location: '', time: '', ...v, wear, seeded };
@@ -610,7 +543,6 @@
         return { location: '', time: '', wear: {}, seeded: false };
     }
     const baseWear = (e, k) => tidy(e?.wear?.[k]);
-    
     function wearOf(e, state, k) {
         const now = tidy(state?.wear?.[e?.id]?.[k]);
         if (now) return isNone(now) ? '' : now;
@@ -628,7 +560,6 @@
             const n = varName(e.name);
             ss[`$nc_${n}_look`] = e.look ?? '';
             for (const k of WEAR_KEYS) ss[`$nc_${n}_${k}`] = wearOf(e, state, k);
-            
             ss[`$nc_${n}_outfit`] = joinTags(wearOf(e, state, 'top'), wearOf(e, state, 'bottom'));
             ss[`$nc_${n}_hair`] = joinTags(['hairstyle', 'bangs', 'haircolor'].map(k => wearOf(e, state, k)));
         }
@@ -654,7 +585,6 @@
         if (key?.startsWith('#')) idx = Number(key.slice(1));
         return Number.isInteger(idx) && idx >= 0 && idx < list.length ? idx : -1;
     }
-    
     function recKeyIn(recs, chat, key, i) {
         if (recs?.[key]) return key;
         const id = chat?.message?.[i]?.chatId;
@@ -673,7 +603,6 @@
         keyKnown = !!v;
         return v;
     }
-
     const told = new Set();
     function tellOnce(key, msg) {
         if (told.has(key)) return;
@@ -686,7 +615,6 @@
         void rootQueue(() => paintBusy(true));
         if (String(v ?? '').trim()) told.delete('nokey');
     }
-
     const NO_KEY_AUTO = '이매진: NAI 키가 비어 있어 새 답변을 그리지 않았습니다. 리수는 플러그인을 새 버전으로 바꿀 때 플러그인 설정을 지웁니다. 🎨 이매진 패널의 준비 탭에서 키를 다시 넣어 주세요.';
 
     async function readStream(stream, onChunk) {
@@ -754,7 +682,6 @@
         }
         return null;
     }
-    
     function closesString(s, i) {
         while (i < s.length && /\s/.test(s[i])) i++;
         const c = s[i];
@@ -769,9 +696,7 @@
         try { return JSON.parse(t); } catch {}
         try { return JSON.parse(t.replace(/,\s*([}\]])/g, '$1')); } catch { return undefined; }
     };
-    
     const askError = (msg, hint, raw) => Object.assign(new Error(msg), { hint, raw });
-    
     function parseJson(text, want) {
         const s = String(text).replace(/<(think|thinking|thoughts)>[\s\S]*?<\/\1>/gi, '').replace(/<details\s[^>]*data-pm-thinking[^>]*>[\s\S]*?<\/details>/gi, '');
         const parts = [...[...s.matchAll(/```[\w-]*\s*([\s\S]*?)```/g)].map(m => m[1]), s];
@@ -781,10 +706,8 @@
                 if (!/^\{\s*["“}]/.test(part.slice(a, a + 64))) continue;
                 const body = jsonObjectAt(part, a);
                 let v = body ? tryJson(body) : undefined;
-                
                 if (v === undefined) { const b = jsonObjectAt(part, a, true); if (b) v = tryJson(b); }
                 if (v === undefined) v = tryJson(part.slice(a, part.lastIndexOf('}') + 1));
-                
                 if (v === undefined) v = tryJson(part.slice(a, part.lastIndexOf('}') + 1).replace(/[“”]/g, '"'));
                 if (v === undefined) {
                     broken ||= body ? jsonError(body) || 'invalid JSON' : 'the JSON object is not closed (it may be cut off)';
@@ -799,7 +722,6 @@
         if (broken) throw askError(`응답의 JSON 문법이 깨져 있습니다 (${broken}).`, `its JSON could not be parsed: ${broken}`);
         throw askError(noJsonMessage(s), 'it contained no JSON object');
     }
-    
     const SNIPPET_MAX = 300;
     const ERROR_LIKE = /error|fail|exception|denied|forbidden|unauthori[sz]ed|quota|rate.?limit|overloaded|unavailable|timeout|timed out|blocked|safety|refus|invalid|\b[45]\d\d\b|오류|에러|실패|거절|차단|초과|한도/i;
     const modelErrorText = e => {
@@ -810,7 +732,6 @@
         const t = String(s).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
         if (!t) return '모델 응답에 생각(think) 부분만 있고 본문이 비어 있습니다.';
         const cut = t.length > SNIPPET_MAX ? t.slice(0, SNIPPET_MAX) + '…' : t;
-        
         return t.length < 800 && ERROR_LIKE.test(t.slice(0, 200)) ?`모델이 오류를 돌려주었습니다: ${cut}` : `모델 답변: ${cut}`;
     }
 
@@ -825,7 +746,7 @@
         try {
             for (let attempt = 0; attempt < ASK_TRIES; attempt++) {
                 if (attempt) {
-                    if (busy) { busy.label = `${label} · 다시 시도 ${attempt + 1}/${ASK_TRIES}`; render(); }
+                    if (busy) { busy.label = `${label} · 다시 시도 ${attempt + 1}/${ASK_TRIES}`; busy.tryAt = Date.now(); render(); }
                     await sleep(1500);
                     if (busy?.stop) throw stopError();
                 }
@@ -834,7 +755,6 @@
                     text = await askModel(system, attempt ? user + retryNote(lastError) : user);
                     if (!String(text).trim()) throw askError('모델이 빈 응답을 돌려주었습니다.', 'it was empty');
                     const v = parseJson(text, want);
-                    
                     if (want && !(want in v) && v.error) throw askError(`모델이 오류를 돌려주었습니다: ${modelErrorText(v.error)}`, 'it was an error object');
                     if (want && !(want in v)) throw askError(`응답 JSON에 ${want} 항목이 없습니다.`, `the JSON had no "${want}" key`);
                     const bad = check?.(v);
@@ -848,7 +768,6 @@
                     console.warn(LOG, `scene model try ${attempt + 1}/${ASK_TRIES}`, error, String(text).slice(0, 2000));
                 }
             }
-            
             const uniq = [...new Set(msgs)];
             if (lastError && !lastError.isStop) lastError.message = uniq.length > 1
                 ? msgs.map((m, i) => `${i + 1}번째: ${m}`).join(' / ')
@@ -902,14 +821,11 @@ ${TAG_STYLE}`;
     const kindName = () => isIllust() ? '삽화' : '만화';
     const sizeNow = () => SIZES[st.set.size] ? st.set.size : 'tall';
     const countNow = () => clampInt(st.set.count, 1, 4, 1);
-    
     const loreMaxNow = () => Math.max(0, parseInt(st.set.loreMax, 10) || 0);
     const castMaxNow = () => Math.max(0, parseInt(st.set.castMax, 10) || 0);
-    
     const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count);
     const recipe = () => `${kindName()} ${countNow()}장 · ${preset().name || '이름 없음'}`;
     function setStep(k) { st.set = { ...st.set, setup: { ...st.set.setup, [k]: true } }; saveSet(); }
-    
     const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 4, 2);
 
     const PANEL_RULES = {
@@ -918,7 +834,6 @@ ${TAG_STYLE}`;
 - chars[].tags: Danbooru tags (a short phrase is fine for an action no tag covers), in this order: first expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then composition and pose (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — camera angle, pose, action; the gaze goes in chars[].gaze, not here). For interactions prefix tags with source#, target# or mutual# (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
 - cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 1 character write "C3": the app sends no position for a single character.`,
-        
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
@@ -941,14 +856,11 @@ ${TAG_STYLE}`;
         daily: '1::slice of life, warm lighting::',
     };
     const GENRE_RULE = `- genre: the mood of this image (for a comic page: the page as a whole), one of: action (combat, an attack, a chase, a fast dash), romance (flirting, a confession, a kiss, a tender moment), comedy (a gag, a silly reaction), horror (fear, gore, something creepy), sad (grief, tears, loneliness), suspense (tension, a mystery, a threat before it strikes), daily (calm everyday life), none (unclear or mixed). The app adds that genre's tags itself, so do not write genre or motion tags into scene or tags.`;
-
     const monoNow = () => st.set.dynamic !== false && [ARTIST3.id, ARTIST4.id].includes(preset()?.id);
     const dynLite = () => preset()?.id === ARTIST4.id;
     const askGenre = () => genreNow() || monoNow();
-
     const DYN_MIN_DEF = 9;
     const dynMinNow = () => { const n = parseInt(st.set.dynMin, 10); return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : DYN_MIN_DEF; };
-
     const DYNAMIC_RULE = () => `- severity: an integer 1-10 for how intense THIS image's moment is. Judge only what is visible in this image, not the mood of the whole story or the scenes before it. Pick the highest band whose description the image fully matches:
   1-2: calm. Daily life, rest, eating, walking, sleeping, quiet talk.
   3-4: feelings without danger. Banter, a joke, flirting, embarrassment, surprise, crying, an argument with words.
@@ -965,7 +877,6 @@ ${TAG_STYLE}`;
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
     const panelRules = () => [isIllust() ? PANEL_RULES.one : PANEL_RULES.comic, askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
-
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily' };
     function genreKey(v) {
         const t = tidy(v).toLowerCase();
@@ -1089,7 +1000,6 @@ ${TAG_STYLE}`;
 
     const HISTORY_MSG = 2000;
     const HISTORY_MAX = 40000;
-    
     const PREV_MSG = 4000;
 
     function castLine(e, state) {
@@ -1111,11 +1021,9 @@ ${TAG_STYLE}`;
             `location: ${state.location || '?'} / time: ${state.time || '?'}`,
             '',
         ];
-        
         if (!state.seeded) {
             const past = [];
             let total = 0;
-            
             for (let i = idx - (input ? 2 : 1); i >= 0 && total < HISTORY_MAX; i--) {
                 const t = plainText(msgs[i]?.data, HISTORY_MSG);
                 if (!t) continue;
@@ -1125,7 +1033,6 @@ ${TAG_STYLE}`;
             }
             if (past.length) lines.push(`# CHAT HISTORY (oldest → newest, ${past.length} earlier message${past.length > 1 ? 's' : ''}; context only, do not draw)`, past.reverse().join('\n\n'), '');
         } else {
-            
             for (let i = idx - 1; i >= 0; i--) {
                 if (msgs[i]?.role !== 'char') continue;
                 const t = plainText(msgs[i].data, PREV_MSG);
@@ -1133,7 +1040,6 @@ ${TAG_STYLE}`;
                 break;
             }
         }
-        
         if (input && emphasize) {
             lines.push(`# USER ACTION (what ${userName} just wrote: their own action or line, or what they direct other characters to do; the reply below answers it; image 1 draws this)`, `${label(input)}: ${plainText(input.data)}`, '');
             lines.push('# TARGET MESSAGE (the reply to the action above; copy after and spoken lines from here)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`);
@@ -1162,13 +1068,14 @@ ${TAG_STYLE}`;
         let entries = [];
         try { entries = await api.getCurrentLorebookEntries() ?? []; } catch (error) { console.warn(LOG, 'lorebook', error); }
         const fill = s => String(s ?? '').replace(/\{\{char\}\}/gi, char.name || 'char').replace(/\{\{user\}\}/gi, persona?.name || 'user');
-        let lore = '';
+        let lore = '', loreN = 0;
         for (const e of entries) {
             if (String(e?.comment ?? '').startsWith('이매진 · ')) continue;
             const content = fill(e?.content).trim();
             if (!content) continue;
             const keys = [e.key, e.secondkey].filter(Boolean).join(', ');
             lore += `\n### ${fill(e.comment) || keys || 'entry'}${keys ? ` (keys: ${keys})` : ''}\n${content}\n`;
+            loreN++;
             if (loreMaxNow() && lore.length > loreMaxNow()) { lore = lore.slice(0, loreMaxNow()) + '\n…(truncated)'; break; }
         }
         const parts = [
@@ -1179,18 +1086,28 @@ ${TAG_STYLE}`;
         if (tidy(char.scenario)) parts.push('## Scenario', plainText(fill(char.scenario), 3000));
         parts.push('## Lorebook', lore.trim() || '(none)');
         if (persona) parts.push(`# USER PERSONA: ${persona.name}`, plainText(fill(persona.prompt), 4000) || '(no description)');
-        return { text: parts.join('\n\n'), persona };
+        return { text: parts.join('\n\n'), persona, loreN };
     }
-    async function readLore(char) {
-        const { text, persona } = await botContext(char);
+    async function readLore(char, b) {
+        const { text, persona, loreN } = await botContext(char);
+        if (b) {
+            Object.assign(b, { ls: 1, lsAt: Date.now(), loreN, chars: text.length, label: '모델이 인물을 찾는 중' });
+            render();
+        }
         const res = await askJson(castSystem(), text, 'cast');
+        if (b) b.askSec = (Date.now() - (b.tryAt ?? b.lsAt)) / 1000;
         const list = [];
         for (const raw of Array.isArray(res.cast) ? res.cast : []) {
             const name = tidy(raw?.name);
             if (!name || list.some(e => e.name === name)) continue;
             list.push(castEntry(raw, name, persona));
         }
-        return castMaxNow() ? list.slice(0, castMaxNow()) : list;
+        const out = castMaxNow() ? list.slice(0, castMaxNow()) : list;
+        if (b) {
+            Object.assign(b, { ls: 2, lsAt: Date.now(), found: out.length, label: '인물 정리하는 중' });
+            render();
+        }
+        return out;
     }
     function castEntry(raw, name, persona) {
         const isPersona = raw.persona === true || !!(persona && name === persona.name);
@@ -1224,7 +1141,6 @@ Return entries only for the characters in this list that the character sheet, lo
         }
         return out;
     }
-
     async function resolveUnknown(char, plan, cast, state) {
         state.looked ??= [];
         const names = [];
@@ -1270,7 +1186,6 @@ Return entries only for the characters in this list that the character sheet, lo
                 out.push(old.src === 'edit' ? old : { ...e, id: old.id, on: old.on });
             } else out.push(e);
         }
-        
         const freshKeys = new Set(fresh.flatMap(e => [e.name, ...(e.aliases ?? [])].map(nameKey)));
         const same = e => [e.name, ...(e.aliases ?? [])].some(n => freshKeys.has(nameKey(n)));
         for (const old of byName.values()) if (old.src === 'edit' || (old.src === 'chat' && !same(old))) out.push(old);
@@ -1288,7 +1203,6 @@ Return entries only for the characters in this list that the character sheet, lo
             ?? cast.list.find(e => [e.name, ...(e.aliases ?? [])].some(a => nameKey(a) === nameKey(n)))
             ?? null;
     }
-    
     const nameKey = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '').replace(/yeo/g, 'yu').replace(/eo/g, 'u').replace(/oo/g, 'u');
 
     function applyState(plan, cast, state, fresh = new Set()) {
@@ -1301,12 +1215,10 @@ Return entries only for the characters in this list that the character sheet, lo
         for (const raw of Array.isArray(s.cast) ? s.cast : []) {
             const name = tidy(raw?.name);
             if (!name || name.toLowerCase() === 'narration') continue;
-            
             if (tidy(raw?.type).toLowerCase() === 'monster') continue;
             if (fresh.has(name.toLowerCase())) continue;
             let e = findCast(cast, name);
             if (!e) {
-                
                 if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
                 e = normCast({
                     id: uid(), name, aliases: [],
@@ -1340,7 +1252,6 @@ Return entries only for the characters in this list that the character sheet, lo
         if (n.other) out.push(n.other === 1 ? '1other' : `${n.other}others`);
         return out.length ? out.join(', ') : 'no humans';
     }
-    
     function guardTags(types) {
         const n = { girl: 0, boy: 0, other: 0 };
         for (const t of types) n[t] = (n[t] ?? 0) + 1;
@@ -1353,13 +1264,11 @@ Return entries only for the characters in this list that the character sheet, lo
         const set = new Set(tokens);
         return String(text ?? '').split(',').filter(p => !set.has(p.trim().toLowerCase())).join(',').replace(/,\s*,/g, ',');
     }
-    
     const tagCore = s => { const t = s.trim().toLowerCase(), m = /^-?\d*\.?\d+::\s*(.*?)\s*::$/.exec(t); return m ? m[1] : t; };
-    
     function dropNegBias(text) {
         const parts = String(text ?? '').split(',');
         const out = [];
-        let open = '';   
+        let open = '';
         for (const raw of parts) {
             const lead = /^\s*/.exec(raw)[0];
             let body = raw.slice(lead.length);
@@ -1370,10 +1279,10 @@ Return entries only for the characters in this list that the character sheet, lo
             const closer = cm ? '::' : '';
             if (cm) body = body.slice(0, cm.index);
             if (NEG_BIAS_TAGS.includes(body.trim().toLowerCase())) {
-                if (opener && closer) continue;                       
-                if (opener) { open = opener; continue; }               
-                if (closer) {                                          
-                    if (open) open = '';                               
+                if (opener && closer) continue;
+                if (opener) { open = opener; continue; }
+                if (closer) {
+                    if (open) open = '';
                     else if (out.length) out[out.length - 1] = out[out.length - 1].replace(/\s*$/, '::');
                     continue;
                 }
@@ -1385,16 +1294,13 @@ Return entries only for the characters in this list that the character sheet, lo
         return out.join(',').trim().replace(/^,\s*|,\s*$/g, '');
     }
     const dropTags = (text, tokens) => String(text ?? '').split(',').filter(s => !tokens.includes(tagCore(s))).join(',').replace(/,\s*,/g, ',');
-    
     const GAZE_RE = /^(looking (?!back\b)|eye contact$|staring\b|gazing\b|closed eyes$|eyes closed$)/;
     const isGazeTag = s => GAZE_RE.test(tagCore(s));
     const hasGaze = text => String(text ?? '').split(',').some(isGazeTag);
     const dropGaze = text => tidy(String(text ?? '').split(',').filter(s => !/^(looking (?!back\b)|eye contact$|staring\b|gazing\b)/.test(tagCore(s))).join(',').replace(/,\s*,/g, ','));
     const dropViewer = text => tidy(String(text ?? '').replace(/\blooking at (the )?viewer\b,?/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,|,\s*$/g, ''));
     const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 80);
-    
     const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?\bText:[^,\n]*/gi, '');
-    
     function addBeforeText(prompt, add) {
         const s = String(prompt ?? ''), at = s.search(/\bText:/);
         if (!tidy(add)) return s;
@@ -1405,7 +1311,6 @@ Return entries only for the characters in this list that the character sheet, lo
             const comma = /,\s*$/.test(prev) ? ',' : '';
             return `${top.slice(0, cut)}${joinTags(prev, add)}${comma}${s.slice(nl)}`;
         }
-        
         const head = s.slice(0, at).replace(/\s*\bwith\s*$/, '');
         return `${withTags(head, add)} with ${s.slice(at)}`;
     }
@@ -1453,18 +1358,13 @@ Return entries only for the characters in this list that the character sheet, lo
                 if (who.length >= 2) break;
             }
             const types = who.map(x => x.type);
-            
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
-
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            
             const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `Text: ${line}` : '';
-            
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-
             let people = '';
             if (who.length >= 2) {
                 const personLine = (k, n) => `char${n}: ${[withTags(`1${who[k].type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(' with ')}`;
@@ -1480,7 +1380,6 @@ Return entries only for the characters in this list that the character sheet, lo
                 name: who.map(x => x.name).join(' · '),
             });
         }
-        
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         return {
@@ -1496,23 +1395,18 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     function buildReq(img, cast, state) {
-        
         const mono = monoNow() && isDynamic(img);
         if (!mono) return withGenre(buildReqRaw(img, cast, state), img);
         wearBrief = true;
         try { return dynReq(img, cast, state); } finally { wearBrief = false; }
     }
     function dynReq(img, cast, state) {
-        
         const scene = stripColors(String(img.scene ?? '').replace(/\d*\.?\d*::\s*action,\s*motion lines,\s*motion blur\s*::,?/gi, ''));
-        
         if (dynLite()) return monoApply(withGenre(buildReqRaw({ ...img, scene }, cast, state), img), img, cast);
-        
         const req = dropArtists(buildReqRaw({ ...img, scene }, cast, state), preset()?.pos);
         const toned = genreKey(img?.genre) === 'action' ? { ...req, base: joinTags(req.base, GENRE_TAGS.action) } : withGenre(req, img);
         return monoApply(toned, img, cast);
     }
-
     const artistTagsOf = pos => {
         const text = String(pos ?? '');
         const groups = text.match(/-?\d*\.?\d+::(?:(?!::)[^,])+::/g) ?? [];
@@ -1527,7 +1421,6 @@ Return entries only for the characters in this list that the character sheet, lo
     }
     const severityOf = img => { const n = parseInt(tidy(img?.severity), 10); return Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : 0; };
     const isDynamic = img => severityOf(img) >= dynMinNow();
-    
     const COLOR_WORD = '(?:(?:light|dark|pale|deep|bright|pastel)[ -])?(?:red|blue|green|yellow|orange|purple|violet|pink|black|white|gr[ae]y|silver|gold(?:en)?|brown|blonde?|aqua|cyan|teal|navy|beige|crimson|scarlet|maroon|magenta|lavender|platinum|ginger|multicolored|two-tone|rainbow)';
     const COLOR_RE = new RegExp(`\\b${COLOR_WORD}(?:[- ](?:and[- ])?${COLOR_WORD})*\\b-?`, 'gi');
     const BARE_RE = /^(?:hair|eyes|skin|theme|background)$/i;
@@ -1539,9 +1432,7 @@ Return entries only for the characters in this list that the character sheet, lo
         if (tail) return out ? `${out} with ${tail}` : tail;
         return out && /,\s*$/.test(head) ? `${out},` : out;
     }).join('\n');
-
     const MONO_TAGS = '2::monochrome, spot color, limited palette::, 2::vanishing point, Sense of space, long shot::';
-
     const FX_RE = /^[a-z][a-z -]*$/;
     function accentsOf(img, cast) {
         const raw = Array.isArray(img?.accent) ? img.accent : String(img?.accent ?? '').split(/[;\n]/);
@@ -1551,12 +1442,10 @@ Return entries only for the characters in this list that the character sheet, lo
             return { who: who ? (findCast(cast ?? [], who)?.name ?? who).toLowerCase() : '', fx };
         }).filter(a => FX_RE.test(a.fx));
     }
-    
     const WEAPON_RE = /\b(great ?sword|sword|blade|katana|rapier|sabre|saber|dagger|knife|spear|lance|halberd|glaive|scythe|axe|weapon)s?\b/i;
     const HUE_RE = /\b(red|orange|yellow|green|blue|purple|pink|gold|golden|cyan|teal|violet|crimson|magenta|azure|scarlet|emerald|amber|lime|indigo)\b/;
     function weaponTrail(fx, tags) {
         if (WEAPON_RE.test(fx) || /\bslash\b/.test(fx)) return fx;
-        
         const w = WEAPON_RE.exec(String(tags ?? '').replace(/\b(?:source|target|mutual)#[^,]*/gi, ''));
         if (!w) return fx;
         const hue = HUE_RE.exec(fx)?.[1];
@@ -1572,13 +1461,11 @@ Return entries only for the characters in this list that the character sheet, lo
         for (const a of fxs) {
             const hits = a.who ? slots.filter(sl => (sl.kind === 'char' || sl.kind === 'panel') && String(sl.name ?? '').toLowerCase().split(' · ').includes(a.who)) : [];
             if (!hits.length) { loose.push(a.fx); continue; }
-            
             for (const sl of hits) sl.prompt = addBeforeText(sl.prompt, weaponTrail(a.fx, sl.prompt));
         }
         return { ...req, base: joinTags(req.base, MONO_TAGS, loose),
             neg: removeTokens(req.neg, ['unfinished', 'blurry', 'monochrome', 'greyscale', 'sketch']), slots, useCoords: false };
     }
-    
     const withGenre = (req, img) => { const g = genreTags(img); return g ? { ...req, base: joinTags(req.base, g) } : req; };
     function buildReqRaw(img, cast, state) {
         if (!isIllust() && Array.isArray(img.panels)) {
@@ -1593,7 +1480,6 @@ Return entries only for the characters in this list that the character sheet, lo
         const seen = new Set();
         let monsters = 0;
         for (const c of Array.isArray(img.chars) ? img.chars : []) {
-            
             if (tidy(c?.type).toLowerCase() === 'monster') {
                 if (monsters++ || !tidy(c.tags)) continue;
                 chars.push({ c, e: null, monster: true });
@@ -1607,7 +1493,6 @@ Return entries only for the characters in this list that the character sheet, lo
             chars.push({ c, e });
             if (chars.length >= 3) break;
         }
-
         const withGaze = (c, tags) => {
             if (!one) return tags;
             const gaze = dropViewer(c.gaze);
@@ -1616,18 +1501,14 @@ Return entries only for the characters in this list that the character sheet, lo
             return tags;
         };
         const slots = chars.map(({ c, e, monster }) => {
-            
             if (monster) {
                 const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
                 return { prompt: withGaze(c, dropViewer(c.tags)), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type: 'monster', name: tidy(c.name) || 'monster' };
             }
             const type = e?.type ?? (['girl', 'boy', 'other'].includes(c.type) ? c.type : 'girl');
-            
             const ident = e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k))
                 : identTags(type, c.look, k => isNone(c[k]) ? '' : c[k], k => isNone(c[k]));
-            
             const tags = one ? withGaze(c, dropViewer(c.tags)) : '';
-            
             const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
             return { prompt: joinTags(ident, tags), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type, name: e?.name ?? tidy(c.name) };
         });
@@ -1637,7 +1518,6 @@ Return entries only for the characters in this list that the character sheet, lo
             for (const b of bubbles) slots.push(bubbleSlot(b));
         }
         const types = slots.filter(s => s.kind === 'char').map(s => s.type);
-
         const base = joinTags(countTags(types), p.pos, img.scene);
         let neg = p.neg;
         if (!one) neg = removeTokens(neg, ['4koma', '2koma', 'multiple views']);
@@ -1647,7 +1527,6 @@ Return entries only for the characters in this list that the character sheet, lo
         if (one) negParts.push('comic, multiple panels, panel borders');
         return {
             base, neg: joinTags(negParts), slots, w, h, panels,
-            
             useCoords: one && types.length >= 2,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
@@ -1659,7 +1538,6 @@ Return entries only for the characters in this list that the character sheet, lo
     const spaceNum = t => typeof t === 'string' ? t.replace(/(?<=[A-Za-z][^,:\n]*\d)::/g, ' ::') : t;
     function naiBody(req, seed, s = st.set) {
         req = { ...req, base: spaceNum(req.base), neg: spaceNum(req.neg), slots: (req.slots ?? []).map(sl => ({ ...sl, prompt: spaceNum(sl.prompt), uc: spaceNum(sl.uc) })) };
-        
         const coords = coordsOn(req);
         const at = sl => coords && (sl.kind ?? 'char') === 'char' ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: 0.5, y: 0.5 };
         const slots = req.slots ?? [];
@@ -1706,7 +1584,6 @@ Return entries only for the characters in this list that the character sheet, lo
                 negative_prompt: req.neg,
             },
         };
-        
         if (req.ref) Object.assign(body.parameters, {
             director_reference_images: [req.ref],
             director_reference_descriptions: [{ caption: { base_caption: 'character', char_captions: [] }, legacy_uc: false }],
@@ -1727,7 +1604,6 @@ Return entries only for the characters in this list that the character sheet, lo
         const out = new Response(new Blob([bytes]).stream().pipeThrough(ds));
         return new Uint8Array(await out.arrayBuffer());
     }
-    
     async function unzipFirst(buf) {
         const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
         let eocd = -1;
@@ -1780,7 +1656,6 @@ Return entries only for the characters in this list that the character sheet, lo
     async function callNai(body, stopped = () => st.busy?.stop) {
         const key = await naiKey();
         if (!key) throw new Error('NAI 키가 없습니다. 패널의 준비 탭에서 넣어 주세요.');
-        
         let flaky = 0;
         for (let attempt = 0; ; attempt++) {
             let res, buf;
@@ -1804,6 +1679,7 @@ Return entries only for the characters in this list that the character sheet, lo
         }
     }
 
+
     async function toWebp(bytes) {
         try {
             const bmp = await createImageBitmap(new Blob([bytes], { type: mimeOf(bytes) }));
@@ -1814,7 +1690,6 @@ Return entries only for the characters in this list that the character sheet, lo
             const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.7 });
             if (blob.type !== 'image/webp') return null;
             const out = new Uint8Array(await blob.arrayBuffer());
-            
             const exif = exifOf(pngTexts(bytes));
             if (!exif) return out;
             try { return webpWithExif(out, exif, width, height); } catch (error) { console.warn(LOG, 'exif', error); return out; }
@@ -1845,7 +1720,6 @@ Return entries only for the characters in this list that the character sheet, lo
         }
         return out;
     }
-    
     function exifOf(t) {
         const enc = new TextEncoder();
         const ascii = v => { const u = enc.encode(v); const a = new Uint8Array(u.length + 1); a.set(u); return a; };
@@ -1882,7 +1756,6 @@ Return entries only for the characters in this list that the character sheet, lo
         if (sub.length) put(sub, at1);
         return buf;
     }
-    
     function webpWithExif(w, exif, width, height) {
         const id = p => String.fromCharCode(w[p], w[p + 1], w[p + 2], w[p + 3]);
         const le = (n, k = 4) => Array.from({ length: k }, (_, i) => (n >>> (8 * i)) & 255);
@@ -1922,7 +1795,6 @@ Return entries only for the characters in this list that the character sheet, lo
     }
     async function setArtistThumb(presetId, bytes, path) {
         const p = st.presets.find(x => x.id === presetId);
-        
         if (!p || !bytes || BUILTIN_THUMB[p.id]) return;
         p.thumb = await shrinkImage(bytes);
         p.thumbPath = path ?? '';
@@ -1931,13 +1803,9 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     let queue = Promise.resolve();
-    
     let gen = 0;
-    
     const queued = new Map();
-    
     const failed = new Map();
-    
     const jobsOn = new Set();
     function enqueue(job) {
         job.gen = gen;
@@ -1959,6 +1827,7 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     const STAGES = ['연출', '그리기', '저장'];
+    const LORE_STAGES = ['로어북 읽기', '모델 분석', '인물 정리'];
 
     function cancelAll() {
         gen++;
@@ -1970,7 +1839,6 @@ Return entries only for the characters in this list that the character sheet, lo
 
     async function runJob(job) {
         if (job.gen !== gen) throw stopError();
-        
         const busy = { label: job.label ?? `${kindName()} 그리는 중`, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, llm: st.set.llm, auto: !!job.auto, key: job.key ?? '', ci: job.ci, chi: job.chi, idx: job.idx, job };
         busy.halt = new Promise(resolve => { busy.onStop = resolve; });
         st.busy = busy;
@@ -1978,7 +1846,6 @@ Return entries only for the characters in this list that the character sheet, lo
         st.note = '';
         st.ok = false;
         render();
-        
         let editSaved = '';
         try {
             if (!(await naiKey())) throw new Error('NAI 키가 없습니다. 준비 탭에서 넣어 주세요.');
@@ -1994,7 +1861,6 @@ Return entries only for the characters in this list that the character sheet, lo
             busy.chat = chatKeyOf(chat, job.chi);
             const chaId = char.chaId;
             const recs = await loadRecs(chaId);
-            
             const oldKey = recKeyIn(recs, chat, key, idx);
             if (oldKey && oldKey !== key) {
                 recs[key] = recs[oldKey];
@@ -2008,14 +1874,12 @@ Return entries only for the characters in this list that the character sheet, lo
 
             if (job.mode === 'draw') {
                 if (!old?.images?.length) throw new Error('다시 그릴 기록이 없습니다.');
-                
                 const pick = job.only ? old.images.filter(x => x.name === job.only) : old.images;
                 if (!pick.length) throw new Error('다시 그릴 그림을 기록에서 찾지 못했습니다.');
                 reqs = pick.map(x => x.req);
             } else if (job.mode === 'edit') {
                 reqs = job.reqs;
             } else {
-                
                 if (!cast.list.length && !cast.tried && job.ci === await api.getCurrentCharacterIndex()) {
                     busy.label = '로어북 읽는 중';
                     busy.lore = true;
@@ -2039,9 +1903,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 plan = await askJson(comicSystem(emphasize, !!input && !emphasize), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize), 'images',
                     v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.');
                 if (busy.stop) throw stopError();
-                
                 if (emphasize) console.log(LOG, 'focus', plan.focus ?? '(none)');
-                
                 state.wear ??= {};
                 const fresh = await resolveUnknown(char, plan, cast, state);
                 if (busy.stop) throw stopError();
@@ -2050,9 +1912,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 let images = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object');
                 if (!images.length) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
                 images = images.slice(0, countNow());
-                
                 checkLang(images, plainText(msg.data, 8000) + (emphasize ? '\n' + plainText(input.data) : ''));
-                
                 if (tidy(plan.genre)) images = images.map(img => tidy(img.genre) ? img : { ...img, genre: plan.genre });
                 if (askGenre()) console.log(LOG, 'genre', images.map(img => `${img.genre ?? '(none)'} → ${genreKey(img.genre) || '-'}${monoNow() ? ` · severity ${severityOf(img) || '-'}${isDynamic(img) ? ' · dynamic' : ''}` : ''}`).join(' | '));
                 reqs = images.map(img => buildReq(img, cast, state));
@@ -2081,7 +1941,6 @@ Return entries only for the characters in this list that the character sheet, lo
                 if (i === 0) firstBytes = bytes;
                 out.push({ name: 'nc_' + uid(), path, ext, seed, req: reqs[i], title: reqs[i].title ?? '' });
             }
-            
             if (busy.stop) throw stopError();
 
             busy.stage = 2;
@@ -2106,15 +1965,12 @@ Return entries only for the characters in this list that the character sheet, lo
                 console.error(LOG, 'job', error);
                 st.err = error.message || String(error);
                 if (busy.key) failed.set(busy.key, { at: Date.now(), error: st.err, raw: error.raw ?? '', idx: busy.idx ?? job.idx, chat: busy.chat ?? '', ci: job.ci, chi: job.chi });
-                
                 if (job.alertFail && !ui.root?.isConnected) void api.alertError?.(`이매진: ${st.err}`);
-                
                 else if (job.auto && !ui.root?.isConnected) tellOnce('auto:' + st.err, `이매진 (자동 그리기): ${st.err}`);
             }
         } finally {
             if (st.busy === busy) st.busy = null;
             if (ui.root?.isConnected) await refreshView().catch(() => {});
-            
             if (editSaved) { delete st.drafts[editSaved]; if (job.key) delete st.drafts[job.key]; }
             render();
         }
@@ -2131,9 +1987,7 @@ Return entries only for the characters in this list that the character sheet, lo
         scan(MARK_RE);
         return out;
     }
-    
     const MARK_RE = /♬\[[^\]\n]*\]♬|♣️?\[[^\]\n]*\]♣️?|⟦[^⟧\n]*⟧|\[[A-Z][A-Z0-9_]*(?::[^\[\]\n]*)?\]|<<[A-Z][A-Z0-9_]*(?::[^<>\n]*)?>>/g;
-
     function tailStart(src) {
         let end = src.length;
         let marks = false;
@@ -2153,9 +2007,7 @@ Return entries only for the characters in this list that the character sheet, lo
         }
     }
     const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    
     function findQuote(src, quote) {
-        
         const q = tidy(quote).replace(/["“”「」『』]/g, '').replace(/^['‘’]+|['‘’]+$/g, '').trim();
         if (q.length < 4) return -1;
         const tries = [q];
@@ -2169,7 +2021,6 @@ Return entries only for the characters in this list that the character sheet, lo
         }
         return -1;
     }
-    
     function lineEndAfter(src, pos, blocked) {
         for (let guard = 0; guard < 20; guard++) {
             let end = src.indexOf('\n', pos);
@@ -2181,11 +2032,9 @@ Return entries only for the characters in this list that the character sheet, lo
         }
         return src.length;
     }
-
     function placeTags(text, items) {
         const src = stripOurs(text);
         const blocked = blockedRanges(src);
-        
         const tail = tailStart(src);
         const spots = items.map((it, order) => {
             const hit = it.after ? findQuote(src, it.after) : -1;
@@ -2219,7 +2068,6 @@ Return entries only for the characters in this list that the character sheet, lo
         const i = findMsg(chat, key, idx);
         if (i >= 0) {
             const m = chat.message[i];
-            
             if (job.only) {
                 if (isChar && out.length) m.data = String(m.data ?? '').replace(new RegExp(escapeRe(job.only) + '(?![a-z0-9_])', 'gi'), out[0].name);
             } else {
@@ -2255,7 +2103,7 @@ Return entries only for the characters in this list that the character sheet, lo
         await saveRecs(v.chaId, recs);
     }
 
-    const autoSeen = new Map();   
+    const autoSeen = new Map();
     async function onOutput(ev) {
         try {
             if (!st.set.auto || !setupDone()) return;
@@ -2271,7 +2119,6 @@ Return entries only for the characters in this list that the character sheet, lo
             const recs = await loadRecs(ev.char?.chaId);
             if (recs[key]?.hash === hash) return;
             if (!(await naiKey())) { tellOnce('nokey', NO_KEY_AUTO); return; }
-            
             setTimeout(() => {
                 enqueue({ ci, chi, key, idx: messageIndex, mode: 'new', auto: true, label: '새 답변 그리는 중' }).catch(() => {});
             }, 1500);
@@ -2279,7 +2126,6 @@ Return entries only for the characters in this list that the character sheet, lo
             console.warn(LOG, 'output listener', error);
         }
     }
-
     let settleTimer = null;
     function onOutputText(content) {
         try {
@@ -2302,10 +2148,8 @@ Return entries only for the characters in this list that the character sheet, lo
         const msgs = chat?.message ?? [];
         const idx = msgs.length - 1;
         if (idx < 0 || msgs[idx]?.role !== 'char') return;
-        
         await onOutput({ char, chat, characterIndex: ci, chatIndex: chi, messageIndex: idx });
     }
-
     function stripProcess(text) {
         if (typeof text !== 'string') return text;
         text = unwrapPortraits(text);
@@ -2330,20 +2174,15 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     const HIDE_DECL = 'display:none!important;--nc-hide:1;';
-    
     const HIDE_ATTR = ` style=${HIDE_DECL} `;
     const HIDE_OPEN = `<span style=${HIDE_DECL}>`;
     const HIDE_CLOSE = '</span><!--/nc-hide-->';
-    
     const HIDE_BG = 'background-image:none!important;--nc-hide:1;';
     const hasHide = s => String(s ?? '').includes('--nc-hide:1;');
-    
     const unhide = s => [HIDE_ATTR, HIDE_OPEN, HIDE_CLOSE, HIDE_DECL, HIDE_BG].reduce((t, m) => t.split(m).join(''), String(s ?? ''));
     const HIDE_IMAGE = /background(-image)?\s*:[^;]*url\(|<img\b|<video\b|<picture\b|url\(|\{\{\s*(raw|img|image|asset|source|inlay|inlayed|bg|emotion|path)\s*::|\.(webp|png|jpe?g|gif|avif)\b|object-fit|background-size/i;
     const HIDE_LINE = /<(img|video|picture)\b|url\(|\{\{\s*(raw|img|image|asset|source|inlay|inlayed|bg|emotion|path)\s*::|\.(webp|png|jpe?g|gif|avif)\b/i;
-    
     const RESIZE_MARKS = ['리사이징 갱신용 (지우지 마세요)', '이매진 갱신용 (지우지 마세요)'];
-    
     const TOKEN_LIMIT = /context[_ ]?(length|window)|max(imum)?[_ ]?(context|tokens?)|(prompt|input|request|message|context)([_ ]body)?([_ ](is|was))?[_ ]too[_ ](long|large)|too[_ ]many[_ ]tokens|exceed\w*[\s\S]{0,60}tokens?|tokens?[\s\S]{0,60}(exceed|limit)|토큰[\s\S]{0,20}(초과|넘)|컨텍스트[\s\S]{0,20}(초과|넘)|\b413\b/i;
     const isTokenLimit = error => !error?.isStop && TOKEN_LIMIT.test(String(error?.message ?? error ?? ''));
 
@@ -2364,11 +2203,9 @@ Return entries only for the characters in this list that the character sheet, lo
         if (HIDE_IMAGE.test(bg)) out.push({ id: 'bg', label: '백그라운드 임베딩', text: bg });
         (char?.customscript ?? []).forEach((s, i) => {
             const text = String(s?.out ?? '');
-            
             if (!s || s.type !== 'editdisplay' || RESIZE_MARKS.includes(s.comment) || !HIDE_IMAGE.test(text)) return;
             out.push({ id: 'script:' + i, index: i, label: s.comment?.trim() || `이름 없는 정규식 ${i + 1}`, text, input: String(s.in ?? ''), comment: s.comment ?? '' });
         });
-        
         (Array.isArray(char?.triggerscript) ? char.triggerscript : []).forEach((t, i) => {
             const fx = t?.effect?.[0];
             const text = String(fx?.code ?? '');
@@ -2472,7 +2309,6 @@ Output a single JSON object only:
             else if (it.kind === 'rule') ins.push([it.pos, HIDE_BG]);
             else ins.push([it.pos, HIDE_CLOSE], [it.at, HIDE_OPEN]);
         }
-        
         ins.sort((a, b) => b[0] - a[0]);
         let out = text;
         for (const [p, s] of ins) out = out.slice(0, p) + s + out.slice(p);
@@ -2494,7 +2330,6 @@ Output a single JSON object only:
 
     const hide = { job: null, msg: null };
     const HIDE_EASE_MS = 20000;
-    
     const hideFrac = job => job.span[0] + (job.span[1] - job.span[0]) * (1 - Math.exp(-(Date.now() - job.t0) / HIDE_EASE_MS));
     function hideStage(job, label, span) {
         job.label = label;
@@ -2510,7 +2345,6 @@ Output a single JSON object only:
     }
 
     const hideRetryNote = error => `\n\n[NOTE] Your previous response could not be used${error?.hint ? `: ${error.hint}` : ''}. Output a single valid JSON object only, with no explanation. Inside string values write a double quote as \\".`;
-    
     async function hideAsk(job, user) {
         let lastError;
         for (let attempt = 0; attempt < 2; attempt++) {
@@ -2534,7 +2368,6 @@ Output a single JSON object only:
     async function runHide() {
         const v = st.view;
         if (!v || v.group || hide.job) return;
-        
         if (st.jobs > 0) {
             hide.msg = { cls: 'warn', chaId: v.chaId, text: '그림을 그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.' };
             renderNow();
@@ -2552,7 +2385,6 @@ Output a single JSON object only:
             if (!char || char.chaId !== job.chaId) throw new Error('봇을 읽지 못했습니다.');
             const targets = hideTargets(char);
             if (!targets.length) {
-                
                 setAssetOff(job.chaId, true);
                 await redrawChat().catch(error => console.warn(LOG, 'hide redraw', error));
                 if (st.view?.chaId === job.chaId) st.view.hidden = true;
@@ -2560,7 +2392,6 @@ Output a single JSON object only:
                 return;
             }
             const byId = Object.fromEntries(targets.map(t => [t.id, t]));
-            
             const modes = targets.some(t => t.lua) ? ['full', 'cut', 'none'] : ['full'];
             let res = null, prompt = null;
             for (const m of modes) {
@@ -2633,7 +2464,6 @@ Output a single JSON object only:
         for (const [id, items] of groups) {
             const t = byId[id];
             const slot = hideSlot(char, t);
-            
             if (!slot || slot.get() !== t.text) continue;
             backup.push({ id, label: t.label, comment: t.comment ?? '', text: t.text });
             slot.set(applyHide(t.text, items));
@@ -2683,7 +2513,6 @@ Output a single JSON object only:
                     if (job.saving || job.stop) return;
                     job.stop = true;
                     job.onStop();
-                    
                     const f = hideFrac(job);
                     hideStage(job, '취소하는 중', [f, f]);
                 },
@@ -2754,6 +2583,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix-btn.run{position:relative;overflow:hidden;isolation:isolate}
 .ix-btn.run:disabled{opacity:1;cursor:progress}
 .ix-btn.run .gf{position:absolute;left:0;top:0;bottom:0;z-index:-1;background:#c9d2ff;animation:ix-fill 14s cubic-bezier(.15,.6,.35,1) both}
+/* 3.82.3: 다시 누르면 멈추는 게이지 (등장인물 분석 · 복장 찾기 · 복장 태그 옮기기) */
+.ix-btn.run.stp{flex-wrap:wrap;white-space:normal}
+.ix-btn.run.stp:not(:disabled){cursor:pointer}
+.ix-btn.run .stp-x{margin-left:10px;padding-left:10px;font-size:.72rem;font-weight:600;color:var(--muted);border-left:1px solid var(--line2)}
+.ix-btn.run.stp:hover:not(:disabled) .stp-x{color:var(--bad)}
+/* 3.83.0: 등장인물 분석 버튼 게이지는 실제 단계를 따른다. 로어북 읽기 6% · 인물 정리 96%, 모델 응답만 예상 시간 동안 10% → 90% */
+.ix-btn.run .gf.lr{animation:none;transition:width .4s ease}
+.ix-btn.run .gf.lr.ask{animation:ix-lore 30s cubic-bezier(.25,.6,.45,1) both}
+@keyframes ix-lore{from{width:10%}to{width:90%}}
 .ix-msg{margin:10px 0 0;padding:8px 12px;font-size:.8rem;background:#fff;border:1px solid var(--line);border-left:4px solid var(--accent)}
 .ix-msg.err{color:#8d2a22;border-left-color:var(--bad);background:#fff7f6}
 .ix-msg.ok{border-left-color:var(--good)}
@@ -3187,20 +3025,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30 };
-    
     const galCount = () => { const v = st.view; return v ? Object.values(v.recs).filter(r => r.chat === v.chatKey).reduce((n, r) => n + (r.images?.length ?? 0), 0) : 0; };
     const TABS = [
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
-        
         ['gallery', () => ['삽화 목록', galCount() ? h('em', { class: 'cnt' }, galCount()) : null]],
     ];
-    
     const SIDE_TABS = [['cast', '등장인물'], ['style', '작가'], ['set', '설정']];
 
     function render() {
         if (!ui.root?.isConnected) return;
         const active = doc.activeElement;
-        
         if (active && ui.root.contains(active) && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) && !render.force) {
             render.pending = true;
             return;
@@ -3219,7 +3053,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         flipAssetMenu();
         loadThumbs();
     }
-    
     function flipAssetMenu() {
         const m = ui.root.querySelector('.as-menu');
         const t = m?.parentElement;
@@ -3237,7 +3070,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (st.view && !st.view.hasKey) return ['키 없음', 'bad'];
         if (!setupDone()) return ['준비 전', ''];
         if (st.err || [...failed.values()].some(f => f.chat === st.view?.chatKey)) return ['실패', 'bad'];
-        return null; 
+        return null;
     }
 
     const HEAD_ICON = {
@@ -3261,18 +3094,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('span', { class: 'ix-logo' }, headIcon('logo'), '이매진'),
                 acModeToggle(),
                 chip ? h('span', { class: 'ix-chip ' + chip[1] }, chip[0]) : null,
-                
                 h('span', { class: 'sd', role: 'tablist', 'aria-label': '공통 화면' }, SIDE_TABS.map(([id, label]) => h('button', {
                     type: 'button', role: 'tab', class: ui.side === id ? 'on' : null, 'aria-selected': ui.side === id ? 'true' : 'false',
                     onclick: () => { ui.side = id; ui.menu = ''; acs.menu = ''; renderNow(); },
                 }, headIcon(id), label)))),
             h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'));
     }
-    
     function renderNav() {
         const asset = ui.mode === 'asset';
         const tabs = asset ? AC_TABS : TABS, cur = asset ? ui.atab : ui.tab;
-        
         const v = st.view;
         const chip = !ui.side && v?.hasKey && (asset ? cur === 'make' && !v.group && !!acAst() : cur === 'ready') ? nlChip(asset) : null;
         return h('nav', { class: 'ix-nav' + (asset ? ' as' : '') },
@@ -3285,7 +3115,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     async function openLink(url, msg) {
         let w = null;
-        try { w = window.open(url, '_blank'); } catch { }   
+        try { w = window.open(url, '_blank'); } catch { }
         if (w) { try { w.opener = null; } catch { } return; }
         try { await navigator.clipboard.writeText(url); msg.textContent = '새 창이 막혀 주소를 복사했습니다. 브라우저 주소창에 붙여 넣어 주세요.'; }
         catch { msg.textContent = `새 창이 막혔습니다. ${url} 을 브라우저 주소창에 넣어 주세요.`; }
@@ -3298,7 +3128,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return 0;
     };
     async function checkUpdate() {
-        if (upd.checked) return;   
+        if (upd.checked) return;
         try {
             upd.skip = String(await api.pluginStorage.getItem('nc:updSkip').catch(() => '') ?? '');
             const res = await api.nativeFetch(UPDATE_URL, { method: 'GET', headers: { Range: 'bytes=0-512' } });
@@ -3311,7 +3141,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }
     }
     const updOn = () => !!upd.latest && upd.skip !== upd.latest;
-
     const UP_ICON = {
         list: '<path d="M4 6h16M4 12h16M4 18h16"/>',
         home: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
@@ -3328,7 +3157,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (UP_ICON[k] ?? HEAD_ICON[k]) + '</svg>';
         return el;
     }
-    
     function upHit(...kids) {
         const cur = h('span', { class: 'up-cur', 'aria-hidden': 'true' });
         cur.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 2l14 10-6.2 1.2L8.6 20z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>';
@@ -3339,7 +3167,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'up-cap' }, h('span', { class: 'up-n' }, String(n)), h('div', null, h('b', null, cap), sub ? h('small', null, sub) : null)),
             h('div', { class: 'up-fig', role: 'img', 'aria-label': alt }, fig));
     }
-    
     function upSide(hitList, menu) {
         const bar = h('span', { class: 'up-ham' }, upIcon('list'));
         return h('div', { class: 'up-side' },
@@ -3436,7 +3263,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             onclick: () => onpick(v),
         }, label)));
     }
-
     function sizeRow(label, note, options, value, [lo, hi], unit, onPick) {
         const own = !options.some(([v]) => v === value);
         return h('div', { class: 'cf-row' },
@@ -3457,7 +3283,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         },
                     }), h('span', null, unit))));
     }
-
     function modelPick(value, onPick) {
         const own = !MODELS.some(([v]) => v === value);
         return h('div', { class: 'cf-pickbox' },
@@ -3479,7 +3304,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function setVal(key, value) {
         st.set = { ...st.set, [key]: value };
         saveSet();
-        
         if (key === 'pc' || key === 'mo') st.sizeNote = { cls: 'wait', text: SIZE_WAIT };
         renderNow();
         if (['tap', 'ubtn', 'panelBtn', 'pc', 'mo'].includes(key)) void syncRoot(key);
@@ -3491,20 +3315,22 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function renderProgress() {
         const b = st.busy;
         if (!b) return null;
-        
         const only = b.lore && !b.job;
-        const stages = only ? ['등장인물 분석'] : STAGES;
-        const cols = only ? 'grid-template-columns:1fr' : '';
-        
+        const stages = only ? LORE_STAGES : STAGES;
+        const cols = only ? 'grid-template-columns:2fr 4fr 2fr' : '';
+        const now = only ? b.ls ?? 0 : b.stage;
         const segs = stages.map((name, i) => {
-            const cls = i < b.stage ? 'seg done' : 'seg';
-            return h('div', { class: cls }, i === b.stage ? h('div', { class: 'fi', style: gaugeStyle(b.at, only ? 30 : 40) }) : null);
+            const cls = i < now ? 'seg done' : 'seg';
+            const sty = !only ? gaugeStyle(b.at, 40) : i === 1 ? gaugeStyle(b.tryAt ?? b.lsAt, loreEst(b)) : gaugeStyle(b.lsAt, 2);
+            return h('div', { class: cls }, i === now ? h('div', { class: 'fi', style: sty }) : null);
         });
-        const names = stages.map((name, i) => h('span', { class: i < b.stage ? 'done' : i === b.stage ? 'cur' : '' },
-            i === 1 && b.n ? `${name} ${b.i}/${b.n}` : name));
+        const names = stages.map((name, i) => h('span', { class: i < now ? 'done' : i === now ? 'cur' : '' },
+            !only && i === 1 && b.n ? `${name} ${b.i}/${b.n}` : name));
+        const loreTry = only ? b.label.match(/다시 시도 \d+\/\d+/)?.[0] : '';
         return h('div', { class: 'pg', role: 'status' },
             h('div', { class: 'pg-now' },
-                h('span', null, b.stage === 0 ? (b.lore ? `${llmName(b.llm ?? st.set.llm)} 모델이 로어북을 읽어 인물표를 짜는 중` : `${b.label}: ${llmName(b.llm ?? st.set.llm)} 모델이 연출을 짜는 중`) : b.stage === 1 ? `NAI 가 그리는 중 (${b.i}/${b.n})` : '봇에 저장하는 중'),
+                h('span', null, only ? [`${llmName(b.llm ?? st.set.llm)} 모델 · ${loreStepText(b)}`, now === 1 ? [' · ', secSpan(b.tryAt ?? b.lsAt)] : null, loreTry ? ` · ${loreTry}` : '']
+                    : b.stage === 0 ? (b.lore ? `${llmName(b.llm ?? st.set.llm)} 모델이 로어북을 읽어 인물표를 짜는 중` : `${b.label}: ${llmName(b.llm ?? st.set.llm)} 모델이 연출을 짜는 중`) : b.stage === 1 ? `NAI 가 그리는 중 (${b.i}/${b.n})` : '봇에 저장하는 중'),
                 h('button', { class: 'ix-btn sm warn', type: 'button', disabled: b.stop, onclick: cancelAll }, b.stop ? '멈추는 중' : st.jobs > 1 ? '모두 중단' : '중단')),
             h('div', { class: 'pg-bar', style: cols }, segs),
             h('div', { class: 'pg-nm', style: cols }, names),
@@ -3532,7 +3358,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) void save(); },
                 }),
                 h('button', { class: 'ix-btn main', type: 'button', onclick: save }, '저장'),
-                
                 full ? h('button', {
                     class: 'ix-btn', type: 'button', 'aria-pressed': st.keyShow ? 'true' : 'false',
                     onclick: async () => {
@@ -3551,7 +3376,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     renderNow();
                     void rootQueue(() => paintBusy());
                 }, 'ix-btn warn') : null));
-        
         input.addEventListener('input', () => { st.keyDraft = input.value; });
         if (st.keyDraft) input.value = st.keyDraft;
         else if (v?.hasKey) void naiKey().then(k => { if (k && !input.value) input.value = k; }).catch(() => {});
@@ -3575,7 +3399,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const noChat = pane => add(pane, h('div', { class: 'ix-empty' }, h('b', null, '열린 채팅이 없습니다'), '봇과 채팅을 연 뒤 다시 열어 주세요.'));
-    
     function lastFail() {
         const v = st.view;
         let best = null;
@@ -3584,9 +3407,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const intro = (name, text) => h('p', { class: 'ix-intro' }, h('b', null, name + ':'), text);
-    
     const llmName = k => k === 'model' ? '메인' : '보조';
-    
     const llmCards = (key, onpick) => h('div', { class: 'dz', role: 'radiogroup' },
         [['model', '🧠', '메인 모델', '리수 설정 › 메인 모델로 보냅니다'], ['submodel', '⚡', '보조 모델', '리수 설정 › 보조 모델로 보냅니다']].map(([k, em, name, desc]) => {
             const on = (st.set[key] === 'model' ? 'model' : 'submodel') === k;
@@ -3601,12 +3422,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
         const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count];
-        const cur = done.indexOf(false);   
+        const cur = done.indexOf(false);
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
-        if (v.hasKey) void acAnlas();   
-        const END = 7;   
-        
+        if (v.hasKey) void acAnlas();
+        const END = 7;
         const step = (n, title, sum, body) => {
             const state = n === END ? (cur < 0 ? 'done' : 'lock') : stateOf(n - 1);
             let bd = null;
@@ -3694,7 +3514,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         const answers = v.msgs.filter(m => m.role === 'char').map(m => {
-            
             const r = m.recKey ? v.recs[m.recKey] ?? v.recs[m.key] : null;
             return { ...m, rec: r && r.chat === v.chatKey ? r : null };
         }).reverse();
@@ -3703,13 +3522,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const nHas = answers.filter(a => a.rec?.images?.length).length;
         const goneOn = ui.galFilter === 'gone';
         const list = goneOn ? [] : answers.filter(a => ui.galFilter === 'has' ? a.rec?.images?.length : ui.galFilter === 'none' ? !a.rec?.images?.length : true);
-        
         const shown = new Set(answers.map(a => a.rec).filter(Boolean));
         const gone = Object.values(v.recs)
             .filter(r => r.chat === v.chatKey && r.images?.length && !shown.has(r))
             .sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
         const nGone = gone.reduce((n, r) => n + r.images.length, 0);
-
         const goneNames = new Set(gone.flatMap(r => r.images.map(x => String(x?.name ?? '').toLowerCase())));
         const og = !v.group && acs.gone?.chaId === v.chaId ? acs.gone : null;
         const nOther = og ? og.list.filter(t => !goneNames.has(String(t.name).toLowerCase())).length : 0;
@@ -3767,7 +3584,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         else if (waiting) foot = [h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, '⏳ 기다리는 중'), h('span', { class: 'ix-hint' }, '앞의 그림이 끝나면 그립니다')];
         else if (!v.hasKey) foot = [h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, '🎨 이미지 생성'), h('span', { class: 'ix-hint' }, 'NAI 키가 필요합니다')];
         else if (!setupDone()) foot = [h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '🎨 이미지 생성'), h('span', { class: 'ix-hint' }, '준비 탭을 먼저 마쳐 주세요')];
-        
         else if (imgs.length) foot = fail ? [h('span', { class: 'bad-tx' }, `✕ 그리지 못했습니다. ${fail.error}`)] : null;
         else foot = [
             fail ? h('span', { class: 'bad-tx' }, `✕ 그리지 못했습니다. ${fail.error}`) : null,
@@ -3815,7 +3631,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const busy = st.busy?.key === a.key || queued.has(a.key) || !v.hasKey;
         const open = st.promptOpen.has(a.key);
         return h('div', { class: 'menu', role: 'menu' },
-            
             h('div', { class: 'menu-h' }, `「${x.title || '그림'}」`),
             h('button', { type: 'button', role: 'menuitem', disabled: busy, onclick: () => { ui.menu = ''; draw(a.i, 'draw', a.key, null, x.name); } },
                 '🔁 다시 그리기', h('small', null, '장면은 그대로 두고 이 그림만 새로 뽑습니다')),
@@ -3870,7 +3685,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     function renderPrompt(rec, disabled, idx) {
         const draft = st.drafts[rec.key] ??= (rec.images ?? []).map(x => structuredClone(x.req));
-        
         const orig = JSON.stringify((rec.images ?? []).map(x => x.req));
         const goBtn = h('button', { class: 'ix-btn main sm', type: 'button', disabled, onclick: () => draw(idx, 'edit', rec.key, structuredClone(draft)) });
         const undoBtn = h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { if (disabled) return; delete st.drafts[rec.key]; renderNow(); } }, '↩ 고치기 전으로');
@@ -3965,7 +3779,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             writeVarsSoon();
         }, 500);
     }
-    
     function writeVarsSoon() {
         clearTimeout(stateTimer);
         stateTimer = setTimeout(async () => {
@@ -3991,11 +3804,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         v.state.wear ??= {};
-        
         ui.castOpen ??= new Set(v.cast.list.length === 1 ? [v.cast.list[0].id] : []);
         add(pane,
             h('div', { class: 'ix-acts', style: 'margin-top:0' },
-                
                 h('button', { class: 'ix-btn main', type: 'button', disabled: !!st.busy || v.group, onclick: () => rereadLore() }, '📖 등장인물 분석'),
                 h('button', {
                     class: 'ix-btn', type: 'button',
@@ -4012,7 +3823,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('p', { class: 'ix-hint' }, '이 채팅에서 처음 그릴 때는 채팅 전체를 읽어 장소 · 시간과 인물마다 지금 머리 · 몸 · 옷 아홉 칸을 찾습니다. 그다음부터는 그릴 답변과 그 바로 앞 봇 답변만 읽고 바뀐 것만 고칩니다.'),
             renderProgress(),
             st.err && ui.side === 'cast' ? h('div', { class: 'ix-msg err' }, st.err) : null,
-            
             h('div', { class: 'state-row', style: 'margin-top:12px' },
                 ...[['location', '📍 장소', 'classroom'], ['time', '🕒 시간', 'night']].map(([k, label, ex]) =>
                     h('label', { class: 'st-f' }, label,
@@ -4041,7 +3851,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const flip = () => { isOpen ? open.delete(e.id) : open.add(e.id); renderNow(); };
             const av = h('span', { class: 'cc-av', 'aria-hidden': 'true' }, initial(e.name));
             const nm = h('span', { class: 'cc-nm' }, e.name || '이름 없음');
-            
             const sum = ['haircolor', 'hairstyle', 'top'].map(k => wearOf(e, v.state, k)).filter(Boolean).join(' · ') || e.look || '태그 없음';
             const changed = WEAR_KEYS.filter(k => now[k]).length;
             const card = h('article', { class: 'cc' + (isOpen ? ' open' : '') + (e.on === false ? ' off' : ''), style: `--cc:${HUES[n % HUES.length]}` },
@@ -4054,13 +3863,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         h('b', null, nm, h('span', { class: 'cc-sx' }, SEX[e.type] ?? '기타'), h('span', { class: 'cc-src ' + (e.src ?? '') }, SRC[e.src] ?? e.src ?? '')),
                         h('span', { class: 'cc-sum' }, sum)),
                     changed ? h('span', { class: 'cc-chg', title: '이 채팅에서 기본과 다르게 입은 칸' }, `지금 ${changed}칸`) : null,
-                    
                     h('span', { class: 'cc-sw', onclick: ev => ev.stopPropagation(), onkeydown: ev => ev.stopPropagation() },
                         toggle(e.on !== false, () => { e.on = e.on === false; castChanged(); renderNow(); })),
                     h('span', { class: 'cc-cv', 'aria-hidden': 'true' }, '▾')));
             if (isOpen) {
                 const wd = h('div', { class: 'wd' }, h('span'), h('span', { class: 'wd-h' }, '기본 (이 봇 전체)'), h('span', { class: 'wd-h now' }, '지금 (이 채팅만)'));
-                
                 for (const [k, label, group] of WEAR) add(wd,
                     group !== WEAR[WEAR_KEYS.indexOf(k) - 1]?.[2] ? h('span', { class: 'wd-g' }, group) : null,
                     h('span', { class: 'wd-l' }, label),
@@ -4115,16 +3922,24 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function rereadLore(llm = st.set.llm) {
         const v = st.view;
         if (!v || st.busy) return;
-        const busy = { label: '로어북 읽는 중', lore: true, llm, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, key: '' };
+        const busy = { label: '로어북 읽는 중', lore: true, llm, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, key: '', ls: 0, lsAt: Date.now() };
         busy.halt = new Promise(resolve => { busy.onStop = resolve; });
         st.busy = busy;
         st.err = '';
         st.note = '';
         renderNow();
         try {
+            if (!isObj(st.loreRate)) {
+                const r = await api.pluginStorage.getItem('nc:loreRate').catch(() => null);
+                st.loreRate = isObj(r) ? r : {};
+            }
             const char = await api.getCharacterFromIndex(v.ci);
-            const fresh = await readLore(char);
+            const fresh = await readLore(char, busy);
             if (!fresh.length) throw new Error('모델이 인물을 하나도 돌려주지 않았습니다.');
+            if (busy.askSec > 0 && busy.chars > 0) {
+                st.loreRate[llm] = busy.askSec / Math.max(1, busy.chars / 10000);
+                void Promise.resolve(api.pluginStorage.setItem('nc:loreRate', st.loreRate)).catch(() => {});
+            }
             mergeCast(v.cast, fresh);
             await saveCast(v.chaId, v.cast);
             writeVarsSoon();
@@ -4132,10 +3947,18 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             st.ok = true;
         } catch (error) {
             if (!error.isStop) st.err = error.message || String(error);
+            else st.note = '등장인물 분석을 멈췄습니다.';
         } finally {
             if (st.busy === busy) st.busy = null;
             renderNow();
         }
+    }
+    function stopLore() {
+        const b = st.busy;
+        if (!b?.lore || b.job || b.stop) return;
+        b.stop = true;
+        b.onStop?.();
+        renderNow();
     }
 
     const presetDrafts = new Map();
@@ -4144,7 +3967,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const isBuiltinAsIs = p => { const b = builtinOf(p); return !!b && ['name', 'pos', 'neg'].every(k => p[k] === b[k]) && JSON.stringify(presetGen(p)) === JSON.stringify(presetGen(b)); };
     function renderStyle() {
         const pane = h('section', { class: 'ix-pane' });
-        
         const cur = st.presets.find(p => p.id === ui.styleId) ?? preset();
         ui.styleId = cur.id;
         const pick = x => ({ name: x.name, pos: x.pos, neg: x.neg, ...presetGen(x) });
@@ -4155,7 +3977,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             onclick: () => { Object.assign(cur, draft, presetGen(draft)); presetDrafts.delete(cur.id); savePresets(); renderNow(); },
         }, '저장');
         const stateTx = h('span', { class: 'ix-hint' });
-        
         const stepWarn = h('div', { class: 'ix-msg err' }, '스텝이 28을 넘으면 Opus 라도 Anlas 를 씁니다.');
         const sync = () => {
             const dirty = JSON.stringify(presetGen(draft)) !== JSON.stringify(presetGen(cur))
@@ -4164,7 +3985,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             stateTx.textContent = dirty ? '고친 곳이 있습니다. 저장을 눌러야 그림에 쓰입니다.' : '';
             stepWarn.style.display = presetGen(draft).steps > 28 ? '' : 'none';
         };
-        
         const samplerBox = h('div');
         const paintSampler = () => {
             samplerBox.replaceChildren(seg(SAMPLERS, draft.sampler, v => { draft.sampler = v; paintSampler(); sync(); }));
@@ -4178,7 +3998,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         add(pane,
             h('h2', { class: 'sub', style: 'margin-top:0' }, '작가 목록', h('small', null, '누른 작가를 아래에서 고칩니다 · 그릴 작가는 준비 탭에서 고릅니다 · 카드 그림은 그 작가로 마지막에 그린 것 (내장 작가 셋은 고정)')),
             presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }),
-            
             h('div', { class: 'ix-acts' },
                 saveBtn,
                 h('button', {
@@ -4195,7 +4014,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         st.presets.push(p); ui.styleId = p.id; savePresets(); renderNow();
                     },
                 }, '복제'),
-                
                 builtinOf(cur) && !isBuiltinAsIs(cur) ? armButton('기본값으로', '한 번 더 누르면 되돌립니다', () => {
                     const b = builtinOf(cur);
                     Object.assign(cur, { name: b.name, pos: b.pos, neg: b.neg });
@@ -4206,7 +4024,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 }, 'ix-btn') : null,
                 st.presets.length > 1 ? armButton('삭제', '한 번 더 누르면 삭제', () => {
                     st.presets = st.presets.filter(p => p.id !== cur.id);
-                    
                     if (!st.presets.some(p => p.id === st.presetId)) st.presetId = st.presets[0].id;
                     if (st.set.acPresetId === cur.id) { st.set = { ...st.set, acPresetId: '' }; saveSet(); }
                     ui.styleId = st.presetId;
@@ -4226,7 +4043,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         num('가이던스', 'scale', '1', '10', '0.1'),
                         num('리스케일', 'cfgRescale', '0', '1', '0.02'))),
                 stepWarn,
-                
                 h('div', { style: 'display:grid;gap:3px;font-size:.76rem;color:var(--muted)' }, '샘플러 (노이즈 스케줄은 karras 고정)', samplerBox),
                 h('p', { class: 'ix-hint' }, '만화(2~4컷)를 그릴 때는 판 나눔 태그(comic, multiple panels, manga …)를 앱이 붙이고, 긍정의 sound effects 와 부정의 4koma · 2koma · multiple views(대사를 그릴 때는 subtitles · captions 도)를 그 요청에서만 뺍니다. 저장된 작가 프롬프트는 바뀌지 않습니다.')));
         return pane;
@@ -4245,7 +4061,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 }),
                 h('span', null, unit)));
     }
-    
     function dynMinRow() {
         const v = dynMinNow(), off = st.set.dynamic === false;
         const put = n => { n = Math.min(10, Math.max(1, n)); if (n !== dynMinNow()) setVal('dynMin', n); else renderNow(); };
@@ -4265,12 +4080,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const s = st.set;
         const pane = h('section', { class: 'ix-pane ix-set' });
         const textSet = key => e => { st.set[key] = e.target.value; clearTimeout(renderSettings.t); renderSettings.t = setTimeout(saveSet, 400); };
-        
         const note = (short, more) => [short ? h('p', null, short) : null, more ? h('details', null, h('summary', null, '자세히'), h('p', null, more)) : null];
         const row = (cls, title, short, more, ...ctl) => h('div', { class: 'cf-row' + (cls ? ' ' + cls : '') }, h('div', { class: 'cf-tx' }, h('b', null, title), note(short, more)), ctl);
         const grp = (title, ...rows) => h('div', { class: 'cf-grp' }, h('h2', null, title), h('div', { class: 'cf-card' }, rows));
         const toReady = h('button', { class: 'lnk', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '준비 탭');
-
         const devRow = () => {
             const msg = h('span', { class: 'cf-dev-msg', role: 'status', 'aria-live': 'polite' });
             const go = () => openLink(DEV_URL, msg);
@@ -4350,7 +4163,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     null,
                     toggle(s.vars, () => setVal('vars', !s.vars)))),
             devRow(),
-            
             st.sizeNote ? h('div', { class: 'sz-bar', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'sz-tx ' + st.sizeNote.cls }, st.sizeNote.text)) : null,
         );
         return pane;
@@ -4371,7 +4183,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const lb = ui.root?.querySelector('.lb');
             if (lb) lb.remove(); else closePanel();
         });
-        
         listen(doc, 'focusout', () => setTimeout(() => { if (render.pending) render(); }, 0));
     }
     function closePanel() {
@@ -4403,14 +4214,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const chi = await api.getCurrentChatIndex();
         const char = await api.getCharacterFromIndex(ci);
         const chat = char ? await api.getChatFromIndex(ci, chi) : null;
-        
         chaIdAt.clear();
         if (char?.chaId) chaIdAt.set(ci, char.chaId);
         if (!char || !chat) { st.view = null; return; }
         const chaId = char.chaId;
         const [cast, recs, key] = await Promise.all([loadCast(chaId), loadRecs(chaId), naiKey(), loadAst(chaId)]);
         acReadHave(char);
-        
         if (botHidden(char)) setAssetOff(chaId, true);
         const rawMsgs = chat.message ?? [];
         st.view = {
@@ -4431,7 +4240,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         '애드 에셋 커스텀에 「웃음, 눈물」처럼 감정을 적어 보세요.',
     ];
     const TIP_MS = 4500;
-    
     const tipRow = () => {
         const start = Math.floor(Math.random() * TIPS.length);
         return h('div', { class: 'ix-tip' }, h('b', null, 'TIP'),
@@ -4457,7 +4265,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (!st.busy && !st.jobs) { st.note = ''; st.err = ''; st.ok = false; }
         st.drafts = {};
         ui.lastTab = null;
-        
         ui.tab = 'ready';
         ui.side = '';
         ui.menu = '';
@@ -4498,14 +4305,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         margin: '0', padding: '5px 10px', border: '0', borderRadius: '999px', float: 'none', transform: 'none', color: '#fff', opacity: '1',
         fontSize: '12px', fontWeight: '400', fontStyle: 'normal', lineHeight: '1.3', letterSpacing: 'normal', textTransform: 'none', textDecoration: 'none', textShadow: 'none',
         cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' });
-
     const ACT_CSS = '.nc-fig.nc-fig .nc-act.nc-act{opacity:0!important;visibility:hidden!important;scale:0!important}'
         + '.nc-act.nc-act .nc-act-b.nc-act-b{background:rgba(0,0,0,.62)}'
         + '@media (hover:hover) and (pointer:fine){.nc-fig.nc-fig:hover .nc-act.nc-act{opacity:1!important;visibility:visible!important;scale:1!important}'
         + '.nc-act.nc-act .nc-act-b.nc-act-b:hover{background:rgba(37,99,235,.92)}'
         + '.nc-act.nc-act .nc-del.nc-del:hover{background:rgba(220,38,38,.92)}}'
         + '.nc-fig.nc-fig.nc-on .nc-act.nc-act{opacity:.92!important;visibility:visible!important;scale:1!important}';
-    
     function figCss(ptHide) {
         const s = st.set;
         return `<style>.nc-fig,.nc-pt{position:relative;box-sizing:border-box;width:${s.pc}px;width:{{getvar::nc_pc}}px;max-width:100%;margin:19px auto}`
@@ -4514,28 +4319,20 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             + (s.tap ? ACT_CSS : '')
             + `@media (max-width:768px){.nc-fig,.nc-pt{width:${s.mo}vw;width:{{getvar::nc_mo}}vw}}</style>`;
     }
-    
     const ACT_LABEL = { panel: '🎨 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', del: '🗑 지우기' };
     const actHtml = name => `<div class="nc-act" style="${ACT_STYLE}">`
         + Object.entries(ACT_LABEL).map(([k, label]) => `<span class="nc-act-b nc-${k} nc-for-${name}" style="${BTN_STYLE}">${label}</span>`).join('')
         + '</div>';
-
     const FIG_RE = /<div class="nc-fig nc-id-(nc_[a-z0-9_]+)">(<div class="nc-act">)?/gi;
     const INLAY_RE = /(<div class="nc-fig nc-id-nc_[a-z0-9_]+" style="[^"]*">(?:<div class="nc-act"[^>]*>.*?<\/div>)?\s*)<div class="risu-inlay-image">(\s*)<img\b/gi;
-    
     const PT_RE = /<div class="nc-pt nc-pt-(c_[a-z0-9_]+)">/g;
-    
     const PT_HIDE = imp({ display: 'none' });
     const PT_INLAY_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<div class="risu-inlay-image">(\s*)<img\b/g;
-    
     const PT_IMG_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<img\b/g;
-
     const GEN_TEXT = { idle: '이미지 생성', nokey: '이미지 생성 · NAI 키 필요' };
-    
     const GEN_BASE = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', boxSizing: 'border-box', width: 'max-content', minWidth: '8.3em', maxWidth: '100%', minHeight: '30px', margin: '8px 0 2px', padding: '3px 11px',
         fontSize: '.78rem', lineHeight: '1.3', border: '1px solid #c7cdd6', userSelect: 'none' };
     const GEN_LOOKS = {
-        
         idle: { color: '#fff', fontWeight: '700', background: '#141c2e', borderColor: '#c7cdd6', opacity: '1', cursor: 'pointer' },
         sub: { color: '#fff', fontWeight: '400', background: '#141c2e', borderColor: '#c7cdd6', opacity: '1', cursor: 'default' },
         off: { color: '#fff', fontWeight: '400', background: '#141c2e', borderColor: '#c7cdd6', opacity: '.5', cursor: 'not-allowed' },
@@ -4544,18 +4341,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         bad: { color: '#fff', fontWeight: '700', background: '#b3261e', borderColor: '#8c1d18', opacity: '1', cursor: 'pointer' },
     };
     const cssOf = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v).join(';');
-
     const PAUSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" style="flex:none">'
         + '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     const FILL_BLUE = '#2f4a8a';
     const FILL_GREY = '#64748b';
     const gaugeLbl = (text, stopping) => (stopping ? '' : PAUSE_SVG) + `<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${text}</span>`;
-
     const gaugeHtml = (pct, text, stopping) => `<span class="x-risu-nc-fill" style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;`
         + `background:${stopping ? FILL_GREY : FILL_BLUE};transition:width .45s ease-out,background .2s;pointer-events:none"></span>`
         + `<span class="x-risu-nc-size" style="visibility:hidden;white-space:nowrap;padding-left:18px">${GEN_TEXT.idle}</span>`
         + `<span class="x-risu-nc-lbl" style="position:absolute;left:11px;right:6px;top:0;bottom:0;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden">${gaugeLbl(text, stopping)}</span>`;
-
     const FIG_RUN = imp({ position: 'relative', overflow: 'hidden' }) + ';background:rgba(15,23,42,.9)';
     const FIG_FILL = '#2563eb';
     const ACT_SHOW = imp({ opacity: '1', visibility: 'visible', scale: '1' });
@@ -4571,14 +4365,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             + `<span class="nc-gen nc-at-{{chat_index}}" style="${cssOf({ ...GEN_BASE, ...GEN_LOOKS[off ? 'need' : 'idle'] })}">${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
             + '{{/if}}';
     }
-
     const RISU_ASSET_RE = /<div class="risu-inlay-image"><img src="([^"]*)" alt="\1" style="[^"]*"\/><\/div>\n?|<img src="([^"]*)" alt="\2" style="[^"]*"\/>|<video (?:controls autoplay|autoplay muted) loop><source src="[^"]*" type="video\/mp4"><\/video>\n?/g;
     const dropAssets = (text, on) => on ? text.replace(RISU_ASSET_RE, '') : text;
     async function ncDisplay(content) {
         if (typeof content !== 'string') return null;
         const gen = genHtml();
         const hasFig = content.includes('nc-fig'), hasPt = content.includes('nc-pt');
-        
         const needId = (st.set.assetOff.length > 0 && /risu-inlay-image|<img src="|<video /.test(content)) || (st.set.ptOff.length > 0 && hasPt);
         const chaId = needId ? await curChaId().catch(() => '') : '';
         const assetHide = !!chaId && st.set.assetOff.includes(chaId);
@@ -4595,14 +4387,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             .replace(PT_RE, (m, name) => `<div class="nc-pt nc-pt-${name}" style="${ptHide ? PT_HIDE : fs}">`)
             .replace(PT_INLAY_RE, (m, head, sp) => `${head}<div class="risu-inlay-image" style="${WRAP_STYLE}">${sp}<img style="${IMG_STYLE}"`)
             .replace(PT_IMG_RE, (m, head) => `${head}<img style="${IMG_STYLE}"`);
-        
         return dropAssets(body, assetHide) + '\n\n' + gen + figCss(ptHide);
     }
 
     const varValues = () => ({ nc_pc: st.set.pc, nc_mo: st.set.mo });
     const keyOf = line => line.split('=')[0];
     const hasVars = text => /(^|\n)nc_(?:pc|mo)=/.test(String(text ?? ''));
-    
     function withVars(text, values) {
         const src = String(text ?? '');
         const lines = src ? src.split('\n') : [];
@@ -4611,16 +4401,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         for (const line of lines) {
             const key = keyOf(line);
             if (!(key in values)) { out.push(line); continue; }
-            if (!seen.has(key)) out.push(key + '=' + values[key]);   
+            if (!seen.has(key)) out.push(key + '=' + values[key]);
             seen.add(key);
         }
         const add = Object.keys(values).filter(k => !seen.has(k)).map(k => k + '=' + values[k]);
-        
         if (add.length && out.length && out[out.length - 1] === '') out.splice(out.length - 1, 0, ...add);
         else out.push(...add);
         return out.join('\n');
     }
-    
     function putVars(char) {
         if (!char || char.type === 'group') return false;
         const before = String(char.defaultVariables ?? '');
@@ -4636,7 +4424,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (cur?.chaId) {
             curId = cur.chaId;
             const mine = hasVars(cur.defaultVariables) || Object.keys(await loadRecs(cur.chaId)).length > 0;
-            
             const fresh = mine ? await api.getCharacterFromIndex(curIdx) : null;
             if (fresh?.chaId === curId && putVars(fresh)) await api.setCharacterToIndex(curIdx, fresh);
         }
@@ -4657,7 +4444,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (chat.isStreaming) return 'streaming';
         for (const m of chat.message) {
             if (!m || typeof m !== 'object') continue;
-            
             if (typeof m.data === 'string') m.data = wrapPortraits(m.data);
             if (m.disabled === undefined) m.disabled = false;
             else if (m.disabled === false) delete m.disabled;
@@ -4712,7 +4498,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         tick: 0, tone: '', pct: -1, pgBusy: null, pgKey: '', pgAt: 0, genText: new Map(), figMarked: false, figText: new Map() };
     const rootQueue = fn => (root.job = root.job.then(fn).catch(error => console.warn(LOG, 'root', error)));
     const needRoot = () => st.set.ubtn !== 'none' || st.set.panelBtn || st.set.tap;
-    
     const rootDenied = () => root.done && !root.doc;
     const panSel = () => st.set.panelBtn ? '.nc-panbtn' : '';
     const inRect = (r, e) => !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
@@ -4733,7 +4518,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const area = await d.querySelector('textarea.text-input-area');
         return area ? await area.getParent() : null;
     }
-    
     async function removeButtons(d, keep = []) {
         let gone = false;
         for (const sel of ['.nc-inbtn', '.nc-fab', '.nc-panbtn']) {
@@ -4770,7 +4554,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     function progressNow() {
         const b = st.busy;
-        
         if (!b) return Math.max(0, root.pct);
         const key = b.stage + '|' + b.i;
         if (root.pgBusy !== b || root.pgKey !== key) { root.pgBusy = b; root.pgKey = key; root.pgAt = Date.now(); }
@@ -4793,7 +4576,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     const runText = b => b.stage === 1 ? (b.n > 1 ? `그리기 ${b.i}/${b.n}` : '그리는 중') : b.stage === 2 ? '저장 중'
         : b.job?.mode === 'draw' ? '그리는 중' : '씬 재구성 중';
-    
     function genState(idx, ci, chi, last) {
         if (!Number.isInteger(idx) || idx < 0 || (st.set.ubtn === 'last' && idx !== last)) return { sign: 'hide' };
         const here = o => !!o && o.ci === ci && o.chi === chi && o.idx === idx;
@@ -4836,7 +4618,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 else {
                     await el.setStyle('display', 'flex');
                     for (const [k, v] of Object.entries(GEN_LOOKS[g.look])) await el.setStyle(k, v);
-                    
                     await el.setStyle('position', g.gauge ? 'relative' : '');
                     await el.setStyle('overflow', g.gauge ? 'hidden' : '');
                     await el.setInnerHTML(g.gauge ? gaugeHtml(pct, g.text, g.sign === 'stop') : g.text);
@@ -4844,7 +4625,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-s-/.test(c)).concat(mark).join(' '));
                 root.genText.set(idx, g.text);
             } else if (g.sign === 'run') {
-                
                 await (await el.querySelector('.x-risu-nc-fill'))?.setStyle('width', pct + '%');
                 if (root.genText.get(idx) !== g.text) {
                     await (await el.querySelector('.x-risu-nc-lbl'))?.setInnerHTML(gaugeLbl(g.text, false));
@@ -4853,7 +4633,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             }
         }
     }
-
     const figHit = (j, ci, chi, act, name) => !!j?.fig && j.ci === ci && j.chi === chi && j.fig.act === act && j.fig.name === name;
     function figState(act, name, ci, chi) {
         const b = st.busy;
@@ -4864,7 +4643,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function paintFigs(live = false) {
         const d = root.doc;
         if (!root.on || !d || !st.set.tap) return;
-        
         if (![...jobsOn].some(j => j.fig) && !root.figMarked) return;
         const els = await d.querySelectorAll('.x-risu-nc-act-b');
         const n = await els.length();
@@ -4885,7 +4663,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const tk = act + ':' + name;
             if (was === g.sign) {
                 if (g.sign !== 'run' || !live) continue;
-                
                 await (await el.querySelector('.x-risu-nc-fill'))?.setStyle('width', pct + '%');
                 if (root.figText.get(tk) !== g.text) {
                     await (await el.querySelector('.x-risu-nc-lbl'))?.setInnerHTML(figLbl(g.text, 'run'));
@@ -4899,7 +4676,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 await el.setInnerHTML(ACT_LABEL[act]);
                 await bar?.setStyleAttribute(ACT_STYLE);
             } else {
-                
                 await el.setStyleAttribute(BTN_STYLE + ';' + FIG_RUN);
                 await el.setInnerHTML(figGaugeHtml(pct, g.text, act, g.sign));
                 await bar?.setStyleAttribute(ACT_STYLE + ';' + ACT_SHOW);
@@ -4909,7 +4685,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }
         root.figMarked = marked;
     }
-    
     async function paintBusy(force = false) {
         if (st.jobs > 0) startTick(); else stopTick();
         await paintGen(force, true);
@@ -4930,7 +4705,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const d = root.doc;
         if (!root.on || !d) return;
         const pan = panSel();
-        
         const gone = await removeButtons(d, [pan]);
         if (pan || gone) {
             const row = await inputRow(d);
@@ -4949,7 +4723,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (event.button !== 0 || !root.on || !d) return;
         const pb = panSel() ? await d.querySelector('.nc-panbtn') : null;
         if (pb && inRect(await pb.getBoundingClientRect(), event)) return void openPanel().catch(error => console.error(LOG, 'panel', error));
-        
         if (st.set.ubtn !== 'none') {
             const gens = await d.querySelectorAll('.x-risu-nc-gen');
             const n = await gens.length();
@@ -4962,7 +4735,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             }
         }
         if (!st.set.tap) return;
-        
         const acts = await d.querySelectorAll('.x-risu-nc-act-b');
         const n = await acts.length();
         for (let i = 0; i < n; i++) {
@@ -4976,10 +4748,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (name && act) await figAction(act, name, el);
             return;
         }
-        
         await toggleFig(d, event);
     }
-
     const FIG_ON = 'x-risu-nc-on';
     async function toggleFig(d, event) {
         const figs = await d.querySelectorAll('.x-risu-nc-fig');
@@ -5020,7 +4790,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         root.look = '';
         root.pct = -1;
         root.clickId = await d.addEventListener('click', event => void onRootClick(event));
-        
         root.observer = await api.createMutationObserver(() => {
             if (root.timer) return;
             root.timer = setTimeout(() => {
@@ -5047,7 +4816,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             root.clickId = '';
         }
         await removeButtons(d);
-        
         try {
             const row = await inputRow(d);
             if (row) await tightenButtons(row, true);
@@ -5104,7 +4872,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const ci = await api.getCurrentCharacterIndex();
             const chi = await api.getCurrentChatIndex();
             const low = name.toLowerCase();
-            
             if (act !== 'del') {
                 const b = st.busy;
                 if (b && figHit(b.job, ci, chi, act, low)) { if (!b.stop) cancelAll(); return; }
@@ -5128,7 +4895,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     armed.timer = setTimeout(disarm, 3000);
                     return;
                 }
-                
                 disarm();
                 await removeImage(ci, chi, char, key, idx, low);
                 return;
@@ -5142,7 +4908,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 name = rec.images.find(x => x.name.toLowerCase() === low).name;
             } else if (list[idx].role !== 'char') return;
             if (!(await naiKey())) { await openSettings(); return; }
-            
             const fig = { act, name: low };
             const job = act === 'draw'
                 ? { ci, chi, idx, key, mode: 'draw', only: name, label: '그림 다시 그리는 중', alertFail: true, fig }
@@ -5184,7 +4949,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const NC_ASSET_RE = /^nc_[a-z0-9]+$/;
-    
     const ncUsed = char => new Set(JSON.stringify({ ...char, additionalAssets: [] }).toLowerCase().match(/nc_[a-z0-9]+/g) ?? []);
     const ncLow = a => String(a?.[0] ?? '').toLowerCase();
     async function goneScan() {
@@ -5219,7 +4983,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (st.busy || jobsOn.size) throw new Error('그리는 중에는 지울 수 없습니다');
         const char = await api.getCharacterFromIndex(v.ci);
         if (char?.chaId !== v.chaId) throw new Error('지금 봇이 바뀌었습니다');
-        
         const used = ncUsed(char);
         const drop = new Set(names.map(n => String(n).toLowerCase()).filter(n => NC_ASSET_RE.test(n) && !used.has(n)));
         const before = (char.additionalAssets ?? []).length;
@@ -5292,10 +5055,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         ['sobbing', '오열', '😭', 'sobbing, streaming tears, open mouth, wiping tears'],
         ['moved', '감동', '🥲', 'happy tears, smile, wiping tears with finger'],
     ];
-    
     const AC_OUTFIT_PRE = [
-        ['uniform', '교복', 'school uniform'], ['suit', '정장', 'business suit'], ['sport', '운동복', 'sportswear'],
-        ['swim', '수영복', 'swimsuit'], ['dress', '파티 드레스', 'party dress'],
+        ['uniform', '교복', 'school uniform, navy blazer, white collared shirt, red neck ribbon, navy plaid pleated skirt, white socks, brown loafers',
+            'school uniform, navy blazer, white collared shirt, red necktie, gray pants, brown loafers'],
+        ['suit', '정장', 'business suit, black suit jacket, white collared shirt, black pencil skirt, black pantyhose, black high heels',
+            'business suit, black suit jacket, white collared shirt, navy necktie, black pants, black footwear'],
+        ['sport', '운동복', 'sportswear, navy track jacket, white t-shirt, navy track pants, white sneakers'],
+        ['swim', '수영복', 'swimsuit, blue one-piece swimsuit', 'male swimwear, navy swim trunks'],
+        ['dress', '파티 드레스', 'party dress, red evening gown, sleeveless dress, red high heels',
+            'formal, black tuxedo, white collared shirt, black bowtie, black footwear'],
     ];
     const AC_COUNT_INFO = {
         1: ['기본', '기본 표정 1장만 먼저 그려 그림체를 봅니다. 특수 에셋은 그리지 않습니다'],
@@ -5303,12 +5071,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         50: ['에셋 50개', '감정 49종과 특수 에셋 1종, 서로 다른 50장을 그립니다'],
         custom: ['커스텀', '쉼표로 나눈 감정만 그립니다. 「다음」을 누르면 모델이 태그로 옮깁니다'],
     };
-    
     const AC_CUSTOM_MAX = 50;
     const AC_CUSTOM_EX = '예: 웃음, 눈물, 행복';
     const acCustomItems = text => String(text ?? '').split(/[,，、\n]+/).map(x => tidy(x).slice(0, 20)).filter(Boolean).slice(0, AC_CUSTOM_MAX);
     const AC_CUSTOM_SYSTEM = 'The user lists facial expressions or moods for character portraits, separated by commas. For each item, in the same order, write Danbooru tags for NovelAI that show that emotion on one character alone: facial expression first, then one fitting pose or gesture (e.g. "smile, open mouth, hand on own hip"). No hair, eyes, clothes, background or camera tags. key is one short lowercase English word for the emotion (a-z only, e.g. "happy", "crying"). icon is one emoji. ko is the item exactly as the user wrote it. Reply with JSON only: {"emos":[{"ko":"item","key":"word","icon":"emoji","en":"tags"}]}';
-    
     const AC_SPECIAL_DEF = [
         { key: 'hug', ko: '포옹', icon: '🤗', en: 'hugging viewer, pov, upper body, closed eyes, smile, blush', scene: 'hugging' },
         { key: 'headpat', ko: '쓰다듬', icon: '🫳', en: 'headpat, pov, pov hands, closed eyes, smile, blush, upper body', scene: 'head-patting' },
@@ -5316,21 +5082,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         { key: 'wink', ko: '윙크', icon: '😉', en: 'one eye closed, v, smile, leaning forward, upper body', scene: 'playful teasing' },
         { key: 'sleep', ko: '잠듦', icon: '😴', en: 'sleeping, closed eyes, lying, pillow, blanket', scene: 'sleeping' },
     ];
-    
     const AC_NOTE_OPEN = '{{// 이매진 에셋}}';
     const AC_NOTE_CLOSE = '{{// 이매진 에셋 끝}}';
     const AC_NOTE_RE = /\{\{\/\/ 이매진 에셋\}\}[\s\S]*?\{\{\/\/ 이매진 에셋 끝\}\}/;
     const AC_LORE_LOOK = name => `이매진 · ${name} 외형`;
     const AC_LORE_ASSET = name => `이매진 · ${name} 에셋`;
-    
     const AC_PER_SEC = 22;
     const AC_SLUG_RE = /^[a-z][a-z0-9]{0,15}$/;
     const AC_KEY_RE = /^[a-z][a-z0-9]{0,15}$/;
-    
     const AC_OKEY_RE = /^[a-z][a-z0-9]*$/;
-    
     const acOutfitKey = (en, used) => acKeyFrom(tidy(String(en ?? '').split(',')[0]), used);
-    
     const AC_CSS = `
 .ix-head.fd{align-items:flex-end;padding-bottom:0}
 .ix-head.fd .ix-logo,.ix-head.fd .ix-chip,.ix-head.fd .sd,.ix-head.fd .ix-x{margin-bottom:8px}
@@ -5624,16 +5385,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
   .rc-bar{margin:18px -12px -12px;padding:10px 12px}
 }
 `;
-
     const AC_HUES = ['#3d5afe', '#c2185b', '#00897b', '#ef6c00', '#7b1fa2', '#2e7d32', '#0277bd', '#6d4c41'];
     const acInitial = s => ([...String(s || '?').trim()][0] ?? '?').toUpperCase();
-
     const AC_VIEW_DEF = '2::cowboy shot::, standing, looking at viewer';
-    const AC_VIEW_OLD = ['cowboy shot, standing, looking at viewer'];   
+    const AC_VIEW_OLD = ['cowboy shot, standing, looking at viewer'];
     const AC_AST = () => ({
         picked: null, outfits: null, extra: [], botOutfits: null, count: 10, custom: null, customText: '', special: null, specials: [], why: '', ref: true, view: AC_VIEW_DEF,
         gn: '', gnEdited: false, step: 1, edits: {}, refName: {}, slugs: {}, slugBy: {}, enNames: {}, asked: false, made: [],
-        prompts: {},   
+        prompts: {},
+        refOf: {},
     });
     const astCache = new Map();
     const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -5641,7 +5401,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (astCache.has(chaId)) return astCache.get(chaId);
         const v = await api.pluginStorage.getItem('nc:ast:' + chaId).catch(() => null);
         const a = { ...AC_AST(), ...(isObj(v) ? v : {}) };
-        
         a.custom = isObj(a.custom) && Array.isArray(a.custom.emos) ? { raw: String(a.custom.raw ?? ''), emos: acCleanEmos(a.custom.emos) } : null;
         if (a.custom && !a.custom.emos.length) a.custom = null;
         a.customText = String(a.customText ?? a.custom?.raw ?? '').slice(0, 1000);
@@ -5649,7 +5408,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (![1, 10, 50, 'custom'].includes(a.count)) a.count = 10;
         for (const k of ['picked', 'outfits', 'botOutfits']) if (a[k] !== null && !Array.isArray(a[k])) a[k] = null;
         for (const k of ['extra', 'specials', 'made']) if (!Array.isArray(a[k])) a[k] = [];
-        for (const k of ['edits', 'refName', 'slugs', 'slugBy', 'enNames', 'prompts']) if (!isObj(a[k])) a[k] = {};
+        for (const k of ['edits', 'refName', 'slugs', 'slugBy', 'enNames', 'prompts', 'refOf']) if (!isObj(a[k])) a[k] = {};
+        for (const [k, x] of Object.entries(a.refOf)) if (typeof x !== 'string') delete a.refOf[k];
         for (const [k, x] of Object.entries(a.prompts)) if (!isObj(x) || !['base', 'neg', 'slot'].every(f => typeof x[f] === 'string')) delete a.prompts[k];
         if (a.special !== null && !(isObj(a.special) && tidy(a.special.ko) && tidy(a.special.en))) a.special = null;
         a.step = Math.min(8, Math.max(1, Math.round(Number(a.step)) || 1));
@@ -5688,8 +5448,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         an: null, anAt: 0, anBusy: false, anErr: '', anShow: false, anFlash: false, quota: null, anT0: 0,
         refs: new Map(), times: [], timer: 0, fail: new Map(), menu: '', who: '', outfit: '', adv: false, trErr: '', lw: 'all',
         reopen: 0, reopenCha: '', llmOpen: false,
-        sp: false, spAt: 0, spErr: '',   
-        fOpen: false, mOpen: false, finAt: 0,   
+        sp: false, spAt: 0, spErr: '',
+        fOpen: false, mOpen: false, finAt: 0,
     };
 
     const acCast = () => (st.view?.cast?.list ?? []).filter(e => e && e.on !== false);
@@ -5705,9 +5465,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const RO_I = ['g', 'kk', 'n', 'd', 'tt', 'r', 'm', 'b', 'pp', 's', 'ss', '', 'j', 'jj', 'ch', 'k', 't', 'p', 'h'];
     const RO_V = ['a', 'ae', 'ya', 'yae', 'eo', 'e', 'yeo', 'ye', 'o', 'wa', 'wae', 'oe', 'yo', 'u', 'wo', 'we', 'wi', 'yu', 'eu', 'ui', 'i'];
     const RO_F = ['', 'k', 'k', 'k', 'n', 'n', 'n', 't', 'l', 'k', 'm', 'l', 'l', 'l', 'p', 'l', 'm', 'p', 'p', 't', 't', 'ng', 't', 't', 'k', 't', 'p', 't'];
-    
     const RO_LINK = { 1: 'g', 2: 'kk', 4: 'n', 7: 'd', 8: 'r', 16: 'm', 17: 'b', 19: 's', 20: 'ss', 22: 'j', 23: 'ch', 24: 'k', 25: 't', 26: 'p', 27: '' };
-    
     const RO_SUR = { 김: 'kim', 이: 'lee', 박: 'park', 최: 'choi', 정: 'jung', 강: 'kang', 조: 'cho', 윤: 'yoon', 장: 'jang', 임: 'lim', 한: 'han', 오: 'oh', 서: 'seo', 신: 'shin', 권: 'kwon', 황: 'hwang', 안: 'ahn', 송: 'song', 류: 'ryu', 유: 'yoo', 홍: 'hong', 전: 'jeon', 고: 'ko', 문: 'moon', 양: 'yang', 손: 'son', 배: 'bae', 백: 'baek', 허: 'heo', 남: 'nam', 심: 'shim', 노: 'noh', 하: 'ha', 곽: 'kwak', 성: 'sung', 차: 'cha', 주: 'joo', 우: 'woo', 구: 'koo', 민: 'min', 진: 'jin', 나: 'na', 지: 'ji', 채: 'chae', 원: 'won', 천: 'cheon', 방: 'bang', 공: 'kong', 현: 'hyun', 함: 'ham', 변: 'byun', 염: 'yeom', 여: 'yeo', 추: 'choo', 도: 'do', 소: 'so', 석: 'seok', 선: 'sun', 설: 'seol', 마: 'ma', 길: 'gil', 연: 'yeon', 위: 'wi', 표: 'pyo', 명: 'myung', 기: 'ki', 반: 'ban', 왕: 'wang', 금: 'keum', 옥: 'ok', 육: 'yook', 인: 'in', 제: 'je', 모: 'mo', 탁: 'tak', 국: 'kook', 은: 'eun', 용: 'yong', 엄: 'eom' };
     function acRoman(s) {
         const cs = [...String(s ?? '')];
@@ -5728,12 +5486,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         });
         return out;
     }
-    
     const acAscii = x => { const k = acRoman(x).toLowerCase().replace(/[^a-z0-9]/g, ''); return /^[a-z]/.test(k) ? k : ''; };
-    
     const acHashSlug = e => ('p' + fnv(String(e.id || e.name))).slice(0, 12);
     const acSlugUsed = (a, s) => a.made.some(n => n.startsWith(`c_${s}_`)) || [...acHas().keys()].some(n => n.startsWith(`c_${s}_`));
-    
     const acSlugBase = (a, e) => [a.enNames[e.name], ...(e.aliases ?? []), e.name].map(acAscii).find(Boolean)?.slice(0, 12) || 'person';
 
     function acSlugs(a) {
@@ -5744,7 +5499,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (s === acHashSlug(e) && !acSlugUsed(a, s)) continue;
             if (AC_SLUG_RE.test(s ?? '') && !used.has(s)) { out[e.id] = s; used.add(s); }
         }
-        
         const ids = new Set(list.map(e => e.id)), gone = new Map();
         for (const [id, s] of Object.entries(a.slugs)) if (!ids.has(id) && AC_SLUG_RE.test(s ?? '') && !used.has(s)) gone.set(s, a.slugBy[s] ?? '');
         for (const e of list) {
@@ -5761,7 +5515,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
     const acEnName = (a, e, slug) => a.enNames[e.name] || slug.charAt(0).toUpperCase() + slug.slice(1);
     const acName = (slug, okey, ekey) => `c_${slug}_${okey}_${ekey}`;
-    
     function acKeyFrom(s, used, pre = 'o') {
         const k = acAscii(s) || (pre === 's' ? 'scene' : 'outfit');
         let out = k, n = 2;
@@ -5771,7 +5524,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const AC_BASE_OUTFIT = { key: 'base', ko: '기본 복장', en: 'default outfit', src: '등장인물 탭 그대로', g: 'bot' };
-    
     function acOutfitList(a) {
         const out = [AC_BASE_OUTFIT], seen = new Set(['base']);
         const put = o => {
@@ -5780,7 +5532,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             out.push(o);
         };
         for (const o of a.botOutfits ?? []) put({ ...o, src: o.src || '봇 설명', g: 'bot' });
-        for (const [key, ko, en] of AC_OUTFIT_PRE) put({ key, ko, en, src: '프리셋', g: 'pre' });
+        for (const [key, ko, en, enBoy] of AC_OUTFIT_PRE) put({ key, ko, en, enBoy, src: '프리셋', g: 'pre' });
         for (const o of a.extra) put({ ...o, src: '직접 추가', g: 'user' });
         return out;
     }
@@ -5788,20 +5540,17 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const acOutfits = a => { const keys = new Set(acOutfitKeys(a)); return acOutfitList(a).filter(o => keys.has(o.key)); };
 
     const acSpecialList = a => a.specials.length ? a.specials : AC_SPECIAL_DEF;
-    
     function acSpecial(a) {
         const s = a.special ?? acSpecialList(a)[0];
         const key = AC_KEY_RE.test(s.key ?? '') && !AC_EMO.some(r => r[0] === s.key) ? s.key : 'special';
         return { key, ko: s.ko, icon: s.icon || '✨', en: s.en, scene: s.scene || key, special: true };
     }
-    
     function acEmos(a) {
         if (a.count === 'custom' && a.custom?.emos.length) return a.custom.emos.map(m => ({ ...m }));
         const rows = AC_EMO.map(([key, ko, icon, en]) => ({ key, ko, icon, en }));
         if (a.count === 1) return [rows[0]];
         return [...rows.slice(0, a.count === 50 ? 49 : 9), acSpecial(a)];
     }
-    
     function acPlan(a, only) {
         const sl = acSlugs(a), os = acOutfits(a), emos = acEmos(a), out = [];
         for (const e of acPicked(a)) {
@@ -5813,7 +5562,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const acTotal = a => acPicked(a).length * acOutfits(a).length * acEmos(a).length;
     const acDoneOf = (a, e) => { const have = acHas(); return acPlan(a, e.id).filter(t => have.has(t.name)).length; };
 
-    const acWear = (e, o) => k => o.key === 'base' ? baseWear(e, k) : k === 'top' ? o.en : (k === 'bottom' || k === 'shoes') ? '' : baseWear(e, k);
+    const acWear = (e, o) => k => o.key === 'base' ? baseWear(e, k) : k === 'top' ? (e.type === 'boy' && o.enBoy || o.en) : (k === 'bottom' || k === 'shoes') ? '' : baseWear(e, k);
     function acReq(a, e, o, emo, ref, p = acPreset()) {
         const val = acWear(e, o);
         return {
@@ -5824,19 +5573,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         };
     }
     const acPrompt = (a, e, emo) => a.edits[`${e.id}|${emo.key}`] ?? emo.en;
-    
     const acAutoPrompt = (a, t, p = acPreset()) => { const r = acReq(a, t.e, t.o, t.emo, null, p); return { base: r.base, neg: r.neg, slot: r.slots[0].prompt }; };
     function acReqOf(a, t, ref, p) {
         const req = acReq(a, t.e, t.o, t.emo, ref, p), ov = a.prompts[t.name];
         if (ov) { req.base = ov.base; req.neg = ov.neg; req.slots[0].prompt = ov.slot; }
         return req;
     }
-    
     function acSetPrompt(a, t, d) {
         const x = { base: tidy(d.base), neg: tidy(d.neg), slot: tidy(d.slot) }, au = acAutoPrompt(a, t);
         if (x.base === au.base && x.neg === au.neg && x.slot === au.slot) delete a.prompts[t.name]; else a.prompts[t.name] = x;
     }
-    
     function acEmoOf(a, key) {
         const hit = [...acEmos(a), acSpecial(a)].find(m => m.key === key);
         if (hit) return hit;
@@ -5847,16 +5593,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const s = acSpecialList(a).find(x => x.key === key && tidy(x.en));
         return s ? { key, ko: s.ko, icon: s.icon || '✨', en: s.en, scene: s.scene || key, special: true } : null;
     }
-    
     function acTaskOf(a, e, slug, name) {
         if (!e) return null;
         const hit = acPlan(a).find(t => t.name === name);
-        if (hit) return { ...hit, keep: true };
+        if (hit) return { ...hit, keep: true, again: true };
         const m = /^c_[a-z0-9]+_([a-z0-9]+)_([a-z0-9]+)$/.exec(name);
         const o = m && acOutfitList(a).find(x => x.key === m[1]), emo = m && acEmoOf(a, m[2]);
-        return o && emo ? { e, slug, o, emo, name, keep: true } : null;
+        return o && emo ? { e, slug, o, emo, name, keep: true, again: true } : null;
     }
-    
     const AC_ED_BDG = () => h('span', { class: 'bdg-in', title: '에셋 목록에서 직접 고친 프롬프트로 그립니다' }, '고침');
     const AC_TEXTY = ['sound effects', 'onomatopoeia', 'motion lines', 'motion blur', 'speech bubble', 'text'];
 
@@ -5865,7 +5609,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const emos = acEmos(a);
         return r && emos.some(m => acName(slug, o.key, m.key) === r) ? r : acName(slug, o.key, emos[0]?.key ?? 'default');
     };
-    
     async function acPng64(path) {
         const data = await api.readImage(path);
         const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
@@ -5881,13 +5624,22 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
         return btoa(s);
     }
-    
-    function acRefOf(a, t, chaId) {
+    function acRefPick(a, t, have) {
+        const ok = n => typeof n === 'string' && n !== t.name && !!have?.has(n);
+        if (t.again) {
+            const r = a.refName[`${t.e.id}|${t.o.key}`];
+            if (ok(r) && acEmos(a).some(m => acName(t.slug, t.o.key, m.key) === r)) return r;
+            if (ok(a.refOf[t.name])) return a.refOf[t.name];
+        }
         if (!a.ref) return null;
         const rn = acRefName(a, t.e, t.slug, t.o);
-        if (rn === t.name) return null;
-        const path = acHave.get(chaId)?.get(rn);
-        if (!path) return null;
+        return ok(rn) ? rn : null;
+    }
+    function acRefOf(a, t, chaId) {
+        const have = acHave.get(chaId);
+        const rn = acRefPick(a, t, have);
+        if (!rn) return null;
+        const path = have.get(rn);
         const k = rn + '|' + path;
         if (!acs.refs.has(k)) {
             const p = acPng64(path);
@@ -5907,20 +5659,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function acStart(a, tasks, single = false) {
         const v = st.view;
         if (acs.run || acs.cu || !v || !tasks.length) return false;
-        
         const sl = acSlugs(a);
         for (const e of acPicked(a)) { a.slugs[e.id] = sl[e.id]; a.slugBy[sl[e.id]] = e.name; }
         saveAst(v.chaId);
-        
         if (a.ref) {
             const gk = t => `${t.e.id}|${t.o.key}`, first = new Map();
             tasks.forEach((t, i) => { if (!first.has(gk(t))) first.set(gk(t), i); });
             const isRef = t => acRefName(a, t.e, t.slug, t.o) === t.name ? 0 : 1;
             tasks = [...tasks].sort((x, y) => first.get(gk(x)) - first.get(gk(y)) || isRef(x) - isRef(y));
         }
-        
         let refOnly = false;
-        
         const hv = acHas();
         if (a.ref && !single && tasks.every(t => !hv.has(t.name))) {
             const refs = tasks.filter(t => acRefName(a, t.e, t.slug, t.o) === t.name);
@@ -5961,6 +5709,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             run.curAt = Date.now();
             render();
             let ref = null;
+            const refN = acRefPick(a, t, acHave.get(run.chaId));
             try { ref = await acRefOf(a, t, run.chaId); } catch (error) {
                 console.warn(LOG, 'asset ref', error);
                 acs.msg = `레퍼런스 그림을 읽지 못해 ${t.e.name} · ${t.emo.ko} 칸은 레퍼런스 없이 그립니다: ${error?.message ?? error}`;
@@ -5974,6 +5723,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             let ext = isWebp(bytes) ? 'webp' : 'png';
             if (st.set.webp && ext === 'png') { const w = await toWebp(bytes); if (w) { bytes = w; ext = 'webp'; } }
             const path = await api.saveAsset(bytes);
+            if (ref && refN) a.refOf[t.name] = refN; else delete a.refOf[t.name];
             await acCommit(a, run, t, path, ext);
             if (run.first) { run.first = false; void setArtistThumb(run.p.id, bytes, path); }
             acs.fail.delete(t.name);
@@ -6007,7 +5757,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             acs.msg = `멈췄습니다. 그린 ${run.done}장은 봇 에셋에 남겨 두었습니다. 애드 에셋을 다시 누르면 남은 칸부터 그립니다.`;
             acs.msgOk = false;
         } else if (!run.ended && run.refOnly) {
-            
             acs.msg = '';
             acs.msgOk = true;
         } else if (!run.ended) {
@@ -6016,7 +5765,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const names = [...new Set(run.tasks.map(t => t.e.name))];
             const hv = acHave.get(run.chaId) ?? new Map(), all = acPlan(a).every(t => hv.has(t.name));
             acs.msg = run.single ? `${run.tasks[0].name}을(를) 다시 그렸습니다.`
-                : all ? ''   
+                : all ? ''
                 : `애드 에셋을 마쳤습니다. ${names.join(' · ')} ${names.length}명, ${run.n}장을 봇에 넣고 인물마다 로어북 「외형」 · 「에셋」을 썼습니다.`;
             if (note === 'put' && acs.msg && !run.single) acs.msg += ' 글로벌노트에 에셋 목록을 넣었습니다.';
             if (all && !run.single) acs.finAt = Date.now();
@@ -6031,14 +5780,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const char = await api.getCharacterFromIndex(run.ci);
         if (char?.chaId !== run.chaId) throw Object.assign(new Error('봇이 바뀌어 그림을 넣지 못했습니다. 이 봇의 채팅에서 다시 눌러 주세요.'), { moved: true });
         const drop = new Set([t.name]);
-        
         if (t.emo.special && !t.keep) {
             const pre = `c_${t.slug}_${t.o.key}_`;
             const keep = new Set([...AC_EMO.map(r => r[0]), ...(a.custom?.emos ?? []).map(m => m.key)]);
             for (const n of a.made) if (n.startsWith(pre) && !keep.has(n.slice(pre.length))) drop.add(n);
         }
         const gone = (char.additionalAssets ?? []).filter(x => drop.has(x?.[0])).map(x => x[1]);
-        
         char.additionalAssets = acSwapIn(char.additionalAssets ?? [], x => x?.[0], drop, t.name, [t.name, path, ext]);
         const made = acSwapIn(a.made, n => n, drop, t.name, t.name);
         acLore(char, a, t.e, t.slug, made);
@@ -6046,10 +5793,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         acReadHave(char);
         a.made = made;
         for (const [k, n] of Object.entries(a.refName)) if (drop.has(n) && n !== t.name) delete a.refName[k];
+        for (const k of Object.keys(a.refOf)) if (drop.has(k) && k !== t.name) delete a.refOf[k];
         for (const p of gone) if (p !== path) thumbs.delete(p);
         saveAst(run.chaId);
     }
-    
     function acSwapIn(list, keyOf, drop, name, item) {
         let at = list.findIndex(x => keyOf(x) === name);
         if (at < 0) at = list.findIndex(x => drop.has(keyOf(x)));
@@ -6062,7 +5809,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         out.splice(pos < 0 ? out.length : pos, 0, item);
         return out;
     }
-    
     function acLore(char, a, e, slug, made = a.made) {
         const lore = Array.isArray(char.globalLore) ? char.globalLore : (char.globalLore = []);
         const pre = `c_${slug}_`;
@@ -6082,7 +5828,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             `[${e.name} 외형 · 이매진이 고정]\n` + rows.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join('\n'),
             `[${e.name} 에셋] 장면의 감정에 맞는 그림 하나를 {{image::c_${slug}_복장_감정}} 꼴로 넣는다.\n` + list.join('\n'),
         ];
-        
         const off = st.set.ptOff.includes(char.chaId);
         comments.forEach((comment, i) => {
             if (off && i === 1) return;
@@ -6092,7 +5837,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         });
         if (off) char.globalLore = lore.filter(x => x?.comment !== comments[1]);
     }
-    
     async function acSyncOff(a, ci, chaId) {
         const char = await api.getCharacterFromIndex(ci);
         if (char?.chaId !== chaId) return null;
@@ -6108,7 +5852,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (lore || note === 'put' || note === 'cut') await api.setCharacterToIndex(ci, char);
         return { lore, note };
     }
-    
     async function acDelete(a, name, e, slug, ci, chaId) {
         const char = await api.getCharacterFromIndex(ci);
         if (char?.chaId !== chaId) throw new Error('봇이 바뀌어 지우지 않았습니다.');
@@ -6122,11 +5865,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         a.made = made;
         delete a.prompts[name];
         for (const [k, n] of Object.entries(a.refName)) if (n === name) delete a.refName[k];
+        for (const [k, n] of Object.entries(a.refOf)) if (k === name || n === name) delete a.refOf[k];
         for (const p of gone) thumbs.delete(p);
         saveAst(chaId);
         return { note };
     }
-
     async function acRename(a, e, from, ci, chaId) {
         const char = await api.getCharacterFromIndex(ci);
         if (char?.chaId !== chaId) throw new Error('봇이 바뀌어 이름을 바꾸지 않았습니다.');
@@ -6148,6 +5891,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         a.slugBy[to] = e.name;
         for (const [k, nm] of Object.entries(a.refName)) a.refName[k] = ren(nm);
         for (const k of Object.keys(a.prompts)) if (k.startsWith(oldPre)) { a.prompts[ren(k)] = a.prompts[k]; delete a.prompts[k]; }
+        a.refOf = Object.fromEntries(Object.entries(a.refOf).map(([k, n]) => [ren(k), ren(n)]));
         if (a.gnEdited) {
             const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
             a.gn = a.gn.split(oldPre).join(newPre).split(`${cap(from)} (`).join(`${acEnName(a, e, to)} (`);
@@ -6161,11 +5905,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         saveAst(chaId);
         return { to, n: cnt, note };
     }
-    
     const acMine = (a, e, slug) => new Set([...a.made, ...acPlan(a, e.id).map(t => t.name)].filter(n => n.startsWith(`c_${slug}_`)));
-    
     const acMineAll = a => new Set([...a.made, ...acPlan(a).map(t => t.name)]);
-    
     async function acClearAll(a, ci, chaId) {
         const char = await api.getCharacterFromIndex(ci);
         if (char?.chaId !== chaId) throw new Error('봇이 바뀌어 지우지 않았습니다.');
@@ -6173,7 +5914,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const before = (char.additionalAssets ?? []).length;
         const gone = (char.additionalAssets ?? []).filter(x => mine.has(x?.[0])).map(x => x[1]);
         char.additionalAssets = (char.additionalAssets ?? []).filter(x => !mine.has(x?.[0]));
-        
         const ours = x => typeof x?.comment === 'string' && /^이매진 · .+ (외형|에셋)$/.test(x.comment);
         const lore = Array.isArray(char.globalLore) ? char.globalLore : [];
         const loreN = lore.filter(ours).length;
@@ -6184,6 +5924,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         a.made = [];
         for (const k of Object.keys(a.prompts)) if (mine.has(k)) delete a.prompts[k];
         for (const [k, n] of Object.entries(a.refName)) if (mine.has(n)) delete a.refName[k];
+        for (const [k, n] of Object.entries(a.refOf)) if (mine.has(k) || mine.has(n)) delete a.refOf[k];
         for (const p of gone) thumbs.delete(p);
         saveAst(chaId);
         return { n: before - char.additionalAssets.length, lore: loreN, note };
@@ -6194,7 +5935,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (!cs.length || !os.length) return '';
         const sp = emos.some(m => m.special) ? acSpecial(a) : null;
         const pl = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-        
         const exE = a.count === 'custom' ? emos.slice(0, 4).map(m => m.key) : a.count === 1 ? ['default'] : ['smile', 'surprised', 'pout', 'thinking'];
         const ex = cs.map((e, i) => `{{image::${acName(sl[e.id], os[(i + 1) % os.length].key, exE[i % exE.length])}}}`).join(' · ');
         const L = [
@@ -6213,10 +5953,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return L.join('\n');
     }
     const acNoteNow = a => a.gnEdited ? a.gn : acNoteText(a);
-
     function acNoteInto(char, a) {
         if (!char || st.view?.chaId !== char.chaId) return '';
-        
         if (st.set.ptOff.includes(char.chaId)) return acCutNote(char) ? 'cut' : '';
         const have = new Set((char.additionalAssets ?? []).map(x => x?.[0]));
         const plan = acPlan(a), text = acNoteNow(a);
@@ -6238,7 +5976,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (r === 'put' || r === 'cut') await api.setCharacterToIndex(ci, char);
         return r;
     }
-    
     function acCutNote(char) {
         const cur = String(char.replaceGlobalNote ?? '');
         if (!AC_NOTE_RE.test(cur)) return false;
@@ -6255,9 +5992,9 @@ Reply with one JSON object only, no other text:
  "why":"one Korean sentence on why you picked these special scenes"}
 Rules:
 - outfits: up to 4 distinct outfits the listed characters wear in this story, other than their everyday default outfit. Use [] if none.
+  In en, write the outfit's general tag first, then every visible garment with its color: top, outer layer, neckwear, bottom, legwear, footwear (e.g. "nurse, white nurse cap, white short-sleeved dress, pink cardigan, white pantyhose, white shoes"). Use the colors the bot writes; when it gives none, pick colors that fit the setting. Never leave a garment without a color.
 - specials: exactly 5 signature actions of the character that fit this bot (e.g. playing an instrument, performing surgery, singing, sword fighting, headpat, hug). Each one is something the character does, not a place. Tags describe one character alone; use pov for interaction with the viewer. Do not describe hair, eyes or clothes. Never name a place, room, building, background or scenery (no stage, hospital, operating room, classroom, street, indoors, outdoors); the image has a plain white background.
 - names: one entry per listed character. Use the romanized name if there is no English name.`;
-    
     const AC_REGEN_SYSTEM = `You write NovelAI (Danbooru tag) prompts for one standalone character portrait on a plain white background.
 Reply with one JSON object only, no other text: {"tags":"comma-separated Danbooru tags"}
 Rules:
@@ -6297,23 +6034,32 @@ Rules:
             if (acs.edit === ed) renderNow();
         }
     }
+    function acHalt() {
+        const t = { stop: false };
+        t.halt = new Promise((_, reject) => { t.onStop = () => { if (t.stop) return; t.stop = true; reject(stopError()); }; });
+        t.halt.catch(() => {});
+        return t;
+    }
+    const acRace = (t, work) => { if (!t) return work; work.catch(() => {}); return Promise.race([work, t.halt]); };
     async function acAskBot(a, char) {
         if (acs.asking) return;
         const v = st.view;
+        const t = acs.askHalt = acHalt();
         acs.asking = true;
         acs.askAt = Date.now();
         acs.askErr = '';
+        acs.askStop = false;
         render();
         try {
             const cs = acPicked(a);
-            const { text } = await botContext(char);
+            const { text } = await acRace(t, botContext(char));
             const user = `${text}\n\n# CHARACTERS\n${cs.map(e => `- ${e.name}${e.aliases?.length ? ` (${e.aliases.join(', ')})` : ''}`).join('\n')}`;
-            const res = parseJson(await requestModel(AC_ASK_SYSTEM, user, true, st.set.acLlm), 'specials');
+            const res = parseJson(await acRace(t, requestModel(AC_ASK_SYSTEM, user, true, st.set.acLlm)), 'specials');
             if (!isObj(res)) throw new Error('모델 답에서 JSON 을 찾지 못했습니다.');
             const ascii = s => /^[\x20-\x7e]+$/.test(s);
             const usedO = new Set(['base', ...AC_OUTFIT_PRE.map(o => o[0]), ...a.extra.map(o => o.key)]);
             a.botOutfits = (Array.isArray(res.outfits) ? res.outfits : []).slice(0, 4)
-                .map(o => ({ ko: tidy(o?.ko).slice(0, 20), en: tidy(o?.en).toLowerCase().slice(0, 160), src: tidy(o?.src).slice(0, 30) }))
+                .map(o => ({ ko: tidy(o?.ko).slice(0, 20), en: tidy(o?.en).toLowerCase().slice(0, 300), src: tidy(o?.src).slice(0, 30) }))
                 .filter(o => o.ko && o.en && ascii(o.en))
                 .map(o => ({ ...o, key: acOutfitKey(o.en, usedO) }));
             const usedS = new Set(AC_EMO.map(r => r[0]));
@@ -6331,35 +6077,34 @@ Rules:
             }
             a.why = tidy(res.why).slice(0, 200);
         } catch (error) {
-            console.warn(LOG, 'asset ask', error);
-            acs.askErr = String(error?.message ?? error);
+            if (!error?.isStop) console.warn(LOG, 'asset ask', error);
+            acs.askStop = !!error?.isStop;
+            acs.askErr = acs.askStop ? '멈췄습니다.' : String(error?.message ?? error);
         }
         a.asked = true;
         acs.asking = false;
+        if (acs.askHalt === t) acs.askHalt = null;
         if (v) saveAst(v.chaId);
         render();
     }
-    
     const AC_TR_SYSTEM = {
-        outfit: 'Translate the outfit name into Danbooru tags for NovelAI that describe the whole outfit (e.g. "school uniform, pleated skirt"). Reply with JSON only: {"en":"tags"}',
+        outfit: 'Translate the outfit name into Danbooru tags for NovelAI that describe the whole outfit: the general tag first, then every visible garment with its color (top, outer layer, neckwear, bottom, legwear, footwear), e.g. "maid, black maid dress, white apron, white maid headdress, white thighhighs, black mary janes". Use the colors the user wrote; when none are given, pick typical colors. Never leave a garment without a color. Reply with JSON only: {"en":"tags"}',
         scene: 'Turn the scene, action or emotion name into Danbooru tags for NovelAI that describe one character alone in that scene: pose, facial expression and props, no hair, eyes or clothes. Use pov for interaction with the viewer. Reply with JSON only: {"en":"tags","scene":"short English scene name","icon":"one emoji"}',
     };
-    async function acTranslate(text, what) {
+    async function acTranslate(text, what, t) {
         if (/^[\x20-\x7e]+$/.test(text)) return { en: text.toLowerCase(), scene: text.toLowerCase(), icon: '' };
-        const res = parseJson(await requestModel(AC_TR_SYSTEM[what], text, true, st.set.acLlm), 'en');
-        const en = tidy(res?.en).toLowerCase().slice(0, 200);
+        const res = parseJson(await acRace(t, requestModel(AC_TR_SYSTEM[what], text, true, st.set.acLlm)), 'en');
+        const en = tidy(res?.en).toLowerCase().slice(0, 300);
         if (!en || !/^[\x20-\x7e]+$/.test(en)) throw new Error('태그로 옮기지 못했습니다.');
         const scene = tidy(res?.scene).toLowerCase().slice(0, 40);
         return { en, scene: /^[\x20-\x7e]+$/.test(scene) ? scene : '', icon: [...tidy(res?.icon)].slice(0, 2).join('') };
     }
-    
     function acCleanEmos(list) {
         const used = new Set(['special']), out = [];
         for (const m of Array.isArray(list) ? list : []) {
             if (!isObj(m)) continue;
             const ko = tidy(m.ko).slice(0, 20), en = tidy(m.en).toLowerCase().slice(0, 200);
             if (!ko || !en || !/^[\x20-\x7e]+$/.test(en)) continue;
-            
             const opts = [AC_KEY_RE.test(m.key ?? '') ? m.key : acAscii(m.key), acAscii(en.split(',')[0]), acAscii(ko), 'emo'].map(k => (k || '').slice(0, 14)).filter(Boolean);
             const want = opts.find(k => !used.has(k)) ?? opts[0];
             let key = want, n = 2;
@@ -6370,7 +6115,6 @@ Rules:
         }
         return out;
     }
-    
     async function acResolveCustom(a, chaId) {
         const raw = acCustomItems(a.customText).join(', ');
         if (!raw) throw new Error('감정을 하나 이상 적어 주세요. ' + AC_CUSTOM_EX);
@@ -6383,14 +6127,16 @@ Rules:
         saveAst(chaId);
         return emos.length;
     }
-    async function acAddOutfit(a, text) {
+    async function acAddOutfit(a, text, t) {
         const raw = tidy(text).slice(0, 120), ko = raw.slice(0, 30);
         if (!ko) return;
         const keys = acOutfitKeys(a);
-        const hit = acOutfitList(a).find(o => o.ko === ko || o.en.toLowerCase() === raw.toLowerCase());
+        const low = raw.toLowerCase();
+        const hit = acOutfitList(a).find(o => o.ko === ko || o.en.toLowerCase() === low || tidy(o.en.split(',')[0]).toLowerCase() === low);
         if (hit) { if (!keys.includes(hit.key)) a.outfits = [...keys, hit.key]; return; }
         let en;
-        try { en = (await acTranslate(raw, 'outfit')).en; } catch (error) {
+        try { en = (await acTranslate(raw, 'outfit', t)).en; } catch (error) {
+            if (error?.isStop) throw error;
             console.warn(LOG, 'outfit tr', error);
             throw new Error(`「${ko}」을(를) NAI 태그로 옮기지 못했습니다. 영어 태그로 적어 주세요 (예: maid outfit).`);
         }
@@ -6398,7 +6144,6 @@ Rules:
         a.extra.push({ key, ko, en });
         a.outfits = [...keys, key];
     }
-    
     const AC_SP_SYSTEM = `You turn a special scene the user typed (any language) into a NovelAI (Danbooru tag) prompt for one standalone character portrait on a plain white background, for the roleplay bot below.
 Reply with one JSON object only, no other text: {"en":"comma-separated Danbooru tags","scene":"short English action name (e.g. aiming rifle)","icon":"one emoji"}
 Rules:
@@ -6455,7 +6200,6 @@ Rules:
         const key = await naiKey();
         if (!key) return;
         acs.anBusy = true;
-        
         acs.anShow = force;
         if (force) acs.anT0 = Date.now();
         const slow = force ? new Promise(r => setTimeout(r, 700)) : null;
@@ -6512,8 +6256,24 @@ Rules:
 
     const gaugeStyle = (at, sec) => `animation-duration:${sec}s;animation-delay:-${Math.max(0, (Date.now() - (at || Date.now())) / 1000).toFixed(2)}s`;
     const loadDots = () => h('span', { class: 'ld', 'aria-hidden': 'true' }, h('i', null, '.'), h('i', null, '.'), h('i', null, '.'));
+    const secSpan = at => {
+        const tx = () => `${Math.max(0, Math.floor((Date.now() - at) / 1000))}초`;
+        const el = h('span', null, tx());
+        let seen = false, miss = 0;
+        const id = setInterval(() => {
+            if (el.isConnected) { seen = true; el.textContent = tx(); }
+            else if (seen || ++miss > 5) clearInterval(id);
+        }, 1000);
+        return el;
+    };
+    const loreStepText = b => b.ls === 2 ? `인물 ${b.found ?? 0}명 정리하는 중`
+        : b.ls === 1 ? `모델이 인물을 찾는 중 · 로어북 ${b.loreN}항목 · ${Number(b.chars).toLocaleString('ko-KR')}자`
+        : '로어북 읽는 중';
+    const loreEst = b => {
+        const r = Number(st.loreRate?.[b.llm ?? st.set.llm]);
+        return Math.round(Math.min(180, Math.max(8, r > 0 ? r * Math.max(1, (b.chars || 0) / 10000) : 30)));
+    };
     function acModeToggle() {
-
         const nAst = acListNames(acAst()).length;
         const ptOff = !!st.view?.chaId && st.set.ptOff.includes(st.view.chaId);
         const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff };
@@ -6521,26 +6281,22 @@ Rules:
             imagine: lit.imagine ? '자동 그리기 켜짐' : setupDone() ? '자동 그리기 꺼짐' : '준비 전',
             asset: lit.asset ? `에셋 ${nAst}장 있음` : nAst ? `에셋 ${nAst}장 · 채팅에 보이기 꺼짐` : '아직 만든 에셋 없음',
         };
-        
         return h('span', { class: 'md', role: 'tablist', 'aria-label': '모드' }, [['imagine', '삽화'], ['asset', '애드 에셋']].map(([m, label]) => h('button', {
             type: 'button', role: 'tab', class: (!ui.side && ui.mode === m ? 'on ' : '') + 'm-' + m, 'aria-selected': !ui.side && ui.mode === m ? 'true' : 'false',
             title: tip[m], 'aria-label': `${label} · ${tip[m]}`,
             onclick: () => { ui.mode = m; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); if (m === 'asset') void acAnlas(); },
         }, headIcon(m), label, h('i', { class: 'md-led' + (lit[m] ? ' lit' : ''), 'aria-hidden': 'true' }))),
-            
             updOn() ? h('button', {
                 type: 'button', role: 'tab', class: (ui.side === 'upd' ? 'on ' : '') + 'm-upd', 'aria-selected': ui.side === 'upd' ? 'true' : 'false',
                 title: `새 버전 v${upd.latest}`, 'aria-label': `업데이트 · 새 버전 v${upd.latest}`,
                 onclick: () => { ui.side = 'upd'; ui.menu = ''; acs.menu = ''; renderNow(); },
             }, headIcon('upd'), '업데이트', h('i', { class: 'md-dot', 'aria-hidden': 'true' })) : null);
     }
-    
     const acListNames = a => { const have = acHas(); return a ? a.made.filter(n => have.has(n)) : []; };
     const AC_TABS = [
         ['make', () => '준비'],
         ['list', () => { const n = acListNames(acAst()).length; return ['에셋 목록', n ? h('em', { class: 'cnt' }, n) : null]; }],
     ];
-    
     const acOutfitLabel = a => { const os = acOutfits(a); return !os.length ? '고르지 않음' : os.length > 3 ? `${os.length}벌` : os.map(o => o.ko).join(' · '); };
     async function acAskNow(a) {
         const v = st.view;
@@ -6553,7 +6309,6 @@ Rules:
         const pane = h('section', { class: 'ix-pane' }, intro('애드 에셋', '봇 인물의 복장 · 감정별 그림을 한 번에 그려 봇 에셋에 넣고, 로어북에 적어 봇이 답변에서 꺼내 쓰게 합니다.'));
         if (!v) { noChat(pane); return pane; }
         if (v.group) return add(pane, h('div', { class: 'ix-empty' }, h('b', null, '그룹 채팅에서는 애드 에셋을 쓸 수 없습니다'), '봇 하나의 채팅에서 열어 주세요.'));
-        
         const ptOff = st.set.ptOff.includes(v.chaId);
         const ptRow = () => h('div', { class: 'cf-row sw' },
             h('div', { class: 'cf-tx' }, h('b', null, '채팅에 에셋 그림 보이기'),
@@ -6562,7 +6317,6 @@ Rules:
                 const ids = new Set(st.set.ptOff);
                 if (ptOff) ids.delete(v.chaId); else ids.add(v.chaId);
                 setVal('ptOff', [...ids]);
-                
                 const a = acAst();
                 if (a) void acEnqueue(() => acSyncOff(a, v.ci, v.chaId)).then(r => {
                     if (!r || (!r.lore && r.note !== 'put' && r.note !== 'cut')) return;
@@ -6572,10 +6326,8 @@ Rules:
                     renderNow();
                 }).catch(error => console.warn(LOG, 'off sync', error));
             }));
-        
         const ptTop = ptOff || acListNames(acAst()).length ? h('div', { class: 'cf-card', style: 'margin:0 0 12px' }, ptRow()) : null;
         if (ptTop) add(pane, ptTop);
-        
         const llmDone = !!st.set.setup?.acLlm;
         const llmCur = !llmDone || acs.llmOpen;
         add(pane, h('section', { class: `sp ${llmCur ? 'cur' : 'done'}` },
@@ -6592,8 +6344,9 @@ Rules:
         if (!v.hasKey) return add(pane, h('p', { class: 'ix-hint' }, '애드 에셋은 NovelAI 키가 있어야 그릴 수 있습니다.'), keyBox(true));
         const a = acAst();
         if (!a) return add(pane, h('div', { class: 'ix-empty' }, '불러오는 중…'));
-        
-        const loreOn = st.busy?.label === '로어북 읽는 중';
+        const lb = st.busy?.lore && !st.busy.job ? st.busy : null;
+        const loreOn = !!lb;
+        const loreTry = lb?.label.match(/다시 시도 \d+\/\d+/)?.[0];
         const reread = async () => {
             acs.loreRes = null;
             await rereadLore(st.set.acLlm);
@@ -6602,25 +6355,23 @@ Rules:
         };
         const loreRow = () => [
             h('div', { class: 'ix-acts', style: 'margin:0 0 10px' },
-                h('button', { class: loreOn ? 'ix-btn run' : 'ix-btn', type: 'button', disabled: !!st.busy || !!acs.run, onclick: () => void reread() },
-                    loreOn ? [h('span', { class: 'gf', style: gaugeStyle(st.busy.at, 30) }), '등장인물 분석하는 중', loadDots()] : '등장인물 분석')),
+                loreOn ? h('button', { class: 'ix-btn run stp', type: 'button', disabled: lb.stop, title: '누르면 멈춥니다', onclick: stopLore },
+                    h('span', { class: 'gf lr' + (lb.ls === 1 ? ' ask' : ''), style: lb.ls === 1 ? gaugeStyle(lb.tryAt ?? lb.lsAt, loreEst(lb)) : `width:${lb.ls === 2 ? 96 : 6}%` }),
+                    lb.stop ? '멈추는 중…' : [loreStepText(lb), lb.ls === 1 ? [' · ', secSpan(lb.tryAt ?? lb.lsAt)] : null, loreTry ? ` · ${loreTry}` : '', loadDots(), h('span', { class: 'stp-x' }, '■ 멈추기')])
+                    : h('button', { class: 'ix-btn', type: 'button', disabled: !!st.busy || !!acs.run, onclick: () => void reread() }, '등장인물 분석')),
             !loreOn && acs.loreRes ? h('div', { class: 'ix-msg ' + acs.loreRes[0], style: 'margin:0 0 10px' }, acs.loreRes[1]) : null,
         ];
-        
         const noCast = !acCast().length;
         const keep = () => saveAst(v.chaId);
-        
         const run = acs.run?.chaId === v.chaId ? acs.run : null;
         const busyElse = !!acs.run && !run;
         const noSp = a.count === 1;
-        
         const hasSp = a.count !== 1 && a.count !== 'custom';
         if (noSp && a.step === 4) a.step = 5;
-        const shown = n => (noSp && n > 4 ? n - 1 : n) + 1;   
+        const shown = n => (noSp && n > 4 ? n - 1 : n) + 1;
         const cs = acPicked(a), os = acOutfits(a), emos = acEmos(a), sp = acSpecial(a);
         const plan = acPlan(a), have = acHas(), left = plan.filter(t => !have.has(t.name));
         if (run) { a.step = 8; acs.reopen = 0; }
-        
         const ro = !noCast && acs.reopenCha === v.chaId && acs.reopen < a.step && !(acs.reopen === 4 && noSp) ? acs.reopen : 0;
         const goto = n => {
             if (n === 4 && noSp) n = 5;
@@ -6632,7 +6383,6 @@ Rules:
             keep();
             renderNow();
         };
-        
         const reopen = n => {
             acs.reopen = n;
             acs.llmOpen = false;
@@ -6642,12 +6392,9 @@ Rules:
             acs.msg = '';
             renderNow();
         };
-        
         const okAt = n => n === 1 ? cs.length > 0 : n === 2 ? os.length > 0 : n === 3 && a.count === 'custom' ? !acs.cu : true;
-        
         const next = n => {
             if (n === 1 && !a.asked) void acAskNow(a);
-
             if (n === 3 && a.count === 'custom' && !acCustomItems(a.customText).length) { acs.cuErr = ''; acs.cuNeed = true; renderNow(); cFocus(); return; }
             if (n === 3) acs.cuNeed = false;
             if (n === 3 && a.count === 'custom' && !(a.custom?.raw === acCustomItems(a.customText).join(', ') && a.custom.emos.length)) {
@@ -6664,7 +6411,6 @@ Rules:
                 });
                 return;
             }
-            
             if (n === 7 || (n === ro && a.step > 7)) {
                 void acEnqueue(() => acSyncNote(a, v.ci, v.chaId)).then(r => {
                     if (r === 'put') { acs.msg = '글로벌노트의 이매진 에셋 칸을 지금 글로 바꿨습니다.'; acs.msgOk = true; renderNow(); }
@@ -6673,9 +6419,7 @@ Rules:
             if (n === ro) { acs.reopen = 0; acs.menu = ''; acs.trErr = ''; keep(); renderNow(); return; }
             goto(n === 3 && noSp ? 5 : n + 1);
         };
-        
         let bodyN = 0;
-        
         const nextBtn = (disabled, label = '다음') => {
             const n = bodyN;
             if (n === ro && !disabled && label === '다음') return null;
@@ -6688,7 +6432,6 @@ Rules:
             const s = n === ro ? 'cur' : n < at ? 'done' : n === at ? 'cur' : 'lock';
             let bd = null;
             if (s === 'cur') { bodyN = n; bd = body(); bodyN = 0; }
-            
             const look = n === 8 && fin && s === 'cur' ? 'done' : s;
             return h('section', { class: `sp ${look}${n === 8 ? ' end' : ''}` },
                 h('div', { class: 'sp-hd' },
@@ -6734,33 +6477,32 @@ Rules:
             })),
             nextBtn(!cs.length, cs.length ? '다음' : '인물을 하나 이상 고르세요'),
         ];
-        
         const sNoCast = () => [
             hint(h('b', null, '등장인물이 없습니다. '), '로어북 · 페르소나에서 인물을 읽어 옵니다.'),
             ...loreRow(),
             nextBtn(true, '등장인물을 먼저 분석하세요'),
         ];
-        
         const sOutfit = () => {
             const list = acOutfitList(a), keys = acOutfitKeys(a), allOn = list.every(o => keys.includes(o.key));
             let input;
             const addOne = async () => {
                 const text = input.value;
                 if (!tidy(text) || acs.tr) return;
+                const t = acs.trHalt = acHalt();
                 acs.tr = true;
                 acs.trAt = Date.now();
                 acs.trErr = '';
                 renderNow();
-                try { await acAddOutfit(a, text); } catch (error) { acs.trErr = String(error?.message ?? error); } finally { acs.tr = false; }
+                try { await acAddOutfit(a, text, t); } catch (error) { acs.trErr = error?.isStop ? '' : String(error?.message ?? error); } finally { acs.tr = false; if (acs.trHalt === t) acs.trHalt = null; }
                 keep();
                 renderNow();
             };
             return [
                 hint(`고른 인물 ${cs.length}명(${cs.map(e => e.name).join(' · ')})을 고른 복장으로 그립니다. `,
                     h('button', { class: 'lnk', type: 'button', onclick: () => { a.outfits = allOn ? [] : list.map(o => o.key); keep(); renderNow(); } }, allOn ? '전체 해제' : '전체 선택')),
-                acs.asking ? h('button', { class: 'ix-btn run', type: 'button', disabled: true, style: 'width:100%;margin:10px 0 6px' },
-                    h('span', { class: 'gf', style: gaugeStyle(acs.askAt, 30) }), '봇 설명에서 복장 · 특수 장면을 찾는 중', loadDots())
-                    : acs.askErr ? h('p', { class: 'of-hd' }, `봇에서 복장을 찾지 못했습니다: ${acs.askErr} `, h('button', { class: 'lnk', type: 'button', onclick: () => void acAskNow(a) }, '다시 찾기'))
+                acs.asking ? h('button', { class: 'ix-btn run stp', type: 'button', title: '누르면 멈춥니다', style: 'width:100%;margin:10px 0 6px', onclick: () => acs.askHalt?.onStop() },
+                    h('span', { class: 'gf', style: gaugeStyle(acs.askAt, 30) }), '봇 설명에서 복장 · 특수 장면을 찾는 중', loadDots(), h('span', { class: 'stp-x' }, '■ 멈추기'))
+                    : acs.askErr ? h('p', { class: 'of-hd' }, acs.askStop ? '복장 찾기를 멈췄습니다. ' : `봇에서 복장을 찾지 못했습니다: ${acs.askErr} `, h('button', { class: 'lnk', type: 'button', onclick: () => void acAskNow(a) }, '다시 찾기'))
                     : a.why ? h('p', { class: 'of-hd' }, a.why) : null,
                 h('div', { class: 'who ofs' }, list.map(o => {
                     const on = keys.includes(o.key);
@@ -6774,13 +6516,12 @@ Rules:
                     onkeydown: ev => { if (ev.key === 'Enter' && !ev.isComposing) void addOne(); },
                     onchange: () => void addOne(),
                 }),
-                acs.tr ? h('button', { class: 'ix-btn sm run', type: 'button', disabled: true, style: 'width:100%;margin-top:8px' },
-                    h('span', { class: 'gf', style: gaugeStyle(acs.trAt, 10) }), '복장을 NAI 태그로 옮기는 중', loadDots()) : null,
+                acs.tr ? h('button', { class: 'ix-btn sm run stp', type: 'button', title: '누르면 멈춥니다', style: 'width:100%;margin-top:8px', onclick: () => acs.trHalt?.onStop() },
+                    h('span', { class: 'gf', style: gaugeStyle(acs.trAt, 10) }), '복장을 NAI 태그로 옮기는 중', loadDots(), h('span', { class: 'stp-x' }, '■ 멈추기')) : null,
                 acs.trErr ? h('p', { class: 'ix-msg err' }, acs.trErr) : null,
                 nextBtn(!os.length),
             ];
         };
-        
         const sCount = () => [
             h('div', { class: 'acnt', role: 'radiogroup', 'aria-label': '에셋 개수' }, [1, 10, 50].map(k => {
                 const [title, desc] = AC_COUNT_INFO[k];
@@ -6796,10 +6537,8 @@ Rules:
                 h('span', { class: 'gf', style: gaugeStyle(acs.cuAt, 10) }), '감정을 태그로 옮기는 중', loadDots()) : null,
             acs.cuErr ? h('p', { class: 'ix-msg err' }, `감정을 태그로 옮기지 못했습니다: ${acs.cuErr}`)
                 : acs.cuNeed && a.count === 'custom' ? h('p', { class: 'ix-msg err' }, '커스텀 칸에 감정을 하나 이상 적으세요. 쉼표로 나눕니다.') : null,
-            
             acs.cu ? null : nextBtn(false, ro === 3 && a.count === 'custom' ? '완료' : '다음'),
         ];
-        
         const cFocus = () => {
             const el = ui.root?.querySelector('.cn.cu .cn-in');
             if (!el || el.disabled) return;
@@ -6823,7 +6562,6 @@ Rules:
                 onkeydown: ev => { if (ev.target === card && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); card.click(); } },
             }, h('span', { class: 'cn-top' }, h('span', { class: 'cn-num' }, numEl, h('small', null, '개')), h('i', { class: 'cn-chk' }, '✓')),
             h('b', { class: 'cn-t' }, title), h('span', { class: 'cn-d' }, desc),
-            
             h('textarea', {
                 class: 'cn-in', placeholder: AC_CUSTOM_EX, value: a.customText ?? '', maxlength: '1000', rows: '2', 'aria-label': '커스텀 감정 (쉼표나 줄 바꿈으로 나눔)', disabled: acs.cu,
                 style: acs.cuH ? `height:${acs.cuH}` : null,
@@ -6838,17 +6576,14 @@ Rules:
                     cCard.t = setTimeout(keep, 400);
                 },
                 onkeydown: ev => { if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); clearTimeout(cCard.t); keep(); if (okAt(3)) next(3); } },
-                
                 onfocus: () => { if (a.count !== 'custom') { a.count = 'custom'; acs.cuErr = ''; keep(); renderNow(); cFocus(); } },
                 onblur: () => { clearTimeout(cCard.t); keep(); },
             }),
             h('span', { class: 'cn-sum' }, `인물 ${cs.length}명 × 복장 ${os.length}벌 × 에셋 `, kEl, '개 = ', totEl));
-            
             const ta = card.querySelector('.cn-in');
             try { new (ta.ownerDocument.defaultView?.ResizeObserver ?? ResizeObserver)(() => { if (ta.style.height) acs.cuH = ta.style.height; }).observe(ta); } catch {}
             return card;
         };
-        
         const spRow = () => {
             let input;
             const apply = async () => {
@@ -6877,7 +6612,6 @@ Rules:
                 acs.spErr ? h('p', { class: 'ix-msg err' }, acs.spErr) : null,
             ];
         };
-        
         const sSpecial = () => {
             const e = cs.find(x => x.id === acs.who) ?? cs[0];
             const sl = acSlugs(a);
@@ -6903,7 +6637,6 @@ Rules:
                 nextBtn(false),
             ];
         };
-        
         const sArtist = () => [
             presetGrid(null, null, true),
             h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, `작가 탭과 같은 목록입니다. 여기서 고른 작가는 애드 에셋에만 쓰고, 삽화 작가(지금 ${preset().name || '이름 없음'})와 따로 저장합니다. 작가를 고치거나 새로 만들려면 `,
@@ -6920,7 +6653,6 @@ Rules:
                     a.view !== AC_VIEW_DEF ? [' ', h('button', { class: 'lnk', type: 'button', onclick: () => { a.view = AC_VIEW_DEF; keep(); renderNow(); } }, '기본으로 되돌리기')] : null)),
             nextBtn(false),
         ];
-        
         const sModel = () => [
             modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
             h('p', { class: 'ix-hint', style: 'margin:6px 0 12px' }, '설정 탭의 NAI 모델과 같은 값입니다. 여기서 바꾸면 삽화를 그릴 때도 이 모델을 씁니다.'),
@@ -6933,7 +6665,6 @@ Rules:
             h('p', { class: 'ix-hint', style: 'margin:4px 0 0' }, '레퍼런스를 넣으면 한 장에 Anlas 가 더 듭니다. Opus 무료 범위를 넘을 수 있습니다.'),
             nextBtn(false),
         ];
-        
         const sNote = () => {
             const ta = h('textarea', {
                 class: 'cf-ta gn-ta', rows: 9, spellcheck: 'false', 'aria-label': '글로벌노트에 붙일 글', value: acNoteNow(a),
@@ -6941,7 +6672,6 @@ Rules:
             });
             return [
                 hint('봇이 감정 그림을 띄우는 법을 글로벌노트 끝에 붙입니다. 고른 인물 · 복장 · 감정 · 특수 에셋으로 자동으로 썼고, 바로 고칠 수 있습니다.'),
-                
                 ptOff ? h('div', { class: 'ix-msg', style: 'margin:0 0 10px' }, h('b', null, '꺼 둠. '), '「채팅에 에셋 그림 보이기」를 꺼 두어 지금은 이 글을 글로벌노트에 넣지 않습니다. 토글을 다시 켜면 넣습니다.') : null,
                 h('p', { class: 'ix-hint', style: 'margin:0 0 10px;color:var(--bad)' }, h('b', null, ro === 7 ? '잘 모른다면 고치지 말고 「완료」를 누르세요.' : '잘 모른다면 고치지 말고 「다음」으로 넘기세요.')),
                 ta,
@@ -6958,18 +6688,15 @@ Rules:
         const isRefT = t => a.ref && acRefName(a, t.e, t.slug, t.o) === t.name;
         const refPlan = plan.filter(isRefT), refLeft = left.filter(isRefT);
         const refCheck = !run && a.ref && refPlan.length > 0 && !refLeft.length && left.length > 0;
-        
         const fin = !run && !noCast && plan.length > 0 && !left.length;
         if (fin && a.step >= 8) ptTop?.remove();
         const stopGauge = () => acStopGauge(run);
         const addBtn = () => {
             if (run) return stopGauge();
             if (busyElse) return h('button', { class: 'ix-btn main big', type: 'button', disabled: true }, '▶ 애드 에셋 · 다른 봇을 그리는 중입니다');
-            
             if (acs.cu) return h('button', { class: 'ix-btn main big', type: 'button', disabled: true }, '▶ 애드 에셋 · 감정을 태그로 옮기는 중입니다');
             if (!cs.length) return h('button', { class: 'ix-btn main big', type: 'button', disabled: true }, '▶ 애드 에셋 · 인물을 고르세요');
             if (!left.length) return armButton(`↻ 애드 에셋 다시 · 인물 ${cs.length}명 · ${plan.length}장`, `한 번 더 누르면 ${plan.length}장을 모두 새로 그립니다`, () => acStart(a, plan), 'ix-btn main big');
-            
             if (refCheck) return h('button', { class: 'ix-btn main big', type: 'button', onclick: () => acStart(a, left) }, `✔ 레퍼런스 확인 · 나머지 ${left.length}장 그리기`);
             if (refLeft.length && refLeft.length < left.length) return h('button', { class: 'ix-btn main big', type: 'button', onclick: () => acStart(a, left) }, `▶ 애드 에셋 · 레퍼런스 ${refLeft.length}장 먼저 그리기`);
             return h('button', { class: 'ix-btn main big', type: 'button', onclick: () => acStart(a, left) }, `▶ 애드 에셋 · 인물 ${cs.length}명 · ${left.length < plan.length ? '남은 ' : ''}${left.length}장`);
@@ -7057,7 +6784,6 @@ Rules:
                     h('div', { class: 'fn-go' },
                         h('button', { class: 'ix-btn main', type: 'button', onclick: () => closePanel() }, '채팅으로 돌아가기'),
                         h('button', { class: 'ix-btn', type: 'button', onclick: () => { ui.atab = 'list'; acs.menu = ''; renderNow(); } }, `에셋 목록 보기 · ${acListNames(a).length}장`)),
-                    
                     h('details', { class: 'fn-fold', open: acs.fOpen, ontoggle: ev => { acs.fOpen = ev.currentTarget.open; } },
                         h('summary', null, '그린 그림 고치기', h('small', null, '한 장씩 다시 그리기 · 프롬프트 변경')),
                         h('div', null, viewChips(false), ofSeg(), h('div', { class: 'as-g', style: 'margin-top:10px' }, tasks.map(t => tile(t))))),
@@ -7092,7 +6818,6 @@ Rules:
                     h('span', { class: 'ix-hint' }, `${acPreset().name || '작가'} · ${modelName(st.set.model)} · 레퍼런스 ${a.ref ? '켬' : '끔'}${hasSp ? ` · 특수 ${sp.icon} ${sp.ko}` : ''} · 남은 ${left.length}장 약 ${avgLeft}`)),
                 showing ? viewChips(true) : null,
                 msgBox(),
-                
                 refView ? h('p', { class: 'ix-hint', style: 'margin:10px 0 0' }, h('b', null, '레퍼런스 먼저. '), `인물 × 복장마다 한 장씩, 모두 ${refPlan.length}장을 그리고 멈춥니다. 확인한 뒤에 나머지를 그립니다.`) : null,
                 refView ? h('div', { class: 'as-g', style: 'margin-top:10px' }, refPlan.map(t => tile(t, `${t.e.name} · ${t.o.ko}`))) : null,
                 !refView && showing ? ofSeg() : null,
@@ -7136,7 +6861,6 @@ Rules:
         const emRow = new Map(AC_EMO.map(([key, ko, icon]) => [key, { ko, icon }]));
         for (const m of a.custom?.emos ?? []) if (!emRow.has(m.key)) emRow.set(m.key, { ko: m.ko, icon: m.icon });
         for (const s of [...acSpecialList(a), acSpecial(a)]) if (!emRow.has(s.key)) emRow.set(s.key, { ko: s.ko, icon: s.icon || '✨', sp: true });
-        
         const groups = new Map();
         for (const n of names) {
             const m = /^c_([a-z0-9]+)_([a-z0-9]+)_([a-z0-9]+)$/.exec(n);
@@ -7166,11 +6890,11 @@ Rules:
             const id = 'L:' + t.n, open = acs.menu === id && !busy;
             const cur = acs.run?.cur?.name === t.n && !acs.run.stop;
             const item = (label, small, fn, cls) => h('button', { type: 'button', class: cls, onclick: () => { acs.menu = ''; fn(); } }, h('b', null, label), h('small', null, small));
-            
             const task = open ? acTaskOf(a, g.e, g.slug, t.n) : null;
+            const refN = task ? acRefPick(a, task, acHas()) : null;
             const menu = open ? h('div', { class: 'menu as-menu', role: 'menu' },
                 item('크게 보기', '그림을 크게 엽니다', () => { renderNow(); void showBig(t.path); }),
-                task ? item('🔁 다시 그리기', a.prompts[t.n] ? '고친 프롬프트 그대로 이 한 장만 새로' : '같은 프롬프트로 이 한 장만 새로', () => { if (!acStart(a, [task], true)) say('지금은 그릴 수 없습니다. 다른 그림을 다 그린 뒤에 눌러 주세요.', false); }) : null,
+                task ? item('🔁 다시 그리기', `${a.prompts[t.n] ? '고친 프롬프트' : '같은 프롬프트'} · ${refN ? `레퍼런스 ${refN} 넣어` : '레퍼런스 없이'} 이 한 장만 새로`, () => { if (!acStart(a, [task], true)) say('지금은 그릴 수 없습니다. 다른 그림을 다 그린 뒤에 눌러 주세요.', false); }) : null,
                 task ? item('📝 프롬프트 고쳐 다시 그리기', '본 · 캐릭터 칸 · 부정 프롬프트를 직접 고칩니다', () => { acs.pe = { chaId: v.chaId, slug: g.slug, name: t.n, draft: null }; renderNow(); }) : null,
                 item('이름 복사', `{{image::${t.n}}}`, () => void copy(`{{image::${t.n}}}`)),
                 g.e ? item('지우기', `봇 에셋에서 ${t.n}을(를) 뺍니다`, () => {
@@ -7216,7 +6940,6 @@ Rules:
                 h('p', { class: 'ix-hint' }, `이매진이 그려 봇에 넣은 에셋 ${names.length}장 · 인물 ${gs.length}명. 그림을 누르면 크게 보기 · 다시 그리기 · 프롬프트 고치기 · 이름 복사 · 지우기 메뉴가 열립니다.`),
                 h('button', { class: 'ix-btn sm', type: 'button', onclick: toMake }, '＋ 더 만들기')),
             acs.run ? h('div', { class: 'ix-acts', style: 'margin:0 0 10px' }, acStopGauge(acs.run)) : null,
-            
             h('p', { class: 'ix-hint', style: 'color:var(--bad);margin:0 0 8px' }, '그림을 불러오는 동안에는 깨진 그림처럼 보일 수 있습니다. 잠시 기다리면 나타납니다.'),
             chips,
             acs.msg ? h('div', { class: 'ix-msg' + (acs.msgOk ? ' ok ok-box' : ' err') }, acs.msg) : null,
@@ -7247,7 +6970,6 @@ Rules:
             try { await navigator.clipboard.writeText(text); pe.note = '복사했습니다.'; } catch { pe.note = '복사하지 못했습니다. 칸을 눌러 직접 복사해 주세요.'; }
             renderNow();
         };
-        
         const goBtn = h('button', { class: 'ix-btn main', type: 'button', onclick: go }, busy ? '다른 그림을 그리는 중' : '✏️ 저장 후 재생성');
         const undoBtn = h('button', { class: 'ix-btn', type: 'button', onclick: () => { pe.draft = { ...saved }; pe.note = ''; renderNow(); } }, '↩ 고치기 전으로');
         const autoBtn = h('button', { class: 'ix-btn', type: 'button', onclick: () => { pe.draft = { ...auto }; pe.note = ''; renderNow(); } }, '자동 프롬프트 불러오기');
@@ -7267,11 +6989,11 @@ Rules:
             oninput: ev => { d[k] = ev.target.value; sync(); },
         });
         sync();
-        
-        const rn = acRefName(a, t.e, t.slug, t.o);
-        const refLine = !a.ref ? '레퍼런스를 끈 봇이라 레퍼런스 그림 없이 그립니다.'
-            : rn === t.name ? '이 그림이 이 묶음의 레퍼런스라 레퍼런스 그림 없이 그립니다.'
-            : acHas().has(rn) ? `레퍼런스 그림 ${rn}을(를) 함께 넣어 그립니다.` : '레퍼런스 그림이 아직 없어 레퍼런스 없이 그립니다.';
+        const rn = acRefPick(a, t, acHas());
+        const refLine = rn ? `레퍼런스 그림 ${rn}을(를) 함께 넣어 그립니다.`
+            : !a.ref ? '레퍼런스를 끈 봇이고 이 그림에 넣었던 레퍼런스 기록도 없어 레퍼런스 그림 없이 그립니다.'
+            : acRefName(a, t.e, t.slug, t.o) === t.name ? '이 그림이 이 묶음의 레퍼런스라 레퍼런스 그림 없이 그립니다.'
+            : '레퍼런스 그림이 아직 없어 레퍼런스 없이 그립니다.';
         return h('div', { class: 'ac-ov', onclick: ev => { if (ev.target === ev.currentTarget) close(); } },
             h('div', { class: 'dlg', role: 'dialog', 'aria-modal': 'true', 'aria-label': `${t.emo.ko} 프롬프트 고치기` },
                 h('div', { class: 'dlg-h' }, h('span', null, `📝 ${t.e.name} · ${t.o.ko} · ${t.emo.icon || ''} ${t.emo.ko} · `, h('code', null, t.name)),
@@ -7336,7 +7058,6 @@ Rules:
     }
 
     const acOvOf = (a, slug, ekey) => Object.keys(a.prompts).filter(n => n.startsWith(`c_${slug}_`) && n.endsWith(`_${ekey}`) && n.split('_').length === 4);
-    
     function acEditBox(a) {
         const ed = acs.edit;
         if (!ed) return null;
@@ -7345,7 +7066,6 @@ Rules:
         if (!e || !emo) { acs.edit = null; return null; }
         const slug = acSlugs(a)[e.id], name = acName(slug, o.key, emo.key);
         const close = () => { acs.edit = null; renderNow(); };
-        
         const ta = h('textarea', {
             class: 'cf-ta', rows: 3, spellcheck: 'false', 'aria-label': '감정 · 자세 태그', value: ed.draft ?? acPrompt(a, e, emo),
             disabled: !!ed.busy, oninput: ev => { ed.draft = ev.target.value; },
@@ -7354,7 +7074,6 @@ Rules:
             const v = tidy(ed.draft ?? acPrompt(a, e, emo));
             const k = `${e.id}|${emo.key}`, was = a.edits[k] ?? emo.en;
             if (!v || v === emo.en) delete a.edits[k]; else a.edits[k] = v;
-            
             const ovs = (a.edits[k] ?? emo.en) !== was ? acOvOf(a, slug, emo.key) : [];
             for (const n of ovs) delete a.prompts[n];
             saveAst(st.view.chaId);
@@ -7385,7 +7104,6 @@ Rules:
     }, () => {
         openPanel().catch(error => console.error(LOG, 'panel', error));
     });
-    
     let displayOn = false;
     try {
         await api.addRisuScriptHandler('display', ncDisplay);
@@ -7394,9 +7112,7 @@ Rules:
         console.warn(LOG, 'display handler', error);
     }
     if (needRoot()) void rootQueue(startRoot);
-    
     void naiKey().then(() => rootQueue(() => paintBusy(true))).catch(() => {});
-    
     let outputOn = false;
     try {
         await api.addRisuScriptHandler('output', onOutputText);
@@ -7411,10 +7127,8 @@ Rules:
     } catch (error) {
         console.warn(LOG, 'process handler', error);
     }
-    
     await api.addRisuChatListener('output', onOutput);
     await api.addRisuReplacer('beforeRequest', stripRequest);
-    
     if (sizeMoved) void sizeChanged();
     await api.onUnload(async () => {
         try {
