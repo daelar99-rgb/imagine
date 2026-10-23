@@ -1,14 +1,14 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.79.0
+//@display-name 🎨 이매진 v3.80.0
 //@api 3.0
-//@version 3.79.0
+//@version 3.80.0
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
 
 (async () => {
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.79.0';
+    const VERSION = '3.80.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
     const doc = document;
@@ -999,6 +999,7 @@ ${TAG_STYLE}`;
 - text: copy the line VERBATIM from the TARGET MESSAGE, in its original language and script, with the same words and punctuation. Never translate, paraphrase, merge or invent lines. Leave out only the quotation marks around it.${withInput ? '\n' + USER_LINE_RULE.comic : ''}
 - ONE sentence per panel at most. When a line has several sentences, copy just one complete sentence of it exactly (cut only at the speaker's own punctuation: . ! ? … ~) or choose another line.
 - by: the speaker's exact CAST name. The speaker must be in that panel's who. Spoken lines only: no narration captions.
+- The line goes ONLY in text. Never write "Text:", quotation marks or the spoken words inside tags or camera.
 - Give lines to the panels where the most important lines of the moment are spoken; leave text and by "" for a panel without a line.`;
     }
 
@@ -1389,6 +1390,23 @@ Return entries only for the characters in this list that the character sheet, lo
     const dropViewer = text => tidy(String(text ?? '').replace(/\blooking at (the )?viewer\b,?/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,|,\s*$/g, ''));
     const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 80);
 
+    const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?\bText:[^,\n]*/gi, '');
+
+    function addBeforeText(prompt, add) {
+        const s = String(prompt ?? ''), at = s.search(/\bText:/);
+        if (!tidy(add)) return s;
+        if (at < 0) return s.includes('\n') ? `${s.replace(/,?\s*$/, '')}, ${tidy(add)}` : joinTags(s, add);
+        const nl = s.lastIndexOf('\n', at);
+        if (nl >= 0) {
+            const top = s.slice(0, nl), cut = top.lastIndexOf('\n') + 1, prev = top.slice(cut);
+            const comma = /,\s*$/.test(prev) ? ',' : '';
+            return `${top.slice(0, cut)}${joinTags(prev, add)}${comma}${s.slice(nl)}`;
+        }
+
+        const head = s.slice(0, at).replace(/\s*\bwith\s*$/, '');
+        return `${withTags(head, add)} with ${s.slice(at)}`;
+    }
+
     const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
     const flatText = t => String(t ?? '').replace(/["'“”‘’「」『』]/g, '').replace(/\s+/g, '');
     function checkLang(images, text) {
@@ -1437,15 +1455,24 @@ Return entries only for the characters in this list that the character sheet, lo
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
 
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const act = joinTags(pn.camera, pn.tags), say = line ? `Text: ${line}` : '';
+
+            const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `Text: ${line}` : '';
 
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
 
-            const people = who.length >= 2 ? who.map((x, k) => `${[withTags(`1${x.type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(' with ')},`).join('\n') : '';
+            let people = '';
+            if (who.length >= 2) {
+                const personLine = (k, n) => `char${n}: ${[withTags(`1${who[k].type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(' with ')}`;
+                const lines = who.map((x, k) => k).filter(k => k !== sayAt).map((k, i) => `${personLine(k, i + 1)},`);
+                if (act) lines.push(act);
+                if (sayAt >= 0) lines.push(personLine(sayAt, who.length));
+                people = lines.join('\n');
+            }
+            const solo = [withTags(head, idents.flat(), act), say].filter(Boolean).join(' with ');
             slots.push({
-                prompt: people ? [people, act].filter(Boolean).join('\n') : [withTags(head, idents.flat(), act), say].filter(Boolean).join(' with '),
+                prompt: people || (who.length ? `char1: ${solo}` : solo),
                 uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', type: types[0] ?? 'other',
                 name: who.map(x => x.name).join(' · '),
             });
@@ -1542,7 +1569,8 @@ Return entries only for the characters in this list that the character sheet, lo
         for (const a of fxs) {
             const hits = a.who ? slots.filter(sl => (sl.kind === 'char' || sl.kind === 'panel') && String(sl.name ?? '').toLowerCase().split(' · ').includes(a.who)) : [];
             if (!hits.length) { loose.push(a.fx); continue; }
-            for (const sl of hits) sl.prompt = joinTags(sl.prompt, weaponTrail(a.fx, sl.prompt));
+
+            for (const sl of hits) sl.prompt = addBeforeText(sl.prompt, weaponTrail(a.fx, sl.prompt));
         }
         return { ...req, base: joinTags(req.base, MONO_TAGS, loose),
             neg: removeTokens(req.neg, ['unfinished', 'blurry', 'monochrome', 'greyscale', 'sketch']), slots, useCoords: false };
