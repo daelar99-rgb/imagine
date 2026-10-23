@@ -1,16 +1,17 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.85.1
+//@display-name 🎨 이매진 v3.86.0
 //@api 3.0
-//@version 3.85.1
+//@version 3.86.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
+
 
 (async () => {
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.85.1';
+    const VERSION = '3.86.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -3467,7 +3468,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 로 시작하는 키를 넣으세요.')]),
             step(3, 'NAI 모델 고르기', modelName(st.set.model), () => [
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '설정 탭의 NAI 모델과 같은 값입니다. 애드 에셋도 이 모델로 그립니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋 준비 탭의 NAI 모델과 같은 값입니다. 애드 에셋도 이 모델로 그립니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
                 ui.reopen === 3 && su.model ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('model'); ui.reopen = 0; renderNow(); } }, '이 모델로 다음'))]),
             step(4, '만화로 그릴까요, 삽화로 그릴까요?', kindName(), () => h('div', { class: 'dz', role: 'radiogroup' },
                 [['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']].map(([k, em, name, desc]) => {
@@ -4126,12 +4127,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             grp('NovelAI 키',
                 row('col', 'NAI API 키', 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 키를 넣습니다.',
                     '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
-                    keyBox(true)),
-                row('col', 'NAI 모델', '목록에 없는 새 모델은 모델 id 를 직접 넣습니다.',
-                    'NovelAI 웹의 모델 id 를 그대로 적습니다 (예: nai-diffusion-5-full-medium). 요청은 V4.5 · V5 와 같은 꼴로 보내므로, 다른 꼴을 요구하는 모델이면 NAI 가 오류를 내고 그 내용을 그림 자리에 보여 줍니다. 목록 버튼을 누르면 직접 넣은 id 는 지워집니다.',
-                    modelPick(s.model, v => setVal('model', v)))),
+                    keyBox(true))),
             grp('그리기',
-                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · LLM 모델은 ', toReady, '에서, 작가는 작가 탭에서 바꿉니다. 애드 에셋의 LLM 모델은 애드 에셋 준비 탭에서 따로 고릅니다. 지금: ', recipe())),
+                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · LLM 모델 · NAI 모델은 ', toReady, '에서, 작가는 작가 탭에서 바꿉니다. 애드 에셋의 LLM 모델은 애드 에셋 준비 탭에서 따로 고릅니다. 지금: ', recipe())),
                 row('sw', '답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
                     '끄면 답변 아래 「이미지 생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 준비 탭을 마치기 전에는 켜져 있어도 그리지 않습니다.',
                     toggle(s.auto, () => setVal('auto', !s.auto))),
@@ -6691,7 +6689,7 @@ Rules:
         ];
         const sModel = () => [
             modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
-            h('p', { class: 'ix-hint', style: 'margin:6px 0 12px' }, '설정 탭의 NAI 모델과 같은 값입니다. 여기서 바꾸면 삽화를 그릴 때도 이 모델을 씁니다.'),
+            h('p', { class: 'ix-hint', style: 'margin:6px 0 12px' }, '삽화 준비 탭의 NAI 모델과 같은 값입니다. 여기서 바꾸면 삽화를 그릴 때도 이 모델을 씁니다.'),
             h('div', { class: 'cf-row sw rf' },
                 h('div', { class: 'cf-tx' }, h('b', null, '레퍼런스'), h('p', null, '기본 그림을 먼저 그린 뒤, 나머지 그림에 레퍼런스로 넣어 얼굴 · 옷이 같게 나오게 합니다.')),
                 toggle(a.ref, () => { a.ref = !a.ref; keep(); renderNow(); })),
