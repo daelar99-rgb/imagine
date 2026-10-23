@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.86.5
+//@display-name 🎨 이매진 v3.86.6
 //@api 3.0
-//@version 3.86.5
+//@version 3.86.6
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.86.5';
+    const VERSION = '3.86.6';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -848,7 +848,7 @@ ${TAG_STYLE}`;
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
-  - who: the CAST names of the characters in this panel (1, at most 2).
+  - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST name; name anything not in CAST by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
   - tags: what the character does in this panel: pose, action, gesture, expression and gaze. A few Danbooru tags first, then short plain-English phrases that show the exact moment, comma separated, about 10-30 words. E.g. "standing pose, arms crossed confidently, arrogant smug smile, looking down, one hand brushing her hair back". A character who speaks here gets "open mouth" or a speaking expression. No hair, eye, body or clothing tags and no names: the app adds the looks from CAST.
   - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at another", "looking down", "looking away", "looking to the side") or none.
@@ -1373,12 +1373,12 @@ Return entries only for the characters in this list that the character sheet, lo
                 const e = findCast(cast, name);
                 const key = e?.id ?? name.toLowerCase();
                 if (who.some(x => x.key === key)) continue;
-                who.push({ key, e, name: e?.name ?? name, type: e?.type ?? 'girl' });
+                who.push({ key, e, name: e?.name ?? name, type: e?.type ?? 'other' });
                 if (who.length >= 2) break;
             }
             for (const x of who) numOf(x);
             const types = who.map(x => x.type);
-            const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
+            const idents = who.map(({ e, type, name }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : [name]);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `speech bubble with Text: ${line}, ` : '';
@@ -1397,8 +1397,12 @@ Return entries only for the characters in this list that the character sheet, lo
             slots.push({
                 prompt: endComma(people || (who.length ? `char${numOf(who[0])}: ${solo}` : solo)),
                 uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', type: types[0] ?? 'other',
-                name: who.map(x => x.name).join(' · '),
+                name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
             });
+        }
+        for (const sl of slots) {
+            sl.uc = joinTags(sl.uc, [...nums].filter(([k]) => !sl.keys.includes(k)).map(([, n]) => `char${n}`));
+            delete sl.keys;
         }
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
