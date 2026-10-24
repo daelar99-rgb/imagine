@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.86.6
+//@display-name 🎨 이매진 v3.86.7
 //@api 3.0
-//@version 3.86.6
+//@version 3.86.7
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.86.6';
+    const VERSION = '3.86.7';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -1313,7 +1313,10 @@ Return entries only for the characters in this list that the character sheet, lo
     const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 80);
     const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?(?:\bspeech bubble with\s+)?\bText:[^,\n]*/gi, '');
     const SAY_RE = /\b(?:speech bubble with )?Text:/;
-    const endComma = t => `${String(t ?? '').replace(/[,\s]+$/, '')}, `;
+    const endComma = t => {
+        const s = String(t ?? '');
+        return SAY_RE.test(s.slice(s.lastIndexOf('\n') + 1)) ? `${s.replace(/\s+$/, '')} ` : `${s.replace(/[,\s]+$/, '')}, `;
+    };
     const addToLine = (line, add) => /\s\+\s/.test(line) ? withTags(line, add) : joinTags(line, add);
     function addBeforeText(prompt, add) {
         const s = String(prompt ?? ''), at = s.search(SAY_RE);
@@ -1381,7 +1384,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const idents = who.map(({ e, type, name }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : [name]);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `speech bubble with Text: ${line}, ` : '';
+            const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `speech bubble with Text: ${line} ` : '';
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
