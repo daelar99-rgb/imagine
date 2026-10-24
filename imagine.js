@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.92.0
+//@display-name 🎨 이매진 v3.93.0
 //@api 3.0
-//@version 3.92.0
+//@version 3.93.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.92.0';
+    const VERSION = '3.93.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3757,12 +3757,13 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const v = st.view;
         const busy = st.busy?.key === a.key || queued.has(a.key) || !v.hasKey;
         const open = st.promptOpen.has(a.key);
+        const only = (a.rec?.images?.length ?? 0) >= 2 ? x.name : undefined;
         return h('div', { class: 'menu', role: 'menu' },
             h('div', { class: 'menu-h' }, `「${x.title || '그림'}」`),
             h('button', { type: 'button', role: 'menuitem', disabled: busy, onclick: () => { ui.menu = ''; draw(a.i, 'draw', a.key, null, x.name); } },
                 '🔁 다시 그리기', h('small', null, '장면은 그대로 두고 이 그림만 새로 뽑습니다')),
-            h('button', { type: 'button', role: 'menuitem', disabled: busy, onclick: () => { ui.menu = ''; draw(a.i, 'new', a.key); } },
-                '🎬 씬 재구성', h('small', null, '모델이 이 답변의 장면부터 다시 골라 그립니다')),
+            h('button', { type: 'button', role: 'menuitem', disabled: busy, onclick: () => { ui.menu = ''; draw(a.i, 'new', a.key, null, only); } },
+                '🎬 씬 재구성', h('small', null, only ? '모델이 이 그림 한 장만 장면부터 다시 골라 그립니다. 다른 그림은 그대로 둡니다' : '모델이 이 답변의 장면부터 다시 골라 그립니다')),
             h('button', { type: 'button', role: 'menuitem', onclick: () => { ui.menu = ''; open ? st.promptOpen.delete(a.key) : st.promptOpen.add(a.key); renderNow(); } },
                 open ? '📝 프롬프트 창 닫기' : '📝 프롬프트 직접 고치기', h('small', null, '그림에 쓴 프롬프트를 열어 고친 뒤 그 글로 다시 그립니다')),
             st.busy?.key === a.key || queued.has(a.key)
@@ -3888,7 +3889,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function draw(idx, mode, key, reqs, only) {
         const v = st.view;
         if (!v || idx < 0) return;
-        const label = mode === 'edit' ? '고친 프롬프트로 그리는 중' : only ? '그림 다시 그리는 중' : mode === 'draw' ? '다시 그리는 중' : mode === 'edit' ? '고친 프롬프트로 그리는 중' : key ? '씬 재구성 중' : `${kindName()} 그리는 중`;
+        const label = mode === 'edit' ? '고친 프롬프트로 그리는 중' : mode === 'new' && key ? '씬 재구성 중' : only ? '그림 다시 그리는 중' : mode === 'draw' ? '다시 그리는 중' : `${kindName()} 그리는 중`;
         enqueue({ ci: v.ci, chi: v.chi, idx, key: key ?? (v.rawMsgs[idx] ? msgKeyOf(v.rawMsgs[idx], idx, v.rawMsgs) : undefined), mode, reqs, only, label }).catch(() => {});
     }
 
