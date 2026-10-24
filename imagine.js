@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.89.0
+//@display-name 🎨 이매진 v3.89.1
 //@api 3.0
-//@version 3.89.0
+//@version 3.89.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.89.0';
+    const VERSION = '3.89.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -4581,6 +4581,33 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const rootDenied = () => root.done && !root.doc;
     const panSel = () => st.set.panelBtn ? '.nc-panbtn' : '';
     const inRect = (r, e) => !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    const HOVER_SEL = '.nc-panbtn:hover, .x-risu-nc-gen:hover, .x-risu-nc-act-b:hover, .x-risu-nc-fig:hover';
+    const hoverKey = cls => String(cls ?? '').split(/\s+/).filter(c => c && c !== 'x-risu-nc-on').sort().join(' ');
+    async function hoverCheck(d, event) {
+        const ours = (async () => {
+            const seen = new Set();
+            try {
+                const hov = await d.querySelectorAll(HOVER_SEL);
+                const n = await hov.length();
+                for (let i = 0; i < n; i++) seen.add(hoverKey(await (await hov.at(i)).getClassName()));
+            } catch (error) {
+                console.warn(LOG, 'hover', error);
+            }
+            return seen;
+        })();
+        const fresh = (async () => {
+            try {
+                const hov = await d.querySelectorAll(':hover');
+                const n = await hov.length();
+                const deep = n > 0 ? await hov.at(n - 1) : null;
+                return !!deep && inRect(await deep.getBoundingClientRect(), event);
+            } catch {
+                return false;
+            }
+        })();
+        const [seen, live] = await Promise.all([ours, fresh]);
+        return async el => !live || seen.has(hoverKey(await el.getClassName()));
+    }
 
     async function rootDoc() {
         if (!root.asked) {
@@ -4805,14 +4832,19 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function onRootClick(event) {
         const d = root.doc;
         if (event.button !== 0 || !root.on || !d) return;
+        const onTop = await hoverCheck(d, event);
         const pb = panSel() ? await d.querySelector('.nc-panbtn') : null;
-        if (pb && inRect(await pb.getBoundingClientRect(), event)) return void openPanel().catch(error => console.error(LOG, 'panel', error));
+        if (pb && inRect(await pb.getBoundingClientRect(), event)) {
+            if (await onTop(pb)) void openPanel().catch(error => console.error(LOG, 'panel', error));
+            return;
+        }
         if (st.set.ubtn !== 'none') {
             const gens = await d.querySelectorAll('.x-risu-nc-gen');
             const n = await gens.length();
             for (let i = 0; i < n; i++) {
                 const el = await gens.at(i);
                 if (!inRect(await el.getBoundingClientRect(), event)) continue;
+                if (!await onTop(el)) return;
                 const idx = genIdx(String(await el.getClassName() ?? ''));
                 if (Number.isInteger(idx) && idx >= 0) await genClick(idx);
                 return;
@@ -4825,6 +4857,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const el = await acts.at(i);
             const r = await el.getBoundingClientRect();
             if (!(r?.width > 0) || !inRect(r, event)) continue;
+            if (!await onTop(el)) return;
             const cls = String(await el.getClassName() ?? '');
             const name = /(?:^|\s)x-risu-nc-for-(nc_[a-z0-9_]+)/i.exec(cls)?.[1];
             const act = /(?:^|\s)x-risu-nc-(panel|draw|new|del)(?:\s|$)/.exec(cls)?.[1];
@@ -4832,16 +4865,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (name && act) await figAction(act, name, el);
             return;
         }
-        await toggleFig(d, event);
+        await toggleFig(d, event, onTop);
     }
     const FIG_ON = 'x-risu-nc-on';
-    async function toggleFig(d, event) {
+    async function toggleFig(d, event, onTop) {
         const figs = await d.querySelectorAll('.x-risu-nc-fig');
         const n = await figs.length();
         for (let i = 0; i < n; i++) {
             const el = await figs.at(i);
             if (await el.hasClass(FIG_ON)) { await el.removeClass(FIG_ON); continue; }
-            if (!inRect(await el.getBoundingClientRect(), event)) continue;
+            if (!inRect(await el.getBoundingClientRect(), event) || !await onTop(el)) continue;
             const act = await el.querySelector('.x-risu-nc-act');
             const r = act && await act.getBoundingClientRect();
             if (r && !(r.width > 0)) await el.addClass(FIG_ON);
