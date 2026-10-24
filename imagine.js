@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.89.1
+//@display-name 🎨 이매진 v3.90.0
 //@api 3.0
-//@version 3.89.1
+//@version 3.90.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.89.1';
+    const VERSION = '3.90.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -1381,7 +1381,6 @@ Return entries only for the characters in this list that the character sheet, lo
         const labels = new Map();
         const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
         const kindOf = x => x.e ? x.type : x.name;
-        const kinds = new Map();
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
             if (slots.length >= 4) break;
@@ -1393,10 +1392,10 @@ Return entries only for the characters in this list that the character sheet, lo
                 who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
                 if (who.length >= 2) break;
             }
-            for (const x of who) { labelOf(x); kinds.set(x.key, kindOf(x)); }
+            for (const x of who) labelOf(x);
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
-            const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
+            const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam = joinTags(noText(pn.camera)), say = line ? `speech bubble with Text: ${line} ` : '';
             const rawActs = Array.isArray(pn.tags) ? pn.tags : [pn.tags];
@@ -1406,8 +1405,8 @@ Return entries only for the characters in this list that the character sheet, lo
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-            const personLine = k => `${labelOf(who[k])}: ${[withTags(kindOf(who[k]), who.length === 1 ? 'solo' : '', idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
-            const lines = cam ? [`${cam},`] : [];
+            const personLine = k => `${labelOf(who[k])}: ${[withTags(kindOf(who[k]), idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+            const lines = [who.length ? `${head},` : '', cam ? `${cam},` : ''].filter(Boolean);
             if (who.length) {
                 for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
                 if (sayAt >= 0) lines.push(personLine(sayAt));
@@ -1426,7 +1425,7 @@ Return entries only for the characters in this list that the character sheet, lo
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         return {
-            base: joinTags(kindCount([...kinds.values()]), dropTags(p.pos, ['sound effects']), COMIC_TAGS, img.scene),
+            base: joinTags(dropTags(p.pos, ['sound effects']), COMIC_TAGS, img.scene),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: clampInt(slots.length, 2, 4, 2),
             useCoords: false,
@@ -2027,7 +2026,7 @@ Return entries only for the characters in this list that the character sheet, lo
         } finally {
             if (st.busy === busy) st.busy = null;
             if (ui.root?.isConnected) await refreshView().catch(() => {});
-            if (editSaved) { delete st.drafts[editSaved]; if (job.key) delete st.drafts[job.key]; }
+            if (editSaved && !job.only) { delete st.drafts[editSaved]; if (job.key) delete st.drafts[job.key]; }
             render();
         }
     }
@@ -3754,22 +3753,41 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     function renderPrompt(rec, disabled, idx) {
-        const orig = JSON.stringify((rec.images ?? []).map(x => x.req));
+        const imgs = rec.images ?? [];
+        const origs = imgs.map(x => JSON.stringify(x.req));
         let dr = st.drafts[rec.key];
-        if (dr?.from !== orig) dr = st.drafts[rec.key] = { from: orig, reqs: (rec.images ?? []).map(x => structuredClone(x.req)) };
+        if (!Array.isArray(dr?.from) || dr.from.length !== origs.length) dr = st.drafts[rec.key] = { from: [...origs], reqs: imgs.map(x => structuredClone(x.req)) };
+        origs.forEach((o, n) => { if (dr.from[n] !== o) { dr.from[n] = o; dr.reqs[n] = structuredClone(imgs[n].req); } });
         const draft = dr.reqs;
-        const goBtn = h('button', { class: 'ix-btn main sm', type: 'button', disabled, onclick: () => draw(idx, 'edit', rec.key, structuredClone(draft)) });
-        const undoBtn = h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { if (disabled) return; delete st.drafts[rec.key]; renderNow(); } }, '↩ 고치기 전으로');
-        const stateTx = h('span', { class: 'ix-hint' });
+        const many = draft.length > 1;
+        const rows = (many ? draft.map((r, n) => n) : [-1]).map(n => {
+            const go = h('button', {
+                class: 'ix-btn main sm', type: 'button', disabled,
+                onclick: () => n < 0 ? draw(idx, 'edit', rec.key, structuredClone(draft)) : draw(idx, 'edit', rec.key, [structuredClone(draft[n])], imgs[n].name),
+            }, '✏️ 저장 후 재생성');
+            const undo = h('button', {
+                class: 'ix-btn sm', type: 'button',
+                onclick: () => {
+                    if (disabled) return;
+                    if (n < 0) delete st.drafts[rec.key];
+                    else draft[n] = structuredClone(imgs[n].req);
+                    renderNow();
+                },
+            }, '↩ 고치기 전으로');
+            return { n, go, undo, tx: h('span', { class: 'ix-hint' }) };
+        });
         const sync = () => {
-            const dirty = JSON.stringify(draft) !== orig;
-            goBtn.textContent = '✏️ 저장 후 재생성';
-            undoBtn.disabled = !dirty || !!disabled;
-            stateTx.textContent = disabled ? '' : dirty ? '고친 곳이 있습니다. 그리기 전에는 저장되지 않습니다.' : '아직 고친 곳이 없습니다.';
+            for (const r of rows) {
+                const dirty = r.n < 0 ? JSON.stringify(draft) !== JSON.stringify(imgs.map(x => x.req)) : JSON.stringify(draft[r.n]) !== origs[r.n];
+                r.undo.disabled = !dirty || !!disabled;
+                r.tx.textContent = disabled ? '' : dirty ? '고친 곳이 있습니다. 그리기 전에는 저장되지 않습니다.' : '아직 고친 곳이 없습니다.';
+            }
         };
         const box = h('div', { class: 'pv', oninput: sync, onclick: () => setTimeout(sync, 0) },
             h('div', { class: 'pv-h' },
-                h('div', null, h('b', null, '📝 프롬프트 직접 고치기'), h('span', null, `이 답변의 그림 ${draft.length}장에 쓴 프롬프트입니다. 고친 뒤 아래 파란 버튼을 누르면 그 글로 다시 그립니다.`)),
+                h('div', null, h('b', null, '📝 프롬프트 직접 고치기'), h('span', null, many
+                    ? `이 답변의 그림 ${draft.length}장에 쓴 프롬프트입니다. 고친 뒤 그 그림 아래 파란 버튼을 누르면 그 한 장만 그 글로 다시 그립니다.`
+                    : `이 답변의 그림 ${draft.length}장에 쓴 프롬프트입니다. 고친 뒤 아래 파란 버튼을 누르면 그 글로 다시 그립니다.`)),
                 h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { st.promptOpen.delete(rec.key); renderNow(); } }, '✕ 닫기')));
         draft.forEach((req, n) => {
             if (draft.length > 1) add(box, h('h3', { class: 'pv-n' }, `${n + 1}번째 그림 (${req.w}×${req.h})`));
@@ -3784,11 +3802,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('h3', null, '부정 프롬프트'),
                 h('textarea', { class: 'cf-ta', disabled, oninput: e => { req.neg = e.target.value; } }, req.neg),
                 h('div', { class: 'ix-hint' }, `시드 ${rec.images?.[n]?.seed ?? '-'} · 위치 지정 ${coordsOn(req) ? '켜짐' : '꺼짐'}`));
+            const r = many ? rows[n] : null;
+            if (r) add(box, h('div', { class: 'ix-acts' }, r.go, r.undo, r.tx));
         });
         sync();
+        const one = many ? null : rows[0];
         add(box, h('div', { class: 'ix-acts' },
-            goBtn,
-            undoBtn,
+            one?.go,
+            one?.undo,
             h('button', {
                 class: 'ix-btn sm', type: 'button',
                 onclick: async ev => {
@@ -3800,14 +3821,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     setTimeout(() => { if (b.isConnected) b.textContent = '📋 복사'; }, 1500);
                 },
             }, '📋 복사'),
-            stateTx));
+            one?.tx));
         return box;
     }
 
     function draw(idx, mode, key, reqs, only) {
         const v = st.view;
         if (!v || idx < 0) return;
-        const label = only ? '그림 다시 그리는 중' : mode === 'draw' ? '다시 그리는 중' : mode === 'edit' ? '고친 프롬프트로 그리는 중' : key ? '씬 재구성 중' : `${kindName()} 그리는 중`;
+        const label = mode === 'edit' ? '고친 프롬프트로 그리는 중' : only ? '그림 다시 그리는 중' : mode === 'draw' ? '다시 그리는 중' : mode === 'edit' ? '고친 프롬프트로 그리는 중' : key ? '씬 재구성 중' : `${kindName()} 그리는 중`;
         enqueue({ ci: v.ci, chi: v.chi, idx, key: key ?? (v.rawMsgs[idx] ? msgKeyOf(v.rawMsgs[idx], idx, v.rawMsgs) : undefined), mode, reqs, only, label }).catch(() => {});
     }
 
