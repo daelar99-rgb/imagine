@@ -5322,7 +5322,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .sd button{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:2px 9px;white-space:nowrap;font-size:.84rem;font-weight:700;line-height:1.2;color:#c3c8d2;background:transparent;border:1px solid transparent;cursor:pointer}
 .sd button:hover{color:#fff;background:rgba(255,255,255,.1)}
 .sd button.on{color:#23262d;background:#fff;border-color:#fff}
-@media (max-width:980px){.sd .hi{display:none}.sd button{padding:2px 7px}}
+@media (max-width:980px){.ix-head.up .sd .hi{display:none}.ix-head.up .sd button{padding:2px 7px}}
 @media (max-width:720px){
   .ix-head.up .ix-brand{flex-wrap:wrap}
   .ix-head.up.fd .md{order:3;width:100%;margin-left:0}
