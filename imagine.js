@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.93.0
+//@display-name 🎨 이매진 v3.93.1
 //@api 3.0
-//@version 3.93.0
+//@version 3.93.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.93.0';
+    const VERSION = '3.93.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2618,7 +2618,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .hi svg{display:block;width:100%;height:100%}
 .ix-logo .hi{width:18px;height:18px}
 .ix-crumb{min-width:0;overflow:hidden;opacity:.75;font-size:.84rem;white-space:nowrap;text-overflow:ellipsis}
-.ix-chip{flex:none;padding:1px 7px;font-size:.72rem;font-weight:700;color:#d6d9df;background:#3a3e47}
+.ix-chip{flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:1px 7px;font-size:.72rem;font-weight:700;color:#d6d9df;background:#3a3e47}
 .ix-chip.run{color:#fff;background:var(--accent)}
 .ix-chip.ok{color:#fff;background:var(--good)}
 .ix-chip.bad{color:#fff;background:var(--bad)}
@@ -3178,11 +3178,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
     function renderHead() {
         const chip = chipOf();
-        return h('header', { class: 'ix-head fd' },
+        return h('header', { class: 'ix-head fd' + (updOn() ? ' up' : '') },
             h('div', { class: 'ix-brand' },
                 h('span', { class: 'ix-logo' }, headIcon('logo'), '이매진'),
                 acModeToggle(),
-                chip ? h('span', { class: 'ix-chip ' + chip[1] }, chip[0]) : null,
+                chip ? h('span', { class: 'ix-chip ' + chip[1], title: chip[0] }, chip[0]) : null,
                 h('span', { class: 'sd', role: 'tablist', 'aria-label': '공통 화면' }, SIDE_TABS.map(([id, label]) => h('button', {
                     type: 'button', role: 'tab', class: ui.side === id ? 'on' : null, 'aria-selected': ui.side === id ? 'true' : 'false',
                     onclick: () => { ui.side = id; ui.menu = ''; acs.menu = ''; renderNow(); },
@@ -5317,10 +5317,18 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .md-led{flex:none;width:8px;height:8px;margin-left:2px;border-radius:50%;background:#7c828d;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
 .md-led.lit{background:#22c55e;box-shadow:0 0 0 2px rgba(34,197,94,.22),0 0 6px rgba(34,197,94,.75)}
 .md button.on .md-led:not(.lit){background:#b4bac4}
-.sd{display:inline-flex;gap:2px;margin-left:auto}
+.sd{flex:none;display:inline-flex;gap:2px;margin-left:auto}
+.md{flex:none}
 .sd button{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:2px 9px;white-space:nowrap;font-size:.84rem;font-weight:700;line-height:1.2;color:#c3c8d2;background:transparent;border:1px solid transparent;cursor:pointer}
 .sd button:hover{color:#fff;background:rgba(255,255,255,.1)}
 .sd button.on{color:#23262d;background:#fff;border-color:#fff}
+@media (max-width:980px){.sd .hi{display:none}.sd button{padding:2px 7px}}
+@media (max-width:720px){
+  .ix-head.up .ix-brand{flex-wrap:wrap}
+  .ix-head.up.fd .md{order:3;width:100%;margin-left:0}
+  .ix-head.up.fd .ix-logo,.ix-head.up.fd .ix-chip,.ix-head.up.fd .sd{margin-top:6px}
+  .ix-head.up.fd .ix-x{align-self:flex-start;margin-top:6px;margin-bottom:0}
+}
 .md small{font-size:.64rem;font-weight:400;opacity:.75}
 .ix-head{min-height:44px;padding-top:4px;padding-bottom:4px}
 .as-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
