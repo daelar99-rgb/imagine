@@ -1163,7 +1163,7 @@ Return entries only for the characters in this list that the character sheet, lo
         }
         return out;
     }
-    async function resolveUnknown(char, plan, cast, state) {
+    async function resolveUnknown(char, plan, cast, state, here = true) {
         state.looked ??= [];
         const names = [];
         for (const raw of Array.isArray(plan?.state?.cast) ? plan.state.cast : []) {
@@ -1176,7 +1176,7 @@ Return entries only for the characters in this list that the character sheet, lo
             names.push(e?.name ?? name);
         }
         const done = new Set();
-        if (!names.length) return done;
+        if (!names.length || !here) return done;
         let found = new Map();
         try {
             found = await lookupCast(char, names);
@@ -1923,6 +1923,7 @@ Return entries only for the characters in this list that the character sheet, lo
             busy.key = key;
             busy.idx = idx;
             busy.chat = chatKeyOf(chat, job.chi);
+            job.chatKey = busy.chat;
             const chaId = char.chaId;
             const recs = await loadRecs(chaId);
             const oldKey = recKeyIn(recs, chat, key, idx);
@@ -1981,7 +1982,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 if (busy.stop) throw stopError();
                 if (emphasize) console.log(LOG, 'focus', plan.focus ?? '(none)');
                 state.wear ??= {};
-                const fresh = await resolveUnknown(char, plan, cast, state);
+                const fresh = await resolveUnknown(char, plan, cast, state, job.ci === await api.getCurrentCharacterIndex());
                 if (busy.stop) throw stopError();
                 if (applyState(plan, cast, state, fresh) || fresh.size) await saveCast(chaId, cast);
                 stateChanged = true;
@@ -2156,16 +2157,18 @@ Return entries only for the characters in this list that the character sheet, lo
         };
         const write = async () => {
             const chat = await api.getChatFromIndex(job.ci, job.chi);
-            if (!chat) return null;
+            if (!chat) return false;
+            if (job.chatKey && chatKeyOf(chat, job.chi) !== job.chatKey) return false;
             const i = findMsg(chat, key, idx);
-            if (i >= 0) apply(chat.message[i]);
+            if (i < 0) return false;
+            apply(chat.message[i]);
             if (state) writeStateInto(chat, state, cast);
             await api.setChatToIndex(job.ci, job.chi, chat);
-            return i >= 0;
+            return true;
         };
         const first = await write();
-        if (first === null) return;
-        let ok = true;
+        const lost = !first;
+        let ok = first;
         let reverted = false;
         if (first) {
             const waits = [...COMMIT_CHECKS];
@@ -2194,26 +2197,29 @@ Return entries only for the characters in this list that the character sheet, lo
                 if (char.additionalAssets.length !== before) await api.setCharacterToIndex(job.ci, char);
             }
         }
+        if (lost) throw new Error('그림을 넣을 답변을 찾지 못했습니다. 그리는 사이에 답변이나 채팅이 지워졌거나 옮겨졌습니다.');
         if (!ok) throw new Error('그림을 답변에 넣었지만 리수가 답변을 예전 글로 되돌렸습니다. 답변이 끝난 뒤 다시 눌러 주세요.');
     }
 
     async function removeRecord(rec) {
         const v = st.view;
         if (!v) return;
-        const names = new Set((rec.images ?? []).map(x => x.name));
-        if (!rec.group) {
-            const char = await api.getCharacterFromIndex(v.ci);
-            if (char?.chaId === v.chaId) {
-                char.additionalAssets = (char.additionalAssets ?? []).filter(a => !names.has(a?.[0]));
-                await api.setCharacterToIndex(v.ci, char);
-            }
-        }
+        const names = new Set((rec.images ?? []).map(x => x.name.toLowerCase()));
         const chat = await api.getChatFromIndex(v.ci, v.chi);
         const i = findMsg(chat, rec.key, rec.idx);
         if (chat && i >= 0) {
             const m = chat.message[i];
             m.data = String(m.data ?? '').replace(TAG_RE, tag => [...names].some(n => tag.toLowerCase().includes(n)) ? '' : tag).replace(/\s+$/, '');
             await api.setChatToIndex(v.ci, v.chi, chat);
+        }
+        if (!rec.group) {
+            const char = await api.getCharacterFromIndex(v.ci);
+            if (char?.chaId === v.chaId) {
+                const used = ncUsed(char);
+                const before = (char.additionalAssets ?? []).length;
+                char.additionalAssets = (char.additionalAssets ?? []).filter(a => !names.has(ncLow(a)) || used.has(ncLow(a)));
+                if (char.additionalAssets.length !== before) await api.setCharacterToIndex(v.ci, char);
+            }
         }
         const recs = await loadRecs(v.chaId);
         delete recs[rec.key];
@@ -5238,7 +5244,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const rec = recs[key];
         if (char0.type !== 'group') {
             const char = await api.getCharacterFromIndex(ci);
-            if (char?.chaId === char0.chaId) {
+            if (char?.chaId === char0.chaId && !ncUsed(char).has(low)) {
                 const before = (char.additionalAssets ?? []).length;
                 char.additionalAssets = (char.additionalAssets ?? []).filter(a => String(a?.[0] ?? '').toLowerCase() !== low);
                 if (char.additionalAssets.length !== before) await api.setCharacterToIndex(ci, char);
