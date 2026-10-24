@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.93.1
+//@display-name 🎨 이매진 v3.93.2
 //@api 3.0
-//@version 3.93.1
+//@version 3.93.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.93.1';
+    const VERSION = '3.93.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -113,6 +113,7 @@
         presetId: ARTIST1.id,
         view: null,
         busy: null,
+        lore: null,
         note: '', err: '', ok: false,
         promptOpen: new Set(),
         drafts: {},
@@ -664,10 +665,9 @@
         return res.type === 'multiline' ? res.result.map(x => x[1]).join('\n') : String(res.result ?? '');
     }
 
-    async function askModel(system, user) {
-        const busy = st.busy;
+    async function askModel(system, user, busy = st.busy) {
         if (busy?.stop) throw stopError();
-        const work = requestModel(system, user);
+        const work = requestModel(system, user, false, busy?.llm ?? st.set.llm);
         work.catch(() => {});
         const text = await (busy ? Promise.race([work, busy.halt]) : work);
         if (busy?.stop) throw stopError();
@@ -750,10 +750,9 @@
     const ASK_TRIES = 3;
     const RAW_MAX = 6000;
     const retryNote = error => `\n\n[NOTE] Your previous response could not be used${error?.hint ? `: ${error.hint}` : ''}. Output a single valid JSON object only, with no explanation. Inside string values never write the double quote character ("): drop quotation marks from copied lines.`;
-    async function askJson(system, user, want, check) {
+    async function askJson(system, user, want, check, busy = st.busy) {
         let lastError;
         const msgs = [];
-        const busy = st.busy;
         const label = busy?.label;
         try {
             for (let attempt = 0; attempt < ASK_TRIES; attempt++) {
@@ -764,7 +763,7 @@
                 }
                 let text = '';
                 try {
-                    text = await askModel(system, attempt ? user + retryNote(lastError) : user);
+                    text = await askModel(system, attempt ? user + retryNote(lastError) : user, busy);
                     if (!String(text).trim()) throw askError('모델이 빈 응답을 돌려주었습니다.', 'it was empty');
                     const v = parseJson(text, want);
                     if (want && !(want in v) && v.error) throw askError(`모델이 오류를 돌려주었습니다: ${modelErrorText(v.error)}`, 'it was an error object');
@@ -1115,7 +1114,7 @@ ${TAG_STYLE}`;
             Object.assign(b, { ls: 1, lsAt: Date.now(), loreN, chars: text.length, label: '모델이 인물을 찾는 중' });
             render();
         }
-        const res = await askJson(castSystem(), text, 'cast');
+        const res = await askJson(castSystem(), text, 'cast', undefined, b ?? st.busy);
         if (b) b.askSec = (Date.now() - (b.tryAt ?? b.lsAt)) / 1000;
         const list = [];
         for (const raw of Array.isArray(res.cast) ? res.cast : []) {
@@ -1871,6 +1870,8 @@ Return entries only for the characters in this list that the character sheet, lo
     const failed = new Map();
     const jobsOn = new Set();
     function enqueue(job) {
+        const live = j => j.key === job.key && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
+        if (job.key && [...jobsOn].some(live)) { console.info(LOG, 'skip duplicate job', job.key); return Promise.resolve(); }
         job.gen = gen;
         st.jobs++;
         if (job.key) failed.delete(job.key);
@@ -1943,6 +1944,15 @@ Return entries only for the characters in this list that the character sheet, lo
             } else if (job.mode === 'edit') {
                 reqs = job.reqs;
             } else {
+                if (!cast.list.length && st.lore?.chaId === chaId) {
+                    busy.label = '등장인물 분석이 끝나기를 기다리는 중';
+                    render();
+                    await Promise.race([st.lore.done, busy.halt]);
+                    if (busy.stop) throw stopError();
+                    busy.label = job.label ?? `${kindName()} 그리는 중`;
+                    busy.at = Date.now();
+                    render();
+                }
                 if (!cast.list.length && !cast.tried && job.ci === await api.getCurrentCharacterIndex()) {
                     busy.label = '로어북 읽는 중';
                     busy.lore = true;
@@ -2116,34 +2126,73 @@ Return entries only for the characters in this list that the character sheet, lo
         return out + src.slice(last);
     }
 
+    const COMMIT_CHECKS = [250, 450, 700];
+    const hasName = (text, name) => new RegExp(escapeRe(name) + '(?![a-z0-9_])', 'i').test(String(text ?? ''));
     async function commit(job, char0, key, idx, out, state, cast) {
         const recs = await loadRecs(char0.chaId);
         const oldNames = new Set(job.only ? [job.only] : (recs[key]?.images ?? []).map(x => x.name));
         const isChar = char0.type !== 'group';
+        const put = isChar && out.length > 0;
         if (isChar) {
             const char = await api.getCharacterFromIndex(job.ci);
             if (char && char.chaId === char0.chaId) {
-                char.additionalAssets = (char.additionalAssets ?? []).filter(a => !oldNames.has(a?.[0]));
+                char.additionalAssets ??= [];
                 for (const o of out) char.additionalAssets.push([o.name, o.path, o.ext]);
                 putVars(char);
                 await api.setCharacterToIndex(job.ci, char);
             }
         }
-        const chat = await api.getChatFromIndex(job.ci, job.chi);
-        if (!chat) return;
-        const i = findMsg(chat, key, idx);
-        if (i >= 0) {
-            const m = chat.message[i];
+        const want = put ? out.map(o => o.name) : [];
+        const gone = [...oldNames].filter(n => !want.some(w => w.toLowerCase() === n.toLowerCase()));
+        const landed = m => want.every(n => hasName(m.data, n)) && gone.every(n => !hasName(m.data, n));
+        const apply = m => {
             if (job.only) {
-                if (isChar && out.length) m.data = String(m.data ?? '').replace(new RegExp(escapeRe(job.only) + '(?![a-z0-9_])', 'gi'), out[0].name);
+                if (put) m.data = String(m.data ?? '').replace(new RegExp(escapeRe(job.only) + '(?![a-z0-9_])', 'gi'), out[0].name);
             } else {
-                m.data = isChar && out.length
+                m.data = put
                     ? placeTags(m.data, out.map(o => ({ name: o.name, after: o.req?.after })))
                     : stripOurs(m.data);
             }
+        };
+        const write = async () => {
+            const chat = await api.getChatFromIndex(job.ci, job.chi);
+            if (!chat) return null;
+            const i = findMsg(chat, key, idx);
+            if (i >= 0) apply(chat.message[i]);
+            if (state) writeStateInto(chat, state, cast);
+            await api.setChatToIndex(job.ci, job.chi, chat);
+            return i >= 0;
+        };
+        const first = await write();
+        if (first === null) return;
+        let ok = true;
+        if (first) {
+            const waits = [...COMMIT_CHECKS];
+            for (let t = 0; t < waits.length; t++) {
+                await sleep(waits[t]);
+                const chat = await api.getChatFromIndex(job.ci, job.chi);
+                const i = chat ? findMsg(chat, key, idx) : -1;
+                if (i < 0) { ok = true; break; }
+                ok = landed(chat.message[i]);
+                if (ok) continue;
+                if (t === waits.length - 1 && waits.length > COMMIT_CHECKS.length) break;
+                console.warn(LOG, `commit reverted by Risu, write again (${t + 1}/${COMMIT_CHECKS.length})`);
+                await write();
+                if (t === waits.length - 1) waits.push(400);
+            }
         }
-        if (state) writeStateInto(chat, state, cast);
-        await api.setChatToIndex(job.ci, job.chi, chat);
+        if (isChar) {
+            const drop = ok ? gone : want;
+            const char = drop.length ? await api.getCharacterFromIndex(job.ci) : null;
+            if (char && char.chaId === char0.chaId) {
+                const used = ncUsed(char);
+                const out2 = new Set(drop.map(n => n.toLowerCase()).filter(n => !used.has(n)));
+                const before = (char.additionalAssets ?? []).length;
+                char.additionalAssets = (char.additionalAssets ?? []).filter(a => !out2.has(ncLow(a)));
+                if (char.additionalAssets.length !== before) await api.setCharacterToIndex(job.ci, char);
+            }
+        }
+        if (!ok) throw new Error('그림을 답변에 넣었지만 리수가 답변을 예전 글로 되돌렸습니다. 답변이 끝난 뒤 다시 눌러 주세요.');
     }
 
     async function removeRecord(rec) {
@@ -3156,6 +3205,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function chipOf() {
         if (ui.mode === 'asset' && acs.run) return [`애드 에셋 ${acs.run.done}/${acs.run.n}`, 'run'];
         if (st.busy) return [st.busy.stage === 1 ? `그리는 중 ${st.busy.i}/${st.busy.n}` : st.busy.label, 'run'];
+        if (st.lore) return [st.lore.label, 'run'];
         if (st.view && !st.view.hasKey) return ['키 없음', 'bad'];
         if (!setupDone()) return ['준비 전', ''];
         if (st.err || [...failed.values()].some(f => f.chat === st.view?.chatKey)) return ['실패', 'bad'];
@@ -3439,9 +3489,13 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         else if (key === 'tap' || key === 'ptOff') sizeChanged(false);
     }
 
-    function renderProgress() {
-        const b = st.busy;
-        if (!b) return null;
+    function renderProgress(which) {
+        const out = [];
+        if (which !== 'job' && st.lore) out.push(progBar(st.lore));
+        if (st.busy) out.push(progBar(st.busy));
+        return out.length ? out : null;
+    }
+    function progBar(b) {
         const only = b.lore && !b.job;
         const stages = only ? LORE_STAGES : STAGES;
         const cols = only ? 'grid-template-columns:2fr 4fr 2fr' : '';
@@ -3458,10 +3512,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'pg-now' },
                 h('span', null, only ? [`${llmName(b.llm ?? st.set.llm)} 모델 · ${loreStepText(b)}`, now === 1 ? [' · ', secSpan(b.tryAt ?? b.lsAt)] : null, loreTry ? ` · ${loreTry}` : '']
                     : b.stage === 0 ? (b.lore ? `${llmName(b.llm ?? st.set.llm)} 모델이 로어북을 읽어 인물표를 짜는 중` : `${b.label}: ${llmName(b.llm ?? st.set.llm)} 모델이 연출을 짜는 중`) : b.stage === 1 ? `NAI 가 그리는 중 (${b.i}/${b.n})` : '봇에 저장하는 중'),
-                h('button', { class: 'ix-btn sm warn', type: 'button', disabled: b.stop, onclick: cancelAll }, b.stop ? '멈추는 중' : st.jobs > 1 ? '모두 중단' : '중단')),
+                h('button', { class: 'ix-btn sm warn', type: 'button', disabled: b.stop, onclick: only ? stopLore : cancelAll }, b.stop ? '멈추는 중' : !only && st.jobs > 1 ? '모두 중단' : '중단')),
             h('div', { class: 'pg-bar', style: cols }, segs),
             h('div', { class: 'pg-nm', style: cols }, names),
-            st.jobs > 1 ? h('div', { class: 'ix-hint', style: 'margin-top:6px' }, `뒤에 ${st.jobs - 1}개가 기다리는 중입니다. 중단하면 함께 취소합니다.`) : null);
+            !only && st.jobs > 1 ? h('div', { class: 'ix-hint', style: 'margin-top:6px' }, `뒤에 ${st.jobs - 1}개가 기다리는 중입니다. 중단하면 함께 취소합니다.`) : null);
     }
 
     function keyBox(full) {
@@ -3606,7 +3660,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function renderReadyEnd() {
         const v = st.view;
         const toGallery = h('button', { class: 'lnk', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'gallery'; ui.side = ''; renderNow(); } }, '삽화 목록 보기 →');
-        if (st.busy) return [renderProgress(), h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '창을 닫아도 됩니다. 다 그리면 그 답변 아래에 그림이 들어갑니다. '), toGallery];
+        if (st.busy) return [renderProgress('job'), h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '창을 닫아도 됩니다. 다 그리면 그 답변 아래에 그림이 들어갑니다. '), toGallery];
         const f = lastFail();
         if (f) return [
             h('div', { class: 'ix-msg err', role: 'alert' }, `#${f.idx} 답변을 그리지 못했습니다. ${f.error}`),
@@ -3627,7 +3681,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const su = st.set.setup ?? {};
         const n = [su.llm, v.hasKey, su.model, su.kind, su.preset, su.count].filter(Boolean).length;
         let cls = '', text;
-        if (st.busy) { cls = 'wait'; text = `${st.busy.label}…`; }
+        if (st.busy || st.lore) { cls = 'wait'; text = `${(st.busy ?? st.lore).label}…`; }
         else if (!su.llm) text = 'LLM 모델을 고르면 다음 단계가 열립니다.';
         else if (!v.hasKey) { cls = 'err'; text = 'NAI 키를 넣어야 그릴 수 있습니다.'; }
         else if (!setupDone()) text = `6단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
@@ -3707,7 +3761,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             mx ? renderMenu(a, mx) : null,
             a.rec && st.promptOpen.has(key) ? h('div', { class: 'ans-pv' }, renderPrompt(a.rec, busyHere || waiting, a.i)) : null);
         let foot;
-        if (busyHere) foot = renderProgress();
+        if (busyHere) foot = renderProgress('job');
         else if (waiting) foot = [h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, '⏳ 기다리는 중'), h('span', { class: 'ix-hint' }, '앞의 그림이 끝나면 그립니다')];
         else if (!v.hasKey) foot = [h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, '🎨 이미지 생성'), h('span', { class: 'ix-hint' }, 'NAI 키가 필요합니다')];
         else if (!setupDone()) foot = [h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '🎨 이미지 생성'), h('span', { class: 'ix-hint' }, '준비 탭을 먼저 마쳐 주세요')];
@@ -3969,7 +4023,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         ui.castOpen ??= new Set(v.cast.list.length === 1 ? [v.cast.list[0].id] : []);
         add(pane,
             h('div', { class: 'ix-acts', style: 'margin-top:0' },
-                h('button', { class: 'ix-btn main', type: 'button', disabled: !!st.busy || v.group, onclick: () => rereadLore() }, '📖 등장인물 분석'),
+                h('button', { class: 'ix-btn main', type: 'button', disabled: !!st.lore || !!st.busy?.lore || v.group, onclick: () => rereadLore() }, '📖 등장인물 분석'),
                 h('button', {
                     class: 'ix-btn', type: 'button',
                     onclick: () => {
@@ -4085,12 +4139,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     async function rereadLore(llm = st.set.llm) {
         const v = st.view;
-        if (!v || st.busy) return;
-        const busy = { label: '로어북 읽는 중', lore: true, llm, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, key: '', ls: 0, lsAt: Date.now() };
+        if (!v || v.group || st.lore || st.busy?.lore) return null;
+        const busy = { label: '로어북 읽는 중', lore: true, llm, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, key: '', ls: 0, lsAt: Date.now(), chaId: v.chaId };
         busy.halt = new Promise(resolve => { busy.onStop = resolve; });
-        st.busy = busy;
-        st.err = '';
-        st.note = '';
+        let finish;
+        busy.done = new Promise(resolve => { finish = resolve; });
+        st.lore = busy;
+        if (!st.busy) { st.err = ''; st.note = ''; }
+        let res = null;
         renderNow();
         try {
             if (!isObj(st.loreRate)) {
@@ -4104,22 +4160,27 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 st.loreRate[llm] = busy.askSec / Math.max(1, busy.chars / 10000);
                 void Promise.resolve(api.pluginStorage.setItem('nc:loreRate', st.loreRate)).catch(() => {});
             }
-            mergeCast(v.cast, fresh);
-            await saveCast(v.chaId, v.cast);
+            const cast = await loadCast(v.chaId);
+            mergeCast(cast, fresh);
+            await saveCast(v.chaId, cast);
             writeVarsSoon();
-            st.note = `인물 ${fresh.length}명을 읽었습니다.`;
+            res = ['ok', `인물 ${fresh.length}명을 읽었습니다.`];
+            st.note = res[1];
             st.ok = true;
         } catch (error) {
-            if (!error.isStop) st.err = error.message || String(error);
-            else st.note = '등장인물 분석을 멈췄습니다.';
+            res = error.isStop ? ['ok', '등장인물 분석을 멈췄습니다.'] : ['err', error.message || String(error)];
+            if (!error.isStop) st.err = res[1];
+            else st.note = res[1];
         } finally {
-            if (st.busy === busy) st.busy = null;
+            if (st.lore === busy) st.lore = null;
+            finish();
             renderNow();
         }
+        return res;
     }
     function stopLore() {
-        const b = st.busy;
-        if (!b?.lore || b.job || b.stop) return;
+        const b = st.lore;
+        if (!b || b.stop) return;
         b.stop = true;
         b.onStop?.();
         renderNow();
@@ -4416,14 +4477,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×')),
             h('section', { class: 'ix-pane' }, h('div', { class: 'ix-empty' }, h('b', null, '여는 중입니다'), '잠시만 기다려 주세요.',
                 h('div', { class: 'ix-open-bar', role: 'progressbar', 'aria-label': '여는 중' }, h('div', { class: 'fi' })), tipRow())));
-        void api.showContainer('fullscreen');
+        if (!root.asked && needRoot()) await rootDoc();
+        await Promise.resolve(api.showContainer('fullscreen')).catch(error => console.warn(LOG, 'showContainer', error));
+        await lowerPanel();
         try {
             await refreshView();
         } catch (error) {
             console.error(LOG, 'open', error);
             st.view = null;
         }
-        if (!st.busy && !st.jobs) { st.note = ''; st.err = ''; st.ok = false; }
+        if (!st.busy && !st.jobs && !st.lore) { st.note = ''; st.err = ''; st.ok = false; }
         st.drafts = {};
         ui.lastTab = null;
         ui.tab = 'ready';
@@ -4656,7 +4719,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     const INBTN_CLASS = 'nc-inbtn ml-4 bg-textcolor2 flex justify-center items-center w-12 h-12 rounded-md hover:bg-blue-500 transition-colors text-textcolor';
     const PANBTN_CLASS = INBTN_CLASS.replace('nc-inbtn', 'nc-panbtn');
-    const root = { doc: null, asked: false, done: false, on: false, observer: null, clickId: '', timer: 0, look: '', kids: '', job: Promise.resolve(),
+    const root = { doc: null, asked: false, asking: null, done: false, on: false, observer: null, clickId: '', timer: 0, look: '', kids: '', job: Promise.resolve(),
         tick: 0, tone: '', pct: -1, pgBusy: null, pgKey: '', pgAt: 0, genText: new Map(), figMarked: false, figText: new Map() };
     const rootQueue = fn => (root.job = root.job.then(fn).catch(error => console.warn(LOG, 'root', error)));
     const needRoot = () => st.set.ubtn !== 'none' || st.set.panelBtn || st.set.tap;
@@ -4694,14 +4757,40 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function rootDoc() {
         if (!root.asked) {
             root.asked = true;
-            try {
-                root.doc = await api.getRootDocument();
-            } catch (error) {
-                console.warn(LOG, 'getRootDocument', error);
-            }
-            root.done = true;
+            root.asking = (async () => {
+                try {
+                    root.doc = await api.getRootDocument();
+                } catch (error) {
+                    console.warn(LOG, 'getRootDocument', error);
+                }
+                root.done = true;
+            })();
         }
+        await root.asking;
         return root.doc;
+    }
+
+    const PANEL_Z = '49';
+    async function lowerPanel() {
+        const d = root.doc;
+        if (!d) return;
+        try {
+            let f = await d.querySelector('body > iframe[x-nc-panel]');
+            if (!f) {
+                const all = await d.querySelectorAll('body > iframe');
+                const hit = [];
+                for (let i = 0, n = await all.length(); i < n; i++) {
+                    const e = await all.at(i);
+                    if (await e.getStyle('display') === 'block' && await e.getStyle('zIndex') === '1000') hit.push(e);
+                }
+                if (hit.length !== 1) return;
+                f = hit[0];
+                await f.setAttribute('x-nc-panel', '1');
+            }
+            if (await f.getStyle('zIndex') !== PANEL_Z) await f.setStyle('zIndex', PANEL_Z);
+        } catch (error) {
+            console.warn(LOG, 'lowerPanel', error);
+        }
     }
     async function inputRow(d) {
         const area = await d.querySelector('textarea.text-input-area');
@@ -4963,7 +5052,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }
     }
 
+    const taps = new Map();
+    function doubleTap(id) {
+        const now = Date.now();
+        const last = taps.get(id) ?? 0;
+        taps.set(id, now);
+        if (taps.size > 50) taps.delete(taps.keys().next().value);
+        return now - last < 700;
+    }
     async function genClick(idx) {
+        if (doubleTap('g:' + idx)) return;
         try {
             const ci = await api.getCurrentCharacterIndex();
             const chi = await api.getCurrentChatIndex();
@@ -5067,6 +5165,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (el) { void setLabel(el, ACT_LABEL.del); void el.setStyle('background', '').catch(() => {}); }
     }
     async function figAction(act, name, el) {
+        if (doubleTap(`f:${act}:${String(name).toLowerCase()}`)) return;
         try {
             const ci = await api.getCurrentCharacterIndex();
             const chi = await api.getCurrentChatIndex();
@@ -6563,13 +6662,12 @@ Rules:
         if (!v.hasKey) return add(pane, h('p', { class: 'ix-hint' }, '애드 에셋은 NovelAI 키가 있어야 그릴 수 있습니다.'), keyBox(true));
         const a = acAst();
         if (!a) return add(pane, h('div', { class: 'ix-empty' }, '불러오는 중…'));
-        const lb = st.busy?.lore && !st.busy.job ? st.busy : null;
+        const lb = st.lore;
         const loreOn = !!lb;
         const loreTry = lb?.label.match(/다시 시도 \d+\/\d+/)?.[0];
         const reread = async () => {
             acs.loreRes = null;
-            await rereadLore(st.set.acLlm);
-            acs.loreRes = st.err ? ['err', st.err] : st.note ? ['ok', st.note] : null;
+            acs.loreRes = await rereadLore(st.set.acLlm);
             renderNow();
         };
         const loreRow = () => [
@@ -6577,7 +6675,7 @@ Rules:
                 loreOn ? h('button', { class: 'ix-btn run stp', type: 'button', disabled: lb.stop, title: '누르면 멈춥니다', onclick: stopLore },
                     h('span', { class: 'gf lr' + (lb.ls === 1 ? ' ask' : ''), style: lb.ls === 1 ? gaugeStyle(lb.tryAt ?? lb.lsAt, loreEst(lb)) : `width:${lb.ls === 2 ? 96 : 6}%` }),
                     lb.stop ? '멈추는 중…' : [loreStepText(lb), lb.ls === 1 ? [' · ', secSpan(lb.tryAt ?? lb.lsAt)] : null, loreTry ? ` · ${loreTry}` : '', loadDots(), h('span', { class: 'stp-x' }, '■ 멈추기')])
-                    : h('button', { class: 'ix-btn', type: 'button', disabled: !!st.busy || !!acs.run, onclick: () => void reread() }, '등장인물 분석')),
+                    : h('button', { class: 'ix-btn', type: 'button', disabled: !!st.lore || !!st.busy?.lore || !!acs.run, onclick: () => void reread() }, '등장인물 분석')),
             !loreOn && acs.loreRes ? h('div', { class: 'ix-msg ' + acs.loreRes[0], style: 'margin:0 0 10px' }, acs.loreRes[1]) : null,
         ];
         const noCast = !acCast().length;
