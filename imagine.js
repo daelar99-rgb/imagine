@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.90.0
+//@display-name 🎨 이매진 v3.91.0
 //@api 3.0
-//@version 3.90.0
+//@version 3.91.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,9 +11,10 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.90.0';
+    const VERSION = '3.91.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
+    const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
     const doc = document;
 
@@ -2819,6 +2820,18 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .up-act{flex:none;display:flex;gap:6px}
 .ix .up-no{padding:6px 12px;font-size:.78rem;color:#b9c1cf;background:transparent;border:1px solid #4a5468}
 .ix .up-no:hover{background:#22304d}
+.up-log{margin:0 0 14px;background:#fff;border:1px solid var(--line)}
+.up-log-hd{padding:9px 12px;font-size:.86rem;font-weight:700;color:var(--accent2);background:var(--paper2);border-bottom:1px solid var(--line)}
+.up-sum{margin:0;padding:11px 12px;font-size:.86rem;line-height:1.55;color:var(--ink)}
+.up-skip{padding:8px 12px 10px;font-size:.75rem;line-height:1.55;color:var(--muted);background:var(--paper2);border-top:1px dashed var(--line2)}
+.ix .up-skip-hd{display:flex;align-items:center;gap:6px;width:100%;padding:0;font:inherit;font-weight:700;color:var(--muted);text-align:left;background:none;border:0;cursor:pointer}
+.ix .up-skip-hd:hover{color:var(--accent2)}
+.up-skip-hd .ar{display:inline-block;transition:transform .2s}
+.up-skip.open .up-skip-hd .ar{transform:rotate(180deg)}
+.up-skip ul{display:none;margin:5px 0 0;padding:0;list-style:none}
+.up-skip.open ul{display:block}
+.up-skip li{display:flex;gap:8px}
+.up-skip li b{flex:none;min-width:3.6em;font-weight:600;color:var(--ink)}
 .up-steps{display:flex;flex-direction:column;gap:12px}
 .up-step{display:flex;flex-direction:column;min-width:0;background:#fff;border:1px solid var(--line)}
 .up-cap{display:flex;align-items:flex-start;gap:9px;min-height:54px;padding:10px 11px;font-size:.8rem;line-height:1.45}
@@ -3187,7 +3200,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         catch { msg.textContent = `새 창이 막혔습니다. ${url} 을 브라우저 주소창에 넣어 주세요.`; }
     }
 
-    const upd = { latest: '', skip: '', checked: false };
+    const upd = { latest: '', skip: '', checked: false, notes: [], open: false };
     const verCmp = (a, b) => {
         const x = String(a).split('.').map(n => parseInt(n, 10) || 0), y = String(b).split('.').map(n => parseInt(n, 10) || 0);
         for (let i = 0; i < Math.max(x.length, y.length); i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0) ? 1 : -1;
@@ -3201,10 +3214,46 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (!res.ok) return;
             const ver = (await res.text()).match(/\/\/@version\s+(\S+)/)?.[1] ?? '';
             upd.checked = true;
-            if (ver && verCmp(ver, VERSION) > 0) { upd.latest = ver; render(); }
+            if (ver && verCmp(ver, VERSION) > 0) { upd.latest = ver; render(); void loadNotes(); }
         } catch (error) {
             console.warn(LOG, 'update check', error);
         }
+    }
+    function pickNotes(text, from, to) {
+        const out = [];
+        let ver = '';
+        for (const line of String(text ?? '').split(/\r?\n/)) {
+            const head = line.match(/^##\s*v?(\d+(?:\.\d+)*)\b/);
+            if (head) { ver = head[1]; continue; }
+            const item = ver && line.match(/^\s*[-*]\s+(.+?)\s*$/);
+            if (!item) continue;
+            if (verCmp(ver, from) > 0 && verCmp(ver, to) <= 0 && !out.some(n => n.ver === ver)) out.push({ ver, text: item[1] });
+            ver = '';
+        }
+        return out.sort((a, b) => verCmp(b.ver, a.ver));
+    }
+    async function loadNotes() {
+        try {
+            const res = await api.nativeFetch(NOTES_URL, { method: 'GET' });
+            if (!res.ok) return;
+            upd.notes = pickNotes(await res.text(), VERSION, upd.latest);
+            if (upd.notes.length) render();
+        } catch (error) {
+            console.warn(LOG, 'update notes', error);
+        }
+    }
+    function renderNotes() {
+        const [top, ...rest] = upd.notes;
+        if (!top) return null;
+        const box = h('div', { class: 'up-skip' + (upd.open ? ' open' : '') });
+        const toggle = () => { upd.open = box.classList.toggle('open'); btn.setAttribute('aria-expanded', String(upd.open)); };
+        const btn = h('button', { class: 'up-skip-hd', type: 'button', 'aria-expanded': String(upd.open), onclick: toggle },
+            `건너뛴 업데이트 ${rest.length}개 `, h('span', { class: 'ar', 'aria-hidden': 'true' }, '▾'));
+        if (rest.length) box.append(btn, h('ul', null, rest.map(n => h('li', null, h('b', null, `v${n.ver}`), h('span', null, n.text)))));
+        return h('div', { class: 'up-log' },
+            h('div', { class: 'up-log-hd' }, `v${top.ver} 업데이트 내역`),
+            h('p', { class: 'up-sum' }, top.text),
+            rest.length ? box : null);
     }
     const updOn = () => !!upd.latest && upd.skip !== upd.latest;
     const UP_ICON = {
@@ -3249,13 +3298,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const row = (name, ver, plus, dim) => h('div', { class: 'up-row' + (dim ? ' dim' : '') },
             h('span', { class: 'up-pn' }, name, h('em', null, ver)),
             upIcon('link'), plus ? upHit(upIcon('plus', 'g')) : null, upIcon('power'), upIcon('trash'));
-        pane.append(
+        add(pane,
             h('div', { class: 'up-top' },
                 h('div', { class: 'up-top-tx' },
                     h('b', null, `새 버전이 나왔습니다 · v${VERSION} → v${upd.latest}`),
                     h('span', null, '업데이트는 리수 설정에서 합니다. 아래 그림의 노란 테두리를 차례대로 누르세요.')),
                 h('div', { class: 'up-act' },
-                    h('button', { class: 'up-no', type: 'button', onclick: later }, '다음에'))),
+                    h('button', { class: 'up-no', type: 'button', onclick: later }, '나중에'))),
+            renderNotes(),
             h('div', { class: 'up-steps' },
                 upStep(1, '리수 왼쪽 위 ≡ 버튼', '이 패널을 닫으면 보입니다.',
                     h('div', { class: 'up-scr' }, upSide(true, false), upChat()), '리수 화면 왼쪽 위의 줄 세 개 버튼'),

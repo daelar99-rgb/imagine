@@ -1,7 +1,9 @@
-# 이매진 릴리즈 자동화 v1.1.0
+# 이매진 릴리즈 자동화 v1.2.0
 # 깃허브 레포에 .github/workflows/release.yml 로 넣는다.
 # main 의 imagine.js 가 바뀌면 //@version 을 읽어 릴리즈 vX.Y.Z 를 만들고 imagine.js 를 첨부한다.
 # v1.1.0: 이매진.js 대신 imagine.js 를 본다. 이매진.js 는 옛 업데이트 주소용으로 3.85.1 에 멈춰 둔다.
+# v1.2.0: 릴리즈 본문 맨 위에 CHANGELOG.md 의 이번 판 요약을 넣는다. CHANGELOG.md 에 이번 판(## vX.Y.Z)이 없으면 멈춘다.
+#         이매진 업데이트 탭이 같은 파일을 읽어 요약을 보여 주므로, 요약 없이 올라가는 일을 막는다.
 # 같은 판 릴리즈가 이미 있으면 imagine.js 만 바꿔 올린다 (같은 판 수정).
 # Actions 탭의 Run workflow 로 손으로 돌릴 수도 있다.
 
@@ -29,6 +31,18 @@ jobs:
           if [ -z "$v" ]; then echo "imagine.js 에 //@version 줄이 없습니다" >&2; exit 1; fi
           echo "v=$v" >> "$GITHUB_OUTPUT"
 
+      - name: Read changelog
+        env:
+          V: ${{ steps.ver.outputs.v }}
+        run: |
+          # ## vX.Y.Z 아래 첫 - 줄이 이번 판 요약이다 (이매진 pickNotes 와 같은 규칙)
+          note=$(tr -d '\r' < CHANGELOG.md | awk -v v="$V" '
+            /^##[ \t]*v?[0-9]/ { h=$0; sub(/^##[ \t]*v?/, "", h); sub(/[^0-9.].*$/, "", h); cur=(h==v); next }
+            cur && /^[ \t]*[-*][ \t]+/ { sub(/^[ \t]*[-*][ \t]+/, ""); print; exit }
+          ')
+          if [ -z "$note" ]; then echo "CHANGELOG.md 에 v$V 요약(## v$V 아래 - 줄)이 없습니다" >&2; exit 1; fi
+          printf '## v%s 업데이트 내역\n- %s\n\n' "$V" "$note" > head.md
+
       - name: Create or update release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,11 +51,12 @@ jobs:
           if gh release view "v$V" >/dev/null 2>&1; then
             gh release upload "v$V" imagine.js --clobber
           else
+            # 이번 판 요약을 맨 위에 두고, README(첫 줄의 판 번호를 이번 판으로 맞춤)를 그 아래에 붙인다
+            cp head.md notes.md
             if [ -f README.md ]; then
-              # README 첫 줄의 판 번호를 이번 판으로 맞춰 본문으로 쓴다
-              sed -E "1s/v[0-9]+\.[0-9]+\.[0-9]+/v$V/" README.md > notes.md
+              sed -E "1s/v[0-9]+\.[0-9]+\.[0-9]+/v$V/" README.md >> notes.md
             else
-              echo "이매진 v$V" > notes.md
+              echo "이매진 v$V" >> notes.md
             fi
             gh release create "v$V" imagine.js \
               --title "이매진 v$V (RISU Plugin)" \
