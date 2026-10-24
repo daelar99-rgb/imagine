@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.87.1
+//@display-name 🎨 이매진 v3.88.0
 //@api 3.0
-//@version 3.87.1
+//@version 3.88.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.87.1';
+    const VERSION = '3.88.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -805,9 +805,10 @@
 
     const castSystem = () => `You convert a roleplay bot's character sheet, lorebook and the user's persona into NovelAI (NAI Diffusion V4.5) danbooru tags, so the same character is drawn identically in every image.
 Output ONE JSON object only:
-{"cast":[{"name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
+{"cast":[{"name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
 Rules
 - One entry per recurring character who has (or clearly implies) a visual appearance. ${castMaxNow() ? `At most ${castMaxNow()} entries, most important first.` : 'Most important first.'} Include the user's persona as an entry with "persona": true when a persona is given.
+- canon: judge whether this character comes from an existing published work (anime, manga, game, novel, film). If so, its Danbooru character tag followed by the series in parentheses, lowercase, e.g. "uchiha sasuke (naruto)", "gojou satoru (jujutsu kaisen)". "" for an original character, the user's persona, or when unsure.
 - type: girl for female, boy for male, other for non-human / ambiguous.
 - Every slot follows TAG STYLE below: Danbooru tags first, a short phrase only for a design no tag covers. Colors go into the tags (e.g. "red eyes", "white sailor shirt").
 - hairstyle: hair length, hairstyle, hair texture, hair accessories and default headwear, each accessory / headwear with its color (e.g. "long hair, high ponytail, straight hair, red hair ribbon, white beret"). No hair color, no bangs.
@@ -1121,12 +1122,14 @@ ${TAG_STYLE}`;
         }
         return out;
     }
+    const canonTag = t => tidy(t).toLowerCase().replace(/\s*\(\s*/g, ' (').replace(/\s*\)/g, ')').replace(/[,+]/g, ' ').replace(/\s+/g, ' ').trim();
     function castEntry(raw, name, persona) {
         const isPersona = raw.persona === true || !!(persona && name === persona.name);
         return normCast({
             id: uid(),
             name,
             aliases: (Array.isArray(raw.aliases) ? raw.aliases : []).map(tidy).filter(Boolean).slice(0, 6),
+            canon: isPersona ? '' : canonTag(raw.canon),
             type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
             look: tidy(raw.look),
             wear: Object.fromEntries(WEAR_KEYS.map(k => [k, tidy(raw[k])])),
@@ -1233,7 +1236,7 @@ Return entries only for the characters in this list that the character sheet, lo
             if (!e) {
                 if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
                 e = normCast({
-                    id: uid(), name, aliases: [],
+                    id: uid(), name, aliases: [], canon: canonTag(raw.canon),
                     type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
                     look: tidy(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, /^none$/i.test(tidy(raw[k])) ? '' : tidy(raw[k])])),
                     src: 'chat', on: true,
@@ -1318,7 +1321,8 @@ Return entries only for the characters in this list that the character sheet, lo
         const s = String(t ?? '');
         return SAY_RE.test(s.slice(s.lastIndexOf('\n') + 1)) ? `${s.replace(/\s+$/, '')} ` : `${s.replace(/[,\s]+$/, '')}, `;
     };
-    const addToLine = (line, add, whole = line) => /\s\+\s|^char\d+:/m.test(whole) ? withTags(line, add) : joinTags(line, add);
+    const LABEL_RE = /^(?:char\d+|[^:\n,+()]+ \([^)\n]+\)):/m;
+    const addToLine = (line, add, whole = line) => /\s\+\s/.test(whole) || LABEL_RE.test(whole) ? withTags(line, add) : joinTags(line, add);
     function addBeforeText(prompt, add) {
         const s = String(prompt ?? ''), at = s.search(SAY_RE);
         if (!tidy(add)) return s;
@@ -1327,7 +1331,7 @@ Return entries only for the characters in this list that the character sheet, lo
             return `${s.slice(0, cut)}${addToLine(last, add, s)}${end}`;
         }
         const nl = s.lastIndexOf('\n', at);
-        if (nl >= 0 && !/^char\d+:/.test(s.slice(nl + 1))) {
+        if (nl >= 0 && !LABEL_RE.test(s.slice(nl + 1).split('\n')[0])) {
             const top = s.slice(0, nl), cut = top.lastIndexOf('\n') + 1, prev = top.slice(cut);
             const comma = /,\s*$/.test(prev) ? ',' : '';
             return `${top.slice(0, cut)}${addToLine(prev, add, s)}${comma}${s.slice(nl)}`;
@@ -1369,6 +1373,8 @@ Return entries only for the characters in this list that the character sheet, lo
         const slots = [];
         const nums = new Map();
         const numOf = x => { if (!nums.has(x.key)) nums.set(x.key, nums.size + 1); return nums.get(x.key); };
+        const labels = new Map();
+        const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
             if (slots.length >= 4) break;
@@ -1380,20 +1386,20 @@ Return entries only for the characters in this list that the character sheet, lo
                 who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
                 if (who.length >= 2) break;
             }
-            for (const x of who) numOf(x);
+            for (const x of who) labelOf(x);
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type, name }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : [name]);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam = joinTags(noText(pn.camera)), say = line ? `speech bubble with Text: ${line} ` : '';
             const rawActs = Array.isArray(pn.tags) ? pn.tags : [pn.tags];
-            const refs = who.flatMap(x => [...new Set([x.raw, x.name])].map(n => [n, numOf(x)])).sort((a, b) => b[0].length - a[0].length);
-            const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(`char${k}`), String(t ?? '')).replace(/@(?=\S)/g, '');
+            const refs = who.flatMap(x => [...new Set([x.raw, x.name])].map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
+            const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
             const acts = (who.length ? who : [null]).map((x, k) => refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-            const personLine = k => `char${numOf(who[k])}: ${[withTags(who.length === 1 ? head : `1${who[k].type}`, idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+            const personLine = k => `${labelOf(who[k])}: ${[withTags(who.length === 1 ? head : `1${who[k].type}`, idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             const lines = cam ? [`${cam},`] : [];
             if (who.length) {
                 for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
@@ -1403,11 +1409,11 @@ Return entries only for the characters in this list that the character sheet, lo
                 prompt: endComma(lines.join('\n')),
                 uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', type: types[0] ?? 'other',
                 name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
-                chars: who.map(x => [String(x.name).toLowerCase(), numOf(x)]),
+                chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
             });
         }
         for (const sl of slots) {
-            sl.uc = joinTags(sl.uc, [...nums].filter(([k]) => !sl.keys.includes(k)).map(([, n]) => `char${n}`));
+            sl.uc = joinTags(sl.uc, [...labels].filter(([k]) => !sl.keys.includes(k)).map(([, n]) => n));
             delete sl.keys;
         }
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
@@ -1454,16 +1460,21 @@ Return entries only for the characters in this list that the character sheet, lo
     const COLOR_WORD = '(?:(?:light|dark|pale|deep|bright|pastel)[ -])?(?:red|blue|green|yellow|orange|purple|violet|pink|black|white|gr[ae]y|silver|gold(?:en)?|brown|blonde?|aqua|cyan|teal|navy|beige|crimson|scarlet|maroon|magenta|lavender|platinum|ginger|multicolored|two-tone|rainbow)';
     const COLOR_RE = new RegExp(`\\b${COLOR_WORD}(?:[- ](?:and[- ])?${COLOR_WORD})*\\b-?`, 'gi');
     const BARE_RE = /^(?:hair|eyes|skin|theme|background)$/i;
-    const stripColors = text => String(text ?? '').split('\n').map(line => {
+    const stripColors = text => String(text ?? '').split('\n').map(whole => {
+        const lead = whole.match(LABEL_RE)?.[0] ?? '', line = whole.slice(lead.length);
+        const kept = stripLine(line);
+        return lead ? `${lead}${kept && !/^\s/.test(kept) ? ' ' : ''}${kept}` : kept;
+    }).join('\n');
+    const stripLine = line => {
         const at = line.search(SAY_RE);
         const head = at < 0 ? line : line.slice(0, at), tail = at < 0 ? '' : line.slice(at);
         const j = /\s\+\s/.test(line) ? TAG_JOIN : ' with ';
         const out = head.split(',').map(part => part.split(/\s+(?:with|\+)\s+/)
-            .map(a => /::/.test(a) ? a.trim() : a.replace(COLOR_RE, '').replace(/\s+/g, ' ').trim()).filter(a => a && !BARE_RE.test(a) && a !== '+').join(j)).filter(Boolean).join(', ');
+            .map(a => /::|\([^)]*\)/.test(a) ? a.trim() : a.replace(COLOR_RE, '').replace(/\s+/g, ' ').trim()).filter(a => a && !BARE_RE.test(a) && a !== '+').join(j)).filter(Boolean).join(', ');
         if (tail) return out ? `${out}${j}${tail}` : tail;
         const end = head.match(/,[ \t]*$/)?.[0];
         return out && end ? `${out}${end}` : out;
-    }).join('\n');
+    };
     const MONO_TAGS = '2::monochrome, spot color, limited palette::, 2::vanishing point, Sense of space, long shot::';
     const FX_RE = /^[a-z][a-z -]*$/;
     function accentsOf(img, cast) {
@@ -1495,7 +1506,7 @@ Return entries only for the characters in this list that the character sheet, lo
             if (!hits.length) { loose.push(a.fx); continue; }
             for (const sl of hits) {
                 const n = (sl.chars ?? []).find(([nm]) => nm === a.who)?.[1];
-                const ls = sl.prompt.split('\n'), i = n ? ls.findIndex(l => l.startsWith(`char${n}:`)) : -1;
+                const ls = sl.prompt.split('\n'), i = n ? ls.findIndex(l => l.startsWith(`${n}:`)) : -1;
                 if (i < 0) { sl.prompt = addBeforeText(sl.prompt, weaponTrail(a.fx, sl.prompt)); continue; }
                 ls[i] = addBeforeText(ls[i], weaponTrail(a.fx, ls[i]));
                 sl.prompt = ls.join('\n');
@@ -3874,7 +3885,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     class: 'ix-btn', type: 'button',
                     onclick: () => {
                         const id = uid();
-                        v.cast.list.push({ id, name: '새 인물', aliases: [], type: 'girl', look: '', wear: emptyWear(), src: 'edit', on: true });
+                        v.cast.list.push({ id, name: '새 인물', aliases: [], canon: '', type: 'girl', look: '', wear: emptyWear(), src: 'edit', on: true });
                         ui.castOpen.add(id);
                         castChanged();
                         renderNow();
@@ -3957,7 +3968,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                             }),
                             seg([['girl', '여'], ['boy', '남'], ['other', '기타']], e.type, t => { e.type = t; castChanged(e); renderNow(); })),
                         h('label', null, '다른 이름 (쉼표로 구분)',
-                            h('input', { class: 'cf-in', value: (e.aliases ?? []).join(', '), oninput: ev => { e.aliases = ev.target.value.split(',').map(tidy).filter(Boolean); castChanged(e); } }))),
+                            h('input', { class: 'cf-in', value: (e.aliases ?? []).join(', '), oninput: ev => { e.aliases = ev.target.value.split(',').map(tidy).filter(Boolean); castChanged(e); } })),
+                        h('label', null, '원작 태그 (예: uchiha sasuke (naruto) · 비우면 char 번호)',
+                            h('input', { class: 'cf-in', value: e.canon ?? '', oninput: ev => { e.canon = canonTag(ev.target.value); castChanged(e); } }))),
                     h('div', { class: 'cc-sec' },
                         h('h4', null, '그 밖의 특징', h('small', null, '피부 · 동물 귀 · 뿔 · 안경 · 흉터')),
                         h('textarea', { class: 'cf-ta', 'aria-label': '그 밖의 특징', oninput: ev => { e.look = ev.target.value; castChanged(e); } }, e.look ?? '')),
