@@ -1944,7 +1944,7 @@ Return entries only for the characters in this list that the character sheet, lo
             } else if (job.mode === 'edit') {
                 reqs = job.reqs;
             } else {
-                if (!cast.list.length && st.lore?.chaId === chaId) {
+                if (st.lore?.chaId === chaId) {
                     busy.label = '등장인물 분석이 끝나기를 기다리는 중';
                     render();
                     await Promise.race([st.lore.done, busy.halt]);
@@ -2166,6 +2166,7 @@ Return entries only for the characters in this list that the character sheet, lo
         const first = await write();
         if (first === null) return;
         let ok = true;
+        let reverted = false;
         if (first) {
             const waits = [...COMMIT_CHECKS];
             for (let t = 0; t < waits.length; t++) {
@@ -2175,6 +2176,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 if (i < 0) { ok = true; break; }
                 ok = landed(chat.message[i]);
                 if (ok) continue;
+                reverted = true;
                 if (t === waits.length - 1 && waits.length > COMMIT_CHECKS.length) break;
                 console.warn(LOG, `commit reverted by Risu, write again (${t + 1}/${COMMIT_CHECKS.length})`);
                 await write();
@@ -2182,7 +2184,7 @@ Return entries only for the characters in this list that the character sheet, lo
             }
         }
         if (isChar) {
-            const drop = ok ? gone : want;
+            const drop = ok ? (reverted ? [] : gone) : want;
             const char = drop.length ? await api.getCharacterFromIndex(job.ci) : null;
             if (char && char.chaId === char0.chaId) {
                 const used = ncUsed(char);
