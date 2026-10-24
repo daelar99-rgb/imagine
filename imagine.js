@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.86.9
+//@display-name 🎨 이매진 v3.87.0
 //@api 3.0
-//@version 3.86.9
+//@version 3.87.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.86.9';
+    const VERSION = '3.87.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -850,9 +850,10 @@ ${TAG_STYLE}`;
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
   - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST name; name anything not in CAST by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
-  - tags: what the character does in this panel: pose, action, gesture, expression and gaze. A few Danbooru tags first, then short plain-English phrases that show the exact moment, comma separated, about 10-30 words. E.g. "standing pose, arms crossed confidently, arrogant smug smile, looking down, one hand brushing her hair back". A character who speaks here gets "open mouth" or a speaking expression. No hair, eye, body or clothing tags and no names: the app adds the looks from CAST.
-  - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at another", "looking down", "looking away", "looking to the side") or none.
-  - A third character may appear only as "out of frame, hand" inside a panel's tags and is not listed in who.
+  - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: pose, action, gesture, expression and gaze. A few Danbooru tags first, then short plain-English phrases that show the exact moment, comma separated, about 10-30 words. E.g. "standing pose, arms crossed confidently, arrogant smug smile, looking down, one hand brushing her hair back". A character who speaks here gets "open mouth" or a speaking expression. No hair, eye, body or clothing tags: the app adds the looks from CAST.
+  - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @Gojo from behind", "looking at @Gojo", "leaning head on @Gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @Gojo, eye contact" / "hug @Sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
+  - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @name" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
+  - A third character may appear only as "out of frame, hand" inside one tags entry and is not listed in who.
 - Never use number words for panels (first, second, top panel...): the order of the panels array is the reading order.`,
     };
 
@@ -963,7 +964,7 @@ ${TAG_STYLE}`;
             : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
-            : '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"camera":"...","tags":"...","text":"...","by":"..."}],"uc":""}';
+            : '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}';
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -1326,13 +1327,13 @@ Return entries only for the characters in this list that the character sheet, lo
             return `${s.slice(0, cut)}${addToLine(last, add, s)}${end}`;
         }
         const nl = s.lastIndexOf('\n', at);
-        if (nl >= 0) {
+        if (nl >= 0 && !/^char\d+:/.test(s.slice(nl + 1))) {
             const top = s.slice(0, nl), cut = top.lastIndexOf('\n') + 1, prev = top.slice(cut);
             const comma = /,\s*$/.test(prev) ? ',' : '';
             return `${top.slice(0, cut)}${addToLine(prev, add, s)}${comma}${s.slice(nl)}`;
         }
-        const head = s.slice(0, at).replace(/\s*(?:\bwith|\+)\s*$/, '');
-        return `${withTags(head, add)}${TAG_JOIN}${s.slice(at)}`;
+        const top = s.slice(0, nl + 1), head = s.slice(nl + 1, at).replace(/\s*(?:\bwith|\+)\s*$/, '');
+        return `${top}${withTags(head, add)}${TAG_JOIN}${s.slice(at)}`;
     }
 
     const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
@@ -1345,7 +1346,7 @@ Return entries only for the characters in this list that the character sheet, lo
             for (const b of Array.isArray(img.bubbles) ? img.bubbles : [])
                 if (tidy(b?.text) && !src.includes(flatText(b.text))) console.warn(LOG, 'bubble is not verbatim', b.text);
             for (const pn of Array.isArray(img.panels) ? img.panels : []) {
-                if (CJK_RE.test(String(pn?.camera ?? '') + String(pn?.tags ?? ''))) console.warn(LOG, 'panel prompt is not English', img.title, pn?.tags);
+                if (CJK_RE.test(String(pn?.camera ?? '') + String(pn?.tags ?? '').replace(/@[^\s,']+/g, ''))) console.warn(LOG, 'panel prompt is not English', img.title, pn?.tags);
                 if (tidy(pn?.text) && !src.includes(flatText(pn.text))) console.warn(LOG, 'panel text is not verbatim', pn.text);
             }
         }
@@ -1376,7 +1377,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 const e = findCast(cast, name);
                 const key = e?.id ?? name.toLowerCase();
                 if (who.some(x => x.key === key)) continue;
-                who.push({ key, e, name: e?.name ?? name, type: e?.type ?? 'other' });
+                who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
                 if (who.length >= 2) break;
             }
             for (const x of who) numOf(x);
@@ -1384,24 +1385,25 @@ Return entries only for the characters in this list that the character sheet, lo
             const idents = who.map(({ e, type, name }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : [name]);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const act = joinTags(noText(pn.camera), noText(pn.tags)), say = line ? `speech bubble with Text: ${line} ` : '';
+            const cam = joinTags(noText(pn.camera)), say = line ? `speech bubble with Text: ${line} ` : '';
+            const rawActs = Array.isArray(pn.tags) ? pn.tags : [pn.tags];
+            const refs = who.flatMap(x => [...new Set([x.raw, x.name])].map(n => [n, numOf(x)])).sort((a, b) => b[0].length - a[0].length);
+            const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(`char${k}`), String(t ?? '')).replace(/@(?=\S)/g, '');
+            const acts = (who.length ? who : [null]).map((x, k) => refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-            let people = '';
-            if (who.length >= 2) {
-                const personLine = k => `char${numOf(who[k])}: ${[withTags(`1${who[k].type}`, idents[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
-                const lines = who.map((x, k) => k).filter(k => k !== sayAt).map(k => `${personLine(k)},`);
-                const actLine = withTags(act);
-                if (actLine) lines.push(sayAt >= 0 ? `${actLine},` : actLine);
+            const personLine = k => `char${numOf(who[k])}: ${[withTags(who.length === 1 ? head : `1${who[k].type}`, idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+            const lines = cam ? [`${cam},`] : [];
+            if (who.length) {
+                for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
                 if (sayAt >= 0) lines.push(personLine(sayAt));
-                people = lines.join('\n');
-            }
-            const solo = [withTags(head, idents.flat(), act), say].filter(Boolean).join(TAG_JOIN);
+            } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
             slots.push({
-                prompt: endComma(people || (who.length ? `char${numOf(who[0])}: ${solo}` : solo)),
+                prompt: endComma(lines.join('\n')),
                 uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', type: types[0] ?? 'other',
                 name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
+                chars: who.map(x => [String(x.name).toLowerCase(), numOf(x)]),
             });
         }
         for (const sl of slots) {
@@ -1491,7 +1493,13 @@ Return entries only for the characters in this list that the character sheet, lo
         for (const a of fxs) {
             const hits = a.who ? slots.filter(sl => (sl.kind === 'char' || sl.kind === 'panel') && String(sl.name ?? '').toLowerCase().split(' · ').includes(a.who)) : [];
             if (!hits.length) { loose.push(a.fx); continue; }
-            for (const sl of hits) sl.prompt = addBeforeText(sl.prompt, weaponTrail(a.fx, sl.prompt));
+            for (const sl of hits) {
+                const n = (sl.chars ?? []).find(([nm]) => nm === a.who)?.[1];
+                const ls = sl.prompt.split('\n'), i = n ? ls.findIndex(l => l.startsWith(`char${n}:`)) : -1;
+                if (i < 0) { sl.prompt = addBeforeText(sl.prompt, weaponTrail(a.fx, sl.prompt)); continue; }
+                ls[i] = addBeforeText(ls[i], weaponTrail(a.fx, ls[i]));
+                sl.prompt = ls.join('\n');
+            }
         }
         return { ...req, base: joinTags(req.base, MONO_TAGS, loose),
             neg: removeTokens(req.neg, ['unfinished', 'blurry', 'monochrome', 'greyscale', 'sketch']), slots, useCoords: false };
