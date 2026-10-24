@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.88.0
+//@display-name 🎨 이매진 v3.89.0
 //@api 3.0
-//@version 3.88.0
+//@version 3.89.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.88.0';
+    const VERSION = '3.89.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
@@ -1258,6 +1258,11 @@ Return entries only for the characters in this list that the character sheet, lo
         return castChanged;
     }
 
+    function kindCount(kinds) {
+        const std = kinds.filter(k => ['girl', 'boy', 'other'].includes(k)), n = new Map();
+        for (const k of kinds) if (!std.includes(k)) n.set(k, (n.get(k) ?? 0) + 1);
+        return joinTags(std.length ? countTags(std) : '', [...n].map(([k, c]) => c === 1 ? `1${k}` : `${c}${k}s`));
+    }
     function countTags(types) {
         const n = { girl: 0, boy: 0, other: 0 };
         for (const t of types) n[t] = (n[t] ?? 0) + 1;
@@ -1375,6 +1380,8 @@ Return entries only for the characters in this list that the character sheet, lo
         const numOf = x => { if (!nums.has(x.key)) nums.set(x.key, nums.size + 1); return nums.get(x.key); };
         const labels = new Map();
         const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
+        const kindOf = x => x.e ? x.type : x.name;
+        const kinds = new Map();
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
             if (slots.length >= 4) break;
@@ -1386,9 +1393,9 @@ Return entries only for the characters in this list that the character sheet, lo
                 who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
                 if (who.length >= 2) break;
             }
-            for (const x of who) labelOf(x);
+            for (const x of who) { labelOf(x); kinds.set(x.key, kindOf(x)); }
             const types = who.map(x => x.type);
-            const idents = who.map(({ e, type, name }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : [name]);
+            const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length === 1 ? `${types[0]}, solo` : who.length ? countTags(types) : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam = joinTags(noText(pn.camera)), say = line ? `speech bubble with Text: ${line} ` : '';
@@ -1399,7 +1406,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-            const personLine = k => `${labelOf(who[k])}: ${[withTags(who.length === 1 ? head : `1${who[k].type}`, idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+            const personLine = k => `${labelOf(who[k])}: ${[withTags(kindOf(who[k]), who.length === 1 ? 'solo' : '', idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             const lines = cam ? [`${cam},`] : [];
             if (who.length) {
                 for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
@@ -1419,7 +1426,7 @@ Return entries only for the characters in this list that the character sheet, lo
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), COMIC_TAGS, img.scene),
+            base: joinTags(kindCount([...kinds.values()]), dropTags(p.pos, ['sound effects']), COMIC_TAGS, img.scene),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: clampInt(slots.length, 2, 4, 2),
             useCoords: false,
