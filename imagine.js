@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.91.1
+//@display-name 🎨 이매진 v3.92.0
 //@api 3.0
-//@version 3.91.1
+//@version 3.92.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.91.1';
+    const VERSION = '3.92.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -936,8 +936,8 @@ ${TAG_STYLE}`;
         return m?.role === 'user' && tidy(plainText(m.data)) ? m : null;
     }
 
-    function comicSystem(withInput = false, plainInput = false) {
-        const n = countNow();
+    function comicSystem(withInput = false, plainInput = false, redo = false) {
+        const n = redo ? 1 : countNow();
         const size = sizeNow();
         const [w, h] = SIZES[size];
         const shape = w > h ? 'landscape' : w < h ? 'portrait' : 'square';
@@ -948,7 +948,9 @@ ${TAG_STYLE}`;
             : isIllust()
             ? 'You are an illustration director. You turn the TARGET MESSAGE of a roleplay into NovelAI prompts for standalone illustrations: one moment per image, no panels, no speech bubbles, no text.'
             : 'You are a comic director. You turn the TARGET MESSAGE of a roleplay into NovelAI image prompts.';
-        const pick = !withInput
+        const pick = redo
+            ? '- Output exactly 1 image: the moment named in REDO ONE IMAGE, directed again from scratch (new camera, pose and composition). Keep that same moment of the TARGET MESSAGE: its after ends in the same sentence. Do not draw any moment listed there as already drawn.'
+            : !withInput
             ? `- Output exactly ${n} image${n > 1 ? 's' : ''}: the ${n === 1 ? 'single most important key moment' : `${n} most important key moments`} of the TARGET MESSAGE${n > 1 ? ', in story order, each a different moment (fewer only when the message truly has fewer distinct moments)' : ''}.`
             : n > 1
             ? `- Output exactly ${n} images, in story order, each a different moment. Image 1 is the moment what USER ACTION describes happens or lands, whoever does it: pick the part of the TARGET MESSAGE that narrates or answers it. The other images are mainly the reactions to it. Do not pick parts of the reply that have nothing to do with USER ACTION.`
@@ -1022,7 +1024,7 @@ ${TAG_STYLE}`;
         return `- ${e.name}${alias}${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${e.look || '?'} | NOW ${now}`;
     }
 
-    function comicUser(char, chat, idx, cast, state, personaName, input = null, emphasize = false) {
+    function comicUser(char, chat, idx, cast, state, personaName, input = null, emphasize = false, redo = null) {
         const msgs = chat.message ?? [];
         const userName = personaName || 'User';
         const botName = char.name || 'Bot';
@@ -1060,6 +1062,11 @@ ${TAG_STYLE}`;
         } else {
             if (input) lines.push(`# USER INPUT (what ${userName} wrote just before the target; context only, do not copy after or spoken lines from it)`, `${label(input)}: ${plainText(input.data)}`, '');
             lines.push('# TARGET MESSAGE (draw this)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`);
+        }
+        if (redo) {
+            const moment = r => `title: ${tidy(r?.title) || '?'} | after: ${tidy(r?.after) || '?'}`;
+            lines.push('', '# REDO ONE IMAGE (draw only this moment again, as 1 image)', moment(redo.target));
+            if (redo.kept.length) lines.push('Already drawn, keep as they are (do not draw these moments):', redo.kept.map(r => `- ${moment(r)}`).join('\n'));
         }
         if (tidy(st.set.extra)) lines.push('', '# EXTRA INSTRUCTIONS FROM THE USER', st.set.extra.trim());
         return lines.join('\n');
@@ -1955,8 +1962,11 @@ Return entries only for the characters in this list that the character sheet, lo
                 }
                 if (!st.persona) await loadPersona();
                 const input = userInputOf(chat, idx);
-                const emphasize = !!input && !!st.set.userFirst;
-                plan = await askJson(comicSystem(emphasize, !!input && !emphasize), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize), 'images',
+                const target = job.only ? old?.images?.find(x => x.name === job.only) : null;
+                if (job.only && !target) throw new Error('다시 그릴 그림을 기록에서 찾지 못했습니다.');
+                const redo = target ? { target: target.req, kept: old.images.filter(x => x !== target).map(x => x.req) } : null;
+                const emphasize = !!input && !!st.set.userFirst && !redo;
+                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo), 'images',
                     v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.');
                 if (busy.stop) throw stopError();
                 if (emphasize) console.log(LOG, 'focus', plan.focus ?? '(none)');
@@ -1967,7 +1977,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 stateChanged = true;
                 let images = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object');
                 if (!images.length) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
-                images = images.slice(0, countNow());
+                images = images.slice(0, job.only ? 1 : countNow());
                 checkLang(images, plainText(msg.data, 8000) + (emphasize ? '\n' + plainText(input.data) : ''));
                 if (tidy(plan.genre)) images = images.map(img => tidy(img.genre) ? img : { ...img, genre: plan.genre });
                 if (askGenre()) console.log(LOG, 'genre', images.map(img => `${img.genre ?? '(none)'} → ${genreKey(img.genre) || '-'}${monoNow() ? ` · severity ${severityOf(img) || '-'}${isDynamic(img) ? ' · dynamic' : ''}` : ''}`).join(' | '));
@@ -5095,11 +5105,17 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 }
                 name = rec.images.find(x => x.name.toLowerCase() === low).name;
             } else if (list[idx].role !== 'char') return;
+            let only = act === 'draw' ? name : undefined;
+            if (act === 'new') {
+                const imgs = (await loadRecs(char.chaId))[key]?.images ?? [];
+                const hit = imgs.find(x => x.name.toLowerCase() === low);
+                if (hit && imgs.length >= 2) only = hit.name;
+            }
             if (!(await naiKey())) { await openSettings(); return; }
             const fig = { act, name: low };
             const job = act === 'draw'
-                ? { ci, chi, idx, key, mode: 'draw', only: name, label: '그림 다시 그리는 중', alertFail: true, fig }
-                : { ci, chi, idx, key, mode: 'new', label: '씬 재구성 중', alertFail: true, fig };
+                ? { ci, chi, idx, key, mode: 'draw', only, label: '그림 다시 그리는 중', alertFail: true, fig }
+                : { ci, chi, idx, key, mode: 'new', only, label: '씬 재구성 중', alertFail: true, fig };
             enqueue(job).catch(() => {});
         } catch (error) {
             console.error(LOG, 'fig action', error);
