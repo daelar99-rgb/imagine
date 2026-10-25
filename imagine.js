@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.98.0
+//@display-name 🎨 이매진 v3.99.0
 //@api 3.0
-//@version 3.98.0
+//@version 3.99.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.98.0';
+    const VERSION = '3.99.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -875,8 +875,9 @@ ${TAG_STYLE}`;
         sad: 'melancholy, dim lighting',
         suspense: 'suspense, dramatic lighting, shadow',
         daily: 'slice of life, warm lighting',
+        nsfw: 'nsfw',
     };
-    const GENRE_RULE = `- genre: the mood of this image (for a comic page: the page as a whole), one of: action (combat, an attack, a chase, a fast dash), romance (flirting, a confession, a kiss, a tender moment), comedy (a gag, a silly reaction), horror (fear, gore, something creepy), sad (grief, tears, loneliness), suspense (tension, a mystery, a threat before it strikes), daily (calm everyday life), none (unclear or mixed). The app adds that genre's tags itself, so do not write genre or motion tags into scene or tags.`;
+    const GENRE_RULE = `- genre: the mood of this image (for a comic page: the page as a whole), one of: action (combat, an attack, a chase, a fast dash), romance (flirting, a confession, a kiss, a tender moment), comedy (a gag, a silly reaction), horror (fear, gore, something creepy), sad (grief, tears, loneliness), suspense (tension, a mystery, a threat before it strikes), daily (calm everyday life), nsfw (sexual content, nudity, an explicit or erotic scene; pick it over romance when the image shows any of these), none (unclear or mixed). The app adds that genre's tags itself, so do not write genre or motion tags into scene or tags.`;
     const monoNow = () => st.set.dynamic !== false && [ARTIST3.id, ARTIST4.id].includes(preset()?.id);
     const dynLite = () => preset()?.id === ARTIST4.id;
     const askGenre = () => genreNow() || monoNow();
@@ -898,7 +899,7 @@ ${TAG_STYLE}`;
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
     const panelRules = () => [isIllust() ? PANEL_RULES.one : PANEL_RULES.comic, askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
-    const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily' };
+    const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
         const t = tidy(v).toLowerCase();
         if (!t || t === 'none') return '';
@@ -1536,7 +1537,12 @@ Return entries only for the characters in this list that the character sheet, lo
         return { ...req, base: joinTags(req.base, MONO_TAGS, loose),
             neg: removeTokens(req.neg, ['unfinished', 'blurry', 'monochrome', 'greyscale', 'sketch']), slots, useCoords: false };
     }
-    const withGenre = (req, img) => { const g = genreTags(img); return g ? { ...req, base: joinTags(req.base, g) } : req; };
+    const withGenre = (req, img) => {
+        const g = genreTags(img);
+        if (!g) return req;
+        const neg = genreKey(img?.genre) === 'nsfw' ? removeTokens(req.neg, ['nsfw']) : req.neg;
+        return { ...req, base: joinTags(req.base, g), neg };
+    };
     function buildReqRaw(img, cast, state) {
         if (!isIllust() && Array.isArray(img.panels)) {
             const req = buildComicReq(img, cast, state);
