@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.100.0
+//@display-name 🎨 이매진 v3.100.1
 //@api 3.0
-//@version 3.100.0
+//@version 3.100.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.100.0';
+    const VERSION = '3.100.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1245,7 +1245,8 @@ Return entries only for the characters in this list that the character sheet, lo
             ?? cast.list.find(e => [e.name, ...(e.aliases ?? [])].some(a => a && nameKey(a) && nameKey(a) === nameKey(n)))
             ?? null;
     }
-    const nameKey = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '').replace(/yeo/g, 'yu').replace(/eo/g, 'u').replace(/oo/g, 'u');
+    const nameKey = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '').replace(/yeo/g, 'yu').replace(/eo/g, 'u').replace(/oo/g, 'u')
+        || String(s ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
 
     function applyState(plan, cast, state, fresh = new Set()) {
         let castChanged = false;
@@ -2018,7 +2019,7 @@ Return entries only for the characters in this list that the character sheet, lo
     const failed = new Map();
     const jobsOn = new Set();
     function enqueue(job) {
-        const live = j => j.key === job.key && (j.only ?? '') === (job.only ?? '') && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
+        const live = j => j.key === job.key && (!j.only || !job.only || j.only === job.only) && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
         if (job.key && [...jobsOn].some(live)) { console.info(LOG, 'skip duplicate job', job.key); return Promise.resolve(); }
         job.gen = gen;
         st.jobs++;
@@ -2376,7 +2377,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const i = findMsg(chat, key, idx);
             if (i < 0) return false;
             apply(chat.message[i]);
-            if (state) writeStateInto(chat, state, cast);
+            if (state && i === lastBotIndex(chat)) writeStateInto(chat, state, cast);
             await api.setChatToIndex(job.ci, job.chi, chat);
             return true;
         };
@@ -2456,9 +2457,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const recs = await loadRecs(ev.char?.chaId);
             if (recs[key]?.hash === hash) return;
             if (!(await naiKey())) { tellOnce('nokey', NO_KEY_AUTO); return; }
-            setTimeout(() => {
-                enqueue({ ci, chi, key, idx: messageIndex, mode: 'new', auto: true, label: '새 답변 그리는 중' }).catch(() => {});
-            }, 1500);
+            enqueue({ ci, chi, key, idx: messageIndex, mode: 'new', auto: true, label: '새 답변 그리는 중' }).catch(() => {});
         } catch (error) {
             console.warn(LOG, 'output listener', error);
         }
@@ -3410,7 +3409,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (ui.side === 'upd' && !updOn()) ui.side = '';
         const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : renderAsset()) : ui.tab === 'gallery' ? renderGallery() : renderReady();
         if (anim) pane.classList.add('anim');
-        ui.root.replaceChildren(...[renderHead(), renderNav(), pane, renderFoot()].filter(Boolean));
+        const lb = ui.root.querySelector(':scope > .lb');
+        ui.root.replaceChildren(...[renderHead(), renderNav(), pane, renderFoot(), lb].filter(Boolean));
         scroller.scrollTop = keep;
         flipAssetMenu();
         loadThumbs();
@@ -5134,6 +5134,20 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if ([...failed.values()].some(here)) return { sign: 'fail', text: '다시 시도', look: 'bad' };
         return { sign: 'idle', text: GEN_TEXT.idle, look: 'idle' };
     }
+    async function fixIdx(ci, chi) {
+        const mine = (o, key) => !!o && !!key && o.ci === ci && o.chi === chi && Number.isInteger(o.idx);
+        const b = mine(st.busy, st.busy?.key) ? st.busy : null;
+        const jobs = [...jobsOn].filter(j => mine(j, j.key));
+        const fails = [...failed].filter(([k, f]) => mine(f, k));
+        if (!b && !jobs.length && !fails.length) return;
+        const chat = await api.getChatFromIndex(ci, chi).catch(() => null);
+        if (!chat) return;
+        const now = chatKeyOf(chat, chi);
+        const at = (o, key, ck) => { if (ck && ck !== now) return; const i = findMsg(chat, key, o.idx); if (i >= 0) o.idx = i; };
+        if (b) at(b, b.key, b.chat);
+        for (const j of jobs) at(j, j.key, j.chatKey);
+        for (const [k, f] of fails) at(f, k, f.chat);
+    }
     const genIdx = cls => { const m = /(?:^|\s)x-risu-nc-at-(-?\d+)(?:\s|$)/.exec(cls); return m ? Number(m[1]) : NaN; };
 
     async function paintGen(force = false, live = false) {
@@ -5144,6 +5158,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (!n) return;
         const ci = await api.getCurrentCharacterIndex();
         const chi = await api.getCurrentChatIndex();
+        if (!live) await fixIdx(ci, chi);
         const list = [];
         for (let i = 0; i < n; i++) {
             const el = await els.at(i);
