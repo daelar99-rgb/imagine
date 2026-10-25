@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.95.0
+//@display-name 🎨 이매진 v3.95.1
 //@api 3.0
-//@version 3.95.0
+//@version 3.95.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.95.0';
+    const VERSION = '3.95.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1570,6 +1570,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const type = e?.type ?? (['girl', 'boy', 'other'].includes(c.type) ? c.type : 'girl');
             const ident = e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k))
                 : identTags(type, c.look, k => isNone(c[k]) ? '' : c[k], k => isNone(c[k]));
+            if (tidy(e?.canon)) ident.splice(1, 0, tidy(e.canon));
             const tags = one ? withGaze(c, dropViewer(c.tags)) : '';
             const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
             return { prompt: joinTags(ident, tags), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type, name: e?.name ?? tidy(c.name) };
