@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.96.2
+//@display-name 🎨 이매진 v3.96.3
 //@api 3.0
-//@version 3.96.2
+//@version 3.96.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.96.2';
+    const VERSION = '3.96.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2025,8 +2025,9 @@ Return entries only for the characters in this list that the character sheet, lo
         a.push(sec);
         if (a.length > 10) a.shift();
     };
+    const IL_IMG_SEC = 12;
     const ilEst = job => {
-        const I = ilAvg('img', acAvg());
+        const I = ilAvg('img', acAvg(IL_IMG_SEC));
         return {
             P: job.mode === 'draw' || job.mode === 'edit' ? 0 : ilAvg('plan', 20),
             I,
@@ -6202,7 +6203,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         queue = p.catch(() => {});
         return p;
     }
-    const acAvg = () => acs.times.length ? acs.times.reduce((x, y) => x + y, 0) / acs.times.length : AC_PER_SEC;
+    const acAvg = (dflt = AC_PER_SEC) => acs.times.length ? acs.times.reduce((x, y) => x + y, 0) / acs.times.length : dflt;
     const fmtLeft = s => s < 60 ? `${Math.round(s)}초` : s < 3600 ? `${Math.round(s / 60)}분` : `${Math.round(s / 3600)}시간`;
     function acStart(a, tasks, single = false) {
         const v = st.view;
