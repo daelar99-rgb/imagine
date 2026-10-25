@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.95.1
+//@display-name 🎨 이매진 v3.96.0
 //@api 3.0
-//@version 3.95.1
+//@version 3.96.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.95.1';
+    const VERSION = '3.96.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -52,6 +52,7 @@
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
+    const NAI_STREAM_URL = 'https://image.novelai.net/ai/generate-image-stream';
     const MODELS = [
         ['nai-diffusion-4-5-full', 'V4.5 Full'],
         ['nai-diffusion-4-5-curated', 'V4.5 Curated'],
@@ -1716,9 +1717,131 @@ Return entries only for the characters in this list that the character sheet, lo
         return Object.assign(new Error(`${why} (${msg})`), { status });
     }
 
-    async function callNai(body, stopped = () => st.busy?.stop) {
+    function mpRead(b, o) {
+        const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
+        const t = b[o++];
+        const str = len => [new TextDecoder().decode(b.subarray(o, o + len)), o + len];
+        const bin = len => [b.subarray(o, o + len), o + len];
+        const map = len => { const m = {}; for (let k = 0; k < len; k++) { let key, val; [key, o] = mpRead(b, o); [val, o] = mpRead(b, o); m[key] = val; } return [m, o]; };
+        const arr = len => { const a = []; for (let k = 0; k < len; k++) { let val; [val, o] = mpRead(b, o); a.push(val); } return [a, o]; };
+        if (t < 0x80) return [t, o];
+        if (t >= 0xe0) return [t - 256, o];
+        if ((t & 0xf0) === 0x80) return map(t & 0x0f);
+        if ((t & 0xf0) === 0x90) return arr(t & 0x0f);
+        if ((t & 0xe0) === 0xa0) return str(t & 0x1f);
+        switch (t) {
+            case 0xc0: return [null, o];
+            case 0xc2: return [false, o];
+            case 0xc3: return [true, o];
+            case 0xc4: o += 1; return bin(b[o - 1]);
+            case 0xc5: o += 2; return bin(v.getUint16(o - 2));
+            case 0xc6: o += 4; return bin(v.getUint32(o - 4));
+            case 0xca: return [v.getFloat32(o), o + 4];
+            case 0xcb: return [v.getFloat64(o), o + 8];
+            case 0xcc: return [b[o], o + 1];
+            case 0xcd: return [v.getUint16(o), o + 2];
+            case 0xce: return [v.getUint32(o), o + 4];
+            case 0xcf: return [Number(v.getBigUint64(o)), o + 8];
+            case 0xd0: return [v.getInt8(o), o + 1];
+            case 0xd1: return [v.getInt16(o), o + 2];
+            case 0xd2: return [v.getInt32(o), o + 4];
+            case 0xd3: return [Number(v.getBigInt64(o)), o + 8];
+            case 0xd9: o += 1; return str(b[o - 1]);
+            case 0xda: o += 2; return str(v.getUint16(o - 2));
+            case 0xdb: o += 4; return str(v.getUint32(o - 4));
+            case 0xdc: o += 2; return arr(v.getUint16(o - 2));
+            case 0xdd: o += 4; return arr(v.getUint32(o - 4));
+            case 0xde: o += 2; return map(v.getUint16(o - 2));
+            case 0xdf: o += 4; return map(v.getUint32(o - 4));
+        }
+        throw new Error('msgpack 0x' + t.toString(16));
+    }
+    function naiFrames(buf) {
+        const out = [];
+        let o = 0;
+        while (o + 4 <= buf.length) {
+            const len = buf[o] * 0x1000000 + (buf[o + 1] << 16) + (buf[o + 2] << 8) + buf[o + 3];
+            if (o + 4 + len > buf.length) break;
+            out.push(mpRead(buf.subarray(o + 4, o + 4 + len), 0)[0]);
+            o += 4 + len;
+        }
+        return { out, rest: o };
+    }
+    const looksFramed = buf => buf.length >= 5 && buf[0] === 0 && (buf[4] >= 0x80 && buf[4] <= 0x8f || buf[4] === 0xde || buf[4] === 0xdf);
+    const joinBytes = (a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; };
+
+    let naiStreamOff = false;
+    async function naiStream(key, body, stopped, onStep) {
+        const sb = { ...body, parameters: { ...body.parameters, stream: 'msgpack' } };
+        const t0 = Date.now();
+        let res;
+        try {
+            res = await api.nativeFetch(NAI_STREAM_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key, Accept: '*/*' },
+                body: JSON.stringify(sb),
+            });
+        } catch (error) { console.warn(LOG, 'NAI stream fetch', error); return null; }
+        if (!res.ok) { console.warn(LOG, 'NAI stream status', res.status); return null; }
+        let buf = new Uint8Array(0), pos = 0, firstAt = 0, finalImg = null;
+        const take = () => {
+            const { out, rest } = naiFrames(buf.subarray(pos));
+            pos += rest;
+            for (const ev of out) {
+                if (!ev || typeof ev !== 'object') continue;
+                if (ev.event_type === 'error') throw Object.assign(new Error(`NAI 오류 (${ev.message ?? ev.error ?? 'stream'})`), { naiEvent: true });
+                if (ev.event_type === 'intermediate' && Number.isFinite(ev.step_ix)) {
+                    if (!firstAt) firstAt = Date.now();
+                    try { onStep(ev.step_ix); } catch {}
+                }
+                if (ev.event_type === 'final' && ev.image) finalImg = ev.image instanceof Uint8Array ? ev.image : new Uint8Array(ev.image);
+            }
+        };
+        try {
+            const reader = res.body?.getReader?.();
+            if (!reader) {
+                buf = new Uint8Array(await res.arrayBuffer());
+                if (!looksFramed(buf)) return await firstImage(buf);
+                take();
+            } else {
+                for (;;) {
+                    if (stopped()) { try { await reader.cancel(); } catch {} return null; }
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    buf = joinBytes(buf, value instanceof Uint8Array ? value : new Uint8Array(value));
+                    if (pos === 0 && buf.length >= 5 && !looksFramed(buf)) {
+                        for (;;) { const r = await reader.read(); if (r.done) break; buf = joinBytes(buf, r.value instanceof Uint8Array ? r.value : new Uint8Array(r.value)); }
+                        return await firstImage(buf);
+                    }
+                    take();
+                    if (finalImg) { try { await reader.cancel(); } catch {} break; }
+                }
+            }
+        } catch (error) {
+            if (error.naiEvent) throw error;
+            if (stopped()) return null;
+            console.warn(LOG, 'NAI stream broke, back to old endpoint', error);
+            naiStreamOff = true;
+            return null;
+        }
+        if (!finalImg) {
+            if (stopped()) return null;
+            console.warn(LOG, 'NAI stream ended without final, back to old endpoint');
+            naiStreamOff = true;
+            return null;
+        }
+        console.log(LOG, 'NAI stream ms', { first: firstAt ? firstAt - t0 : null, final: Date.now() - t0 });
+        return await firstImage(finalImg);
+    }
+
+    async function callNai(body, stopped = () => st.busy?.stop, onStep = null) {
         const key = await naiKey();
         if (!key) throw new Error('NAI 키가 없습니다. 패널의 준비 탭에서 넣어 주세요.');
+        if (onStep && !naiStreamOff) {
+            const img = await naiStream(key, body, stopped, onStep);
+            if (img) return img;
+            if (stopped()) throw stopError();
+        }
         let flaky = 0;
         for (let attempt = 0; ; attempt++) {
             let res, buf;
@@ -1892,15 +2015,32 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     const STAGES = ['연출', '그리기', '저장'];
-    const ilTimes = { plan: [], img: [], save: [] };
-    const ilPush = (k, sec) => { ilTimes[k].push(sec); if (ilTimes[k].length > 16) ilTimes[k].shift(); };
+    const ilTimes = { plan: [], img: [], save: [], lead: [] };
     const ilAvg = (k, dflt) => ilTimes[k].length ? ilTimes[k].reduce((x, y) => x + y, 0) / ilTimes[k].length : dflt;
-    const ilEst = job => ({
-        P: job.mode === 'draw' || job.mode === 'edit' ? 0 : ilAvg('plan', 20),
-        I: ilAvg('img', acAvg()),
-        S: ilAvg('save', 2),
-        n: job.only ? 1 : job.mode === 'edit' ? Math.max(1, job.reqs?.length ?? 1) : countNow(),
-    });
+    const ilSkip = { plan: 0, img: 0, save: 0, lead: 0 };
+    const ilPush = (k, sec) => {
+        const a = ilTimes[k];
+        if (a.length && sec > 3 * ilAvg(k, sec) && ++ilSkip[k] < 2) { console.log(LOG, 'time skip', k, +sec.toFixed(1)); return; }
+        ilSkip[k] = 0;
+        a.push(sec);
+        if (a.length > 16) a.shift();
+    };
+    const ilEst = job => {
+        const I = ilAvg('img', acAvg());
+        return {
+            P: job.mode === 'draw' || job.mode === 'edit' ? 0 : ilAvg('plan', 20),
+            I,
+            L: Math.min(0.9 * I, ilAvg('lead', 0.65 * I)),
+            S: ilAvg('save', 2),
+            n: job.only ? 1 : job.mode === 'edit' ? Math.max(1, job.reqs?.length ?? 1) : countNow(),
+        };
+    };
+    function ilImgPart(b, e, sec) {
+        const L = e.L ?? 0.65 * e.I;
+        if (b.step != null) return Math.min(0.99 * e.I, L + (e.I - L) * Math.min(1, (b.step + 1) / Math.max(1, b.steps || 28)));
+        if (naiStreamOff || !(L > 0)) return e.I > 0 ? e.I * Math.min(0.97, sec / e.I) : 0;
+        return L * Math.min(0.97, sec / L);
+    }
     function ilDone(b) {
         const e = b.est ?? ilEst(b.job ?? {});
         const n = Math.max(1, b.n || e.n);
@@ -1908,7 +2048,7 @@ Return entries only for the characters in this list that the character sheet, lo
         const part = len => len > 0 ? len * Math.min(0.97, sec / len) : 0;
         const total = e.P + n * e.I + e.S;
         const done = b.stage === 0 ? part(e.P)
-            : b.stage === 1 ? e.P + (Math.min(Math.max(1, b.i), n) - 1) * e.I + part(e.I)
+            : b.stage === 1 ? e.P + (Math.min(Math.max(1, b.i), n) - 1) * e.I + ilImgPart(b, e, sec)
             : e.P + n * e.I + part(e.S);
         return { done, total, e, n, sec };
     }
@@ -2028,7 +2168,15 @@ Return entries only for the characters in this list that the character sheet, lo
                 render();
                 if (busy.stop) throw stopError();
                 const seed = randSeed();
-                const work = callNai(naiBody(reqs[i], seed));
+                const body = naiBody(reqs[i], seed);
+                const at = busy.at, nth = i + 1;
+                busy.step = null;
+                busy.steps = Math.max(1, Number(body.parameters?.steps) || 28);
+                const work = callNai(body, undefined, ix => {
+                    if (busy.i !== nth || busy.stage !== 1) return;
+                    if (busy.step == null) ilPush('lead', (Date.now() - at) / 1000);
+                    busy.step = Math.max(busy.step ?? -1, ix);
+                });
                 work.catch(() => {});
                 let bytes = await Promise.race([work, busy.halt]);
                 if (busy.stop) throw stopError();
@@ -3549,6 +3697,19 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }, 1000);
         return el;
     };
+    const segPct = b => { const { done, e, n } = ilDone(b); return e.I > 0 ? Math.min(100, 100 * (done - e.P) / (n * e.I)) : 0; };
+    function stepFill(b) {
+        const el = h('div', { class: 'fi', style: `animation:none;width:${segPct(b).toFixed(2)}%` });
+        let seen = false, miss = 0, max = 0;
+        const id = setInterval(() => {
+            if (el.isConnected && st.busy === b && b.stage === 1) {
+                seen = true;
+                max = Math.max(max, segPct(b));
+                el.style.width = max.toFixed(2) + '%';
+            } else if (seen || ++miss > 20) clearInterval(id);
+        }, 250);
+        return el;
+    }
     function progBar(b) {
         const only = b.lore && !b.job;
         const stages = only ? LORE_STAGES : STAGES;
@@ -3557,7 +3718,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const segs = stages.map((name, i) => {
             const cls = i < now ? 'seg done' : 'seg';
             const sty = !only ? ilGauge(b, i) : i === 1 ? gaugeStyle(b.tryAt ?? b.lsAt, loreEst(b)) : gaugeStyle(b.lsAt, 2);
-            return h('div', { class: cls }, i === now ? h('div', { class: 'fi', style: sty }) : null);
+            return h('div', { class: cls }, i === now ? (!only && i === 1 && !naiStreamOff ? stepFill(b) : h('div', { class: 'fi', style: sty })) : null);
         });
         const names = stages.map((name, i) => h('span', { class: i < now ? 'done' : i === now ? 'cur' : '' },
             !only && i === 1 && b.n ? `${name} ${b.i}/${b.n}` : name));
@@ -4774,7 +4935,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const INBTN_CLASS = 'nc-inbtn ml-4 bg-textcolor2 flex justify-center items-center w-12 h-12 rounded-md hover:bg-blue-500 transition-colors text-textcolor';
     const PANBTN_CLASS = INBTN_CLASS.replace('nc-inbtn', 'nc-panbtn');
     const root = { doc: null, asked: false, asking: null, done: false, on: false, observer: null, clickId: '', timer: 0, look: '', kids: '', job: Promise.resolve(),
-        tick: 0, tone: '', pct: -1, pgBusy: null, pgMax: 0, genText: new Map(), figMarked: false, figText: new Map() };
+        tick: 0, tone: '', pct: -1, pgBusy: null, pgMax: 0, figBusy: null, figMax: 0, genText: new Map(), figMarked: false, figText: new Map() };
     const rootQueue = fn => (root.job = root.job.then(fn).catch(error => console.warn(LOG, 'root', error)));
     const needRoot = () => st.set.ubtn !== 'none' || st.set.panelBtn || st.set.tap;
     const rootDenied = () => root.done && !root.doc;
@@ -4894,6 +5055,17 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         root.pgMax = pct;
         return pct;
     }
+    function figPctNow() {
+        const b = st.busy;
+        if (!b) return root.figMax;
+        const { done, total, e } = ilDone(b);
+        const span = total - e.S;
+        let pct = span > 0 ? Math.min(100, 100 * done / span) : 0;
+        if (root.figBusy === b) pct = Math.max(pct, root.figMax);
+        root.figBusy = b;
+        root.figMax = pct;
+        return pct;
+    }
     function startTick() {
         if (!root.tick) root.tick = setInterval(() => {
             if (root.ticking) return;
@@ -4990,8 +5162,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const g = figState(act, name, ci, chi);
             const was = /(?:^|\s)(?:x-risu-)?nc-s-(\w+)/.exec(cls)?.[1] ?? 'idle';
             if (g.sign !== 'idle') marked = true;
-            const pct = g.sign === 'run' || g.sign === 'stop' ? Math.round(progressNow() * 10) / 10 : 0;
-            if (g.sign === 'run' || g.sign === 'stop') root.pct = pct;
+            const pct = g.sign === 'run' || g.sign === 'stop' ? Math.round(figPctNow() * 10) / 10 : 0;
             const tk = act + ':' + name;
             if (was === g.sign) {
                 if (g.sign !== 'run' || !live) continue;
