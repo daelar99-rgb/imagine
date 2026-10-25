@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.96.3
+//@display-name 🎨 이매진 v3.97.0
 //@api 3.0
-//@version 3.96.3
+//@version 3.97.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.96.3';
+    const VERSION = '3.97.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2015,21 +2015,33 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     const STAGES = ['연출', '그리기', '저장'];
-    const ilTimes = { plan: [], img: [], save: [] };
-    const ilAvg = (k, dflt) => ilTimes[k].length ? ilTimes[k].reduce((x, y) => x + y, 0) / ilTimes[k].length : dflt;
-    const ilSkip = { plan: 0, img: 0, save: 0 };
+    const ilTimes = { 'plan:submodel': [], 'plan:model': [], img: [], save: [] };
+    const ilAvg = (k, dflt) => ilTimes[k]?.length ? ilTimes[k].reduce((x, y) => x + y, 0) / ilTimes[k].length : dflt;
+    const planKey = llm => 'plan:' + (llm === 'model' ? 'model' : 'submodel');
+    const ilSkip = {};
     const ilPush = (k, sec) => {
-        const a = ilTimes[k];
-        if (a.length && sec > 3 * ilAvg(k, sec) && ++ilSkip[k] < 2) { console.log(LOG, 'time skip', k, +sec.toFixed(1)); return; }
+        const a = ilTimes[k] ??= [];
+        if (a.length && sec > 3 * ilAvg(k, sec) && (ilSkip[k] = (ilSkip[k] ?? 0) + 1) < 2) { console.log(LOG, 'time skip', k, +sec.toFixed(1)); return; }
         ilSkip[k] = 0;
         a.push(sec);
         if (a.length > 10) a.shift();
+        if (k.startsWith('plan:')) ilSavePlan();
     };
+    const ilSavePlan = () => void Promise.resolve(api.pluginStorage.setItem('nc:planTimes',
+        { submodel: ilTimes['plan:submodel'], model: ilTimes['plan:model'] })).catch(() => {});
+    async function ilLoadPlan() {
+        const v = await api.pluginStorage.getItem('nc:planTimes').catch(() => null);
+        if (!isObj(v)) return;
+        for (const m of ['submodel', 'model']) {
+            const a = (Array.isArray(v[m]) ? v[m] : []).map(Number).filter(x => x > 0 && x < 3600).slice(-10);
+            ilTimes['plan:' + m] = [...a, ...ilTimes['plan:' + m]].slice(-10);
+        }
+    }
     const IL_IMG_SEC = 12;
     const ilEst = job => {
         const I = ilAvg('img', acAvg(IL_IMG_SEC));
         return {
-            P: job.mode === 'draw' || job.mode === 'edit' ? 0 : ilAvg('plan', 20),
+            P: job.mode === 'draw' || job.mode === 'edit' ? 0 : ilAvg(planKey(st.set.llm), 20),
             I,
             L: 0.65 * I,
             S: ilAvg('save', 2),
@@ -2157,7 +2169,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 reqs = images.map(img => buildReq(img, cast, state));
             }
 
-            if (busy.est.P) ilPush('plan', (Date.now() - busy.at) / 1000);
+            if (busy.est.P) ilPush(planKey(busy.llm), (Date.now() - busy.at) / 1000);
             busy.stage = 1;
             busy.n = reqs.length;
             busy.est.n = reqs.length;
@@ -7655,6 +7667,7 @@ Rules:
     }
 
     await loadPrefs();
+    void ilLoadPlan();
     const panelButton = await api.registerButton({
         name: '🎨 이매진', icon: ICON_SVG, iconType: 'html', location: 'chat', id: 'nai-comic-panel',
     }, () => {
