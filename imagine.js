@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.93.2
+//@display-name 🎨 이매진 v3.94.0
 //@api 3.0
-//@version 3.93.2
+//@version 3.94.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.93.2';
+    const VERSION = '3.94.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5483,6 +5483,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .who b.pk-nm{display:inline-block;padding:1px 8px;color:#fff;font-size:.84rem;line-height:1.5}
 .who button.pk .pk-nm+small{margin-top:2px}
 .ofs .of-in{flex:0 1 150px;min-height:44px}
+/* 3.94.0 직접 추가한 복장의 ✕. 칩과 ✕ 사이에는 선을 두지 않는다 */
+.og{display:inline-flex;align-items:stretch}
+.who .og button.pk{border-right:0}
+.who .og button.pk.sel{box-shadow:inset 1px 0 0 var(--accent),inset 0 1px 0 var(--accent),inset 0 -1px 0 var(--accent)}
+.who button.og-x{display:grid;place-items:center;min-width:32px;min-height:44px;padding:0 6px;font:inherit;font-size:.8rem;color:var(--muted);background:#fff;border:1px solid var(--line2);border-left:0;box-shadow:none}
+.who .og button.pk.sel+button.og-x{border-color:var(--accent);box-shadow:inset -1px 0 0 var(--accent),inset 0 1px 0 var(--accent),inset 0 -1px 0 var(--accent);background:var(--soft)}
+.who button.og-x:hover,.who .og button.pk.sel+button.og-x:hover{color:#fff;background:var(--bad);border-color:var(--bad);box-shadow:none}
+.who button.og-x.armed,.who .og button.pk.sel+button.og-x.armed{padding:0 9px;font-size:.74rem;font-weight:700;color:#fff;background:var(--bad);border-color:var(--bad);box-shadow:none}
 .of-hd{margin:10px 0 6px;font-size:.78rem;font-weight:700;color:var(--muted)}
 .ld i{font-style:normal}
 .ld i:nth-child(2){animation:ix-ld2 1.2s steps(1,end) infinite}
@@ -5729,6 +5737,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (![1, 10, 50, 'custom'].includes(a.count)) a.count = 10;
         for (const k of ['picked', 'outfits', 'botOutfits']) if (a[k] !== null && !Array.isArray(a[k])) a[k] = null;
         for (const k of ['extra', 'specials', 'made']) if (!Array.isArray(a[k])) a[k] = [];
+        for (const o of a.extra) if (isObj(o) && o.gone !== true) delete o.gone;
         for (const k of ['edits', 'refName', 'slugs', 'slugBy', 'enNames', 'prompts', 'refOf']) if (!isObj(a[k])) a[k] = {};
         for (const [k, x] of Object.entries(a.refOf)) if (typeof x !== 'string') delete a.refOf[k];
         for (const [k, x] of Object.entries(a.prompts)) if (!isObj(x) || !['base', 'neg', 'slot'].every(f => typeof x[f] === 'string')) delete a.prompts[k];
@@ -5854,11 +5863,18 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         };
         for (const o of a.botOutfits ?? []) put({ ...o, src: o.src || '봇 설명', g: 'bot' });
         for (const [key, ko, en, enBoy] of AC_OUTFIT_PRE) put({ key, ko, en, enBoy, src: '프리셋', g: 'pre' });
-        for (const o of a.extra) put({ ...o, src: '직접 추가', g: 'user' });
+        for (const o of a.extra) put({ ...o, src: '직접 추가', g: o.gone ? 'gone' : 'user' });
         return out;
     }
+    const acOutfitPicks = a => acOutfitList(a).filter(o => o.g !== 'gone');
     const acOutfitKeys = a => a.outfits ?? acOutfitList(a).filter(o => o.g === 'bot').map(o => o.key);
-    const acOutfits = a => { const keys = new Set(acOutfitKeys(a)); return acOutfitList(a).filter(o => keys.has(o.key)); };
+    const acOutfits = a => { const keys = new Set(acOutfitKeys(a)); return acOutfitPicks(a).filter(o => keys.has(o.key)); };
+    function acDropOutfit(a, key) {
+        const o = a.extra.find(x => x.key === key);
+        if (!o) return;
+        o.gone = true;
+        if (a.outfits) a.outfits = a.outfits.filter(k => k !== key);
+    }
 
     const acSpecialList = a => a.specials.length ? a.specials : AC_SPECIAL_DEF;
     function acSpecial(a) {
@@ -6458,7 +6474,7 @@ Rules:
         if (!ko) return;
         const keys = acOutfitKeys(a);
         const low = raw.toLowerCase();
-        const hit = acOutfitList(a).find(o => o.ko === ko || o.en.toLowerCase() === low || tidy(o.en.split(',')[0]).toLowerCase() === low);
+        const hit = acOutfitPicks(a).find(o => o.ko === ko || o.en.toLowerCase() === low || tidy(o.en.split(',')[0]).toLowerCase() === low);
         if (hit) { if (!keys.includes(hit.key)) a.outfits = [...keys, hit.key]; return; }
         let en;
         try { en = (await acTranslate(raw, 'outfit', t)).en; } catch (error) {
@@ -6466,7 +6482,9 @@ Rules:
             console.warn(LOG, 'outfit tr', error);
             throw new Error(`「${ko}」을(를) NAI 태그로 옮기지 못했습니다. 영어 태그로 적어 주세요 (예: maid outfit).`);
         }
-        const key = acOutfitKey(en, new Set(acOutfitList(a).map(o => o.key)));
+        const old = a.extra.findIndex(o => o.gone && o.ko === ko);
+        const reuse = old >= 0 ? a.extra.splice(old, 1)[0].key : '';
+        const key = reuse || acOutfitKey(en, new Set(acOutfitList(a).map(o => o.key)));
         a.extra.push({ key, ko, en });
         a.outfits = [...acOutfitKeys(a).filter(k => k !== key), key];
     }
@@ -6808,7 +6826,7 @@ Rules:
             nextBtn(true, '등장인물을 먼저 분석하세요'),
         ];
         const sOutfit = () => {
-            const list = acOutfitList(a), keys = acOutfitKeys(a), allOn = list.every(o => keys.includes(o.key));
+            const list = acOutfitPicks(a), keys = acOutfitKeys(a), allOn = list.every(o => keys.includes(o.key));
             let input;
             const addOne = async () => {
                 const text = input.value;
@@ -6831,10 +6849,15 @@ Rules:
                     : a.why ? h('p', { class: 'of-hd' }, a.why) : null,
                 h('div', { class: 'who ofs' }, list.map(o => {
                     const on = keys.includes(o.key);
-                    return h('button', {
+                    const chip = h('button', {
                         type: 'button', class: 'pk' + (on ? ' sel' : ''), 'aria-pressed': on ? 'true' : 'false', title: o.en,
                         onclick: () => { a.outfits = on ? keys.filter(k => k !== o.key) : [...keys, o.key]; keep(); renderNow(); },
                     }, h('i', { class: 'pk-b' }, '✓'), h('span', null, h('b', null, o.ko), h('small', null, o.src)));
+                    if (o.g !== 'user') return chip;
+                    const x = armButton('✕', '지울까요?', () => { acDropOutfit(a, o.key); keep(); renderNow(); }, 'og-x');
+                    x.title = '이 복장을 목록에서 지웁니다';
+                    x.setAttribute('aria-label', `${o.ko} 지우기`);
+                    return h('div', { class: 'og' }, chip, x);
                 })),
                 input = h('input', {
                     class: 'cf-in of-in', type: 'text', placeholder: acs.tr ? '태그로 옮기는 중…' : '＋ 복장 추가', 'aria-label': '복장 직접 추가', disabled: acs.tr,
