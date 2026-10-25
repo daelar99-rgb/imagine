@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.96.1
+//@display-name 🎨 이매진 v3.96.2
 //@api 3.0
-//@version 3.96.1
+//@version 3.96.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.96.1';
+    const VERSION = '3.96.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2023,7 +2023,7 @@ Return entries only for the characters in this list that the character sheet, lo
         if (a.length && sec > 3 * ilAvg(k, sec) && ++ilSkip[k] < 2) { console.log(LOG, 'time skip', k, +sec.toFixed(1)); return; }
         ilSkip[k] = 0;
         a.push(sec);
-        if (a.length > 16) a.shift();
+        if (a.length > 10) a.shift();
     };
     const ilEst = job => {
         const I = ilAvg('img', acAvg());
