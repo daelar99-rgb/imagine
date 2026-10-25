@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.96.0
+//@display-name 🎨 이매진 v3.96.1
 //@api 3.0
-//@version 3.96.0
+//@version 3.96.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.96.0';
+    const VERSION = '3.96.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2015,9 +2015,9 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     const STAGES = ['연출', '그리기', '저장'];
-    const ilTimes = { plan: [], img: [], save: [], lead: [] };
+    const ilTimes = { plan: [], img: [], save: [] };
     const ilAvg = (k, dflt) => ilTimes[k].length ? ilTimes[k].reduce((x, y) => x + y, 0) / ilTimes[k].length : dflt;
-    const ilSkip = { plan: 0, img: 0, save: 0, lead: 0 };
+    const ilSkip = { plan: 0, img: 0, save: 0 };
     const ilPush = (k, sec) => {
         const a = ilTimes[k];
         if (a.length && sec > 3 * ilAvg(k, sec) && ++ilSkip[k] < 2) { console.log(LOG, 'time skip', k, +sec.toFixed(1)); return; }
@@ -2030,7 +2030,7 @@ Return entries only for the characters in this list that the character sheet, lo
         return {
             P: job.mode === 'draw' || job.mode === 'edit' ? 0 : ilAvg('plan', 20),
             I,
-            L: Math.min(0.9 * I, ilAvg('lead', 0.65 * I)),
+            L: 0.65 * I,
             S: ilAvg('save', 2),
             n: job.only ? 1 : job.mode === 'edit' ? Math.max(1, job.reqs?.length ?? 1) : countNow(),
         };
@@ -2169,12 +2169,11 @@ Return entries only for the characters in this list that the character sheet, lo
                 if (busy.stop) throw stopError();
                 const seed = randSeed();
                 const body = naiBody(reqs[i], seed);
-                const at = busy.at, nth = i + 1;
+                const nth = i + 1;
                 busy.step = null;
                 busy.steps = Math.max(1, Number(body.parameters?.steps) || 28);
                 const work = callNai(body, undefined, ix => {
                     if (busy.i !== nth || busy.stage !== 1) return;
-                    if (busy.step == null) ilPush('lead', (Date.now() - at) / 1000);
                     busy.step = Math.max(busy.step ?? -1, ix);
                 });
                 work.catch(() => {});
