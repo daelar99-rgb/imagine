@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.99.0
+//@display-name 🎨 이매진 v3.99.1
 //@api 3.0
-//@version 3.99.0
+//@version 3.99.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.99.0';
+    const VERSION = '3.99.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -289,9 +289,10 @@
             st.set.sv = 14;
             saveSet();
         }
+        let moved = null;
         if (set && typeof set === 'object' && !(set.sv >= 15) && st.presets.length) {
             st.presets = [...BUILTIN_PRESETS.map(p => ({ ...p })), ...st.presets.filter(p => !OLD_BUILTIN_IDS.includes(p.id) && !BUILTIN_PRESETS.some(b => b.id === p.id))];
-            if (!st.presets.some(p => p.id === presetId)) save('nc:preset', ARTIST1.id);
+            if (!st.presets.some(p => p.id === presetId)) { moved = ARTIST1.id; save('nc:preset', moved); }
             save('nc:presets', st.presets);
             st.set.sv = 15;
             saveSet();
@@ -345,7 +346,6 @@
             st.set.sv = 22;
             saveSet();
         }
-        let moved = null;
         if (set && typeof set === 'object' && !(set.sv >= 23)) {
             const had = st.presets.some(q => q.id === ARTIST3.id);
             if (had) st.presets = st.presets.filter(q => q.id !== ARTIST3.id);
@@ -2007,7 +2007,7 @@ Return entries only for the characters in this list that the character sheet, lo
     const failed = new Map();
     const jobsOn = new Set();
     function enqueue(job) {
-        const live = j => j.key === job.key && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
+        const live = j => j.key === job.key && (j.only ?? '') === (job.only ?? '') && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
         if (job.key && [...jobsOn].some(live)) { console.info(LOG, 'skip duplicate job', job.key); return Promise.resolve(); }
         job.gen = gen;
         st.jobs++;
@@ -2203,7 +2203,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 const nth = i + 1;
                 busy.step = null;
                 busy.steps = Math.max(1, Number(body.parameters?.steps) || 28);
-                const work = callNai(body, undefined, ix => {
+                const work = callNai(body, () => busy.stop, ix => {
                     if (busy.i !== nth || busy.stage !== 1) return;
                     busy.step = Math.max(busy.step ?? -1, ix);
                 });
@@ -4462,7 +4462,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         paintSampler();
         const num = (label, key, min, max, step) => h('label', null, label, h('input', {
             class: 'cf-num', type: 'number', min, max, step, value: draft[key],
-            oninput: e => { draft[key] = e.target.value; },
+            oninput: e => { draft[key] = e.target.value === '' ? undefined : e.target.value; },
         }));
         sync();
         add(pane,
@@ -5449,7 +5449,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 return;
             }
             if (act === 'draw') {
-                const rec = (await loadRecs(char.chaId))[key];
+                const recs0 = await loadRecs(char.chaId);
+                const rec = recs0[recKeyIn(recs0, chat, key, idx)];
                 if (!rec?.images?.some(x => x.name.toLowerCase() === low)) {
                     await api.alert?.('이 그림의 기록이 없어 다시 그릴 수 없습니다. 「🎬 씬 재구성」으로 그 답변을 새로 그려 주세요.');
                     return;
@@ -5458,7 +5459,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             } else if (list[idx].role !== 'char') return;
             let only = act === 'draw' ? name : undefined;
             if (act === 'new') {
-                const imgs = (await loadRecs(char.chaId))[key]?.images ?? [];
+                const recs1 = await loadRecs(char.chaId);
+                const imgs = recs1[recKeyIn(recs1, chat, key, idx)]?.images ?? [];
                 const hit = imgs.find(x => x.name.toLowerCase() === low);
                 if (hit && imgs.length >= 2) only = hit.name;
             }
@@ -5484,7 +5486,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         m.data = String(m.data ?? '').replace(TAG_RE, tag => tag.toLowerCase().includes(`::${low}}}`) ? '' : tag).replace(/\s+$/, '');
         await api.setChatToIndex(ci, chi, chat);
         const recs = await loadRecs(char0.chaId);
-        const rec = recs[key];
+        const rk = recKeyIn(recs, chat, key, i) || key;
+        const rec = recs[rk];
         if (char0.type !== 'group') {
             const char = await api.getCharacterFromIndex(ci);
             if (char?.chaId === char0.chaId && !ncUsed(char).has(low)) {
@@ -5497,7 +5500,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const gone = (rec.images ?? []).filter(x => x.name.toLowerCase() === low);
             rec.images = (rec.images ?? []).filter(x => x.name.toLowerCase() !== low);
             for (const x of gone) dropThumb(x.path);
-            if (!rec.images.length) delete recs[key];
+            if (!rec.images.length) delete recs[rk];
             await saveRecs(char0.chaId, recs);
         }
         if (ui.root?.isConnected) await refreshView().catch(() => {});
