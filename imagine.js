@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.94.0
+//@display-name 🎨 이매진 v3.94.1
 //@api 3.0
-//@version 3.94.0
+//@version 3.94.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.94.0';
+    const VERSION = '3.94.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5737,7 +5737,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (![1, 10, 50, 'custom'].includes(a.count)) a.count = 10;
         for (const k of ['picked', 'outfits', 'botOutfits']) if (a[k] !== null && !Array.isArray(a[k])) a[k] = null;
         for (const k of ['extra', 'specials', 'made']) if (!Array.isArray(a[k])) a[k] = [];
-        for (const o of a.extra) if (isObj(o) && o.gone !== true) delete o.gone;
+        a.extra = a.extra.filter(o => !(isObj(o) && o.gone));
         for (const k of ['edits', 'refName', 'slugs', 'slugBy', 'enNames', 'prompts', 'refOf']) if (!isObj(a[k])) a[k] = {};
         for (const [k, x] of Object.entries(a.refOf)) if (typeof x !== 'string') delete a.refOf[k];
         for (const [k, x] of Object.entries(a.prompts)) if (!isObj(x) || !['base', 'neg', 'slot'].every(f => typeof x[f] === 'string')) delete a.prompts[k];
@@ -5863,16 +5863,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         };
         for (const o of a.botOutfits ?? []) put({ ...o, src: o.src || '봇 설명', g: 'bot' });
         for (const [key, ko, en, enBoy] of AC_OUTFIT_PRE) put({ key, ko, en, enBoy, src: '프리셋', g: 'pre' });
-        for (const o of a.extra) put({ ...o, src: '직접 추가', g: o.gone ? 'gone' : 'user' });
+        for (const o of a.extra) put({ ...o, src: '직접 추가', g: 'user' });
         return out;
     }
-    const acOutfitPicks = a => acOutfitList(a).filter(o => o.g !== 'gone');
     const acOutfitKeys = a => a.outfits ?? acOutfitList(a).filter(o => o.g === 'bot').map(o => o.key);
-    const acOutfits = a => { const keys = new Set(acOutfitKeys(a)); return acOutfitPicks(a).filter(o => keys.has(o.key)); };
+    const acOutfits = a => { const keys = new Set(acOutfitKeys(a)); return acOutfitList(a).filter(o => keys.has(o.key)); };
     function acDropOutfit(a, key) {
-        const o = a.extra.find(x => x.key === key);
-        if (!o) return;
-        o.gone = true;
+        if (!a.extra.some(x => x.key === key)) return;
+        a.extra = a.extra.filter(x => x.key !== key);
         if (a.outfits) a.outfits = a.outfits.filter(k => k !== key);
     }
 
@@ -6474,7 +6472,7 @@ Rules:
         if (!ko) return;
         const keys = acOutfitKeys(a);
         const low = raw.toLowerCase();
-        const hit = acOutfitPicks(a).find(o => o.ko === ko || o.en.toLowerCase() === low || tidy(o.en.split(',')[0]).toLowerCase() === low);
+        const hit = acOutfitList(a).find(o => o.ko === ko || o.en.toLowerCase() === low || tidy(o.en.split(',')[0]).toLowerCase() === low);
         if (hit) { if (!keys.includes(hit.key)) a.outfits = [...keys, hit.key]; return; }
         let en;
         try { en = (await acTranslate(raw, 'outfit', t)).en; } catch (error) {
@@ -6482,9 +6480,7 @@ Rules:
             console.warn(LOG, 'outfit tr', error);
             throw new Error(`「${ko}」을(를) NAI 태그로 옮기지 못했습니다. 영어 태그로 적어 주세요 (예: maid outfit).`);
         }
-        const old = a.extra.findIndex(o => o.gone && o.ko === ko);
-        const reuse = old >= 0 ? a.extra.splice(old, 1)[0].key : '';
-        const key = reuse || acOutfitKey(en, new Set(acOutfitList(a).map(o => o.key)));
+        const key = acOutfitKey(en, new Set(acOutfitList(a).map(o => o.key)));
         a.extra.push({ key, ko, en });
         a.outfits = [...acOutfitKeys(a).filter(k => k !== key), key];
     }
@@ -6826,7 +6822,7 @@ Rules:
             nextBtn(true, '등장인물을 먼저 분석하세요'),
         ];
         const sOutfit = () => {
-            const list = acOutfitPicks(a), keys = acOutfitKeys(a), allOn = list.every(o => keys.includes(o.key));
+            const list = acOutfitList(a), keys = acOutfitKeys(a), allOn = list.every(o => keys.includes(o.key));
             let input;
             const addOne = async () => {
                 const text = input.value;
