@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.94.1
+//@display-name 🎨 이매진 v3.95.0
 //@api 3.0
-//@version 3.94.1
+//@version 3.95.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.94.1';
+    const VERSION = '3.95.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1891,6 +1891,26 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     const STAGES = ['연출', '그리기', '저장'];
+    const ilTimes = { plan: [], img: [], save: [] };
+    const ilPush = (k, sec) => { ilTimes[k].push(sec); if (ilTimes[k].length > 16) ilTimes[k].shift(); };
+    const ilAvg = (k, dflt) => ilTimes[k].length ? ilTimes[k].reduce((x, y) => x + y, 0) / ilTimes[k].length : dflt;
+    const ilEst = job => ({
+        P: job.mode === 'draw' || job.mode === 'edit' ? 0 : ilAvg('plan', 20),
+        I: ilAvg('img', acAvg()),
+        S: ilAvg('save', 2),
+        n: job.only ? 1 : job.mode === 'edit' ? Math.max(1, job.reqs?.length ?? 1) : countNow(),
+    });
+    function ilDone(b) {
+        const e = b.est ?? ilEst(b.job ?? {});
+        const n = Math.max(1, b.n || e.n);
+        const sec = Math.max(0, (Date.now() - b.at) / 1000);
+        const part = len => len > 0 ? len * Math.min(0.97, sec / len) : 0;
+        const total = e.P + n * e.I + e.S;
+        const done = b.stage === 0 ? part(e.P)
+            : b.stage === 1 ? e.P + (Math.min(Math.max(1, b.i), n) - 1) * e.I + part(e.I)
+            : e.P + n * e.I + part(e.S);
+        return { done, total, e, n, sec };
+    }
     const LORE_STAGES = ['로어북 읽기', '모델 분석', '인물 정리'];
 
     function cancelAll() {
@@ -1903,7 +1923,7 @@ Return entries only for the characters in this list that the character sheet, lo
 
     async function runJob(job) {
         if (job.gen !== gen) throw stopError();
-        const busy = { label: job.label ?? `${kindName()} 그리는 중`, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, llm: st.set.llm, auto: !!job.auto, key: job.key ?? '', ci: job.ci, chi: job.chi, idx: job.idx, job };
+        const busy = { label: job.label ?? `${kindName()} 그리는 중`, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, llm: st.set.llm, auto: !!job.auto, key: job.key ?? '', ci: job.ci, chi: job.chi, idx: job.idx, job, est: ilEst(job) };
         busy.halt = new Promise(resolve => { busy.onStop = resolve; });
         st.busy = busy;
         st.err = '';
@@ -1995,8 +2015,10 @@ Return entries only for the characters in this list that the character sheet, lo
                 reqs = images.map(img => buildReq(img, cast, state));
             }
 
+            if (busy.est.P) ilPush('plan', (Date.now() - busy.at) / 1000);
             busy.stage = 1;
             busy.n = reqs.length;
+            busy.est.n = reqs.length;
             const out = [];
             let firstBytes = null;
             for (let i = 0; i < reqs.length; i++) {
@@ -2017,6 +2039,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 const path = await api.saveAsset(bytes);
                 if (i === 0) firstBytes = bytes;
                 out.push({ name: 'nc_' + uid(), path, ext, seed, req: reqs[i], title: reqs[i].title ?? '' });
+                ilPush('img', (Date.now() - busy.at) / 1000);
             }
             if (busy.stop) throw stopError();
 
@@ -2030,6 +2053,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 excerpt: excerpt(msg.data, 80), plan, images, group: char.type === 'group',
             };
             await saveRecs(chaId, recs);
+            ilPush('save', (Date.now() - busy.at) / 1000);
             if (job.mode === 'edit') editSaved = key;
             await setArtistThumb(reqs[0]?.preset ?? st.presetId, firstBytes, out[0]?.path);
             for (const x of old?.images ?? []) if (!images.includes(x)) dropThumb(x.path);
@@ -2745,6 +2769,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 @keyframes ix-tip-fade{0%{opacity:0}2%,18%{opacity:1}20%,100%{opacity:0}}
 @keyframes ix-shine{to{transform:translateX(100%)}}
 @keyframes ix-fill{from{width:4%}to{width:92%}}
+@keyframes ix-lin{from{width:0}to{width:97%}}
+@keyframes ix-seg{from{width:var(--a)}to{width:var(--b)}}
 /* 진행 막대 — 연출 · 그리기 · 저장 세 구간 */
 .pg{margin-top:12px;padding:12px 14px;background:var(--paper2);border:1px solid var(--line)}
 .pg-now{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-bottom:8px;font-size:.84rem;font-weight:700}
@@ -3503,6 +3529,25 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (st.busy) out.push(progBar(st.busy));
         return out.length ? out : null;
     }
+    function ilGauge(b, i) {
+        const { e, n } = ilDone(b);
+        if (i === 1 && b.stage === 1) {
+            const k = Math.min(Math.max(1, b.i), n) - 1;
+            return `animation-name:ix-seg;animation-timing-function:linear;--a:${(100 * k / n).toFixed(2)}%;--b:${(100 * (k + 0.97) / n).toFixed(2)}%;`
+                + gaugeStyle(b.at, Math.max(1, e.I));
+        }
+        return 'animation-name:ix-lin;animation-timing-function:linear;' + gaugeStyle(b.at, Math.max(1, i === 0 ? e.P : e.S));
+    }
+    const leftSpan = b => {
+        const tx = () => { const { done, total } = ilDone(b); return `남은 약 ${fmtLeft(Math.max(1, total - done))}`; };
+        const el = h('span', null, tx());
+        let seen = false, miss = 0;
+        const id = setInterval(() => {
+            if (el.isConnected && st.busy === b) { seen = true; el.textContent = tx(); }
+            else if (seen || ++miss > 5) clearInterval(id);
+        }, 1000);
+        return el;
+    };
     function progBar(b) {
         const only = b.lore && !b.job;
         const stages = only ? LORE_STAGES : STAGES;
@@ -3510,7 +3555,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const now = only ? b.ls ?? 0 : b.stage;
         const segs = stages.map((name, i) => {
             const cls = i < now ? 'seg done' : 'seg';
-            const sty = !only ? gaugeStyle(b.at, 40) : i === 1 ? gaugeStyle(b.tryAt ?? b.lsAt, loreEst(b)) : gaugeStyle(b.lsAt, 2);
+            const sty = !only ? ilGauge(b, i) : i === 1 ? gaugeStyle(b.tryAt ?? b.lsAt, loreEst(b)) : gaugeStyle(b.lsAt, 2);
             return h('div', { class: cls }, i === now ? h('div', { class: 'fi', style: sty }) : null);
         });
         const names = stages.map((name, i) => h('span', { class: i < now ? 'done' : i === now ? 'cur' : '' },
@@ -3519,7 +3564,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return h('div', { class: 'pg', role: 'status' },
             h('div', { class: 'pg-now' },
                 h('span', null, only ? [`${llmName(b.llm ?? st.set.llm)} 모델 · ${loreStepText(b)}`, now === 1 ? [' · ', secSpan(b.tryAt ?? b.lsAt)] : null, loreTry ? ` · ${loreTry}` : '']
-                    : b.stage === 0 ? (b.lore ? `${llmName(b.llm ?? st.set.llm)} 모델이 로어북을 읽어 인물표를 짜는 중` : `${b.label}: ${llmName(b.llm ?? st.set.llm)} 모델이 연출을 짜는 중`) : b.stage === 1 ? `NAI 가 그리는 중 (${b.i}/${b.n})` : '봇에 저장하는 중'),
+                    : [b.stage === 0 ? (b.lore ? `${llmName(b.llm ?? st.set.llm)} 모델이 로어북을 읽어 인물표를 짜는 중` : `${b.label}: ${llmName(b.llm ?? st.set.llm)} 모델이 연출을 짜는 중`) : b.stage === 1 ? `NAI 가 그리는 중 (${b.i}/${b.n})` : '봇에 저장하는 중', ' · ', leftSpan(b)]),
                 h('button', { class: 'ix-btn sm warn', type: 'button', disabled: b.stop, onclick: only ? stopLore : cancelAll }, b.stop ? '멈추는 중' : !only && st.jobs > 1 ? '모두 중단' : '중단')),
             h('div', { class: 'pg-bar', style: cols }, segs),
             h('div', { class: 'pg-nm', style: cols }, names),
@@ -4728,7 +4773,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const INBTN_CLASS = 'nc-inbtn ml-4 bg-textcolor2 flex justify-center items-center w-12 h-12 rounded-md hover:bg-blue-500 transition-colors text-textcolor';
     const PANBTN_CLASS = INBTN_CLASS.replace('nc-inbtn', 'nc-panbtn');
     const root = { doc: null, asked: false, asking: null, done: false, on: false, observer: null, clickId: '', timer: 0, look: '', kids: '', job: Promise.resolve(),
-        tick: 0, tone: '', pct: -1, pgBusy: null, pgKey: '', pgAt: 0, genText: new Map(), figMarked: false, figText: new Map() };
+        tick: 0, tone: '', pct: -1, pgBusy: null, pgMax: 0, genText: new Map(), figMarked: false, figText: new Map() };
     const rootQueue = fn => (root.job = root.job.then(fn).catch(error => console.warn(LOG, 'root', error)));
     const needRoot = () => st.set.ubtn !== 'none' || st.set.panelBtn || st.set.tap;
     const rootDenied = () => root.done && !root.doc;
@@ -4841,16 +4886,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function progressNow() {
         const b = st.busy;
         if (!b) return Math.max(0, root.pct);
-        const key = b.stage + '|' + b.i;
-        if (root.pgBusy !== b || root.pgKey !== key) { root.pgBusy = b; root.pgKey = key; root.pgAt = Date.now(); }
-        const sec = (Date.now() - root.pgAt) / 1000;
-        if (b.stage === 0) return 30 * (1 - Math.exp(-sec / 8));
-        if (b.stage === 1) {
-            const n = Math.max(1, b.n);
-            const i = Math.min(Math.max(1, b.i), n);
-            return 30 + 60 * (i - 1 + 0.95 * (1 - Math.exp(-sec / 5))) / n;
-        }
-        return 90 + 10 * (1 - Math.exp(-sec / 0.8));
+        const { done, total } = ilDone(b);
+        let pct = total > 0 ? 100 * done / total : 0;
+        if (root.pgBusy === b) pct = Math.max(pct, root.pgMax);
+        root.pgBusy = b;
+        root.pgMax = pct;
+        return pct;
     }
     function startTick() {
         if (!root.tick) root.tick = setInterval(() => {
