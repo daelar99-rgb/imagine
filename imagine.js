@@ -7742,11 +7742,18 @@ Rules:
 
     await loadPrefs();
     void ilLoadPlan();
-    const sideButton = await api.registerButton({
-        name: '🎨 이매진', icon: SIDE_ICON, iconType: 'html', location: 'hamburger', id: 'nc-side-panel',
-    }, () => {
-        openPanel().catch(error => console.error(LOG, 'panel', error));
-    });
+    const onSideButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
+    let sideButton;
+    try {
+        sideButton = await api.registerButton({
+            name: '🎨 이매진', icon: SIDE_ICON, iconType: 'html', location: 'hamburger', id: 'nc-side-panel',
+        }, onSideButton);
+    } catch (error) {
+        console.warn(LOG, 'hamburger button', error);
+        sideButton = await api.registerButton({
+            name: '🎨 이매진', icon: ICON_SVG, iconType: 'html', location: 'chat', id: 'nc-side-panel',
+        }, onSideButton);
+    }
     let displayOn = false;
     try {
         await api.addRisuScriptHandler('display', ncDisplay);
