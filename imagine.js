@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.102.1
+//@display-name 🎨 이매진 v3.102.2
 //@api 3.0
-//@version 3.102.1
+//@version 3.102.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.102.1';
+    const VERSION = '3.102.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3636,8 +3636,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'up-after' },
                 h('b', null, '설치가 끝나면'),
                 h('ul', null,
-                    h('li', null, '권한을 묻는 창이 뜨면 모두 허용(YES)을 누릅니다. 거절하면 그림이 그려지지 않습니다.'),
-                    h('li', null, '초록색 + 가 보이지 않으면(예전 버전을 설치한 경우), 깃허브(github.com/daelar99-rgb/imagine)의 Releases 에서 imagine.js 를 받은 뒤 플러그인 목록 아래의 + 로 한 번 직접 설치합니다. 그다음부터는 + 가 뜹니다.'))));
+                    h('li', null, '권한을 묻는 창이 뜨면 모두 허용(YES)을 누릅니다. 거절하면 그림이 그려지지 않습니다.'))));
         return pane;
     }
 
