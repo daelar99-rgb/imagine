@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.102.0
+//@display-name 🎨 이매진 v3.102.1
 //@api 3.0
-//@version 3.102.0
+//@version 3.102.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.102.0';
+    const VERSION = '3.102.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3481,12 +3481,27 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             chip);
     }
 
+    async function copyText(text) {
+        try { await navigator.clipboard.writeText(text); return true; } catch { }
+        const ta = doc.createElement('textarea');
+        ta.value = text; ta.setAttribute('readonly', '');
+        ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+        const prev = doc.activeElement;
+        doc.body.append(ta); ta.select();
+        let ok = false;
+        try { ok = doc.execCommand('copy'); } catch { }
+        ta.remove();
+        try { prev?.focus?.({ preventScroll: true }); } catch { }
+        return ok;
+    }
+
     async function openLink(url, msg) {
         let w = null;
         try { w = window.open(url, '_blank'); } catch { }
         if (w) { try { w.opener = null; } catch { } return; }
-        try { await navigator.clipboard.writeText(url); msg.textContent = '새 창이 막혀 주소를 복사했습니다. 브라우저 주소창에 붙여 넣어 주세요.'; }
-        catch { msg.textContent = `새 창이 막혔습니다. ${url} 을 브라우저 주소창에 넣어 주세요.`; }
+        msg.textContent = await copyText(url)
+            ? `새 창이 막혀 주소(${url})를 클립보드에 복사했습니다. 브라우저 주소창에 붙여 넣어 주세요.`
+            : `새 창이 막혔습니다. ${url} 을 브라우저 주소창에 넣어 주세요.`;
     }
 
     const upd = { latest: '', skip: '', checked: false, notes: [], open: false };
@@ -4203,8 +4218,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 onclick: async ev => {
                     const b = ev.currentTarget;
                     const text = draft.map(r => [r.base, ...(r.slots ?? []).map((s, k) => `[칸 ${k + 1}] ${s.prompt}`), `[부정] ${r.neg}`].join('\n')).join('\n\n');
-                    let done = true;
-                    try { await navigator.clipboard.writeText(text); } catch { done = false; }
+                    const done = await copyText(text);
                     b.textContent = done ? '✓ 복사했습니다' : '복사하지 못했습니다';
                     setTimeout(() => { if (b.isConnected) b.textContent = '📋 복사'; }, 1500);
                 },
@@ -7525,7 +7539,7 @@ Rules:
                 h('span', { class: 'cc-av', style: `background:${g.e ? acHue(g.e) : '#8a909b'} !important` }, acInitial(g.name)),
                 h('b', null, g.name), h('small', null, `${g.list.length}장`)))) : null;
         const copy = async text => {
-            try { await navigator.clipboard.writeText(text); say(`${text} 을(를) 복사했습니다.`, true); } catch { say('복사하지 못했습니다. 이름을 길게 눌러 직접 복사해 주세요.', false); }
+            if (await copyText(text)) say(`${text} 을(를) 복사했습니다.`, true); else say('복사하지 못했습니다. 이름을 길게 눌러 직접 복사해 주세요.', false);
         };
         const tile = (g, t) => {
             const emo = emRow.get(t.ekey) ?? { ko: t.ekey, icon: '🖼️' };
@@ -7609,7 +7623,7 @@ Rules:
         };
         const copy = async () => {
             const text = `[본 프롬프트]\n${d.base}\n\n[캐릭터 칸 · ${t.e.name}]\n${d.slot}\n\n[부정 프롬프트]\n${d.neg}`;
-            try { await navigator.clipboard.writeText(text); pe.note = '복사했습니다.'; } catch { pe.note = '복사하지 못했습니다. 칸을 눌러 직접 복사해 주세요.'; }
+            pe.note = await copyText(text) ? '복사했습니다.' : '복사하지 못했습니다. 칸을 눌러 직접 복사해 주세요.';
             renderNow();
         };
         const goBtn = h('button', { class: 'ix-btn main', type: 'button', onclick: go }, busy ? '다른 그림을 그리는 중' : '✏️ 저장 후 재생성');
