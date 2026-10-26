@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.101.0
+//@display-name 🎨 이매진 v3.102.0
 //@api 3.0
-//@version 3.101.0
+//@version 3.102.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.101.0';
+    const VERSION = '3.102.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -4627,10 +4627,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.', PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
                 sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.', MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v)),
                 h('div', { class: 'cf-row' }, h('div', { class: 'cf-tx' }, note('', '고른 크기는 봇의 기본 변수 nc_pc · nc_mo 에 적고 지금 채팅을 바로 다시 그려 반영합니다. 답변이 나오는 중이면 끝난 뒤에 다시 그립니다. 1.2.0 이하에서 넣은 그림은 그 답변을 다시 그려야 크기가 바뀝니다.'))),
-                row('sw', '이매진 버튼을 입력칸 옆으로 꺼내기', '☰ 메뉴 안의 🎨 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '☰ 메뉴의 버튼은 그대로 있습니다.',
+                row('sw', '이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '사이드바의 버튼은 그대로 있습니다.',
                     toggle(s.panelBtn, () => setVal('panelBtn', !s.panelBtn))),
                 needRoot() ? h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' },
-                    rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼이 동작하지 않습니다. ☰ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
+                    rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
                         : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.')) : null),
             grp('이 봇의 그림',
                 row('col', '봇의 기존 그림 숨기기', '이 봇의 백그라운드 임베딩 · 정규식 · Lua 트리거에서 에셋 그림을 띄우는 곳을 모델이 찾아 숨기고, 메시지 · 첫 메시지에 바로 쓴 에셋 그림({{img::…}} 등)도 화면에서 지웁니다. 이 봇에만 적용됩니다. (봇 정규식이 복잡하면 적용되지 않을 수 있습니다)',
@@ -4776,6 +4776,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         + '<circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>'
         + '<circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>'
         + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
+        + '</svg>';
+    const SIDE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
+        + '<g transform="translate(-2,-8.23)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>'
+        + '<circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>'
+        + '<circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>'
+        + '<circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>'
+        + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
+        + '</g>'
+        + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
     const DRAW_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
         + '<path d="M12 19l7-7 3 3-7 7-3-3z"/>'
@@ -7732,8 +7742,8 @@ Rules:
 
     await loadPrefs();
     void ilLoadPlan();
-    const panelButton = await api.registerButton({
-        name: '🎨 이매진', icon: ICON_SVG, iconType: 'html', location: 'chat', id: 'nai-comic-panel',
+    const sideButton = await api.registerButton({
+        name: '🎨 이매진', icon: SIDE_ICON, iconType: 'html', location: 'hamburger', id: 'nc-side-panel',
     }, () => {
         openPanel().catch(error => console.error(LOG, 'panel', error));
     });
@@ -7773,7 +7783,7 @@ Rules:
         } catch {}
         try { await api.removeRisuChatListener?.('output', onOutput); } catch {}
         try { await api.removeRisuReplacer?.('beforeRequest', stripRequest); } catch {}
-        try { await api.unregisterUIPart(panelButton.id); } catch {}
+        try { await api.unregisterUIPart(sideButton.id); } catch {}
         if (displayOn) try { await api.removeRisuScriptHandler?.('display', ncDisplay); } catch {}
         if (outputOn) try { await api.removeRisuScriptHandler?.('output', onOutputText); } catch {}
         if (processOn) try { await api.removeRisuScriptHandler?.('process', stripProcess); } catch {}
