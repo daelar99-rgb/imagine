@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.100.1
+//@display-name 🎨 이매진 v3.101.0
 //@api 3.0
-//@version 3.100.1
+//@version 3.101.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.100.1';
+    const VERSION = '3.101.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -856,7 +856,12 @@ ${TAG_STYLE}`;
     const castMaxNow = () => Math.max(0, parseInt(st.set.castMax, 10) || 0);
     const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count);
     const recipe = () => `${kindName()} ${countNow()}장 · ${preset().name || '이름 없음'}`;
-    function setStep(k) { st.set = { ...st.set, setup: { ...st.set.setup, [k]: true } }; saveSet(); }
+    function setStep(k) {
+        const was = setupDone();
+        st.set = { ...st.set, setup: { ...st.set.setup, [k]: true } };
+        saveSet();
+        if (!was && setupDone()) ui.readyAt = Date.now();
+    }
     const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 4, 2);
 
     const PANEL_RULES = {
@@ -3385,7 +3390,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return el;
     }
 
-    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30 };
+    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0 };
     const galCount = () => { const v = st.view; return v ? Object.values(v.recs).filter(r => r.chat === v.chatKey).reduce((n, r) => n + (r.images?.length ?? 0), 0) : 0; };
     const TABS = [
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
@@ -3924,12 +3929,24 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'ix-acts' },
                 h('button', { class: 'ix-btn main sm', type: 'button', disabled: !v.hasKey || st.jobs > 0, onclick: () => draw(f.idx, 'new') }, '↻ 다시 시도'),
                 h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { failed.delete(f.key); st.err = ''; renderNow(); } }, '닫기'))];
-        return [
-            h('div', { class: 'ix-msg ok-box', style: 'margin-top:0' }, st.set.auto ? '준비가 끝났습니다. 채팅을 진행하면 자동으로 이미지가 생성됩니다.' : '준비가 끝났습니다. 자동 그리기가 꺼져 있으니, 봇 답변 아래의 「이미지 생성」 버튼을 눌러 그 답변을 그리세요.'),
-            h('div', { class: 'cf-card', style: 'margin-top:10px' }, h('div', { class: 'cf-row sw' },
+        const el = Date.now() - ui.readyAt, fresh = el < 1200;
+        const ok = h('span', { class: 'fn-ok' + (fresh ? '' : ' still'), 'aria-hidden': 'true' });
+        ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+        const li = (tx, small) => h('li', null, h('span', null, tx, small ? h('small', null, small) : null));
+        const n = countNow();
+        return [h('div', { class: 'fn-card' + (fresh ? ' fn-rise' : ''), style: fresh ? `--fe:${el}ms` : null },
+            h('div', { class: 'fn-top' }, ok,
+                h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
+                    h('span', null, st.set.auto ? '채팅을 진행하면 자동으로 이미지가 생성됩니다.' : '자동 그리기가 꺼져 있으니, 봇 답변 아래의 「이미지 생성」 버튼을 눌러 그 답변을 그리세요.'))),
+            h('ul', { class: 'fn-ck' },
+                li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `작가 ${preset().name || '이름 없음'}`),
+                li(`봇 답변마다 ${n}장을 그립니다`, n > 1 ? '장마다 다른 장면' : ''),
+                li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`)),
+            h('div', { class: 'cf-row sw' },
                 h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 그리기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 이 설정대로 그립니다 (다시 굴리기 포함).')),
-                toggle(st.set.auto, () => setVal('auto', !st.set.auto)))),
-            h('div', { class: 'ix-under' }, toGallery)];
+                toggle(st.set.auto, () => setVal('auto', !st.set.auto))),
+            h('div', { class: 'fn-go' },
+                h('button', { class: 'ix-btn main', type: 'button', onclick: () => closePanel() }, '채팅으로 돌아가기')))];
     }
 
     function renderReadyBar() {
