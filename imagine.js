@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.102.2
+//@display-name 🎨 이매진 v3.103.0
 //@api 3.0
-//@version 3.102.2
+//@version 3.103.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.102.2';
+    const VERSION = '3.103.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3077,6 +3077,40 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ps-it.sel::before{border-color:var(--accent);background:radial-gradient(circle,var(--accent) 0 3px,#fff 3.5px)}
 .ps-it b{padding:0 2px;font-size:.86rem;line-height:1.35;white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
 .ps-it span{display:-webkit-box;padding:0 2px;overflow:hidden;font-size:.7rem;line-height:1.4;color:var(--muted);white-space:normal;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:3}
+.ps-it.ps-new{animation:ps-pop 1.2s ease}
+@keyframes ps-pop{0%{background:#fff7c2}100%{background:#fff}}
+.ps-th{position:relative}
+.ps-it.ps-ent::before,.ps-it.ps-as::before{display:none}
+.ps-hit{display:flex;flex-direction:column;gap:4px;width:100%;min-width:0;padding:0;font:inherit;color:inherit;text-align:left;background:none;border:0;cursor:pointer}
+.ps-sub{padding:0 2px;font-size:.7rem;line-height:1.35;color:var(--muted)}
+.ps-it.ps-ent{border-style:dashed;background:var(--paper2)}
+.ps-it.ps-ent .ps-th{border-style:dashed;background:#fff}
+.ps-it.ps-ent:hover{border-color:var(--accent)}
+.ps-it .ps-ic{position:relative;display:grid;place-items:center;width:46px;height:46px;padding:0;overflow:visible;-webkit-line-clamp:none;border-radius:50%;font-size:1.35rem;line-height:1;color:inherit;background:#fff;border:1px solid var(--line2);box-shadow:0 2px 8px rgba(0,0,0,.14)}
+.ps-it.ps-ent:hover .ps-ic{border-color:var(--accent)}
+.ps-it .ps-q{position:absolute;left:0;right:0;bottom:6px;display:block;padding:0 6px;overflow:visible;-webkit-line-clamp:none;font-size:.68rem;font-weight:700;line-height:1.35;text-align:center;color:var(--accent2)}
+.ps-it .ps-bar{position:absolute;left:0;right:0;bottom:0;display:block;height:5px;padding:0;overflow:hidden;-webkit-line-clamp:none;background:#dfe4ff}
+.ps-bar i{display:block;height:100%;background:var(--accent)}
+.ps-bar.ps-run i{width:35%;animation:ps-ind 1.1s ease-in-out infinite}
+@keyframes ps-ind{0%{transform:translateX(-100%)}100%{transform:translateX(290%)}}
+.ps-th img.ps-dim{opacity:.55}
+.ps-it .ps-badge{position:absolute;top:4px;left:4px;display:block;padding:1px 6px;overflow:visible;-webkit-line-clamp:none;font-size:.64rem;font-weight:700;line-height:1.4;color:#fff;background:var(--accent)}
+.ps-it .ps-badge.ps-badge-r{left:auto;right:4px}
+.ps-it.ps-as.ps-on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.ps-it .ps-chk{position:absolute;top:5px;left:5px;display:grid;place-items:center;width:20px;height:20px;padding:0;overflow:visible;-webkit-line-clamp:none;font-size:.78rem;font-weight:700;line-height:1;color:#fff;background:var(--accent);border:2px solid var(--accent)}
+.ps-pool{margin-top:10px}
+.ps-sep{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin-top:4px;padding:8px 2px 0;font-size:.8rem;font-weight:700;color:var(--accent2);border-top:1px dashed var(--line2)}
+.ps-sep small{font-weight:400;font-size:.72rem;color:var(--muted)}
+.ps-tray{margin-top:10px}
+.ps-sum{margin:0 0 4px;font-size:.84rem;line-height:1.6}
+.ps-sum b{color:var(--accent2)}
+.ps-msg{margin:8px 0 0;padding:8px 10px;font-size:.78rem;line-height:1.55;color:#8a3b00;background:#fff6ea;border:1px solid #f0c79a}
+.ps-why{margin-top:6px;font-size:.74rem;color:var(--muted)}
+.ps-why summary{cursor:pointer;line-height:1.8}
+.ps-why p{margin:2px 0 6px 14px;line-height:1.6;overflow-wrap:anywhere}
+.ps-why p b{color:var(--ink)}
+.ps-pre{margin:4px 0 6px 14px;padding:8px;font-size:.7rem;white-space:pre-wrap;overflow-wrap:anywhere;background:#f6f7f9;border:1px solid var(--line2)}
+.ix .ps-clr{margin-left:8px;padding:0;font-size:.74rem;color:var(--muted);text-decoration:underline;background:none;border:0;cursor:pointer}
 .ed{display:grid;gap:8px;margin-top:12px;padding:12px;background:#fff;border:1px solid var(--line)}
 .ed label{display:grid;gap:3px;font-size:.76rem;color:var(--muted)}
 .ed input{padding:6px 8px;font:inherit;font-size:.86rem;border:1px solid var(--line2)}
@@ -3390,7 +3424,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return el;
     }
 
-    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0 };
+    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
     const galCount = () => { const v = st.view; return v ? Object.values(v.recs).filter(r => r.chat === v.chatKey).reduce((n, r) => n + (r.images?.length ?? 0), 0) : 0; };
     const TABS = [
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
@@ -3838,12 +3872,519 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return box;
     }
 
-    function presetGrid(after, edit, asset = false) {
+    const SA = (() => {
+        async function inflate(d) {
+            const s = new Blob([d]).stream().pipeThrough(new DecompressionStream('deflate'));
+            return new Uint8Array(await new Response(s).arrayBuffer());
+        }
+        async function pngTexts(b) {
+            const out = {}, dv = new DataView(b.buffer, b.byteOffset, b.byteLength), dec = new TextDecoder();
+            for (let p = 8; p + 12 <= b.length;) {
+                const len = dv.getUint32(p), type = String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]);
+                const d = b.subarray(p + 8, p + 8 + len), z = d.indexOf(0);
+                try {
+                    if (z > 0 && type === 'tEXt') out[dec.decode(d.subarray(0, z))] = dec.decode(d.subarray(z + 1));
+                    else if (z > 0 && type === 'zTXt') out[dec.decode(d.subarray(0, z))] = dec.decode(await inflate(d.subarray(z + 2)));
+                    else if (z > 0 && type === 'iTXt') {
+                        const comp = d[z + 1], lang = d.indexOf(0, z + 3), tr = lang < 0 ? -1 : d.indexOf(0, lang + 1);
+                        if (tr > 0) out[dec.decode(d.subarray(0, z))] = dec.decode(comp ? await inflate(d.subarray(tr + 1)) : d.subarray(tr + 1));
+                    }
+                } catch {  }
+                if (type === 'IEND') break;
+                p += 12 + len;
+            }
+            return out;
+        }
+        function tiffTexts(t) {
+            const out = {};
+            if (t.length < 8) return out;
+            const le = t[0] === 0x49, dv = new DataView(t.buffer, t.byteOffset, t.byteLength);
+            const u16 = o => dv.getUint16(o, le), u32 = o => dv.getUint32(o, le);
+            const ifd = at => {
+                const r = {};
+                if (at + 2 > t.length) return r;
+                const n = u16(at);
+                for (let i = 0; i < n; i++) {
+                    const q = at + 2 + i * 12;
+                    if (q + 12 > t.length) break;
+                    const tag = u16(q), type = u16(q + 2), cnt = u32(q + 4), size = cnt * ([0, 1, 1, 2, 4, 8, 1, 1][type] || 1);
+                    const off = size <= 4 ? q + 8 : u32(q + 8);
+                    r[tag] = { type, data: t.subarray(off, off + size), val: u32(q + 8) };
+                }
+                return r;
+            };
+            const zero = d => { const z = d.indexOf(0); return z < 0 ? d : d.subarray(0, z); };
+            const dec = new TextDecoder();
+            const i0 = ifd(u32(4));
+            if (i0[0x010e]) out.Description = dec.decode(zero(i0[0x010e].data));
+            if (i0[0x0110]) out.Source = dec.decode(zero(i0[0x0110].data));
+            if (i0[0x0131]) out.Software = dec.decode(zero(i0[0x0131].data));
+            const sub = i0[0x8769] ? ifd(i0[0x8769].val) : {};
+            const uc = sub[0x9286]?.data;
+            if (uc && uc.length > 8) {
+                const head = String.fromCharCode(...uc.subarray(0, 8)), body = uc.subarray(8);
+                if (head.startsWith('UNICODE')) {
+                    const try16 = big => { let s = ''; for (let i = 0; i + 1 < body.length; i += 2) s += String.fromCharCode(big ? (body[i] << 8) | body[i + 1] : body[i] | (body[i + 1] << 8)); return s.replace(/\0+$/, ''); };
+                    const a = try16(!le), b = try16(le);
+                    out.Comment = a.trimStart().startsWith('{') ? a : b.trimStart().startsWith('{') ? b : a;
+                } else out.Comment = dec.decode(zero(body));
+            }
+            return out;
+        }
+        function webpTexts(b) {
+            const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+            for (let p = 12; p + 8 <= b.length;) {
+                const type = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]), len = dv.getUint32(p + 4, true);
+                if (type === 'EXIF') {
+                    let d = b.subarray(p + 8, p + 8 + len);
+                    if (d[0] === 0x45 && d[1] === 0x78 && d[4] === 0 && d[5] === 0) d = d.subarray(6);
+                    return tiffTexts(d);
+                }
+                p += 8 + len + (len & 1);
+            }
+            return {};
+        }
+        function jpegTexts(b) {
+            for (let p = 2; p + 4 < b.length;) {
+                if (b[p] !== 0xff) break;
+                const mk = b[p + 1], len = (b[p + 2] << 8) | b[p + 3];
+                if (mk === 0xe1 && b[p + 4] === 0x45 && b[p + 5] === 0x78) return tiffTexts(b.subarray(p + 10, p + 2 + len));
+                if (mk === 0xda) break;
+                p += 2 + len;
+            }
+            return {};
+        }
+        async function readImageInfo(b) {
+            const t = isPng(b) ? await pngTexts(b) : isWebp(b) ? webpTexts(b) : isJpeg(b) ? jpegTexts(b) : null;
+            if (!t) return { kind: 'broken', why: 'PNG · WebP · JPEG 로 읽을 수 없습니다' };
+            if (t.Comment) {
+                try {
+                    const meta = JSON.parse(t.Comment);
+                    if (typeof meta.prompt === 'string' || meta.v4_prompt) return { kind: 'nai', source: t.Source || t.Software || '', meta };
+                } catch {  }
+            }
+            if (t.parameters) return { kind: 'other', why: 'NovelAI 가 아닌 도구(Stable Diffusion WebUI 등)의 그림 정보입니다' };
+            return { kind: 'none' };
+        }
+
+
+        const QUALITY = new Set(['masterpiece', 'best quality', 'amazing quality', 'great quality', 'good quality', 'high quality', 'very aesthetic', 'aesthetic', 'absurdres', 'incredibly absurdres', 'highres', 'newest', 'recent', 'ultra complexity', 'high complexity', 'best illustration', '8k', '4k', 'flat color', 'lineart', 'no lineart', 'sketch', 'monochrome', 'greyscale', 'spot color', 'limited palette', 'dof', 'depth of field', 'crisp shading', 'expert shading', 'high detail', 'dot nose', 'soft lighting', 'soft glow', 'glossy', 'cel shading', 'official art', 'official style', 'anime coloring', 'traditional media', 'photorealistic', 'realistic', 'painterly', 'bloom', 'film grain', 'lens flare', 'rim lighting', 'backlighting', 'high contrast', 'vibrant colors', 'pastel colors', 'detailed background', 'chromatic aberration', 'blurry background', 'artist collaboration', 'simple illustration', 'shiny skin']);
+        const QUALITY_RE = [/^year \d{4}$/, /\(medium\)$/, /^glossy\b/, /(shading|coloring|colouring|palette|lineart|brushstrokes|texture|aesthetic|quality|absurdres|complexity|illustration|lighting|contrast)$/];
+        const SUBJECT_RE = [
+            /^\d+\+?(girl|boy|other)s?$/, /^(solo|solo focus|multiple girls|multiple boys|no humans)$/,
+            /^(girl|boy|male|female|man|woman|men|women|androgynous|futanari|trap)$/, /^(male|female) focus$/,
+            /^(mature|young|old|elderly|adult|teen|teenage|aged up|aged down|child|children|kid|toddler|baby|loli|shota)( (male|female|man|woman|girl|boy|lady))?$/, /^(old|young) (man|woman)$/,
+            /^muscular\b/, /\bmuscles?$/, /^(abs|biceps|slender|petite|curvy|plump|fat|chubby|obese|skinny|thin|toned|toned body|athletic|thick thighs|wide hips|narrow waist|flat chest|tall|short|tall female|tall male|short stature|mini girl)$/,
+            /\bbreasts$/, /^(cleavage|underboob|sideboob)$/,
+            /^(dark|pale|tan|tanned|brown|black|white|fair|light|olive|colored|grey|gray)[- ]?skin(ned)?\b/, /^(tan|tanned|tanlines|tan lines|sun tan)$/, /-skinned\b/,
+            /^(blonde|brunette|redhead)\b/, /^(beard|mustache|stubble|facial hair|wrinkles|wrinkled skin|freckles)$/,
+            /^(heterochromia|ahoge|bangs|sidelocks|ponytail|twintails|braid|hair bun|bob cut)$/,
+        ];
+        const HAIR_EYE_RE = /^(?!detail(ed)? |beautiful detail(ed)? )[a-z -]+ (hair|eyes)$/;
+        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', '4koma', '2koma', 'speech bubble', 'english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
+        const norm = s => s.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+        const coreOf = raw => norm(raw.replace(/^[{[]+/, '').replace(/[}\]]+$/, ''));
+        const isSubject = c => SUBJECT_RE.some(r => r.test(c)) || HAIR_EYE_RE.test(c);
+        const isQuality = c => QUALITY.has(c) || QUALITY_RE.some(r => r.test(c));
+        function kindOf(c, w) {
+            if (/^artist:/.test(c)) return 'artist';
+            if (isSubject(c)) return 'subject';
+            if (w != null && w < 0) return 'suppress';
+            if (LAYOUT.has(c)) return 'layout';
+            if (isQuality(c)) return 'quality';
+            return w != null ? 'style' : 'scene';
+        }
+        const KEEP_KINDS = new Set(['artist', 'quality', 'style', 'suppress']);
+
+        function parseTags(text) {
+            const parts = String(text || '').replace(/\r?\n/g, ',').split(',');
+            const items = [];
+            let cur = null;
+            const close = s => /::\s*$/.test(s);
+            for (const part of parts) {
+                const t = part.trim();
+                if (!cur) {
+                    const m = t.match(/^(-?\d*\.?\d+)::(.*)$/s);
+                    if (m) {
+                        if (close(m[2])) items.push({ w: m[1], tags: [m[2].replace(/::\s*$/, '')] });
+                        else cur = { w: m[1], tags: [m[2]] };
+                    } else if (t && t !== '::') items.push({ raw: t });
+                } else if (close(t)) { cur.tags.push(t.replace(/::\s*$/, '')); items.push(cur); cur = null; }
+                else cur.tags.push(t);
+            }
+            if (cur) items.push(cur);
+            return items.map(it => it.tags ? { w: it.w, tags: it.tags.map(x => x.trim()).filter(Boolean).map(raw => ({ raw, c: coreOf(raw) })) } : { raw: it.raw, c: coreOf(it.raw) })
+                .filter(it => !it.tags || it.tags.length);
+        }
+        function analyzePos(text) {
+            const items = parseTags(text), seen = new Set();
+            for (const it of items) {
+                if (it.tags) {
+                    const w = parseFloat(it.w);
+                    for (const tg of it.tags) { tg.kind = kindOf(tg.c, w); tg.keep = KEEP_KINDS.has(tg.kind); }
+                    const key = it.w + '::' + it.tags.map(x => x.c).join(',');
+                    if (seen.has(key)) it.tags.forEach(tg => { tg.kind = 'dup'; tg.keep = false; });
+                    seen.add(key);
+                } else {
+                    it.kind = seen.has(it.c) ? 'dup' : kindOf(it.c, null);
+                    it.keep = KEEP_KINDS.has(it.kind);
+                    seen.add(it.c);
+                }
+            }
+            return items;
+        }
+        const NEG_BIAS = new Set(['fat', 'chubby', 'plump', 'obese', 'muscular', 'muscular male', 'muscular female', 'athletic', 'toned body', 'male', 'man', '1boy', 'old', 'old man', 'old woman', 'elderly', 'dark skin', 'dark-skinned male', 'dark-skinned female', 'tan', 'thick lips', 'puckered lips', 'bags under eyes',
+            'female', 'woman', 'girl', 'boy', '1girl', '2girls', '2boys', 'young', 'mature female', 'mature male', 'pale skin', 'fair skin', 'light skin', 'white skin', 'tanned', 'slender', 'skinny', 'thin', 'petite', 'curvy', 'flat chest', 'small breasts', 'large breasts', 'huge breasts', 'wrinkles', 'wrinkled skin', 'muscle', 'abs']);
+        function analyzeNeg(text, dropChild) {
+            const items = parseTags(text), seen = new Set();
+            const bias = c => NEG_BIAS.has(c) || (dropChild && c === 'child');
+            for (const it of items) {
+                const list = it.tags || [it];
+                const key = it.tags ? it.w + '::' + it.tags.map(x => x.c).join(',') : it.c;
+                const dup = seen.has(key);
+                seen.add(key);
+                for (const tg of list) { tg.kind = dup ? 'dup' : bias(tg.c) ? 'bias' : 'keep'; tg.keep = tg.kind === 'keep'; }
+            }
+            return items;
+        }
+        const keepOf = (tg, ov, id) => ov.has(id) ? ov.get(id) : tg.keep;
+        function buildText(items, ov, pre) {
+            const out = [];
+            items.forEach((it, i) => {
+                if (it.tags) {
+                    const kept = it.tags.filter((tg, j) => keepOf(tg, ov, `${pre}${i}.${j}`)).map(tg => tg.raw);
+                    if (kept.length) out.push(`${it.w}::${kept.join(', ')}::`);
+                } else if (keepOf(it, ov, `${pre}${i}`)) out.push(it.raw);
+            });
+            return out.join(', ');
+        }
+        function styleKey(items) {
+            const keys = [];
+            for (const it of items) {
+                if (it.tags) {
+                    if (parseFloat(it.w) > 0 && it.tags.length === 1 && (it.tags[0].kind === 'artist' || it.tags[0].kind === 'style')) keys.push(`${+it.w}*${it.tags[0].c}`);
+                } else if (it.kind === 'artist') keys.push(`1*${it.c}`);
+            }
+            return keys.sort().join('|');
+        }
+        const artistNames = items => items.flatMap(it => it.tags ? (parseFloat(it.w) > 0 ? it.tags.filter(tg => tg.kind === 'artist').map(tg => [tg.c.replace(/^artist:/, ''), it.w]) : []) : it.kind === 'artist' ? [[it.c.replace(/^artist:/, ''), '']] : []);
+
+        const clamp = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+        function genOf(m) {
+            const g = { steps: Math.round(clamp(m.steps, 1, 50, 28)), scale: clamp(m.scale, 1, 10, 5), cfgRescale: clamp(m.cfg_rescale, 0, 1, 0), sampler: SAMPLERS.some(([v]) => v === m.sampler) ? m.sampler : 'k_euler_ancestral' };
+            const rows = [
+                ['스텝', m.steps, g.steps], ['가이던스', m.scale, g.scale], ['리스케일', m.cfg_rescale, g.cfgRescale], ['샘플러', m.sampler, g.sampler],
+                ['노이즈 스케줄', m.noise_schedule, 'karras', '이매진은 karras 로 고정입니다'],
+            ];
+            return { g, rows };
+        }
+        const modelOf = src => (String(src).match(/NovelAI Diffusion (V[\d.]+(?: Furry)?)/i) || [])[1] || src || '알 수 없음';
+        const posOf = m => m.v4_prompt?.caption?.base_caption ?? m.prompt ?? '';
+        const negOf = m => m.v4_negative_prompt?.caption?.base_caption ?? m.uc ?? '';
+        const josa = (s, withF, noF) => {
+            const c = String(s).trim().slice(-1), k = c.charCodeAt(0);
+            if (k >= 0xAC00 && k <= 0xD7A3) return (k - 0xAC00) % 28 ? withF : noF;
+            if (/[0136789]/.test(c)) return withF;
+            if (/[lmnr]/i.test(c)) return withF;
+            return noF;
+        };
+        const PICK_MAX = 3;
+        const PERSON_RE = /^(\d+\+?(girl|boy|other)s?|solo|girl|boy|woman|man|female|male|(mature|adult|young|old) (female|male|woman|man))$/;
+        function personOf(meta) {
+            const texts = [posOf(meta), ...(meta.v4_prompt?.caption?.char_captions || []).map(c => c.char_caption || '')];
+            const cores = texts.flatMap(t => parseTags(t).flatMap(it => it.tags ? (parseFloat(it.w) > 0 ? it.tags.map(x => x.c) : []) : [it.c]));
+            if (cores.includes('no humans')) return 'bg';
+            const chars = (meta.v4_prompt?.caption?.char_captions || []).some(c => (c.char_caption || '').trim());
+            return chars || cores.some(c => PERSON_RE.test(c)) ? 'person' : 'nohuman';
+        }
+        const isSelf = a => a.from === 'emotion';
+        const botName = () => st.view?.name || '봇';
+        let made = new Set();
+        const isMine = a => a.mine || made.has(a.name);
+        const usable = () => (st.view?.assets ?? []).filter(a => !isMine(a));
+        const assetOf = name => usable().find(a => a.name === name);
+        const SKIP = { bg: '배경 · 사물 그림', nohuman: '인물 태그 없음', noinfo: 'NovelAI 그림 정보 없음', same: '이미 있는 작가와 같은 그림체' };
+        const WHY_MSG = {
+            bg: '배경 · 사물 그림(no humans)이라서 그림체를 가져오지 않습니다.',
+            nohuman: '인물 태그가 없는 그림이라서 건너뜁니다. 인물이 그려진 그림을 골라 주세요.',
+            noinfo: 'NovelAI 그림 정보가 없습니다. 그림 정보를 지운 그림이거나 NovelAI로 그린 그림이 아닐 수 있습니다.',
+        };
+        function failMsg(a, r) {
+            if (r.why === 'same') return `「${a.name}」의 그림체는 이미 있는 작가 「${r.same.name}」${josa(r.same.name, '과', '와')} 같아서 넣지 않습니다. 다른 그림을 골라 주세요.`;
+            return `「${a.name}」${josa(a.name, '은', '는')} ${WHY_MSG[r.why]}`;
+        }
+        const PICK_SYS = 'You pick image assets by file name. Reply with JSON only.';
+        function pickPrompt(list) {
+            return [`Bot: ${botName()}`, 'Assets:', ...list.map(a => `- ${a.name}${isSelf(a) ? ' [emotion image = the bot character]' : ''}`),
+                `Pick up to ${PICK_MAX} assets most likely to be a character illustration (a person as the main subject). Prefer the bot's own character. Skip backgrounds, places, items, icons and UI.`,
+                'Reply as JSON: {"picks":[{"name":"...","why":"<short Korean reason>"}]}'].join('\n');
+        }
+        function parsePicks(reply, list) {
+            let raw = [];
+            try { raw = JSON.parse(String(reply).match(/\{[\s\S]*\}/)?.[0] || '{}').picks || []; } catch (e) { raw = []; }
+            const names = new Set(list.map(a => a.name)), seen = new Set(), picks = [];
+            for (const p of Array.isArray(raw) ? raw : []) {
+                const name = String(p?.name || '').trim();
+                if (!names.has(name) || seen.has(name)) continue;
+                seen.add(name); picks.push({ name, why: String(p.why || '').slice(0, 60) });
+                if (picks.length >= PICK_MAX) break;
+            }
+            if (picks.length) return { picks, fallback: false };
+            const a = list.find(isSelf) || list[0];
+            return { picks: a ? [{ name: a.name, why: isSelf(a) ? '감정 그림 첫 장' : '첫 에셋' }] : [], fallback: true };
+        }
+        function nameHintOf() {
+            const base = `${botName()} 그림체`, taken = new Set(st.presets.map(p => p.name));
+            if (!taken.has(base)) return base;
+            let i = 2;
+            while (taken.has(`${base} ${i}`)) i++;
+            return `${base} ${i}`;
+        }
+        let seq = 0, newT = 0;
+        function groupStyles(srcs) {
+            const map = new Map();
+            for (const s of srcs) {
+                if (s.info?.kind !== 'nai') continue;
+                const pos = analyzePos(posOf(s.info.meta));
+                const key = styleKey(pos) || '(작가 태그 없음)' + s.name;
+                if (!map.has(key)) map.set(key, { key, srcs: [], pos, meta: s.info.meta, source: s.info.source });
+                map.get(key).srcs.push(s);
+            }
+            return [...map.values()].map(g => {
+                const same = st.presets.find(p => p.pos && styleKey(analyzePos(p.pos)) === g.key);
+                const names = artistNames(g.pos);
+                return {
+                    ...g, id: 'g' + (++seq), same, added: '', ov: new Map(), useGen: true, dropChild: true, name: '',
+                    nameHint: names.length ? `${names[0][0]}${names.length > 1 ? ` 외 ${names.length - 1}명` : ''}` : g.srcs[0].name,
+                };
+            });
+        }
+        async function readBytes(path) {
+            const data = await api.readImage(path);
+            return data instanceof Uint8Array ? data : new Uint8Array(data);
+        }
+        async function readOne(s, a) {
+            s.phase = 'read'; s.cur = a; renderNow();
+            let info;
+            try { info = await readImageInfo(await readBytes(a.path)); } catch (error) { console.warn(LOG, 'style read', error); info = { kind: 'broken' }; }
+            if (ui.scan !== s) return null;
+            s.cur = null;
+            if (info.kind !== 'nai') return { why: 'noinfo' };
+            const p = personOf(info.meta);
+            if (p !== 'person') return { why: p };
+            const g = groupStyles([{ name: a.name, path: a.path, thumb: '', info }])[0];
+            if (g.same) return { why: 'same', same: g.same };
+            g.nameHint = nameHintOf();
+            return { g };
+        }
+        const noteTry = (s, name, why, auto) => { if (!s.tried.some(t => t.name === name)) s.tried.push({ name, why, auto: !!auto }); };
+        async function analyze(s, order, via) {
+            for (const pk of order) {
+                const a = assetOf(pk.name);
+                if (!a) continue;
+                const r = await readOne(s, a);
+                if (!r) return false;
+                if (r.g) { s.group = r.g; s.src = { ...pk, via }; s.phase = 'done'; autoAdd(r.g, s); renderNow(); return true; }
+                noteTry(s, a.name, r.why, true);
+            }
+            s.phase = 'none'; renderNow();
+            return false;
+        }
+        async function startScan() {
+            const chaId = st.view?.chaId;
+            made = new Set((await loadAst(chaId).catch(() => null))?.made ?? []);
+            if (st.view?.chaId !== chaId) return;
+            const list = usable();
+            const s = ui.scan = { chaId: st.view?.chaId, phase: 'model', list, prompt: pickPrompt(list), reply: '', err: '', picks: [], fallback: false, tried: [], group: null, src: null, cur: null, choose: false, msg: '', adds: [] };
+            renderNow();
+            let reply = '';
+            try { reply = await requestModel(PICK_SYS, s.prompt, true, st.set.llm); } catch (error) { s.err = String(error?.message || error); }
+            if (ui.scan !== s) return;
+            s.reply = reply;
+            Object.assign(s, parsePicks(reply, list));
+            const ok = await analyze(s, s.picks, s.fallback ? 'fallback' : 'model');
+            if (ui.scan === s && !ok) { s.choose = true; renderNow(); }
+        }
+        async function pickOther(s, a) {
+            if (s.phase === 'read') return;
+            const back = s.group ? 'done' : 'none';
+            s.msg = '';
+            const r = await readOne(s, a);
+            if (!r) return;
+            if (r.g) {
+                s.group = r.g; s.src = { name: a.name, why: s.picks.find(p => p.name === a.name)?.why || '', via: 'user' };
+                s.phase = 'done'; s.choose = false;
+                autoAdd(r.g, s);
+            } else { noteTry(s, a.name, r.why); s.msg = failMsg(a, r); s.phase = back; }
+            renderNow();
+        }
+        const isImg = f => /^image\/(png|webp|jpeg)$/.test(f.type) || /\.(png|webp|jpe?g)$/i.test(f.name);
+        const BAD_KINDS = [['none', 'NovelAI 그림 정보가 없음'], ['other', '다른 도구(WebUI 등)의 정보'], ['broken', '파일을 읽지 못함']];
+        async function handleFiles(files) {
+            files = [...files];
+            const imgs = files.filter(isImg), list = imgs.slice(0, 1);
+            const f = ui.files = { n: 0, total: list.length, groups: null, bad: { none: [], other: [], broken: [] }, name: (list[0] || files[0])?.name.replace(/\.[^.]+$/, '') || '', adds: [] };
+            renderNow();
+            const srcs = [];
+            for (const file of list) {
+                let info, bytes;
+                try { bytes = new Uint8Array(await file.arrayBuffer()); info = await readImageInfo(bytes); } catch { info = { kind: 'broken' }; }
+                const name = file.name.replace(/\.[^.]+$/, '');
+                if (info.kind === 'nai') srcs.push({ name, thumb: await shrinkImage(bytes, 240), info });
+                else f.bad[info.kind === 'none' || info.kind === 'other' ? info.kind : 'broken'].push(name);
+                f.n++;
+            }
+            if (ui.files !== f) return;
+            f.groups = groupStyles(srcs);
+            if (f.groups[0]) autoAdd(f.groups[0], f);
+            renderNow();
+        }
+        function pickStyleFile() {
+            const input = doc.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/png,image/webp,image/jpeg';
+            input.addEventListener('change', () => { const file = input.files?.[0]; if (file) handleFiles([file]); }, { once: true });
+            input.click();
+        }
+        function presetOf(g) {
+            const first = g.srcs[0];
+            return { id: uid(), name: g.name.trim() || g.nameHint, pos: buildText(g.pos, g.ov, 'p'), neg: buildText(analyzeNeg(negOf(g.meta), g.dropChild), g.ov, 'n'), ...(g.useGen ? genOf(g.meta).g : {}), thumb: first.thumb || '', thumbPath: first.path || '' };
+        }
+        function autoAdd(g, src) {
+            const p = presetOf(g);
+            src.adds.push({ id: p.id, prev: st.presetId, prevStyle: ui.styleId });
+            st.presets.push(p); g.added = p.name;
+            st.presetId = p.id; ui.styleId = p.id; ui.newId = p.id;
+            clearTimeout(newT); newT = setTimeout(() => { ui.newId = ''; }, 1300);
+            savePresets();
+        }
+        function dropAdds(src) {
+            const adds = src?.adds || [], gone = new Set(adds.map(x => x.id));
+            if (!gone.size) return;
+            st.presets = st.presets.filter(p => !gone.has(p.id));
+            for (const id of gone) presetDrafts.delete(id);
+            const back = new Map(adds.map(x => [x.id, x.prev])), backStyle = new Map(adds.map(x => [x.id, x.prevStyle]));
+            for (const o of [ui.scan, ui.files]) for (const x of o?.adds || []) {
+                while (back.has(x.prev)) x.prev = back.get(x.prev);
+                while (backStyle.has(x.prevStyle)) x.prevStyle = backStyle.get(x.prevStyle);
+            }
+            const alive = id => st.presets.some(p => p.id === id);
+            if (gone.has(st.presetId)) st.presetId = adds.map(x => x.prev).find(alive) || st.presets[0]?.id || '';
+            if (gone.has(ui.styleId)) ui.styleId = adds.map(x => x.prevStyle).find(alive) || st.presetId;
+            if (gone.has(ui.newId)) ui.newId = '';
+            savePresets();
+        }
+        function askTile(q, sub, onclick, label) {
+            return h('div', { class: 'ps-it ps-ent' },
+                h('button', { class: 'ps-hit', type: 'button', onclick },
+                    h('div', { class: 'ps-th' }, h('span', { class: 'ps-ic' }, '🎨'), h('span', { class: 'ps-q' }, label)),
+                    h('b', null, q), h('small', { class: 'ps-sub' }, sub)));
+        }
+        const kindOfAsset = a => isSelf(a) ? '감정 그림 · 봇 본인' : '추가 에셋';
+        function busyTile(s) {
+            const model = s.phase === 'model';
+            return h('div', { class: 'ps-it ps-ent', 'aria-busy': 'true' },
+                h('div', { class: 'ps-th' }, !model && s.cur?.path ? h('img', { class: 'ps-dim', 'data-path': s.cur.path, alt: '' }) : null, h('span', { class: 'ps-ic' }, model ? '🤖' : '🔍'), h('span', { class: 'ps-bar ps-run' }, h('i'))),
+                h('b', null, model ? '모델이 그림 고르는 중' : `「${s.cur?.name || ''}」 읽는 중`),
+                h('small', { class: 'ps-sub' }, model ? `에셋 이름 ${s.list.length}개를 보냅니다` : s.cur ? kindOfAsset(s.cur) : ' '));
+        }
+        function assetTile(a, on, onclick, badge) {
+            return h('button', { class: 'ps-it ps-as' + (on ? ' ps-on' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', onclick },
+                h('div', { class: 'ps-th' }, h('img', { 'data-path': a.path, alt: '' }),
+                    on ? h('span', { class: 'ps-chk' }, '✓') : null, badge ? h('span', { class: 'ps-badge ps-badge-r' }, badge) : null),
+                h('b', null, a.name), h('small', { class: 'ps-sub' }, kindOfAsset(a)));
+        }
+        function assetGrid(s, onPick, sel, hint) {
+            const rank = new Map(s.picks.map((p, i) => [p.name, i]));
+            const at = x => rank.has(x.name) ? rank.get(x.name) : 99;
+            const list = usable().slice().sort((x, y) => at(x) - at(y));
+            const cut = s.pool || POOL, shown = list.slice(0, cut);
+            return h('div', { class: 'ps ps-pool', role: 'radiogroup', 'aria-label': `「${botName()}」 에셋` },
+                h('div', { class: 'ps-sep' }, `「${botName()}」 에셋 ${list.length}장`, h('small', null, hint)),
+                shown.map(a => assetTile(a, a.name === sel, () => onPick(a), rank.has(a.name) ? (rank.get(a.name) ? `추천 ${rank.get(a.name) + 1}` : '모델 추천') : '')),
+                list.length > cut ? h('div', { class: 'ps-sep' }, h('button', { class: 'lnk', type: 'button', onclick: () => { s.pool = cut + POOL; renderNow(); } }, `더 보기 (${shown.length} / ${list.length}장)`)) : null);
+        }
+        const POOL = 60;
+        const msgBox = s => s.msg ? h('p', { class: 'ps-msg', role: 'status' }, s.msg) : null;
+        function scanBox(s) {
+            const mine = (st.view?.assets ?? []).filter(isMine).map(a => a.name);
+            return h('div', { class: 'ps-why' }, h('details', null,
+                h('summary', null, '모델이 무엇을 보고 골랐나요'),
+                s.picks.length ? h('p', null, h('b', null, s.fallback ? '모델 답을 읽지 못해 대신 고른 그림' : '모델이 고른 차례'), ' · ', s.picks.map((p, i) => `${i + 1}. ${p.name}${p.why ? ` (${p.why})` : ''}`).join(' / ')) : null,
+                s.tried.length ? h('p', null, h('b', null, '읽었지만 쓰지 않은 그림'), ' · ', s.tried.map(t => `${t.name}(${SKIP[t.why] || t.why})`).join(', ')) : null,
+                mine.length ? h('p', null, h('b', null, '모델에 보내지 않은 이름'), ' · ', mine.join(', '), ' (이매진이 그린 그림)') : null,
+                h('p', null, h('b', null, '보낸 글')), h('pre', { class: 'ps-pre' }, s.prompt),
+                s.err ? [h('p', null, h('b', null, '모델 오류')), h('pre', { class: 'ps-pre' }, s.err)] : null,
+                s.reply ? [h('p', null, h('b', null, '모델 답')), h('pre', { class: 'ps-pre' }, s.reply)] : null));
+        }
+        function pickLine(s) {
+            const src = s.src;
+            if (!src) return '';
+            const head = src.via === 'user' ? '직접 고른 그림' : src.via === 'fallback' ? '대신 쓴 그림' : '모델이 고른 그림';
+            const auto = s.tried.filter(t => t.auto && t.name !== src.name), skipped = auto.map(t => `「${t.name}」`);
+            return [`${head} `, h('b', null, `「${src.name}」`), `${src.why ? `(${src.why})` : ''}에서 그림체를 가져왔습니다.`,
+                skipped.length && src.via !== 'user' ? ` 앞 차례의 ${skipped.join(' · ')}${josa(auto.at(-1)?.name || '', '은', '는')} 쓸 수 없어서 건너뛰었습니다.` : ''];
+        }
+        const clearBtn = (title, onclick) => h('button', { class: 'ps-clr', type: 'button', title, onclick }, '결과 지우기');
+        function botParts() {
+            if (ui.scan && ui.scan.chaId !== st.view?.chaId) ui.scan = null;
+            const s = ui.scan, n = usable().length, out = { tiles: [], tray: [] };
+            if (!n) return out;
+            if (!s) {
+                out.tiles.push(askTile(`「${botName()}」 그림체 가져오기`, `에셋 ${n}장 중 인물 그림 하나로`, startScan, '에셋에서 그림체 찾기'));
+                return out;
+            }
+            if (s.phase === 'model' || s.phase === 'read') {
+                out.tiles.push(busyTile(s));
+                if (s.phase === 'read' && s.choose) out.tray.push(assetGrid(s, () => {}, s.src?.name, '읽는 중입니다'));
+                return out;
+            }
+            const g = s.group;
+            out.tray.push(h('p', { class: 'ps-sum' },
+                g ? [pickLine(s), ` 「${g.added}」${josa(g.added, '으로', '로')} 추가하고 골랐습니다.`]
+                    : [`모델이 고른 ${s.picks.map(p => `「${p.name}」`).join(' · ')}에서 쓸 수 있는 인물 그림을 찾지 못했습니다. 아래에서 다른 에셋을 골라 보세요.`],
+                g ? h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', 'aria-expanded': s.choose ? 'true' : 'false', onclick: () => { s.choose = !s.choose; s.msg = ''; renderNow(); } }, s.choose ? '고르기 닫기' : '다른 에셋으로') : null,
+                clearBtn('이 결과로 넣은 작가를 목록에서 뺍니다', () => { dropAdds(ui.scan); ui.scan = null; renderNow(); })));
+            out.tray.push(msgBox(s));
+            if (s.choose) out.tray.push(assetGrid(s, a => pickOther(s, a), s.src?.name, '누르면 그 그림을 바로 읽어 작가를 하나 더 넣습니다'));
+            out.tray.push(scanBox(s));
+            return out;
+        }
+        function fileParts() {
+            const f = ui.files, out = { tiles: [], tray: [] };
+            if (f && !f.groups) {
+                out.tiles.push(h('div', { class: 'ps-it ps-ent', 'aria-busy': 'true' },
+                    h('div', { class: 'ps-th' }, h('span', { class: 'ps-ic' }, '🖼️'), h('span', { class: 'ps-bar ps-run' }, h('i'))),
+                    h('b', null, `「${f.name}」 읽는 중`), h('small', { class: 'ps-sub' }, '첨부한 이미지')));
+                return out;
+            }
+            out.tiles.push(h('div', { class: 'ps-it ps-ent' },
+                h('button', { class: 'ps-hit', type: 'button', title: '그림체를 가져올 이미지 한 장을 첨부합니다', onclick: pickStyleFile },
+                    h('div', { class: 'ps-th' }, h('span', { class: 'ps-ic' }, '🖼️'), h('span', { class: 'ps-q' }, '그림체 이미지 첨부')),
+                    h('b', null, '이미지 첨부'), h('small', { class: 'ps-sub' }, 'NovelAI PNG · WebP · JPEG 한 장'))));
+            if (!f) return out;
+            const g = f.groups[0], bad = BAD_KINDS.find(([k]) => f.bad[k].length);
+            out.tray.push(h('p', { class: 'ps-sum' },
+                !f.total ? `「${f.name}」${josa(f.name, '은', '는')} 이미지 파일(PNG · WebP · JPEG)이 아닙니다.`
+                    : g ? ['첨부한 이미지 ', h('b', null, `「${f.name}」`), `에서 그림체를 가져와 「${g.added}」${josa(g.added, '으로', '로')} 추가하고 골랐습니다.`]
+                    : ['첨부한 이미지 ', h('b', null, `「${f.name}」`), `에서 그림체를 찾지 못했습니다 (${bad ? bad[1] : 'NovelAI 그림 정보가 없음'}).`],
+                g ? null : h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', onclick: pickStyleFile }, '다른 이미지로'),
+                clearBtn('이 이미지로 넣은 작가를 목록에서 뺍니다', () => { dropAdds(ui.files); ui.files = null; renderNow(); })));
+            return out;
+        }
+        function tailParts() {
+            const f = fileParts(), b = botParts(), tray = [f.tray, b.tray].flat(Infinity).filter(Boolean);
+            return { head: [...b.tiles, ...f.tiles], tray: tray.length ? h('div', { class: 'ps-tray' }, tray) : null };
+        }
+        return { tailParts };
+    })();
+
+    function presetGrid(after, edit, asset = false, head = null) {
         const cur = edit ? edit.cur : asset ? acPreset() : preset();
         const used = preset().id, acUsed = acPreset().id;
         const badge = t => h('small', { style: 'margin-left:6px;font-weight:400;color:var(--accent)' }, t);
-        return h('div', { class: 'ps', role: 'radiogroup' }, st.presets.map(p => h('button', {
-            class: 'ps-it' + (p.id === cur.id ? ' sel' : ''), type: 'button', role: 'radio', 'aria-checked': p.id === cur.id ? 'true' : 'false',
+        return h('div', { class: 'ps', role: 'radiogroup' }, head, st.presets.map(p => h('button', {
+            class: 'ps-it' + (p.id === cur.id ? ' sel' : '') + (p.id === ui.newId ? ' ps-new' : ''), type: 'button', role: 'radio', 'aria-checked': p.id === cur.id ? 'true' : 'false',
             onclick: edit ? () => edit.pick(p.id)
                 : asset ? () => { st.set = { ...st.set, acPresetId: p.id }; saveSet(); after?.(); renderNow(); }
                 : () => { st.presetId = p.id; savePresets(); setStep('preset'); after?.(); renderNow(); },
@@ -3918,10 +4459,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         onclick: () => { st.set = { ...st.set, kind: k }; setStep('kind'); ui.reopen = 0; renderNow(); },
                     }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
                 }))),
-            step(5, '작가 고르기', preset().name || '이름 없음', () => [
-                presetGrid(() => { ui.reopen = 0; }),
+            step(5, '작가 고르기', preset().name || '이름 없음', () => { const t = SA.tailParts(); return [
+                presetGrid(() => { ui.reopen = 0; }, null, false, t.head), t.tray,
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 누르면 그 작가로 다음 단계로 넘어갑니다. 작가를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '작가 탭'), '을 여세요.'),
-                ui.reopen === 5 && su.preset ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 작가로 다음'))]),
+                ui.reopen === 5 && su.preset ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 작가로 다음'))]; }),
             step(6, '장 수 고르기', `${countNow()}장`, () => h('div', { class: 'cf-card' }, h('div', { class: 'cf-row' },
                 h('div', { class: 'cf-tx' }, h('b', null, '한 번에 몇 장을 그릴까요?'), h('p', null, '장마다 답변 속 다른 장면을 고릅니다. 장마다 NAI 요청이 하나씩 갑니다.')),
                 seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장']], su.count ? countNow() : null, n => { st.set = { ...st.set, count: n }; setStep('count'); ui.reopen = 0; renderNow(); })))),
@@ -4506,9 +5047,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             oninput: e => { draft[key] = e.target.value === '' ? undefined : e.target.value; },
         }));
         sync();
+        const tail = SA.tailParts();
         add(pane,
             h('h2', { class: 'sub', style: 'margin-top:0' }, '작가 목록', h('small', null, '누른 작가를 아래에서 고칩니다 · 그릴 작가는 준비 탭에서 고릅니다 · 카드 그림은 그 작가로 마지막에 그린 것 (내장 작가 셋은 고정)')),
-            presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }),
+            presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }, false, tail.head), tail.tray,
+            h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림 정보를 지운 그림(트위터 · 디스코드에 올렸다 받은 그림 등)과 투명도 속에 숨긴 정보(stealth)는 읽지 못합니다. 그림은 이 기기 안에서만 읽습니다.'),
             h('div', { class: 'ix-acts' },
                 saveBtn,
                 h('button', {
@@ -4732,6 +5275,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const rawMsgs = chat.message ?? [];
         st.view = {
             ci, chi, chaId, name: char.name, group: char.type === 'group',
+            assets: [...(char.emotionImages ?? []).map(x => ({ name: x?.[0], path: x?.[1], from: 'emotion' })), ...(char.additionalAssets ?? []).map(x => ({ name: x?.[0], path: x?.[1] }))]
+                .filter(a => a.name && a.path).map(a => ({ ...a, mine: /^nc_/i.test(a.name) })),
             chatKey: chatKeyOf(chat, chi), cast, recs, hasKey: !!key,
             state: readState(chat),
             hidden: botHidden(char) || st.set.assetOff.includes(chaId),
@@ -4799,6 +5344,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
         + '</g>'
         + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
+        + '</svg>';
+    const PAN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -1 30 34" width="30" height="34">'
+        + '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>'
+        + '<circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>'
+        + '<circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>'
+        + '<circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>'
+        + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
+        + '</g>'
+        + '<text x="12" y="32" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
     const DRAW_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
         + '<path d="M12 19l7-7 3 3-7 7-3-3z"/>'
@@ -5293,7 +5848,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function addPanelButton(d, row) {
         const b = await d.createElement('button');
         await b.setClassName(PANBTN_CLASS);
-        await b.setInnerHTML(ICON_SVG.replace('width="100%" height="100%"', 'width="24" height="24"'));
+        await b.setInnerHTML(PAN_ICON);
         await b.setStyle('cursor', 'pointer');
         await b.setStyle('flexShrink', '0');
         if (!root.on || !panSel() || await d.querySelector('.nc-panbtn')) return false;
