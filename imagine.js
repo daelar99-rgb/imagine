@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.103.0
+//@display-name 🎨 이매진 v3.103.1
 //@api 3.0
-//@version 3.103.0
+//@version 3.103.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.103.0';
+    const VERSION = '3.103.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -885,7 +885,7 @@ ${TAG_STYLE}`;
     const genreNow = () => st.set.genre !== false;
     const GENRE_TAGS = {
         action: 'action, motion lines, motion blur',
-        romance: 'romance, soft lighting, sparkle, bokeh',
+        romance: 'romance, soft lighting, bokeh',
         comedy: 'comedy, emphasis lines',
         horror: 'horror (theme), ominous, dark, shadow',
         sad: 'melancholy, dim lighting',
