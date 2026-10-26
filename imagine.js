@@ -4627,10 +4627,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.', PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
                 sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.', MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v)),
                 h('div', { class: 'cf-row' }, h('div', { class: 'cf-tx' }, note('', '고른 크기는 봇의 기본 변수 nc_pc · nc_mo 에 적고 지금 채팅을 바로 다시 그려 반영합니다. 답변이 나오는 중이면 끝난 뒤에 다시 그립니다. 1.2.0 이하에서 넣은 그림은 그 답변을 다시 그려야 크기가 바뀝니다.'))),
-                row('sw', '이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '사이드바의 버튼은 그대로 있습니다.',
+                row('sw', '이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '두 메뉴의 버튼은 그대로 있습니다.',
                     toggle(s.panelBtn, () => setVal('panelBtn', !s.panelBtn))),
                 needRoot() ? h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' },
-                    rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
+                    rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
                         : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.')) : null),
             grp('이 봇의 그림',
                 row('col', '봇의 기존 그림 숨기기', '이 봇의 백그라운드 임베딩 · 정규식 · Lua 트리거에서 에셋 그림을 띄우는 곳을 모델이 찾아 숨기고, 메시지 · 첫 메시지에 바로 쓴 에셋 그림({{img::…}} 등)도 화면에서 지웁니다. 이 봇에만 적용됩니다. (봇 정규식이 복잡하면 적용되지 않을 수 있습니다)',
@@ -7742,17 +7742,21 @@ Rules:
 
     await loadPrefs();
     void ilLoadPlan();
-    const onSideButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
-    let sideButton;
+    const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
+    const panelButtons = [];
     try {
-        sideButton = await api.registerButton({
+        panelButtons.push(await api.registerButton({
+            name: '🎨 이매진', icon: ICON_SVG, iconType: 'html', location: 'chat', id: 'nai-comic-panel',
+        }, onPanelButton));
+    } catch (error) {
+        console.warn(LOG, 'chat button', error);
+    }
+    try {
+        panelButtons.push(await api.registerButton({
             name: '🎨 이매진', icon: SIDE_ICON, iconType: 'html', location: 'hamburger', id: 'nc-side-panel',
-        }, onSideButton);
+        }, onPanelButton));
     } catch (error) {
         console.warn(LOG, 'hamburger button', error);
-        sideButton = await api.registerButton({
-            name: '🎨 이매진', icon: ICON_SVG, iconType: 'html', location: 'chat', id: 'nc-side-panel',
-        }, onSideButton);
     }
     let displayOn = false;
     try {
@@ -7790,7 +7794,7 @@ Rules:
         } catch {}
         try { await api.removeRisuChatListener?.('output', onOutput); } catch {}
         try { await api.removeRisuReplacer?.('beforeRequest', stripRequest); } catch {}
-        try { await api.unregisterUIPart(sideButton.id); } catch {}
+        for (const button of panelButtons) try { await api.unregisterUIPart(button.id); } catch {}
         if (displayOn) try { await api.removeRisuScriptHandler?.('display', ncDisplay); } catch {}
         if (outputOn) try { await api.removeRisuScriptHandler?.('output', onOutputText); } catch {}
         if (processOn) try { await api.removeRisuScriptHandler?.('process', stripProcess); } catch {}
