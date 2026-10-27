@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.104.0
+//@display-name 🎨 이매진 v3.105.0
 //@api 3.0
-//@version 3.104.0
+//@version 3.105.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.104.0';
+    const VERSION = '3.105.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -864,11 +864,11 @@
 
     const castSystem = () => `You convert a roleplay bot's character sheet, lorebook and the user's persona into NovelAI (NAI Diffusion V4.5) danbooru tags, so the same character is drawn identically in every image.
 Output ONE JSON object only:
-{"cast":[{"key":"short unique id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
+{"cast":[{"key":"short unique English id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
 Rules
 - One entry per recurring character who has (or clearly implies) a visual appearance. ${castMaxNow() ? `At most ${castMaxNow()} entries, most important first.` : 'Most important first.'} Include the user's persona as an entry with "persona": true when a persona is given.
 - canon: judge whether this character comes from an existing published work (anime, manga, game, novel, film). If so, its Danbooru character tag followed by the series in parentheses, lowercase, e.g. "uchiha sasuke (naruto)", "gojou satoru (jujutsu kaisen)". "" for an original character, the user's persona, or when unsure.
-- key: one unique key per entry, lowercase a-z, 0-9 and _ only, romanized when the name is not written in Latin letters (e.g. "seoyeon_jung", "gojo_satoru"). Never give two entries the same key. The image prompts name this character only by this key.
+- key: one unique key per entry, lowercase English letters a-z, 0-9 and _ only, never Korean, Japanese, Chinese or other non-Latin letters. Write the name in Latin letters when it is not (e.g. "seoyeon_jung", "gojo_satoru"), or use an English word for a title (e.g. "demon_king"). Never give two entries the same key. The image prompts name this character only by this key.
 - type: girl for female, boy for male, other for non-human / ambiguous.
 - Every slot follows TAG STYLE below: Danbooru tags first, a short phrase only for a design no tag covers. Colors go into the tags (e.g. "red eyes", "white sailor shirt").
 - hairstyle: hair length, hairstyle, hair texture, hair accessories and default headwear, each accessory / headwear with its color (e.g. "long hair, high ponytail, straight hair, red hair ribbon, white beret"). No hair color, no bangs.
@@ -1223,22 +1223,28 @@ ${TAG_STYLE}`;
         const ask = `${text}
 
 # ONLY THESE CHARACTERS
-${items.map(x => `- ${x.key}${x.label && charKey(x.label) !== x.key ? ` (written as: ${x.label})` : ''}`).join('\n')}
+${items.map((x, i) => `- [${i + 1}] ${x.key ? `${x.key}${x.label && charKey(x.label) !== x.key ? ` (written as: ${x.label})` : ''}` : `(no key yet) written as: ${x.label}`}`).join('\n')}
 ${known.length ? `\n# ALREADY IN CAST\n${known.map(e => `- ${e.key} (name: ${e.name})`).join('\n')}\n` : ''}
-Return entries only for the characters in this list that the character sheet, lorebook or persona describes. The source may write the same person in another script or romanization (e.g. Korean). Copy "key" exactly as written in this list, and put the character's name as the source writes it in "name". ${known.length ? 'When a listed character is in fact someone in ALREADY IN CAST, return only {"key":"<listed key>","same":"<that CAST key>"} for it. ' : ''}Leave out a character the source does not describe, and leave out everyone else.`;
+Return entries only for the characters in this list that the character sheet, lorebook or persona describes. The source may write the same person in another script or romanization (e.g. Korean). Put the list number in "ref" (e.g. "ref":1). Copy "key" exactly as written in this list; for a character marked (no key yet), make "key" a new short English key: lowercase a-z, 0-9 and _ only (write the name in Latin letters, e.g. "seoyeon_jung"), never Korean or other non-Latin letters. Put the character's name as the source writes it in "name". ${known.length ? 'When a listed character is in fact someone in ALREADY IN CAST, return only {"ref":<list number>,"key":"<listed key>","same":"<that CAST key>"} for it. ' : ''}Leave out a character the source does not describe, and leave out everyone else.`;
         const res = await askJson(castSystem(), ask, 'cast');
         const out = new Map();
         for (const raw of Array.isArray(res.cast) ? res.cast : []) {
-            const want = items.find(x => x.key === charKey(raw?.key));
-            if (!want || out.has(want.key)) continue;
+            const want = items[Number(raw?.ref) - 1] ?? items.find(x => x.key && x.key === charKey(raw?.key));
+            if (!want || out.has(want)) continue;
             const sk = charKey(raw.same);
             const same = sk ? known.find(e => e.key === sk || e.keys?.includes(sk)) : null;
-            if (same) { out.set(want.key, { same }); continue; }
+            if (same) { out.set(want, { same }); continue; }
             if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
-            out.set(want.key, castEntry(raw, tidy(raw.name) || want.label || want.key, persona, want.key));
+            out.set(want, castEntry(raw, tidy(raw.name) || want.label || want.key, persona, want.key || undefined));
         }
         return out;
     }
+    function renamePlan(node, from, to) {
+        if (Array.isArray(node)) node.forEach((v, i) => { node[i] = typeof v === 'string' ? renameText(v, from, to) : (renamePlan(v, from, to), v); });
+        else if (node && typeof node === 'object') for (const k of Object.keys(node)) if (k !== 'label') node[k] = typeof node[k] === 'string' ? renameText(node[k], from, to) : (renamePlan(node[k], from, to), node[k]);
+        return node;
+    }
+    const renameText = (s, from, to) => tidy(s) === from ? to : s.split('@' + from).join('@' + to);
     async function resolveUnknown(char, plan, cast, state, here = true) {
         state.looked ??= [];
         const items = [];
@@ -1248,20 +1254,30 @@ Return entries only for the characters in this list that the character sheet, lo
             const e = findCast(cast, name);
             if (e && e.src !== 'chat') continue;
             const key = e?.key ?? charKey(name);
-            if (!key || state.looked.includes(key) || items.some(x => x.key === key)) continue;
-            items.push({ key, label: e?.name ?? (tidy(raw?.label) || name) });
+            const seen = key || name.toLowerCase();
+            if (state.looked.includes(seen) || items.some(x => x.seen === seen)) continue;
+            items.push({ key, seen, name, label: e?.name ?? (tidy(raw?.label) || name) });
         }
         const done = new Set();
         if (!items.length || !here) return done;
         let found = new Map();
         try {
             found = await lookupCast(char, items, cast);
-            for (const x of items) state.looked.push(x.key);
+            for (const x of items) state.looked.push(x.seen);
         } catch (error) {
             if (error.isStop) throw error;
             console.warn(LOG, 'lookup', error);
         }
-        for (const [key, fresh] of found) {
+        for (const [x, fresh] of found) {
+            if (!x.key) {
+                const to = fresh.same?.key ?? (fresh.key = freshKey(cast.list, fresh.key));
+                renamePlan(plan, x.name, to);
+                if (fresh.same) continue;
+                cast.list.push(fresh);
+                done.add(to);
+                continue;
+            }
+            const key = x.key;
             const old = cast.list.find(e => e.key === key || e.keys?.includes(key));
             if (fresh.same) {
                 if (old && old.src !== 'chat') continue;
@@ -1275,7 +1291,7 @@ Return entries only for the characters in this list that the character sheet, lo
             else continue;
             done.add(key);
         }
-        if (found.size) console.log(LOG, 'lookup', [...found.keys()].join(', '));
+        if (found.size) console.log(LOG, 'lookup', [...found.keys()].map(x => x.key || x.name).join(', '));
         return done;
     }
 
@@ -1284,15 +1300,15 @@ Return entries only for the characters in this list that the character sheet, lo
         const take = f => { const o = [...left].find(f); if (o) left.delete(o); return o ?? null; };
         const out = [], kept = new Set();
         for (const e of fresh) {
-            const old = take(o => o.key === e.key) ?? take(o => o.name.toLowerCase() === e.name.toLowerCase());
+            const old = (TMP_KEY.test(e.key) ? null : take(o => o.key === e.key)) ?? take(o => o.name.toLowerCase() === e.name.toLowerCase());
             if (old) {
-                const m = old.src === 'edit' ? old : { ...e, id: old.id, key: old.key, keys: old.keys, on: old.on };
+                const m = old.src === 'edit' ? old : { ...e, id: old.id, key: TMP_KEY.test(old.key) && !TMP_KEY.test(e.key) ? e.key : old.key, keys: old.keys, on: old.on };
                 out.push(m);
                 kept.add(m);
             } else out.push(e);
         }
         const freshKeys = new Set(fresh.flatMap(e => [e.name, ...(e.aliases ?? [])].map(nameKey)));
-        const freshIds = new Set(fresh.map(e => e.key));
+        const freshIds = new Set(fresh.map(e => e.key).filter(k => !TMP_KEY.test(k)));
         const same = e => freshIds.has(e.key) || [e.name, ...(e.aliases ?? [])].some(n => freshKeys.has(nameKey(n)));
         for (const old of left) if (old.src === 'edit' || (old.src === 'chat' && !same(old))) { out.push(old); kept.add(old); }
         uniqKeys(out, kept);
@@ -1308,17 +1324,39 @@ Return entries only for the characters in this list that the character sheet, lo
     }
     const nameKey = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '').replace(/yeo/g, 'yu').replace(/eo/g, 'u').replace(/oo/g, 'u')
         || String(s ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
-    const RR_INIT = ['g', 'kk', 'n', 'd', 'tt', 'r', 'm', 'b', 'pp', 's', 'ss', '', 'j', 'jj', 'ch', 'k', 't', 'p', 'h'];
-    const RR_VOW = ['a', 'ae', 'ya', 'yae', 'eo', 'e', 'yeo', 'ye', 'o', 'wa', 'wae', 'oe', 'yo', 'u', 'wo', 'we', 'wi', 'yu', 'eu', 'ui', 'i'];
-    const RR_FIN = ['', 'k', 'k', 'k', 'n', 'n', 'n', 't', 'l', 'k', 'm', 'l', 'l', 'l', 'p', 'l', 'm', 'p', 'p', 't', 't', 'ng', 't', 't', 'k', 't', 'p', 't'];
     const charKey = s => String(s ?? '').toLowerCase()
-        .replace(/[가-힣]/g, ch => { const c = ch.charCodeAt(0) - 0xac00; return RR_INIT[Math.floor(c / 588)] + RR_VOW[Math.floor(c % 588 / 28)] + RR_FIN[c % 28]; })
-        .normalize('NFKD').replace(/[̀-ͯ]/g, '')
-        .replace(/[\s\-.·']+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 32).replace(/_$/, '')
-        || String(s ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '').slice(0, 32);
+        .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[\s\-.·']+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 32).replace(/_$/, '');
     function keyFrom(e) {
         const latin = [e.name, ...(e.aliases ?? [])].find(n => /^[\x20-\x7e]+$/.test(tidy(n)) && charKey(n));
         return charKey(e.key) || charKey(latin) || charKey(e.name) || 'char';
+    }
+    const TMP_KEY = /^(new_)?char(_\d+)*$/;
+    const needKey = e => TMP_KEY.test(e?.key ?? '') && (e.src !== 'edit' || e.keyAuto === true) && !e.keyAsked && !!tidy(e.name) && e.name !== '새 인물';
+    const KEY_SYSTEM = `You give each roleplay character a short unique key. Image prompts name the character only by this key.
+Output ONE JSON object only: {"keys":{"1":"seoyeon_jung","2":"demon_king"}}
+Rules
+- One key for every listed number.
+- Lowercase English letters a-z, digits 0-9 and _ only, at most 32 characters. Never Korean, Japanese, Chinese or any other non-Latin letters.
+- Write the character's name in Latin letters, given name first (e.g. 정서연 → "seoyeon_jung", 五条悟 → "satoru_gojo"), or use an English word for a title or role (e.g. 마왕 → "demon_king").
+- Never "char" or "new_char". Every key different from the others and from TAKEN.`;
+    async function fillKeys(list, busy) {
+        const need = list.filter(needKey);
+        if (!need.length) return false;
+        const taken = list.filter(e => !need.includes(e)).map(e => e.key).filter(Boolean);
+        const ask = `# CHARACTERS\n${need.map((e, i) => `${i + 1}. ${e.name}${e.aliases?.length ? ` (also: ${e.aliases.join(', ')})` : ''} · ${e.type}`).join('\n')}${taken.length ? `\n\n# TAKEN\n${taken.join(', ')}` : ''}`;
+        const res = await askJson(KEY_SYSTEM, ask, 'keys', v => v.keys && typeof v.keys === 'object' ? '' : '모델이 인물 키를 돌려주지 않았습니다.', busy);
+        let changed = false;
+        need.forEach((e, i) => {
+            const k = charKey(Array.isArray(res.keys) ? res.keys[i] : res.keys[i + 1] ?? res.keys[String(i + 1)]);
+            if (!k || TMP_KEY.test(k)) { e.keyAsked = true; changed = true; return; }
+            e.key = k;
+            delete e.keyAuto;
+            changed = true;
+        });
+        uniqKeys(list, new Set(list.filter(e => !need.includes(e))));
+        if (changed) console.log(LOG, 'keys', need.map(e => `${e.name} → ${e.key}`).join(', '));
+        return changed;
     }
     function uniqKeys(list, keep = new Set()) {
         let changed = false;
@@ -1370,6 +1408,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 });
                 cast.list.push(e);
                 castChanged = true;
+                if (e.key !== name) renamePlan(plan, name, e.key);
                 continue;
             }
             for (const k of WEAR_KEYS) {
@@ -2290,6 +2329,20 @@ Return entries only for the characters in this list that the character sheet, lo
                     render();
                 }
                 if (!st.persona) await loadPersona();
+                if (cast.list.some(needKey)) {
+                    busy.label = '영어 인물 키 정하는 중';
+                    render();
+                    try {
+                        if (await fillKeys(cast.list, busy)) await saveCast(chaId, cast);
+                    } catch (error) {
+                        if (error.isStop) throw error;
+                        console.warn(LOG, 'keys', error);
+                    }
+                    if (busy.stop) throw stopError();
+                    busy.label = job.label ?? `${kindName()} 그리는 중`;
+                    busy.at = Date.now();
+                    render();
+                }
                 const input = userInputOf(chat, idx);
                 const target = job.only ? old?.images?.find(x => x.name === job.only) : null;
                 if (job.only && !target) throw new Error('다시 그릴 그림을 기록에서 찾지 못했습니다.');
@@ -5147,13 +5200,19 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                             h('input', {
                                 class: 'cf-in cc-key', value: e.key ?? '', 'aria-label': '인물 키', spellcheck: 'false',
                                 onchange: ev => {
+                                    const hint = ev.target.parentElement?.querySelector('.cc-keyhint');
+                                    const bad = /[^\x00-\x7f]/.test(ev.target.value);
+                                    if (hint) hint.style.display = bad ? '' : 'none';
+                                    if (bad) { ev.target.value = e.key ?? ''; return; }
                                     const k = charKey(ev.target.value);
                                     if (k && k !== e.key) e.key = freshKey(v.cast.list.filter(x => x !== e), k);
                                     ev.target.value = e.key ?? '';
                                     e.keyAuto = false;
+                                    delete e.keyAsked;
                                     castChanged(e);
                                 },
-                            })),
+                            }),
+                            h('span', { class: 'ix-hint cc-keyhint', style: 'display:none' }, '인물 키는 영어 소문자 · 숫자 · _ 로만 씁니다 (한글은 받지 않습니다)')),
                         h('label', null, '다른 이름 (쉼표로 구분)',
                             h('input', { class: 'cf-in', value: (e.aliases ?? []).join(', '), oninput: ev => { e.aliases = ev.target.value.split(',').map(tidy).filter(Boolean); castChanged(e); } })),
                         h('label', null, '원작 태그 (예: uchiha sasuke (naruto) · 비우면 char 번호)',
@@ -5206,6 +5265,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             }
             const cast = await loadCast(v.chaId);
             mergeCast(cast, fresh);
+            if (cast.list.some(needKey)) {
+                try {
+                    await fillKeys(cast.list, busy);
+                } catch (error) {
+                    if (error.isStop) throw error;
+                    console.warn(LOG, 'keys', error);
+                }
+            }
             await saveCast(v.chaId, cast);
             writeVarsSoon(v);
             res = ['ok', `인물 ${fresh.length}명을 읽었습니다.`];
@@ -5596,18 +5663,18 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         fontSize: '12px', fontWeight: '400', fontStyle: 'normal', lineHeight: '1.3', letterSpacing: 'normal', textTransform: 'none', textDecoration: 'none', textShadow: 'none',
         cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' });
     const ACT_CSS = '.nc-fig.nc-fig .nc-act.nc-act{opacity:0!important;visibility:hidden!important;scale:0!important}'
-        + '.nc-act.nc-act .nc-act-b.nc-act-b{background:rgba(0,0,0,.62)}'
+        + '.nc-act.nc-act .nc-act-b.nc-act-b{background:rgba(0,0,0,.62)!important}'
         + '@media (hover:hover) and (pointer:fine){.nc-fig.nc-fig:hover .nc-act.nc-act{opacity:1!important;visibility:visible!important;scale:1!important}'
-        + '.nc-act.nc-act .nc-act-b.nc-act-b:hover{background:rgba(37,99,235,.92)}'
-        + '.nc-act.nc-act .nc-del.nc-del:hover{background:rgba(220,38,38,.92)}}'
+        + '.nc-act.nc-act .nc-act-b.nc-act-b:hover{background:rgba(37,99,235,.92)!important}'
+        + '.nc-act.nc-act .nc-del.nc-del:hover{background:rgba(220,38,38,.92)!important}}'
         + '.nc-fig.nc-fig.nc-on .nc-act.nc-act{opacity:.92!important;visibility:visible!important;scale:1!important}';
     function figCss(ptHide) {
         const s = st.set;
-        return `<style>.nc-fig,.nc-pt{position:relative;box-sizing:border-box;width:${s.pc}px;width:{{getvar::nc_pc}}px;max-width:100%;margin:19px auto}`
-            + '.nc-fig img,.nc-pt img{display:block;margin:0!important;max-width:none!important;width:100%!important;height:auto!important;border-radius:8px!important}'
+        return `<style>.nc-fig,.nc-pt{position:relative!important;display:block!important;box-sizing:border-box!important;width:${s.pc}px!important;width:{{getvar::nc_pc}}px!important;max-width:100%!important;margin:19px auto!important}`
+            + '.nc-fig img,.nc-pt img{display:block!important;margin:0!important;max-width:none!important;width:100%!important;height:auto!important;border-radius:8px!important}'
             + (ptHide ? '.nc-pt.nc-pt{display:none!important}' : '')
             + (s.tap ? ACT_CSS : '')
-            + `@media (max-width:768px){.nc-fig,.nc-pt{width:${s.mo}vw;width:{{getvar::nc_mo}}vw}}</style>`;
+            + `@media (max-width:768px){.nc-fig,.nc-pt{width:${s.mo}vw!important;width:{{getvar::nc_mo}}vw!important}}</style>`;
     }
     const ACT_LABEL = { panel: '🎨 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', del: '🗑 지우기' };
     const actHtml = name => `<div class="nc-act" style="${ACT_STYLE}">`
@@ -5632,28 +5699,32 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     };
     const cssOf = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v).join(';');
     const cssImp = o => cssOf(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + ' !important'])));
-    const PAUSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" style="flex:none">'
+    const genStyle = (look, gauge = false) => cssImp({ ...GEN_BASE, display: look ? 'flex' : 'none', ...(look ? GEN_LOOKS[look] : {}), ...(gauge ? { position: 'relative', overflow: 'hidden' } : {}) });
+    const PAUSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" style="flex:none!important">'
         + '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     const FILL_BLUE = '#2f4a8a';
     const FILL_GREY = '#64748b';
-    const gaugeLbl = (text, stopping) => (stopping ? '' : PAUSE_SVG) + `<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${text}</span>`;
-    const gaugeHtml = (pct, text, stopping) => `<span class="x-risu-nc-fill" style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;`
-        + `background:${stopping ? FILL_GREY : FILL_BLUE};transition:width .45s ease-out,background .2s;pointer-events:none"></span>`
-        + `<span class="x-risu-nc-size" style="visibility:hidden;white-space:nowrap;padding-left:18px">${GEN_TEXT.idle}</span>`
-        + `<span class="x-risu-nc-lbl" style="position:absolute;left:11px;right:6px;top:0;bottom:0;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden">${gaugeLbl(text, stopping)}</span>`;
-    const FIG_RUN = imp({ position: 'relative', overflow: 'hidden' }) + ';background:rgba(15,23,42,.9)';
+    const LBL_TEXT = imp({ minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis' });
+    const fillStyle = (pct, color) => `width:${pct}%;` + imp({ position: 'absolute', left: '0', top: '0', bottom: '0', background: color, transition: 'width .45s ease-out,background .2s', pointerEvents: 'none' });
+    const sizeStyle = pad => imp({ visibility: 'hidden', whiteSpace: 'nowrap', paddingLeft: pad });
+    const lblStyle = left => imp({ position: 'absolute', left, right: '6px', top: '0', bottom: '0', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden' });
+    const gaugeLbl = (text, stopping) => (stopping ? '' : PAUSE_SVG) + `<span style="${LBL_TEXT}">${text}</span>`;
+    const gaugeHtml = (pct, text, stopping) => `<span class="x-risu-nc-fill" style="${fillStyle(pct, stopping ? FILL_GREY : FILL_BLUE)}"></span>`
+        + `<span class="x-risu-nc-size" style="${sizeStyle('18px')}">${GEN_TEXT.idle}</span>`
+        + `<span class="x-risu-nc-lbl" style="${lblStyle('11px')}">${gaugeLbl(text, stopping)}</span>`;
+    const FIG_RUN = imp({ position: 'relative', overflow: 'hidden', background: 'rgba(15,23,42,.9)' });
+    const DEL_ARMED = imp({ background: 'rgba(220,38,38,.92)' });
     const FIG_FILL = '#2563eb';
     const ACT_SHOW = imp({ opacity: '1', visibility: 'visible', scale: '1' });
-    const figLbl = (text, sign) => (sign === 'run' ? PAUSE_SVG.replace(/"14"/g, '"12"') : '') + `<span style="min-width:0;overflow:hidden;text-overflow:ellipsis">${text}</span>`;
-    const figGaugeHtml = (pct, text, act, sign) => `<span class="x-risu-nc-fill" style="position:absolute;left:0;top:0;bottom:0;width:${sign === 'wait' ? 0 : pct}%;`
-        + `background:${sign === 'stop' ? FILL_GREY : FIG_FILL};transition:width .45s ease-out,background .2s;pointer-events:none"></span>`
-        + `<span class="x-risu-nc-size" style="visibility:hidden;white-space:nowrap;padding-left:16px">${ACT_LABEL[act]}</span>`
-        + `<span class="x-risu-nc-lbl" style="position:absolute;left:10px;right:6px;top:0;bottom:0;display:flex;align-items:center;gap:4px;white-space:nowrap;overflow:hidden">${figLbl(text, sign)}</span>`;
+    const figLbl = (text, sign) => (sign === 'run' ? PAUSE_SVG.replace(/"14"/g, '"12"') : '') + `<span style="${LBL_TEXT}">${text}</span>`;
+    const figGaugeHtml = (pct, text, act, sign) => `<span class="x-risu-nc-fill" style="${fillStyle(sign === 'wait' ? 0 : pct, sign === 'stop' ? FILL_GREY : FIG_FILL)}"></span>`
+        + `<span class="x-risu-nc-size" style="${sizeStyle('16px')}">${ACT_LABEL[act]}</span>`
+        + `<span class="x-risu-nc-lbl" style="${lblStyle('10px')}">${figLbl(text, sign)}</span>`;
     function genHtml() {
         if (st.set.ubtn === 'none' || rootDenied()) return '';
         const off = keyKnown === false;
         return '{{#if {{and::{{equal::{{role}}::char}}::{{not::{{isfirstmsg}}}}}}}}'
-            + `<span class="nc-gen nc-at-{{chat_index}}" style="${cssImp(GEN_BASE)};${cssOf({ display: 'flex', ...GEN_LOOKS[off ? 'need' : 'idle'] })}">${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
+            + `<span class="nc-gen nc-at-{{chat_index}}" style="${genStyle(off ? 'need' : 'idle')}">${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
             + '{{/if}}';
     }
     const RISU_ASSET_RE = /<div class="risu-inlay-image"><img src="([^"]*)" alt="\1" style="[^"]*"\/><\/div>\n?|<img src="([^"]*)" alt="\2" style="[^"]*"\/>|<video (?:controls autoplay|autoplay muted) loop><source src="[^"]*" type="video\/mp4"><\/video>\n?/g;
@@ -6005,12 +6076,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const pct = g.gauge ? Math.round(progressNow() * 10) / 10 : 0;
             if (g.gauge) root.pct = pct;
             if (!same || force) {
-                if (g.sign === 'hide') await el.setStyle('display', 'none');
+                if (g.sign === 'hide') await el.setStyleAttribute(genStyle(null));
                 else {
-                    await el.setStyle('display', 'flex');
-                    for (const [k, v] of Object.entries(GEN_LOOKS[g.look])) await el.setStyle(k, v);
-                    await el.setStyle('position', g.gauge ? 'relative' : '');
-                    await el.setStyle('overflow', g.gauge ? 'hidden' : '');
+                    await el.setStyleAttribute(genStyle(g.look, !!g.gauge));
                     await el.setInnerHTML(g.gauge ? gaugeHtml(pct, g.text, g.sign === 'stop') : g.text);
                 }
                 await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-s-/.test(c)).concat(mark).join(' '));
@@ -6291,7 +6359,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         armed.name = '';
         armed.el = null;
         armed.timer = 0;
-        if (el) { void setLabel(el, ACT_LABEL.del); void el.setStyle('background', '').catch(() => {}); void el.removeClass(ARMED).catch(() => {}); }
+        if (el) { void setLabel(el, ACT_LABEL.del); void el.setStyleAttribute(BTN_STYLE).catch(() => {}); void el.removeClass(ARMED).catch(() => {}); }
     }
     async function figAction(act, name, el, at = NaN) {
         if (doubleTap(`f:${act}:${String(name).toLowerCase()}`)) return;
@@ -6320,7 +6388,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     armed.name = low;
                     armed.el = el;
                     await setLabel(el, '정말 지울까요?');
-                    try { await el.setStyle('background', 'rgba(220,38,38,.92)'); await el.addClass(ARMED); } catch {}
+                    try { await el.setStyleAttribute(BTN_STYLE + ';' + DEL_ARMED); await el.addClass(ARMED); } catch {}
                     armed.timer = setTimeout(disarm, 3000);
                     return;
                 }
