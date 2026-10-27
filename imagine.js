@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.113.1
+//@display-name 🎨 이매진 v3.113.2
 //@api 3.0
-//@version 3.113.1
+//@version 3.113.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.113.1';
+    const VERSION = '3.113.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3577,7 +3577,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .sp-hd b{font-size:.95rem}
 .sp.lock .sp-hd b{color:var(--muted)}
 .sp.lock .sp-hd{opacity:.75}
-.sp-hd .lnk{min-height:26px;margin-left:2px;padding:2px 12px;font-size:.8rem;font-weight:700;line-height:1.4;color:var(--accent2);text-decoration:none;background:var(--soft);border:1px solid var(--accent)}
+.sp-hd .lnk{min-height:26px;margin-left:2px;padding:2px 12px;font-size:.8rem;font-weight:700;line-height:1.4;color:var(--accent2);text-decoration:none;background:#fff;border:1px solid var(--accent);box-shadow:0 1px 2px rgba(15,23,42,.1)}
 .sp-hd .lnk:hover{color:#fff;background:var(--accent)}
 .sp-sum{min-width:0;overflow-wrap:anywhere;font-size:.78rem;color:var(--muted)}
 .sp.done .sp-sum{color:var(--good);font-weight:700}
