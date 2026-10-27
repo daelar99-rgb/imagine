@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.110.0
+//@display-name 🎨 이매진 v3.110.1
 //@api 3.0
-//@version 3.110.0
+//@version 3.110.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.110.0';
+    const VERSION = '3.110.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -595,8 +595,9 @@
         const raw = Array.isArray(p) ? p : tidy(p) ? [p] : [];
         return raw.map(t => tidy(String(t ?? '').replace(/[.。\s]+$/, '')).slice(0, PLACE_ITEM_MAX)).filter(Boolean).slice(0, PLACE_ITEMS);
     }
+    const englishPlace = p => placeList(p).filter(t => !CJK_RE.test(t));
     function withPlace(img, state) {
-        const items = placeList(state?.place);
+        const items = englishPlace(state?.place);
         if (!items.length) return img;
         const have = new Set(String(img?.scene ?? '').split(',').map(t => tidy(t).toLowerCase()).filter(Boolean));
         const add = items.flatMap(p => p.split(',')).map(tidy).filter(t => {
@@ -621,7 +622,7 @@
         if (!st.set.vars) return;
         ss['$nc_location'] = state.location ?? '';
         ss['$nc_time'] = state.time ?? '';
-        ss['$nc_background'] = placeList(state.place).join(', ');
+        ss['$nc_background'] = englishPlace(state.place).join(', ');
         for (const e of cast?.list ?? []) {
             const n = varName(e.name);
             ss[`$nc_${n}_look`] = e.look ?? '';
@@ -1060,7 +1061,7 @@ ${TAG_STYLE}`;
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
 Output ONE JSON object only, no prose:
-{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","place":["...","...","..."],"cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
+{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","place":["English phrase","English phrase","English phrase"],"cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
  "images":[${imageOut}]}
 
 CANVAS: ${shape}, ${w}x${h}. Every image uses this canvas; frame each moment for it.
@@ -1125,7 +1126,7 @@ ${TAG_STYLE}`;
             '# CURRENT STATE',
             `location: ${state.location || '?'}`,
             `time: ${state.time || '?'}`,
-            `place:${placeList(state.place).map((p, i) => `\n${i + 1}. ${p}`).join('') || ' ?'}`,
+            `place (English):${englishPlace(state.place).map((p, i) => `\n${i + 1}. ${p}`).join('') || ' ?'}`,
             '',
         ];
         if (!state.seeded) {
@@ -1418,7 +1419,8 @@ Rules
         const prevLoc = placeKey(state.location);
         if (tidy(s.location)) state.location = tidy(s.location);
         if (tidy(s.time)) state.time = tidy(s.time);
-        const place = placeList(s.place);
+        const place = englishPlace(s.place);
+        if (place.length < placeList(s.place).length) console.warn(LOG, 'place is not English', s.place);
         const moved = typeof s.moved === 'boolean' ? s.moved : placeKey(state.location) !== prevLoc;
         if (place.length) state.place = place;
         else state.place = moved ? [] : placeList(state.place);
