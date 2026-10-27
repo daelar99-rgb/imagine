@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.106.0
+//@display-name 🎨 이매진 v3.106.1
 //@api 3.0
-//@version 3.106.0
+//@version 3.106.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.106.0';
+    const VERSION = '3.106.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -4581,7 +4581,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const g = s.group;
             out.tray.push(h('p', { class: 'ps-sum' },
                 g ? [pickLine(s), ` 「${g.added}」${josa(g.added, '으로', '로')} 그림체 목록에 추가했습니다.`]
-                    : [`모델이 고른 ${s.picks.map(p => `「${p.name}」`).join(' · ')}에서 쓸 수 있는 인물 그림을 찾지 못했습니다. 「다른 에셋으로」를 눌러 다른 에셋을 골라 보세요.`],
+                    : [`모델이 고른 ${s.picks.map(p => `「${p.name}」`).join(' · ')}에서 `, h('span', { class: 'ps-miss', style: 'color:var(--bad)' }, '쓸 수 있는 인물 그림을 찾지 못했습니다.'), ' 「다른 에셋으로」를 눌러 다른 에셋을 골라 보세요.'],
                 h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', 'aria-expanded': s.choose ? 'true' : 'false', onclick: () => { s.choose = !s.choose; if (!s.choose) s.msg = ''; renderNow(); } }, s.choose ? '고르기 닫기' : '다른 에셋으로'),
                 clearBtn('이 결과로 넣은 그림체를 목록에서 뺍니다', () => { dropAdds(ui.scan); ui.scan = null; renderNow(); })));
             out.tray.push(msgBox(s));
