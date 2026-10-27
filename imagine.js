@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.106.2
+//@display-name 🎨 이매진 v3.106.3
 //@api 3.0
-//@version 3.106.2
+//@version 3.106.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.106.2';
+    const VERSION = '3.106.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3146,8 +3146,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix .ix-intro{margin:0 0 34px;padding:7px 12px;font-size:.8rem;line-height:1.5;color:var(--ink);background:var(--paper2);border-left:3px solid var(--line2)}
 .ix-intro b{margin-right:6px}
 .ix-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:12px 0 4px}
-.ix-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 14px;font-size:.84rem;line-height:1.4;color:var(--ink);background:#fff;border:1px solid var(--line2);white-space:nowrap;transition:background .15s,border-color .15s}
-.ix-btn:hover:not(:disabled){background:var(--paper2);border-color:#9aa1ad}
+.ix-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 14px;font-size:.84rem;line-height:1.4;color:var(--ink);background:#f7f8fa;border:1px solid var(--line2);white-space:nowrap;transition:background .15s,border-color .15s}
+.ix-btn:hover:not(:disabled){background:#eceef2;border-color:#9aa1ad}
 .ix-btn:disabled{opacity:.45;cursor:not-allowed}
 .ix-btn.main{color:#fff;font-weight:700;background:var(--accent);border-color:var(--accent2)}
 .ix-btn.main:hover:not(:disabled){background:var(--accent2)}
@@ -6799,7 +6799,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 @keyframes an-spin{to{transform:rotate(360deg)}}
 @keyframes an-done{0%,30%{border-color:var(--an);background-color:var(--an-f)}100%{border-color:var(--line);background-color:transparent}}
 @keyframes an-up{0%,50%{color:var(--an)}100%{color:var(--ink)}}
-.ix-btn.eg{position:relative;overflow:hidden;background:var(--paper3);border-color:var(--line);color:var(--muted)}
+.ix-btn.eg{position:relative;overflow:hidden;background:var(--paper3);border-color:var(--line);border-style:dashed;color:var(--muted)}
 .ix-btn.eg:hover{border-color:var(--accent)}
 .eg-t{position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 .eg-f{position:absolute;inset:0;background:var(--accent);pointer-events:none}
