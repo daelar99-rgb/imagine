@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.108.0
+//@display-name 🎨 이매진 v3.109.0
 //@api 3.0
-//@version 3.108.0
+//@version 3.109.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.108.0';
+    const VERSION = '3.109.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -581,12 +581,33 @@
                 for (const [id, o] of Object.entries(old)) if (tidy(o)) (wear[id] ??= {}).outfit ??= tidy(o);
                 for (const [id, w] of Object.entries(wear)) if (isOldWear(w)) wear[id] = fromOldWear(w, null, true).wear;
                 const seeded = v.seeded === true || Object.keys(old).length > 0;
-                const out = { location: '', time: '', ...v, wear, seeded };
+                const places = {};
+                if (v.places && typeof v.places === 'object') for (const [k, p] of Object.entries(v.places)) if (tidy(k) && tidy(p)) places[tidy(k)] = tidy(p);
+                const out = { location: '', time: '', place: '', ...v, wear, seeded, places };
                 delete out.outfits;
                 return out;
             }
         } catch {}
-        return { location: '', time: '', wear: {}, seeded: false };
+        return { location: '', time: '', place: '', places: {}, wear: {}, seeded: false };
+    }
+    const PLACE_MAX = 300, PLACES_MAX = 20;
+    const placeKey = loc => tidy(loc).toLowerCase();
+    function rememberPlace(state, loc, place) {
+        const k = placeKey(loc), p = tidy(place);
+        if (!k) return;
+        state.places ??= {};
+        delete state.places[k];
+        if (!p) return;
+        state.places[k] = p;
+        const keys = Object.keys(state.places);
+        for (const old of keys.slice(0, Math.max(0, keys.length - PLACES_MAX))) delete state.places[old];
+    }
+    function withPlace(img, state) {
+        const place = tidy(state?.place);
+        if (!place) return img;
+        const have = new Set(String(img?.scene ?? '').split(',').map(t => tidy(t).toLowerCase()).filter(Boolean));
+        const add = place.split(',').map(tidy).filter(t => t && !have.has(t.toLowerCase()));
+        return add.length ? { ...img, scene: joinTags(img?.scene, add) } : img;
     }
     const baseWear = (e, k) => tidy(e?.wear?.[k]);
     function wearOf(e, state, k) {
@@ -602,6 +623,7 @@
         if (!st.set.vars) return;
         ss['$nc_location'] = state.location ?? '';
         ss['$nc_time'] = state.time ?? '';
+        ss['$nc_background'] = state.place ?? '';
         for (const e of cast?.list ?? []) {
             const n = varName(e.name);
             ss[`$nc_${n}_look`] = e.look ?? '';
@@ -907,12 +929,12 @@ ${TAG_STYLE}`;
 
     const PANEL_RULES = {
         one: `PANELS = 1 (one moment, no panel borders)
-- scene: the background and details only, in this order: "indoors" or "outdoors", then a simple place tag (e.g. "indoors, classroom"), then detail tags (lighting, time, weather, mood, background objects). Danbooru tags plus up to 3 short sentences when tags alone cannot show the moment. No character appearance, no camera / framing (it goes in chars[].tags), no count tags (the app adds 1girl / 1boy counts itself), no names.
+- scene: the background and details only, in this order: "indoors" or "outdoors", then a simple place tag (e.g. "indoors, classroom"), then detail tags (lighting, time, weather, mood, background objects). The app adds state.place (the tracked background) after scene itself, so do not repeat those items; add only what this moment shows besides them. Danbooru tags plus up to 3 short sentences when tags alone cannot show the moment. No character appearance, no camera / framing (it goes in chars[].tags), no count tags (the app adds 1girl / 1boy counts itself), no names.
 - chars[].tags: Danbooru tags (a short phrase is fine for an action no tag covers), in this order: first expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then composition and pose (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — camera angle, pose, action; the gaze goes in chars[].gaze, not here). For interactions prefix tags with source#, target# or mutual# (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
 - cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 1 character write "C3": the app sends no position for a single character.`,
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
-- scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). No characters, no panels, no camera, no sentences.
+- scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.place (the tracked background) after scene itself, so do not repeat those items. No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
   - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis); name anything not in CAST by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
@@ -1040,7 +1062,7 @@ ${TAG_STYLE}`;
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
 Output ONE JSON object only, no prose:
-{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","time":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
+{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","place":"...","time":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
  "images":[${imageOut}]}
 
 CANVAS: ${shape}, ${w}x${h}. Every image uses this canvas; frame each moment for it.
@@ -1062,13 +1084,14 @@ STATE
 - Colors follow the COLOR RULE: every item in top, bottom, shoes and the headwear / hair accessories in hairstyle has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is not in CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
 - location / time: short English tags (e.g. "classroom", "night").
-- CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
+- place: the tracked background of the current location (the BACKGROUND variable), so every image of this location shows the same room. 3-8 English danbooru tags or short noun phrases: fixed furniture and objects with material and color, open / closed states of doors, windows and curtains, and what is visible outside through windows or doorways (e.g. "wooden bookshelf, square metal table, open wooden window, buildings visible through window"). Same location as CURRENT STATE: copy its place unchanged and change only what the story changes (a window opened, a table knocked over, the lights turned off). A location in KNOWN PLACES: start from its place there. A new location: make a plausible place that fits the story. No characters, no lighting, time or weather (those stay in scene), no sentences.
+- CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time / place (the room's furniture, doors and windows, the view outside) and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
 - PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${plainInput ? `
 - USER INPUT: what the user wrote just before the TARGET MESSAGE; the TARGET MESSAGE is the reply to it. Context only: use it to understand what the reply answers (who acts, what was said or done), but draw the moments the TARGET MESSAGE narrates, and never copy after or spoken lines from USER INPUT.` : ''}${withInput ? `
 - USER ACTION: what the user just wrote: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
 
 GENERAL
-- LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.location, state.time, state.cast slots / look) is English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
+- LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.location, state.place, state.time, state.cast slots / look) is English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
 - ${nameFields} the CAST key exactly as written at the start of its CAST line, never the name or an alias. A character not in CAST uses its new key from state.cast; a monster or creature uses a short English noun.
 - uc (optional): extra negative tags only for this image / character.
 - title: a short Korean caption of the image (max 20 characters).
@@ -1101,8 +1124,11 @@ ${TAG_STYLE}`;
             '',
             '# CURRENT STATE',
             `location: ${state.location || '?'} / time: ${state.time || '?'}`,
+            `place: ${state.place || '?'}`,
             '',
         ];
+        const known = Object.entries(state.places ?? {}).filter(([k]) => k !== placeKey(state.location)).slice(-8);
+        if (known.length) lines.push('# KNOWN PLACES', ...known.map(([k, p]) => `- ${k}: ${p}`), '');
         if (!state.seeded) {
             const past = [];
             let total = 0;
@@ -1390,8 +1416,13 @@ Rules
         const s = plan?.state ?? {};
         state.seeded = true;
         state.wear ??= {};
+        const prevLoc = placeKey(state.location);
         if (tidy(s.location)) state.location = tidy(s.location);
         if (tidy(s.time)) state.time = tidy(s.time);
+        const place = tidy(s.place).slice(0, PLACE_MAX);
+        if (place) state.place = place;
+        else if (placeKey(state.location) !== prevLoc) state.place = state.places?.[placeKey(state.location)] ?? '';
+        rememberPlace(state, state.location, state.place);
         for (const raw of Array.isArray(s.cast) ? s.cast : []) {
             const name = tidy(raw?.name);
             if (!name || name.toLowerCase() === 'narration') continue;
@@ -1604,6 +1635,7 @@ Rules
     }
 
     function buildReq(img, cast, state) {
+        img = withPlace(img, state);
         const mono = monoNow() && isDynamic(img);
         if (!mono) return withGenre(buildReqRaw(img, cast, state), img);
         wearBrief = true;
@@ -3279,10 +3311,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .cc-tags{padding:6px 8px;font:.72rem/1.5 ui-monospace,Consolas,monospace;color:#3a3f48;background:var(--paper2);border:1px dashed var(--line2);word-break:break-all}
 .cc.off .cc-av,.cc.off .cc-ti{opacity:.5}
 .cc-all{margin-left:auto}
-.state-row{display:flex;flex-wrap:wrap;gap:8px 16px;padding:10px 12px;font-size:.8rem;background:var(--soft);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line))}
-.st-f{display:flex;align-items:center;gap:6px;flex:1 1 200px;min-width:0;white-space:nowrap}
-.st-f .cf-in{flex:1 1 auto;min-height:32px}
-.state-row>.ix-hint{flex:1 1 100%}
+.cc.pl{margin-top:12px}
+.cc.pl .cc-av{font-size:1rem}
+.pl-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pl-ls{display:grid;gap:6px}
+.pl-it{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;padding:6px 8px;font-size:.74rem;background:var(--paper2);border:1px solid var(--paper3)}
+.pl-it b{white-space:nowrap;color:var(--ink)}
+.pl-it span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.pl-it.now{border-color:var(--accent)}
 /* 이 봇의 그림 숨기기: 버튼 안에서 왼쪽부터 게이지가 찬다 */
 .ix-btn.hb{position:relative;overflow:hidden;width:100%;min-height:42px;font-size:.88rem}
 .ix-btn.hb.run{border-color:var(--accent)}
@@ -5208,6 +5244,54 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return joinTags(identTags(e.type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)));
     }
 
+    function placeCard(v) {
+        const s = v.state;
+        s.places ??= {};
+        const isOpen = !!ui.placeOpen;
+        const flip = () => { ui.placeOpen = !isOpen; renderNow(); };
+        const sum = [s.time, s.place].map(tidy).filter(Boolean).join(' · ') || '배경 변수 없음 · 처음 그릴 때 채팅에서 찾습니다';
+        const nm = h('span', { class: 'cc-nm' }, tidy(s.location) || '장소 모름');
+        const card = h('article', { class: 'cc pl' + (isOpen ? ' open' : ''), style: '--cc:#00897b' },
+            h('div', {
+                class: 'cc-hd', role: 'button', tabindex: '0', 'aria-expanded': isOpen ? 'true' : 'false', title: isOpen ? '접기' : '펼쳐서 고치기',
+                onclick: flip, onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); flip(); } },
+            },
+                h('span', { class: 'cc-av', 'aria-hidden': 'true' }, '📍'),
+                h('div', { class: 'cc-ti' }, h('b', null, nm), h('span', { class: 'cc-sum' }, sum)),
+                h('span', { class: 'cc-cv', 'aria-hidden': 'true' }, '▾')));
+        if (!isOpen) return card;
+        const setPlace = t => { const ls = liveState(v); ls.place = tidy(t).slice(0, PLACE_MAX); rememberPlace(ls, ls.location, ls.place); writeVarsSoon(v); };
+        const known = Object.entries(s.places).reverse();
+        add(card, h('div', { class: 'cc-bd' },
+            h('div', { class: 'cc-sec' },
+                h('h4', null, '지금 장소', h('small', null, '이 채팅에만 저장됩니다 · 영어 태그로 씁니다')),
+                h('div', { class: 'pl-two' },
+                    ...[['location', '장소', 'classroom'], ['time', '시간', 'night']].map(([k, label, ex]) =>
+                        h('label', null, label,
+                            h('input', {
+                                class: 'cf-in', value: s[k] ?? '', placeholder: '모름 (예: ' + ex + ')', 'aria-label': label,
+                                oninput: ev => { liveState(v)[k] = ev.target.value.trim(); if (k === 'location') nm.textContent = ev.target.value.trim() || '장소 모름'; writeVarsSoon(v); },
+                            })))),
+                h('label', null, '배경 변수 (가구 · 재질 · 색, 창문 · 문이 열렸는지, 창밖에 보이는 것)',
+                    h('textarea', {
+                        class: 'cf-ta', 'aria-label': '배경 변수', placeholder: '모름 (예: wooden bookshelf, square metal table, open wooden window, buildings visible through window)',
+                        oninput: ev => setPlace(ev.target.value),
+                    }, s.place ?? '')),
+                h('span', { class: 'ix-hint' }, '그릴 때마다 연출 모델이 이어 쓰고, 이야기에서 바뀐 것만 고칩니다. 앱이 모든 그림의 장면 태그 뒤에 이 배경 변수를 붙입니다.')),
+            known.length ? h('div', { class: 'cc-sec' },
+                h('h4', null, '기억한 장소', h('small', null, known.length + '곳 · 그 장소로 돌아가면 이 배경 변수를 다시 씁니다 (최대 ' + PLACES_MAX + '곳)')),
+                h('div', { class: 'pl-ls' }, ...known.map(([k, p]) =>
+                    h('div', { class: 'pl-it' + (k === placeKey(s.location) ? ' now' : '') },
+                        h('b', null, k), h('span', { title: p }, p),
+                        h('button', {
+                            class: 'ix-btn sm', type: 'button', title: '이 장소 기억 지우기', 'aria-label': k + ' 기억 지우기',
+                            onclick: () => { delete liveState(v).places?.[k]; writeVarsSoon(v); renderNow(); },
+                        }, '✕'))))) : null,
+            st.set.vars ? h('div', { class: 'cc-sec' },
+                h('span', { class: 'ix-hint' }, '변수: {{getvar::nc_location}} · {{getvar::nc_time}} · {{getvar::nc_background}} (배경 변수) · 인물은 {{getvar::nc_이름_top}} · hairstyle · bangs · haircolor · eyes · height · body · bottom · shoes')) : null));
+        return card;
+    }
+
     function renderCast() {
         const v = st.view;
         const pane = h('section', { class: 'ix-pane' });
@@ -5229,17 +5313,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 }, '+ 인물 추가')),
             h('p', { class: 'ix-hint' }, v.group ? '그룹 채팅은 로어북을 읽을 수 없어, 인물을 직접 넣거나 그릴 때 모델이 알려 준 인물을 씁니다.'
                 : '기본 칸과 그 밖의 특징은 이 봇 전체에, 지금 칸은 이 채팅에만 저장됩니다.'),
-            h('p', { class: 'ix-hint' }, '이 채팅에서 처음 그릴 때는 채팅 전체를 읽어 장소 · 시간과 인물마다 지금 머리 · 몸 · 옷 아홉 칸을 찾습니다. 그다음부터는 그릴 답변과 그 바로 앞 봇 답변만 읽고 바뀐 것만 고칩니다.'),
+            h('p', { class: 'ix-hint' }, '이 채팅에서 처음 그릴 때는 채팅 전체를 읽어 장소 · 시간 · 배경 변수와 인물마다 지금 머리 · 몸 · 옷 아홉 칸을 찾습니다. 그다음부터는 그릴 답변과 그 바로 앞 봇 답변만 읽고 바뀐 것만 고칩니다.'),
             renderProgress(),
             st.err && ui.side === 'cast' ? h('div', { class: 'ix-msg err' }, st.err) : null,
-            h('div', { class: 'state-row', style: 'margin-top:12px' },
-                ...[['location', '📍 장소', 'classroom'], ['time', '🕒 시간', 'night']].map(([k, label, ex]) =>
-                    h('label', { class: 'st-f' }, label,
-                        h('input', {
-                            class: 'cf-in', value: v.state[k] ?? '', placeholder: `모름 (예: ${ex})`, 'aria-label': label.slice(3),
-                            oninput: ev => { liveState(v)[k] = ev.target.value.trim(); writeVarsSoon(v); },
-                        }))),
-                st.set.vars ? h('span', { class: 'ix-hint' }, '변수: {{getvar::nc_이름_top}} · hairstyle · bangs · haircolor · eyes · height · body · bottom · shoes') : null),
+            placeCard(v),
             h('h2', { class: 'sub' }, '등장인물', h('small', null, `${v.cast.list.length}명 · 이름을 누르면 펼쳐서 고칩니다`),
                 v.cast.list.length > 1 ? h('button', {
                     class: 'ix-btn sm cc-all', type: 'button',
@@ -5623,7 +5700,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     h('textarea', { class: 'cf-ta', style: 'min-height:64px', 'aria-label': '프롬프트 맨 아래', oninput: textSet('extra') }, s.extra))),
             grp('저장',
                 row('sw', 'WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다.', null, toggle(s.webp, () => setVal('webp', !s.webp))),
-                row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 아홉 칸과 그 밖의 특징, 장소를 채팅 변수에 적습니다.',
+                row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 아홉 칸과 그 밖의 특징, 장소 · 시간 · 배경 변수를 채팅 변수에 적습니다.',
                     null,
                     toggle(s.vars, () => setVal('vars', !s.vars)))),
             devRow(),
