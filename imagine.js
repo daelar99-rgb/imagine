@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.114.0
+//@display-name 🎨 이매진 v3.115.0
 //@api 3.0
-//@version 3.114.0
+//@version 3.115.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.114.0';
+    const VERSION = '3.115.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -947,11 +947,11 @@
 - Accessories worn on the body (necklace, choker, earrings, gloves, scarf, tie, belt, bag) go in top; socks / stockings go in bottom; headwear and hair accessories go in hairstyle; glasses stay in look.
 - Only items take a color. Hair length / hairstyle tags, "barefoot" and "none" have none.`;
 
-    const castSystem = () => `You convert a roleplay bot's character sheet, lorebook and the user's persona into NovelAI (NAI Diffusion V4.5) danbooru tags, so the same character is drawn identically in every image.
+    const castSystem = () => `You convert a roleplay bot's character sheet, first message, lorebook and the user's persona into NovelAI (NAI Diffusion V4.5) danbooru tags, so the same character is drawn identically in every image.
 Output ONE JSON object only:
 {"cast":[{"key":"short unique English id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
 Rules
-- One entry per recurring character who has (or clearly implies) a visual appearance. ${castMaxNow() ? `At most ${castMaxNow()} entries, most important first.` : 'Most important first.'} Include the user's persona as an entry with "persona": true when a persona is given.
+- One entry per recurring character who has (or clearly implies) a visual appearance. A character who appears only in the first message (the story's opening scene) counts too. ${castMaxNow() ? `At most ${castMaxNow()} entries, most important first.` : 'Most important first.'} Include the user's persona as an entry with "persona": true when a persona is given.
 - canon: judge whether this character comes from an existing published work (anime, manga, game, novel, film). If so, its Danbooru character tag followed by the series in parentheses, lowercase, e.g. "uchiha sasuke (naruto)", "gojou satoru (jujutsu kaisen)". "" for an original character, the user's persona, or when unsure.
 - key: one unique key per entry, lowercase English letters a-z, 0-9 and _ only, never Korean, Japanese, Chinese or other non-Latin letters. Write the name in Latin letters when it is not (e.g. "seoyeon_jung", "gojo_satoru"), or use an English word for a title (e.g. "demon_king"). Never give two entries the same key. The image prompts name this character only by this key.
 - type: girl for female, boy for male, other for non-human / ambiguous.
@@ -967,6 +967,7 @@ Rules
 - bottom: the default lower-body clothing with colors and design, plus socks / stockings (e.g. "navy pleated skirt, black thighhighs"). "" when the top is a dress that covers it.
 - shoes: default footwear with its color (e.g. "brown loafers"), "" when unknown and not implied.
 - If the source does not describe something, choose plausible tags that fit the setting; never leave hairstyle, haircolor, eyes or top empty.
+- The first message is one scene: when it describes clothing or a look that differs from the character sheet or lorebook, the sheet and lorebook win for the default slots; use the first message only for what they leave out.
 - Tags in English even when the source is Korean / Japanese.
 
 ${COLOR_RULE}
@@ -1251,7 +1252,13 @@ ${TAG_STYLE}`;
         return st.persona;
     }
 
-    async function botContext(char) {
+    function firstMessageOf(char, chi) {
+        if (!char || char.type === 'group') return '';
+        const fi = Number(char.chats?.[chi]?.fmIndex ?? -1);
+        const alt = fi >= 0 && Array.isArray(char.alternateGreetings) ? char.alternateGreetings[fi] : '';
+        return String(tidy(alt) ? alt : char.firstMessage ?? '');
+    }
+    async function botContext(char, chi) {
         const persona = await loadPersona();
         let entries = [];
         try { entries = await api.getCurrentLorebookEntries() ?? []; } catch (error) { console.warn(LOG, 'lorebook', error); }
@@ -1272,12 +1279,14 @@ ${TAG_STYLE}`;
         ];
         if (tidy(char.personality)) parts.push('## Personality', plainText(fill(char.personality), 3000));
         if (tidy(char.scenario)) parts.push('## Scenario', plainText(fill(char.scenario), 3000));
+        const first = Number.isInteger(chi) ? plainText(fill(firstMessageOf(char, chi)), 8000) : '';
+        if (first) parts.push('## First message', first);
         parts.push('## Lorebook', lore.trim() || '(none)');
         if (persona) parts.push(`# USER PERSONA: ${persona.name}`, plainText(fill(persona.prompt), 4000) || '(no description)');
         return { text: parts.join('\n\n'), persona, loreN };
     }
-    async function readLore(char, b) {
-        const { text, persona, loreN } = await botContext(char);
+    async function readLore(char, b, chi = char?.chatPage) {
+        const { text, persona, loreN } = await botContext(char, Number.isInteger(chi) ? chi : 0);
         if (b) {
             Object.assign(b, { ls: 1, lsAt: Date.now(), loreN, chars: text.length, label: '모델이 인물을 찾는 중' });
             render();
@@ -2448,7 +2457,7 @@ Rules
                     busy.lore = true;
                     render();
                     try {
-                        const lore = readLore(char);
+                        const lore = readLore(char, undefined, job.chi);
                         lore.catch(() => {});
                         const got = await Promise.race([lore, busy.halt]);
                         if (busy.stop) throw stopError();
@@ -5475,7 +5484,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     onclick: () => { const all = v.cast.list.every(e => ui.castOpen.has(e.id)); ui.castOpen = new Set(all ? [] : v.cast.list.map(e => e.id)); renderNow(); },
                 }, v.cast.list.every(e => ui.castOpen.has(e.id)) ? '모두 접기' : '모두 펼치기') : null));
         if (!v.cast.list.length) {
-            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), '「등장인물 분석」을 누르면 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'));
+            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), '「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'));
             return pane;
         }
         const SRC = { lore: '로어북', persona: '페르소나', chat: '채팅에서', edit: '직접 고침' };
@@ -5601,7 +5610,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 st.loreRate = isObj(r) ? r : {};
             }
             const char = await api.getCharacterFromIndex(v.ci);
-            const fresh = await readLore(char, busy);
+            const fresh = await readLore(char, busy, v.chi);
             if (!fresh.length) throw new Error('모델이 인물을 하나도 돌려주지 않았습니다.');
             if (busy.askSec > 0 && busy.chars > 0) {
                 st.loreRate[llm] = busy.askSec / Math.max(1, busy.chars / 10000);
@@ -8462,7 +8471,7 @@ Rules:
             nextBtn(!cs.length, cs.length ? '다음' : '인물을 하나 이상 고르세요'),
         ];
         const sNoCast = () => [
-            hint(h('b', null, '등장인물이 없습니다. '), '로어북 · 페르소나에서 인물을 읽어 옵니다.'),
+            hint(h('b', null, '등장인물이 없습니다. '), '봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다.'),
             ...loreRow(),
             nextBtn(true, '등장인물을 먼저 분석하세요'),
         ];
