@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.103.2
+//@display-name 🎨 이매진 v3.104.0
 //@api 3.0
-//@version 3.103.2
+//@version 3.104.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.103.2';
+    const VERSION = '3.104.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -463,6 +463,7 @@
         if (castCache.has(chaId)) return castCache.get(chaId);
         const cast = v && Array.isArray(v.list) ? v : { list: [], at: 0 };
         cast.list = cast.list.filter(e => e && typeof e === 'object').map(normCast);
+        if (uniqKeys(cast.list)) Promise.resolve().then(() => saveCast(chaId, cast)).catch(e => console.warn(LOG, 'cast key', e));
         castCache.set(chaId, cast);
         return cast;
     }
@@ -863,10 +864,11 @@
 
     const castSystem = () => `You convert a roleplay bot's character sheet, lorebook and the user's persona into NovelAI (NAI Diffusion V4.5) danbooru tags, so the same character is drawn identically in every image.
 Output ONE JSON object only:
-{"cast":[{"name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
+{"cast":[{"key":"short unique id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
 Rules
 - One entry per recurring character who has (or clearly implies) a visual appearance. ${castMaxNow() ? `At most ${castMaxNow()} entries, most important first.` : 'Most important first.'} Include the user's persona as an entry with "persona": true when a persona is given.
 - canon: judge whether this character comes from an existing published work (anime, manga, game, novel, film). If so, its Danbooru character tag followed by the series in parentheses, lowercase, e.g. "uchiha sasuke (naruto)", "gojou satoru (jujutsu kaisen)". "" for an original character, the user's persona, or when unsure.
+- key: one unique key per entry, lowercase a-z, 0-9 and _ only, romanized when the name is not written in Latin letters (e.g. "seoyeon_jung", "gojo_satoru"). Never give two entries the same key. The image prompts name this character only by this key.
 - type: girl for female, boy for male, other for non-human / ambiguous.
 - Every slot follows TAG STYLE below: Danbooru tags first, a short phrase only for a design no tag covers. Colors go into the tags (e.g. "red eyes", "white sailor shirt").
 - hairstyle: hair length, hairstyle, hair texture, hair accessories and default headwear, each accessory / headwear with its color (e.g. "long hair, high ponytail, straight hair, red hair ribbon, white beret"). No hair color, no bangs.
@@ -912,11 +914,11 @@ ${TAG_STYLE}`;
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
-  - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST name; name anything not in CAST by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
+  - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis); name anything not in CAST by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
   - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: pose, action, gesture, expression and gaze. Use Danbooru tags, and words or short plain-English phrases, that show the exact moment, comma separated, about 10-30 words. E.g. "standing pose, arms crossed confidently, arrogant smug smile, looking down, one hand brushing her hair back". A character who speaks here gets "open mouth" or a speaking expression. No hair, eye, body or clothing tags: the app adds the looks from CAST.
-  - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @Gojo from behind", "looking at @Gojo", "leaning head on @Gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @Gojo, eye contact" / "hug @Sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
-  - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @name" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
+  - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
+  - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @key" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
   - A third character may appear only as "out of frame, hand" inside one tags entry and is not listed in who.
 - Never use number words for panels (first, second, top panel...): the order of the panels array is the reading order.`,
     };
@@ -947,7 +949,7 @@ ${TAG_STYLE}`;
   9: a life-or-death moment. At least one of these is visible: landing the final blow on a strong boss, someone caught between life and death (about to be killed, falling to their death, cornered with no way out), someone who has just taken serious damage (badly wounded, bleeding heavily, knocked down by a crushing hit), an ultimate or finishing move, a desperate counterattack, the turning point of a battle.
   10: the climax of the whole story. The final battle, a last stand, a death, a world-changing moment.
   Hard rules: an image with no fight, attack, spell, monster or mortal danger in it is 6 or lower, however emotional it is (a confession, a farewell, a shocking reveal). When torn between two numbers, pick the lower one. Do not inflate. The app draws an image with severity ${dynMinNow()} or higher as a monochrome sketch with only the accents in color.`;
-    const ACCENT_RULE = () => `- accent: only when severity is ${dynMinNow()} or higher, a list with ONE entry per fighter in the image (every character and every monster), written as "Name: color + effect" with the name exactly as in ${isIllust() ? 'chars[].name' : 'panels[].who'}. Each fighter gets their OWN effect, decided for that fighter by this fixed rule, in order:
+    const ACCENT_RULE = () => `- accent: only when severity is ${dynMinNow()} or higher, a list with ONE entry per fighter in the image (every character and every monster), written as "key: color + effect" with the key exactly as in ${isIllust() ? 'chars[].name' : 'panels[].who'}. Each fighter gets their OWN effect, decided for that fighter by this fixed rule, in order:
   1. that fighter has a sword or any weapon (held, drawn, sheathed or swung; it does not have to be swung): its trail (e.g. "yellow sword trail", "blue slash trail", "red spear trail").
   2. else that fighter uses or carries magic (a spell, a charging hand, an aura; it does not have to be cast): its effect (e.g. "red magic effects", "purple magic circle", "blue lightning").
   3. else that fighter fights bare-handed (a fighting stance, fists, a punch or kick; it does not have to land): its trail (e.g. "blue impact trail", "orange shockwave").
@@ -970,8 +972,8 @@ ${TAG_STYLE}`;
     const genreTags = img => genreNow() ? GENRE_TAGS[genreKey(img?.genre)] ?? '' : '';
 
     const USER_LINE_RULE = {
-        illust: '- Exception: in image 1 (the moment USER ACTION describes) a line spoken in USER ACTION may be copied VERBATIM from USER ACTION; its by is the CAST name of whoever speaks it there (the [user persona] name when it is the user).',
-        comic: '- Exception: in panel 1 of image 1 (the moment USER ACTION describes) a line spoken in USER ACTION may be copied VERBATIM from USER ACTION; its by is the CAST name of whoever speaks it there (the [user persona] name when it is the user), who must be in that panel\'s who.',
+        illust: '- Exception: in image 1 (the moment USER ACTION describes) a line spoken in USER ACTION may be copied VERBATIM from USER ACTION; its by is the CAST key of whoever speaks it there (the [user persona] key when it is the user).',
+        comic: '- Exception: in panel 1 of image 1 (the moment USER ACTION describes) a line spoken in USER ACTION may be copied VERBATIM from USER ACTION; its by is the CAST key of whoever speaks it there (the [user persona] key when it is the user), who must be in that panel\'s who.',
     };
 
     function bubbleRules(maxB, withInput = false) {
@@ -980,7 +982,7 @@ ${TAG_STYLE}`;
         return `SPEECH BUBBLES: on. For each image add up to ${maxB} bubbles with the most important spoken lines of that moment.
 - text: copy the line VERBATIM from the TARGET MESSAGE, in its original language and script, with the same words and punctuation. Never translate, paraphrase, merge or invent lines. Leave out only the quotation marks around it.${withInput ? '\n' + USER_LINE_RULE.illust : ''}
 - ONE sentence per bubble at most. When a line has several sentences, copy just one complete sentence of it exactly (cut only at the speaker's own punctuation: . ! ? … ~) or choose another line. Never put a second sentence in the same bubble.
-- by: the speaker's exact CAST name, or "narration" for a caption box (at most 1 narration per image). A narration caption is also copied verbatim from the narration text of the TARGET MESSAGE.
+- by: the speaker's exact CAST key, or "narration" for a caption box (at most 1 narration per image). A narration caption is also copied verbatim from the narration text of the TARGET MESSAGE.
 - List bubbles in reading order. Bubbles have no x / y.`;
     }
 
@@ -989,7 +991,7 @@ ${TAG_STYLE}`;
         return `SPEECH BUBBLES: on. A panel may carry ONE spoken line in text; the app draws it as that panel's speech bubble.
 - text: copy the line VERBATIM from the TARGET MESSAGE, in its original language and script, with the same words and punctuation. Never translate, paraphrase, merge or invent lines. Leave out only the quotation marks around it.${withInput ? '\n' + USER_LINE_RULE.comic : ''}
 - ONE sentence per panel at most. When a line has several sentences, copy just one complete sentence of it exactly (cut only at the speaker's own punctuation: . ! ? … ~) or choose another line.
-- by: the speaker's exact CAST name. The speaker must be in that panel's who. Spoken lines only: no narration captions.
+- by: the speaker's exact CAST key. The speaker must be in that panel's who. Spoken lines only: no narration captions.
 - The line goes ONLY in text. Never write "Text:", quotation marks or the spoken words inside tags or camera.
 - Give lines to the panels where the most important lines of the moment are spoken; leave text and by "" for a panel without a line.`;
     }
@@ -1038,7 +1040,7 @@ ${TAG_STYLE}`;
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
 Output ONE JSON object only, no prose:
-{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","time":"...","cast":[{"name":"...","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
+{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","time":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
  "images":[${imageOut}]}
 
 CANVAS: ${shape}, ${w}x${h}. Every image uses this canvas; frame each moment for it.
@@ -1058,7 +1060,7 @@ STATE
   hairstyle (length, hairstyle, hair accessories, headwear), bangs, haircolor, eyes (eye color), height, body (build, chest size), top (upper-body clothing; a dress goes here), bottom (lower-body clothing incl. socks / stockings), shoes (footwear).
 - Update a slot when the story changes it (undressing, getting wet, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
 - Colors follow the COLOR RULE: every item in top, bottom, shoes and the headwear / hair accessories in hairstyle has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
-- For a character who is not in CAST also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be "").
+- For a character who is not in CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
 - location / time: short English tags (e.g. "classroom", "night").
 - CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
 - PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${plainInput ? `
@@ -1067,7 +1069,7 @@ STATE
 
 GENERAL
 - LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.location, state.time, state.cast slots / look) is English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
-- ${nameFields} names exactly as written in CAST.
+- ${nameFields} the CAST key exactly as written at the start of its CAST line, never the name or an alias. A character not in CAST uses its new key from state.cast; a monster or creature uses a short English noun.
 - uc (optional): extra negative tags only for this image / character.
 - title: a short Korean caption of the image (max 20 characters).
 - Never write "solo" or count tags (1girl, 2girls...) — the app adds them.
@@ -1082,9 +1084,9 @@ ${TAG_STYLE}`;
     const PREV_MSG = 4000;
 
     function castLine(e, state) {
-        const alias = e.aliases?.length ? ` (aliases: ${e.aliases.join(', ')})` : '';
+        const alias = e.aliases?.length ? `; aliases: ${e.aliases.join(', ')}` : '';
         const now = WEAR_KEYS.map(k => `${k}: ${wearOf(e, state, k) || 'none'}`).join(' | ');
-        return `- ${e.name}${alias}${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${e.look || '?'} | NOW ${now}`;
+        return `- ${e.key} (name: ${e.name}${alias})${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${e.look || '?'} | NOW ${now}`;
     }
 
     function comicUser(char, chat, idx, cast, state, personaName, input = null, emphasize = false, redo = null) {
@@ -1094,6 +1096,7 @@ ${TAG_STYLE}`;
         const label = m => m.role === 'user' ? `[${userName}]` : `[${m.name || botName}]`;
         const lines = [
             '# CAST',
+            'Each line starts with the character\'s key. Use only that key for this character in every name field (who, by, chars[].name, state.cast[].name, accent, @). name and aliases are only for reading the story.',
             cast.list.filter(e => e.on !== false).map(e => castLine(e, state)).join('\n') || '(empty — invent consistent looks and report them in state.cast)',
             '',
             '# CURRENT STATE',
@@ -1186,6 +1189,7 @@ ${TAG_STYLE}`;
             if (!name || list.some(e => e.name === name)) continue;
             list.push(castEntry(raw, name, persona));
         }
+        uniqKeys(list);
         const out = castMaxNow() ? list.slice(0, castMaxNow()) : list;
         if (b) {
             Object.assign(b, { ls: 2, lsAt: Date.now(), found: out.length, label: '인물 정리하는 중' });
@@ -1194,10 +1198,11 @@ ${TAG_STYLE}`;
         return out;
     }
     const canonTag = t => tidy(t).toLowerCase().replace(/\s*\(\s*/g, ' (').replace(/\s*\)/g, ')').replace(/[,+]/g, ' ').replace(/\s+/g, ' ').trim();
-    function castEntry(raw, name, persona) {
+    function castEntry(raw, name, persona, key) {
         const isPersona = raw.persona === true || !!(persona && name === persona.name);
-        return normCast({
+        const e = normCast({
             id: uid(),
+            key: charKey(key ?? raw.key),
             name,
             aliases: (Array.isArray(raw.aliases) ? raw.aliases : []).map(tidy).filter(Boolean).slice(0, 6),
             canon: isPersona ? '' : canonTag(raw.canon),
@@ -1208,89 +1213,139 @@ ${TAG_STYLE}`;
             src: isPersona ? 'persona' : 'lore',
             on: true,
         });
+        e.key = keyFrom(e);
+        return e;
     }
 
-    async function lookupCast(char, names) {
+    async function lookupCast(char, items, cast) {
         const { text, persona } = await botContext(char);
+        const known = (cast?.list ?? []).filter(e => e.src !== 'chat');
         const ask = `${text}
 
 # ONLY THESE CHARACTERS
-${names.map(n => `- ${n}`).join('\n')}
-Return entries only for the characters in this list that the character sheet, lorebook or persona describes. The source may write the same person in another script or romanization (e.g. Korean). Copy "name" exactly as written in this list. Leave out a name the source does not describe, and leave out everyone else.`;
+${items.map(x => `- ${x.key}${x.label && charKey(x.label) !== x.key ? ` (written as: ${x.label})` : ''}`).join('\n')}
+${known.length ? `\n# ALREADY IN CAST\n${known.map(e => `- ${e.key} (name: ${e.name})`).join('\n')}\n` : ''}
+Return entries only for the characters in this list that the character sheet, lorebook or persona describes. The source may write the same person in another script or romanization (e.g. Korean). Copy "key" exactly as written in this list, and put the character's name as the source writes it in "name". ${known.length ? 'When a listed character is in fact someone in ALREADY IN CAST, return only {"key":"<listed key>","same":"<that CAST key>"} for it. ' : ''}Leave out a character the source does not describe, and leave out everyone else.`;
         const res = await askJson(castSystem(), ask, 'cast');
         const out = new Map();
         for (const raw of Array.isArray(res.cast) ? res.cast : []) {
-            const want = names.find(n => nameKey(n) === nameKey(raw?.name));
-            if (!want || out.has(want)) continue;
+            const want = items.find(x => x.key === charKey(raw?.key));
+            if (!want || out.has(want.key)) continue;
+            const sk = charKey(raw.same);
+            const same = sk ? known.find(e => e.key === sk || e.keys?.includes(sk)) : null;
+            if (same) { out.set(want.key, { same }); continue; }
             if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
-            out.set(want, castEntry(raw, want, persona));
+            out.set(want.key, castEntry(raw, tidy(raw.name) || want.label || want.key, persona, want.key));
         }
         return out;
     }
     async function resolveUnknown(char, plan, cast, state, here = true) {
         state.looked ??= [];
-        const names = [];
+        const items = [];
         for (const raw of Array.isArray(plan?.state?.cast) ? plan.state.cast : []) {
             const name = tidy(raw?.name);
             if (!name || name.toLowerCase() === 'narration' || tidy(raw?.type).toLowerCase() === 'monster') continue;
             const e = findCast(cast, name);
             if (e && e.src !== 'chat') continue;
-            const key = nameKey(e?.name ?? name);
-            if (state.looked.includes(key) || names.some(n => nameKey(n) === key)) continue;
-            names.push(e?.name ?? name);
+            const key = e?.key ?? charKey(name);
+            if (!key || state.looked.includes(key) || items.some(x => x.key === key)) continue;
+            items.push({ key, label: e?.name ?? (tidy(raw?.label) || name) });
         }
         const done = new Set();
-        if (!names.length || !here) return done;
+        if (!items.length || !here) return done;
         let found = new Map();
         try {
-            found = await lookupCast(char, names);
-            for (const n of names) state.looked.push(nameKey(n));
+            found = await lookupCast(char, items, cast);
+            for (const x of items) state.looked.push(x.key);
         } catch (error) {
             if (error.isStop) throw error;
             console.warn(LOG, 'lookup', error);
         }
-        for (const [name, fresh] of found) {
-            const old = findCast(cast, name);
-            if (old && old.src === 'chat') {
-                Object.assign(old, { ...fresh, id: old.id, on: old.on });
+        for (const [key, fresh] of found) {
+            const old = cast.list.find(e => e.key === key || e.keys?.includes(key));
+            if (fresh.same) {
+                if (old && old.src !== 'chat') continue;
+                if (old) { cast.list.splice(cast.list.indexOf(old), 1); delete state.wear[old.id]; }
+                (fresh.same.keys ??= []).push(key);
+                done.changed = true;
+            } else if (old && old.src === 'chat') {
+                Object.assign(old, { ...fresh, id: old.id, key: old.key, keys: old.keys, on: old.on });
                 delete state.wear[old.id];
             } else if (!old) cast.list.push(fresh);
             else continue;
-            done.add(name.toLowerCase());
+            done.add(key);
         }
         if (found.size) console.log(LOG, 'lookup', [...found.keys()].join(', '));
         return done;
     }
 
     function mergeCast(cast, fresh) {
-        const byName = new Map(cast.list.map(e => [e.name.toLowerCase(), e]));
-        const out = [];
+        const left = new Set(cast.list);
+        const take = f => { const o = [...left].find(f); if (o) left.delete(o); return o ?? null; };
+        const out = [], kept = new Set();
         for (const e of fresh) {
-            const old = byName.get(e.name.toLowerCase());
+            const old = take(o => o.key === e.key) ?? take(o => o.name.toLowerCase() === e.name.toLowerCase());
             if (old) {
-                byName.delete(e.name.toLowerCase());
-                out.push(old.src === 'edit' ? old : { ...e, id: old.id, on: old.on });
+                const m = old.src === 'edit' ? old : { ...e, id: old.id, key: old.key, keys: old.keys, on: old.on };
+                out.push(m);
+                kept.add(m);
             } else out.push(e);
         }
         const freshKeys = new Set(fresh.flatMap(e => [e.name, ...(e.aliases ?? [])].map(nameKey)));
-        const same = e => [e.name, ...(e.aliases ?? [])].some(n => freshKeys.has(nameKey(n)));
-        for (const old of byName.values()) if (old.src === 'edit' || (old.src === 'chat' && !same(old))) out.push(old);
+        const freshIds = new Set(fresh.map(e => e.key));
+        const same = e => freshIds.has(e.key) || [e.name, ...(e.aliases ?? [])].some(n => freshKeys.has(nameKey(n)));
+        for (const old of left) if (old.src === 'edit' || (old.src === 'chat' && !same(old))) { out.push(old); kept.add(old); }
+        uniqKeys(out, kept);
         cast.list = out;
         cast.at = Date.now();
         cast.tried = true;
     }
 
     function findCast(cast, name) {
-        const n = tidy(name).toLowerCase();
-        if (!n) return null;
-        const k = nameKey(n);
-        return cast.list.find(e => e.name.toLowerCase() === n)
-            ?? cast.list.find(e => e.aliases?.some(a => a.toLowerCase() === n))
-            ?? (k ? cast.list.find(e => [e.name, ...(e.aliases ?? [])].some(a => a && nameKey(a) === k)) : null)
-            ?? null;
+        const k = charKey(tidy(name));
+        if (!k) return null;
+        return (cast?.list ?? []).find(e => e.key === k || e.keys?.includes(k)) ?? null;
     }
     const nameKey = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '').replace(/yeo/g, 'yu').replace(/eo/g, 'u').replace(/oo/g, 'u')
         || String(s ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
+    const RR_INIT = ['g', 'kk', 'n', 'd', 'tt', 'r', 'm', 'b', 'pp', 's', 'ss', '', 'j', 'jj', 'ch', 'k', 't', 'p', 'h'];
+    const RR_VOW = ['a', 'ae', 'ya', 'yae', 'eo', 'e', 'yeo', 'ye', 'o', 'wa', 'wae', 'oe', 'yo', 'u', 'wo', 'we', 'wi', 'yu', 'eu', 'ui', 'i'];
+    const RR_FIN = ['', 'k', 'k', 'k', 'n', 'n', 'n', 't', 'l', 'k', 'm', 'l', 'l', 'l', 'p', 'l', 'm', 'p', 'p', 't', 't', 'ng', 't', 't', 'k', 't', 'p', 't'];
+    const charKey = s => String(s ?? '').toLowerCase()
+        .replace(/[가-힣]/g, ch => { const c = ch.charCodeAt(0) - 0xac00; return RR_INIT[Math.floor(c / 588)] + RR_VOW[Math.floor(c % 588 / 28)] + RR_FIN[c % 28]; })
+        .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+        .replace(/[\s\-.·']+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/_+/g, '_').replace(/^_|_$/g, '').slice(0, 32).replace(/_$/, '')
+        || String(s ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '').slice(0, 32);
+    function keyFrom(e) {
+        const latin = [e.name, ...(e.aliases ?? [])].find(n => /^[\x20-\x7e]+$/.test(tidy(n)) && charKey(n));
+        return charKey(e.key) || charKey(latin) || charKey(e.name) || 'char';
+    }
+    function uniqKeys(list, keep = new Set()) {
+        let changed = false;
+        const used = new Set();
+        for (const e of [...list.filter(x => keep.has(x)), ...list.filter(x => !keep.has(x))]) {
+            const want = keyFrom(e);
+            let k = want, n = 2;
+            while (used.has(k)) k = `${want}_${n++}`;
+            used.add(k);
+            if (e.key !== k) { e.key = k; changed = true; }
+        }
+        for (const e of list) {
+            if (e.keys === undefined) continue;
+            const ks = Array.isArray(e.keys) ? [...new Set(e.keys.map(charKey))].filter(k => k && !used.has(k)) : [];
+            ks.forEach(k => used.add(k));
+            if (!Array.isArray(e.keys) || ks.join() !== e.keys.join()) changed = true;
+            if (ks.length) e.keys = ks;
+            else delete e.keys;
+        }
+        return changed;
+    }
+    function freshKey(list, k) {
+        const want = charKey(k) || 'char';
+        let out = want, n = 2;
+        while (list.some(e => e.key === out || e.keys?.includes(out))) out = `${want}_${n++}`;
+        return out;
+    }
 
     function applyState(plan, cast, state, fresh = new Set()) {
         let castChanged = false;
@@ -1303,12 +1358,12 @@ Return entries only for the characters in this list that the character sheet, lo
             const name = tidy(raw?.name);
             if (!name || name.toLowerCase() === 'narration') continue;
             if (tidy(raw?.type).toLowerCase() === 'monster') continue;
-            if (fresh.has(name.toLowerCase())) continue;
             let e = findCast(cast, name);
+            if (fresh.has(e?.key ?? charKey(name))) continue;
             if (!e) {
                 if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
                 e = normCast({
-                    id: uid(), name, aliases: [], canon: canonTag(raw.canon),
+                    id: uid(), key: freshKey(cast.list, name), name: tidy(raw.label) || name, aliases: [], canon: canonTag(raw.canon),
                     type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
                     look: tidy(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, /^none$/i.test(tidy(raw[k])) ? '' : tidy(raw[k])])),
                     src: 'chat', on: true,
@@ -1471,7 +1526,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam = joinTags(noText(pn.camera)), say = line ? `speech bubble with Text: ${line} ` : '';
             const rawActs = Array.isArray(pn.tags) ? pn.tags : [pn.tags];
-            const refs = who.flatMap(x => [...new Set([x.raw, x.name])].map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
+            const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
             const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
             const acts = (who.length ? who : [null]).map((x, k) => refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
@@ -2247,7 +2302,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 state.wear ??= {};
                 const fresh = await resolveUnknown(char, plan, cast, state, job.ci === await api.getCurrentCharacterIndex());
                 if (busy.stop) throw stopError();
-                if (applyState(plan, cast, state, fresh) || fresh.size) await saveCast(chaId, cast);
+                if (applyState(plan, cast, state, fresh) || fresh.size || fresh.changed) await saveCast(chaId, cast);
                 stateChanged = true;
                 let images = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object');
                 if (!images.length) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
@@ -4998,7 +5053,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     class: 'ix-btn', type: 'button',
                     onclick: () => {
                         const id = uid();
-                        v.cast.list.push({ id, name: '새 인물', aliases: [], canon: '', type: 'girl', look: '', wear: emptyWear(), src: 'edit', on: true });
+                        v.cast.list.push({ id, key: freshKey(v.cast.list, 'new_char'), keyAuto: true, name: '새 인물', aliases: [], canon: '', type: 'girl', look: '', wear: emptyWear(), src: 'edit', on: true });
                         ui.castOpen.add(id);
                         castChanged();
                         renderNow();
@@ -5077,9 +5132,28 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         h('div', { class: 'cc-row' },
                             h('input', {
                                 class: 'cf-in', value: e.name, 'aria-label': '이름',
-                                oninput: ev => { e.name = ev.target.value; nm.textContent = e.name || '이름 없음'; av.textContent = initial(e.name); castChanged(e); },
+                                oninput: ev => {
+                                    e.name = ev.target.value; nm.textContent = e.name || '이름 없음'; av.textContent = initial(e.name);
+                                    if (e.keyAuto) {
+                                        e.key = freshKey(v.cast.list.filter(x => x !== e), keyFrom({ name: e.name }) === 'char' ? 'new_char' : keyFrom({ name: e.name }));
+                                        const ki = ev.target.closest('.cc-sec')?.querySelector('.cc-key');
+                                        if (ki) ki.value = e.key;
+                                    }
+                                    castChanged(e);
+                                },
                             }),
                             seg([['girl', '여'], ['boy', '남'], ['other', '기타']], e.type, t => { e.type = t; castChanged(e); renderNow(); })),
+                        h('label', null, '인물 키 (영어 소문자 · 숫자 · _ · 연출 모델이 이 키로 인물을 구별합니다)',
+                            h('input', {
+                                class: 'cf-in cc-key', value: e.key ?? '', 'aria-label': '인물 키', spellcheck: 'false',
+                                onchange: ev => {
+                                    const k = charKey(ev.target.value);
+                                    if (k && k !== e.key) e.key = freshKey(v.cast.list.filter(x => x !== e), k);
+                                    ev.target.value = e.key ?? '';
+                                    e.keyAuto = false;
+                                    castChanged(e);
+                                },
+                            })),
                         h('label', null, '다른 이름 (쉼표로 구분)',
                             h('input', { class: 'cf-in', value: (e.aliases ?? []).join(', '), oninput: ev => { e.aliases = ev.target.value.split(',').map(tidy).filter(Boolean); castChanged(e); } })),
                         h('label', null, '원작 태그 (예: uchiha sasuke (naruto) · 비우면 char 번호)',
@@ -5495,16 +5569,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
         + '</g>'
         + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
-        + '</svg>';
-    const PAN_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -1 30 34" width="30" height="34">'
-        + '<g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-        + '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>'
-        + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
-        + '</g>'
-        + '<text x="12" y="32" text-anchor="middle" font-size="9" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
     const DRAW_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
         + '<path d="M12 19l7-7 3 3-7 7-3-3z"/>'
@@ -6021,8 +6085,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function addPanelButton(d, row) {
         const b = await d.createElement('button');
         await b.setClassName(PANBTN_CLASS);
-        await b.setInnerHTML(PAN_ICON);
-        await b.setStyleAttribute('cursor:pointer;flex-shrink:0 !important;width:3rem !important;height:3rem !important');
+        await b.setInnerHTML(SIDE_ICON);
+        await b.setStyleAttribute('cursor:pointer;flex-shrink:0 !important;width:3rem !important;height:3rem !important;display:flex !important;align-items:center !important;justify-content:center !important');
         if (!root.on || !panSel() || await d.querySelector('.nc-panbtn')) return false;
         await row.prepend(b);
         return true;
