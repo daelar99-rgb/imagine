@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.113.3
+//@display-name 🎨 이매진 v3.114.0
 //@api 3.0
-//@version 3.113.3
+//@version 3.114.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.113.3';
+    const VERSION = '3.114.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -104,6 +104,7 @@
         setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
         assetOff: [],
         ptOff: [],
+        scroll: 'last',
         panelBtn: true,
         webp: true,
         vars: true,
@@ -233,6 +234,7 @@
         if (!sizeOk(PC_RANGE, st.set.pc)) st.set.pc = DEFAULT_SET.pc;
         if (!sizeOk(MO_RANGE, st.set.mo)) st.set.mo = DEFAULT_SET.mo;
         if (!['all', 'last', 'none'].includes(st.set.ubtn)) st.set.ubtn = DEFAULT_SET.ubtn;
+        if (!['last', 'fig', 'off'].includes(st.set.scroll)) st.set.scroll = st.set.scroll === false ? 'off' : DEFAULT_SET.scroll;
         st.set.setup = { ...DEFAULT_SET.setup, ...(st.set.setup && typeof st.set.setup === 'object' ? st.set.setup : {}) };
         st.set.panelBtn = st.set.panelBtn !== false;
         st.set.assetOff = Array.isArray(st.set.assetOff) ? [...new Set(st.set.assetOff.filter(x => typeof x === 'string' && x))] : [];
@@ -2559,6 +2561,7 @@ Rules
             failed.delete(key);
             st.ok = true;
             st.note = `${out.length}장을 그려 ${char.type === 'group' ? '패널 기록에' : '봇에'} 저장했습니다.`;
+            if (st.set.scroll !== 'off' && (reqs[0]?.kind ?? (isIllust() ? 'illust' : 'comic')) === 'illust') void scrollAfterDraw(out.map(o => o.name), spot.idx, st.set.scroll);
         } catch (error) {
             if (error.isStop) st.note = '중단했습니다.';
             else {
@@ -5824,9 +5827,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('div', { class: 'cf-row' }, h('div', { class: 'cf-tx' }, note('', '고른 크기는 봇의 기본 변수 nc_pc · nc_mo 에 적고 지금 채팅을 바로 다시 그려 반영합니다. 답변이 나오는 중이면 끝난 뒤에 다시 그립니다. 1.2.0 이하에서 넣은 그림은 그 답변을 다시 그려야 크기가 바뀝니다.'))),
                 row('sw', '이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '두 메뉴의 버튼은 그대로 있습니다.',
                     toggle(s.panelBtn, () => setVal('panelBtn', !s.panelBtn))),
+                s.kind === 'illust' ? row('', '다 그리면 스크롤', '삽화를 다 그린 뒤 채팅 화면을 옮길 자리입니다. 「마지막 채팅 맨 위」는 그림을 넣은 답변의 맨 위로, 「그린 그림」은 그 그림으로(여러 장이면 맨 위 그림) 갑니다. 「리수 기본」은 옮기지 않습니다.',
+                    '자동 그리기에도 똑같이 옮깁니다. 만화를 그릴 때는 옮기지 않습니다. 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼을 모두 끄면 리수 본문 화면에 접근하지 않으므로 옮기지 않습니다.',
+                    seg([['last', '마지막 채팅 맨 위'], ['fig', '그린 그림'], ['off', '리수 기본(안 옮김)']], s.scroll, v => setVal('scroll', v))) : null,
                 needRoot() ? h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' },
-                    rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
-                        : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.')) : null),
+                    rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
+                        : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.')) : null),
             grp('이 봇의 그림',
                 row('col', '봇의 기존 그림 숨기기', '이 봇의 백그라운드 임베딩 · 정규식 · Lua 트리거에서 에셋 그림을 띄우는 곳을 모델이 찾아 숨기고, 메시지 · 첫 메시지에 바로 쓴 에셋 그림({{img::…}} 등)도 화면에서 지웁니다. 이 봇에만 적용됩니다. (봇 정규식이 복잡하면 적용되지 않을 수 있습니다)',
                     null,
@@ -6273,6 +6279,35 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }
         await root.asking;
         return root.doc;
+    }
+
+    async function scrollAfterDraw(names, idx, mode) {
+        const d = root.doc;
+        if (!d || !names?.length || mode === 'off') return;
+        const sel = names.map(n => '.x-risu-nc-id-' + n).join(', ');
+        try {
+            let best = null;
+            for (let t = 0; t < 10; t++) {
+                await sleep(200);
+                const all = await d.querySelectorAll(sel);
+                let top = Infinity, tall = false;
+                best = null;
+                for (let i = 0, n = await all.length(); i < n; i++) {
+                    const e = await all.at(i);
+                    const r = await e.getBoundingClientRect();
+                    if (r && r.top < top) { top = r.top; best = e; tall = r.height > 40; }
+                }
+                if (best && tall) break;
+            }
+            if (!best) return;
+            const msg = mode === 'last' && Number.isInteger(idx) && idx >= 0 ? await d.querySelector(`.risu-chat[data-chat-index="${idx}"]`) : null;
+            const to = msg ?? best, block = msg ? 'start' : 'center';
+            await to.scrollIntoView({ block, behavior: 'instant' });
+            await sleep(400);
+            await to.scrollIntoView({ block, behavior: 'instant' });
+        } catch (error) {
+            console.warn(LOG, 'scrollAfterDraw', error);
+        }
     }
 
     const PANEL_Z = '49';
