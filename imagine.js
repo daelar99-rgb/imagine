@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.106.5
+//@display-name 🎨 이매진 v3.106.6
 //@api 3.0
-//@version 3.106.5
+//@version 3.106.6
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.106.5';
+    const VERSION = '3.106.6';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5634,7 +5634,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const MENU_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
-        + '<text x="10" y="10" text-anchor="middle" dominant-baseline="central" font-size="17">🎨</text>'
+        + '<text x="10" y="15.5" text-anchor="middle" font-size="17">🎨</text>'
         + '</svg>';
     const SIDE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
         + '<g transform="translate(-2,-8.23)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -6164,7 +6164,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const b = await d.createElement('button');
         await b.setClassName(PANBTN_CLASS);
         await b.setInnerHTML(INBTN_ICON);
-        await b.setStyleAttribute('cursor:pointer;flex-shrink:0 !important;width:2.25rem !important;height:2.25rem !important;display:flex !important;align-items:center !important;justify-content:center !important');
+        await b.setStyleAttribute('cursor:pointer;flex-shrink:0 !important;width:2.25rem !important;height:2.25rem !important;align-self:center !important;display:flex !important;align-items:center !important;justify-content:center !important');
         if (!root.on || !panSel() || await d.querySelector('.nc-panbtn')) return false;
         await row.prepend(b);
         return true;
