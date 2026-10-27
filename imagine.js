@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.106.4
+//@display-name 🎨 이매진 v3.106.5
 //@api 3.0
-//@version 3.106.4
+//@version 3.106.5
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.106.4';
+    const VERSION = '3.106.5';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5633,12 +5633,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         void checkUpdate();
     }
 
-    const ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-        + '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>'
-        + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
+    const MENU_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
+        + '<text x="10" y="10" text-anchor="middle" dominant-baseline="central" font-size="17">🎨</text>'
         + '</svg>';
     const SIDE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
         + '<g transform="translate(-2,-8.23)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -5650,6 +5646,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         + '</g>'
         + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
+    const INBTN_ICON = SIDE_ICON.replace('width="20" height="20"', 'width="17" height="17"');
     const DRAW_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
         + '<path d="M12 19l7-7 3 3-7 7-3-3z"/>'
         + '<path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>'
@@ -6166,8 +6163,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function addPanelButton(d, row) {
         const b = await d.createElement('button');
         await b.setClassName(PANBTN_CLASS);
-        await b.setInnerHTML(SIDE_ICON);
-        await b.setStyleAttribute('cursor:pointer;flex-shrink:0 !important;width:3rem !important;height:3rem !important;display:flex !important;align-items:center !important;justify-content:center !important');
+        await b.setInnerHTML(INBTN_ICON);
+        await b.setStyleAttribute('cursor:pointer;flex-shrink:0 !important;width:2.25rem !important;height:2.25rem !important;display:flex !important;align-items:center !important;justify-content:center !important');
         if (!root.on || !panSel() || await d.querySelector('.nc-panbtn')) return false;
         await row.prepend(b);
         return true;
@@ -8711,7 +8708,7 @@ Rules:
     const panelButtons = [];
     try {
         panelButtons.push(await api.registerButton({
-            name: '🎨 이매진', icon: ICON_SVG, iconType: 'html', location: 'chat', id: 'nai-comic-panel',
+            name: '이매진', icon: MENU_ICON, iconType: 'html', location: 'chat', id: 'nai-comic-panel',
         }, onPanelButton));
     } catch (error) {
         console.warn(LOG, 'chat button', error);
