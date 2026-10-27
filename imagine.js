@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.109.0
+//@display-name 🎨 이매진 v3.110.0
 //@api 3.0
-//@version 3.109.0
+//@version 3.110.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.109.0';
+    const VERSION = '3.110.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -581,32 +581,30 @@
                 for (const [id, o] of Object.entries(old)) if (tidy(o)) (wear[id] ??= {}).outfit ??= tidy(o);
                 for (const [id, w] of Object.entries(wear)) if (isOldWear(w)) wear[id] = fromOldWear(w, null, true).wear;
                 const seeded = v.seeded === true || Object.keys(old).length > 0;
-                const places = {};
-                if (v.places && typeof v.places === 'object') for (const [k, p] of Object.entries(v.places)) if (tidy(k) && tidy(p)) places[tidy(k)] = tidy(p);
-                const out = { location: '', time: '', place: '', ...v, wear, seeded, places };
+                const out = { location: '', time: '', ...v, place: placeList(v.place), wear, seeded };
                 delete out.outfits;
+                delete out.places;
                 return out;
             }
         } catch {}
-        return { location: '', time: '', place: '', places: {}, wear: {}, seeded: false };
+        return { location: '', time: '', place: [], wear: {}, seeded: false };
     }
-    const PLACE_MAX = 300, PLACES_MAX = 20;
+    const PLACE_ITEMS = 3, PLACE_ITEM_MAX = 200;
     const placeKey = loc => tidy(loc).toLowerCase();
-    function rememberPlace(state, loc, place) {
-        const k = placeKey(loc), p = tidy(place);
-        if (!k) return;
-        state.places ??= {};
-        delete state.places[k];
-        if (!p) return;
-        state.places[k] = p;
-        const keys = Object.keys(state.places);
-        for (const old of keys.slice(0, Math.max(0, keys.length - PLACES_MAX))) delete state.places[old];
+    function placeList(p) {
+        const raw = Array.isArray(p) ? p : tidy(p) ? [p] : [];
+        return raw.map(t => tidy(String(t ?? '').replace(/[.。\s]+$/, '')).slice(0, PLACE_ITEM_MAX)).filter(Boolean).slice(0, PLACE_ITEMS);
     }
     function withPlace(img, state) {
-        const place = tidy(state?.place);
-        if (!place) return img;
+        const items = placeList(state?.place);
+        if (!items.length) return img;
         const have = new Set(String(img?.scene ?? '').split(',').map(t => tidy(t).toLowerCase()).filter(Boolean));
-        const add = place.split(',').map(tidy).filter(t => t && !have.has(t.toLowerCase()));
+        const add = items.flatMap(p => p.split(',')).map(tidy).filter(t => {
+            const k = t.toLowerCase();
+            if (!t || have.has(k)) return false;
+            have.add(k);
+            return true;
+        });
         return add.length ? { ...img, scene: joinTags(img?.scene, add) } : img;
     }
     const baseWear = (e, k) => tidy(e?.wear?.[k]);
@@ -623,7 +621,7 @@
         if (!st.set.vars) return;
         ss['$nc_location'] = state.location ?? '';
         ss['$nc_time'] = state.time ?? '';
-        ss['$nc_background'] = state.place ?? '';
+        ss['$nc_background'] = placeList(state.place).join(', ');
         for (const e of cast?.list ?? []) {
             const n = varName(e.name);
             ss[`$nc_${n}_look`] = e.look ?? '';
@@ -1062,7 +1060,7 @@ ${TAG_STYLE}`;
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
 Output ONE JSON object only, no prose:
-{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","place":"...","time":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
+{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","place":["...","...","..."],"cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
  "images":[${imageOut}]}
 
 CANVAS: ${shape}, ${w}x${h}. Every image uses this canvas; frame each moment for it.
@@ -1083,15 +1081,17 @@ STATE
 - Update a slot when the story changes it (undressing, getting wet, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
 - Colors follow the COLOR RULE: every item in top, bottom, shoes and the headwear / hair accessories in hairstyle has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is not in CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
-- location / time: short English tags (e.g. "classroom", "night").
-- place: the tracked background of the current location (the BACKGROUND variable), so every image of this location shows the same room. 3-8 English danbooru tags or short noun phrases: fixed furniture and objects with material and color, open / closed states of doors, windows and curtains, and what is visible outside through windows or doorways (e.g. "wooden bookshelf, square metal table, open wooden window, buildings visible through window"). Same location as CURRENT STATE: copy its place unchanged and change only what the story changes (a window opened, a table knocked over, the lights turned off). A location in KNOWN PLACES: start from its place there. A new location: make a plausible place that fits the story. No characters, no lighting, time or weather (those stay in scene), no sentences.
+- location: where the characters are now, as one specific phrase or sentence in the chat's own language: building, floor, room and the exact spot (e.g. "학교 3층 도서관 창가 자리"). While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else.
+- moved: true only when the characters went to another location since CURRENT STATE (location is then the new one); otherwise false. Walking around inside the same room is not moving.
+- time: the time of day in the chat's own language, as a clock time when the story states or implies one (e.g. "오후 1시", "밤 11시 반"), otherwise a part of the day (e.g. "이른 아침", "해 질 녘"). Move it forward when the story moves time forward; otherwise copy it.
+- place: the BACKGROUND of the current location, so every image of this location shows the same room. Exactly 3 items (fewer only if the story gives almost nothing), each one short English sentence or phrase about one fixed part of the place: furniture and objects with material and color, whether doors, windows and curtains are open or closed, what is visible outside through windows or doorways (e.g. ["wooden bookshelves line the left wall", "a square metal table in the middle", "an open wooden window shows tall buildings outside"]). moved false: copy CURRENT STATE's place items and change only what the story changes (a window opened, a table knocked over). moved true or place empty: write 3 new items that fit the location. No characters, no lighting, time or weather (those stay in scene).
 - CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time / place (the room's furniture, doors and windows, the view outside) and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
 - PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${plainInput ? `
 - USER INPUT: what the user wrote just before the TARGET MESSAGE; the TARGET MESSAGE is the reply to it. Context only: use it to understand what the reply answers (who acts, what was said or done), but draw the moments the TARGET MESSAGE narrates, and never copy after or spoken lines from USER INPUT.` : ''}${withInput ? `
 - USER ACTION: what the user just wrote: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
 
 GENERAL
-- LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.location, state.place, state.time, state.cast slots / look) is English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
+- LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.place, state.cast slots / look) is English, even when the chat is Korean or Japanese. Only ${lineFields}, after, state.location and state.time stay in the chat's own language.
 - ${nameFields} the CAST key exactly as written at the start of its CAST line, never the name or an alias. A character not in CAST uses its new key from state.cast; a monster or creature uses a short English noun.
 - uc (optional): extra negative tags only for this image / character.
 - title: a short Korean caption of the image (max 20 characters).
@@ -1123,12 +1123,11 @@ ${TAG_STYLE}`;
             cast.list.filter(e => e.on !== false).map(e => castLine(e, state)).join('\n') || '(empty — invent consistent looks and report them in state.cast)',
             '',
             '# CURRENT STATE',
-            `location: ${state.location || '?'} / time: ${state.time || '?'}`,
-            `place: ${state.place || '?'}`,
+            `location: ${state.location || '?'}`,
+            `time: ${state.time || '?'}`,
+            `place:${placeList(state.place).map((p, i) => `\n${i + 1}. ${p}`).join('') || ' ?'}`,
             '',
         ];
-        const known = Object.entries(state.places ?? {}).filter(([k]) => k !== placeKey(state.location)).slice(-8);
-        if (known.length) lines.push('# KNOWN PLACES', ...known.map(([k, p]) => `- ${k}: ${p}`), '');
         if (!state.seeded) {
             const past = [];
             let total = 0;
@@ -1419,10 +1418,11 @@ Rules
         const prevLoc = placeKey(state.location);
         if (tidy(s.location)) state.location = tidy(s.location);
         if (tidy(s.time)) state.time = tidy(s.time);
-        const place = tidy(s.place).slice(0, PLACE_MAX);
-        if (place) state.place = place;
-        else if (placeKey(state.location) !== prevLoc) state.place = state.places?.[placeKey(state.location)] ?? '';
-        rememberPlace(state, state.location, state.place);
+        const place = placeList(s.place);
+        const moved = typeof s.moved === 'boolean' ? s.moved : placeKey(state.location) !== prevLoc;
+        if (place.length) state.place = place;
+        else state.place = moved ? [] : placeList(state.place);
+        delete state.places;
         for (const raw of Array.isArray(s.cast) ? s.cast : []) {
             const name = tidy(raw?.name);
             if (!name || name.toLowerCase() === 'narration') continue;
@@ -3313,12 +3313,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .cc-all{margin-left:auto}
 .cc.pl{margin-top:12px}
 .cc.pl .cc-av{font-size:1rem}
-.pl-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.pl-ls{display:grid;gap:6px}
-.pl-it{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;padding:6px 8px;font-size:.74rem;background:var(--paper2);border:1px solid var(--paper3)}
-.pl-it b{white-space:nowrap;color:var(--ink)}
-.pl-it span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
-.pl-it.now{border-color:var(--accent)}
+.cc-sec .pl-loc{min-height:44px}
 /* 이 봇의 그림 숨기기: 버튼 안에서 왼쪽부터 게이지가 찬다 */
 .ix-btn.hb{position:relative;overflow:hidden;width:100%;min-height:42px;font-size:.88rem}
 .ix-btn.hb.run{border-color:var(--accent)}
@@ -5246,10 +5241,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     function placeCard(v) {
         const s = v.state;
-        s.places ??= {};
         const isOpen = !!ui.placeOpen;
         const flip = () => { ui.placeOpen = !isOpen; renderNow(); };
-        const sum = [s.time, s.place].map(tidy).filter(Boolean).join(' · ') || '배경 변수 없음 · 처음 그릴 때 채팅에서 찾습니다';
+        const sum = [s.time, ...placeList(s.place)].map(tidy).filter(Boolean).join(' · ') || '배경 변수 없음 · 처음 그릴 때 채팅에서 찾습니다';
         const nm = h('span', { class: 'cc-nm' }, tidy(s.location) || '장소 모름');
         const card = h('article', { class: 'cc pl' + (isOpen ? ' open' : ''), style: '--cc:#00897b' },
             h('div', {
@@ -5260,33 +5254,29 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('div', { class: 'cc-ti' }, h('b', null, nm), h('span', { class: 'cc-sum' }, sum)),
                 h('span', { class: 'cc-cv', 'aria-hidden': 'true' }, '▾')));
         if (!isOpen) return card;
-        const setPlace = t => { const ls = liveState(v); ls.place = tidy(t).slice(0, PLACE_MAX); rememberPlace(ls, ls.location, ls.place); writeVarsSoon(v); };
-        const known = Object.entries(s.places).reverse();
+        const bg = [];
+        const setPlace = () => { liveState(v).place = placeList(bg.map(e => e.value)); writeVarsSoon(v); };
+        const ex = ['wooden bookshelves line the left wall', 'a square metal table in the middle', 'an open wooden window shows tall buildings outside'];
+        const items = placeList(s.place);
+        for (let i = 0; i < PLACE_ITEMS; i++) bg.push(h('input', {
+            class: 'cf-in', value: items[i] ?? '', maxlength: String(PLACE_ITEM_MAX), placeholder: '예: ' + ex[i], 'aria-label': '배경 ' + (i + 1),
+            oninput: setPlace,
+        }));
         add(card, h('div', { class: 'cc-bd' },
             h('div', { class: 'cc-sec' },
-                h('h4', null, '지금 장소', h('small', null, '이 채팅에만 저장됩니다 · 영어 태그로 씁니다')),
-                h('div', { class: 'pl-two' },
-                    ...[['location', '장소', 'classroom'], ['time', '시간', 'night']].map(([k, label, ex]) =>
-                        h('label', null, label,
-                            h('input', {
-                                class: 'cf-in', value: s[k] ?? '', placeholder: '모름 (예: ' + ex + ')', 'aria-label': label,
-                                oninput: ev => { liveState(v)[k] = ev.target.value.trim(); if (k === 'location') nm.textContent = ev.target.value.trim() || '장소 모름'; writeVarsSoon(v); },
-                            })))),
-                h('label', null, '배경 변수 (가구 · 재질 · 색, 창문 · 문이 열렸는지, 창밖에 보이는 것)',
+                h('h4', null, '지금 장소', h('small', null, '이 채팅에만 저장됩니다 · 장소와 시간은 채팅 언어로, 배경은 영어로 씁니다')),
+                h('label', null, '장소 (구체적으로)',
                     h('textarea', {
-                        class: 'cf-ta', 'aria-label': '배경 변수', placeholder: '모름 (예: wooden bookshelf, square metal table, open wooden window, buildings visible through window)',
-                        oninput: ev => setPlace(ev.target.value),
-                    }, s.place ?? '')),
-                h('span', { class: 'ix-hint' }, '그릴 때마다 연출 모델이 이어 쓰고, 이야기에서 바뀐 것만 고칩니다. 앱이 모든 그림의 장면 태그 뒤에 이 배경 변수를 붙입니다.')),
-            known.length ? h('div', { class: 'cc-sec' },
-                h('h4', null, '기억한 장소', h('small', null, known.length + '곳 · 그 장소로 돌아가면 이 배경 변수를 다시 씁니다 (최대 ' + PLACES_MAX + '곳)')),
-                h('div', { class: 'pl-ls' }, ...known.map(([k, p]) =>
-                    h('div', { class: 'pl-it' + (k === placeKey(s.location) ? ' now' : '') },
-                        h('b', null, k), h('span', { title: p }, p),
-                        h('button', {
-                            class: 'ix-btn sm', type: 'button', title: '이 장소 기억 지우기', 'aria-label': k + ' 기억 지우기',
-                            onclick: () => { delete liveState(v).places?.[k]; writeVarsSoon(v); renderNow(); },
-                        }, '✕'))))) : null,
+                        class: 'cf-ta pl-loc', 'aria-label': '장소', placeholder: '모름 (예: 학교 3층 도서관 창가 자리)',
+                        oninput: ev => { const t = ev.target.value.replace(/\s+/g, ' ').trim(); liveState(v).location = t; nm.textContent = t || '장소 모름'; writeVarsSoon(v); },
+                    }, s.location ?? '')),
+                h('label', null, '시간',
+                    h('input', {
+                        class: 'cf-in', value: s.time ?? '', placeholder: '모름 (예: 오후 1시)', 'aria-label': '시간',
+                        oninput: ev => { liveState(v).time = ev.target.value.trim(); writeVarsSoon(v); },
+                    })),
+                h('label', null, '배경 변수 3개 (가구 · 재질 · 색, 창문 · 문이 열렸는지, 창밖에 보이는 것)', ...bg),
+                h('span', { class: 'ix-hint' }, '그릴 때마다 연출 모델이 세 줄을 모두 받아 이어 쓰고, 이야기에서 바뀐 것만 고칩니다. 장소가 바뀌면 세 줄을 비우고 새 장소에 맞게 다시 씁니다. 앱이 모든 그림의 장면 태그 뒤에 이 배경을 붙입니다.')),
             st.set.vars ? h('div', { class: 'cc-sec' },
                 h('span', { class: 'ix-hint' }, '변수: {{getvar::nc_location}} · {{getvar::nc_time}} · {{getvar::nc_background}} (배경 변수) · 인물은 {{getvar::nc_이름_top}} · hairstyle · bangs · haircolor · eyes · height · body · bottom · shoes')) : null));
         return card;
