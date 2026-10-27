@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.115.0
+//@display-name 🎨 이매진 v3.115.1
 //@api 3.0
-//@version 3.115.0
+//@version 3.115.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.115.0';
+    const VERSION = '3.115.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -496,7 +496,8 @@
     const WEAR_KEYS = WEAR.map(w => w[0]);
     const LOOK_AT = WEAR_KEYS.indexOf('top');
     const emptyWear = () => Object.fromEntries(WEAR_KEYS.map(k => [k, '']));
-    const isNone = v => /^(?:none|없음)$/i.test(tidy(v));
+    const NONE_WORDS = /^(?:none(?: now)?|nothing|nude|naked|nudity|topless|bottomless|shirtless|pantsless|undressed|removed|taken off|no (?:top|bottom|shirt|pants|clothes|clothing|shoes|footwear)|없음|벗음|알몸|안 입음)$/i;
+    const isNone = v => NONE_WORDS.test(tidy(tidy(String(v ?? '').split(',')[0]).replace(/^\((.*)\)$/, '$1').replace(/\([^)]*\)/g, ' ').replace(/[.!]+$/, '')));
     const HEADWEAR = /\b(?:hat|cap|beret|beanie|hood|helmet|crown|tiara|visor|bonnet|headdress|headscarf|turban|headwear|veil|circlet)\b/i;
     const COVERS_BOTTOM = /\b(?:dress|one-piece|gown|robe|kimono|yukata|leotard|bodysuit|swimsuit|jumpsuit|overalls|bikini|cheongsam|qipao)\b/i;
     function absentTags(val, none) {
@@ -1126,7 +1127,7 @@ ${TAG_STYLE}`;
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
 Output ONE JSON object only, no prose:
-{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","background":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
+{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","background":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"... or none","bottom":"... or none","shoes":"... or none","type":"girl|boy|other","look":"..."}]},
  "images":[${imageOut}]}
 
 CANVAS: ${shape}, ${w}x${h}. Every image uses this canvas; frame each moment for it.
@@ -1145,6 +1146,7 @@ STATE
 - state.cast is the update of the tracked character variables (the NOW slots in CAST), not a fresh description of the scene. Start from each character's NOW slots and carry them forward; list every character visible in this scene, as danbooru tags with colors, in nine slots:
   hairstyle (length, hairstyle, hair accessories, headwear), bangs, haircolor, eyes (eye color), height, body (build, chest size), top (upper-body clothing; a dress goes here), bottom (lower-body clothing incl. socks / stockings), shoes (footwear).
 - Update a slot when the story changes it (undressing, getting wet, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
+- Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). Write the new outfit only once the story says it is actually on.
 - Colors follow the COLOR RULE: every item in top, bottom, shoes and the headwear / hair accessories in hairstyle has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is not in CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
 - location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. NEVER use proper nouns: no person names, family names, school, shop, station, city or country names; describe the place by its kind and features instead ("a teenage boy's bedroom", not "Rito's bedroom"). Too vague: "his room", "school", "a cafe". Specific enough: "a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window", "the third-floor library of a high school, a seat by the window", "a small cafe on a back street near a train station, a two-seat table by the counter". While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague, not in English or contains a proper noun (then rewrite the same place specifically in English without names).
@@ -1545,11 +1547,12 @@ Rules
                 e = normCast({
                     id: uid(), key: freshKey(cast.list, name), name: tidy(raw.label) || name, aliases: [], canon: canonTag(raw.canon),
                     type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
-                    look: tidy(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, /^none$/i.test(tidy(raw[k])) ? '' : tidy(raw[k])])),
+                    look: tidy(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, isNone(raw[k]) ? '' : tidy(raw[k])])),
                     src: 'chat', on: true,
                 });
                 cast.list.push(e);
                 castChanged = true;
+                for (const k of ['top', 'bottom']) if (isNone(raw[k])) (state.wear[e.id] ??= {})[k] = 'none';
                 if (e.key !== name) renamePlan(plan, name, e.key);
                 continue;
             }
@@ -1558,7 +1561,8 @@ Rules
                 if (!v) continue;
                 const base = baseWear(e, k);
                 const w = state.wear[e.id] ??= {};
-                if (v.toLowerCase() === base.toLowerCase() || (/^none$/i.test(v) && !base)) delete w[k];
+                if (isNone(v)) { if (base || tidy(w[k])) w[k] = 'none'; else delete w[k]; }
+                else if (v.toLowerCase() === base.toLowerCase()) delete w[k];
                 else w[k] = v;
                 if (!Object.keys(w).length) delete state.wear[e.id];
             }
@@ -2555,7 +2559,8 @@ Rules
             busy.stage = 2;
             busy.at = Date.now();
             render();
-            const spot = await commit(job, char, key, idx, out, stateChanged ? state : null, cast, stateBase, re) ?? { key, idx };
+            const scroll = st.set.scroll !== 'off' && (reqs[0]?.kind ?? (isIllust() ? 'illust' : 'comic')) === 'illust' ? st.set.scroll : null;
+            const spot = await commit(job, char, key, idx, out, stateChanged ? state : null, cast, stateBase, re, scroll) ?? { key, idx };
             if (spot.key !== key) { delete recs[key]; failed.delete(key); }
             const images = job.only ? old.images.map(x => x.name === job.only ? out[0] : x) : out;
             recs[spot.key] = {
@@ -2570,7 +2575,6 @@ Rules
             failed.delete(key);
             st.ok = true;
             st.note = `${out.length}장을 그려 ${char.type === 'group' ? '패널 기록에' : '봇에'} 저장했습니다.`;
-            if (st.set.scroll !== 'off' && (reqs[0]?.kind ?? (isIllust() ? 'illust' : 'comic')) === 'illust') void scrollAfterDraw(out.map(o => o.name), spot.idx, st.set.scroll);
         } catch (error) {
             if (error.isStop) st.note = '중단했습니다.';
             else {
@@ -2672,7 +2676,7 @@ Rules
     const COMMIT_CHECKS = [250, 450, 700];
     const DROP_LATER = 4000;
     const hasName = (text, name) => new RegExp(escapeRe(name) + '(?![a-z0-9_])', 'i').test(String(text ?? ''));
-    async function commit(job, char0, key, idx, out, state, cast, stateBase, re) {
+    async function commit(job, char0, key, idx, out, state, cast, stateBase, re, scroll = null) {
         const recs = await loadRecs(char0.chaId);
         const oldNames = new Set(job.only ? [job.only] : (recs[key]?.images ?? []).map(x => x.name));
         const isChar = char0.type !== 'group';
@@ -2710,6 +2714,7 @@ Rules
             spot = { idx: i, key: msgKeyOf(chat.message[i], i, chat.message) };
             if (state && i === lastBotIndex(chat)) writeStateInto(chat, mergeState(readState(chat), stateBase, state, false, re), cast);
             await api.setChatToIndex(job.ci, job.chi, chat);
+            if (put && scroll) void scrollAfterDraw(want, i, scroll);
             return true;
         };
         let first = false, writeErr = null;
@@ -6290,30 +6295,46 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return root.doc;
     }
 
+    let scrollTok = 0;
     async function scrollAfterDraw(names, idx, mode) {
         const d = root.doc;
-        if (!d || !names?.length || mode === 'off') return;
+        if (!d || !names?.length || !mode || mode === 'off') return;
+        const tok = ++scrollTok;
+        const live = () => tok === scrollTok;
         const sel = names.map(n => '.x-risu-nc-id-' + n).join(', ');
         try {
-            let best = null;
-            for (let t = 0; t < 10; t++) {
-                await sleep(200);
+            let best = null, lastSum = -1;
+            for (let t = 0; t < 50; t++) {
+                await sleep(80);
+                if (!live()) return;
                 const all = await d.querySelectorAll(sel);
-                let top = Infinity, tall = false;
+                let top = Infinity, sum = 0, short = false, n = await all.length();
                 best = null;
-                for (let i = 0, n = await all.length(); i < n; i++) {
+                for (let i = 0; i < n; i++) {
                     const e = await all.at(i);
                     const r = await e.getBoundingClientRect();
-                    if (r && r.top < top) { top = r.top; best = e; tall = r.height > 40; }
+                    if (!r) continue;
+                    sum += r.height;
+                    if (r.height <= 40) short = true;
+                    if (r.top < top) { top = r.top; best = e; }
                 }
-                if (best && tall) break;
+                if (best && !short && Math.abs(sum - lastSum) < 1) break;
+                lastSum = best && !short ? sum : -1;
             }
-            if (!best) return;
+            if (!best || !live()) return;
             const msg = mode === 'last' && Number.isInteger(idx) && idx >= 0 ? await d.querySelector(`.risu-chat[data-chat-index="${idx}"]`) : null;
             const to = msg ?? best, block = msg ? 'start' : 'center';
             await to.scrollIntoView({ block, behavior: 'instant' });
-            await sleep(400);
-            await to.scrollIntoView({ block, behavior: 'instant' });
+            const at = (await to.getBoundingClientRect())?.top;
+            for (let t = 0; t < 3; t++) {
+                await sleep(300);
+                if (!live()) return;
+                const now = (await to.getBoundingClientRect())?.top;
+                if (Number.isFinite(at) && Number.isFinite(now) && Math.abs(now - at) > 6) {
+                    await to.scrollIntoView({ block, behavior: 'instant' });
+                    break;
+                }
+            }
         } catch (error) {
             console.warn(LOG, 'scrollAfterDraw', error);
         }
