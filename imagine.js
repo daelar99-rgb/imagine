@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.112.1
+//@display-name 🎨 이매진 v3.113.1
 //@api 3.0
-//@version 3.112.1
+//@version 3.113.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.112.1';
+    const VERSION = '3.113.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1123,12 +1123,12 @@ ${TAG_STYLE}`;
     const HISTORY_MAX = 40000;
     const PREV_MSG = 4000;
 
+    const enOr = t => t && !CJK_RE.test(t) ? t : '?';
     function bgLines(state) {
         const slots = bgSlots(state?.backgrounds);
-        const en = t => t && !CJK_RE.test(t) ? t : '?';
         return Array.from({ length: BG_SLOTS }, (_, i) => {
             const e = slots[i];
-            return `background[${i}] (${i ? 'past' : 'newest'}${e ? ', at ' + en(e.location) : ''}): ${e ? en(e.background) : '(empty)'}`;
+            return `background[${i}] (${i ? 'past' : 'newest'}${e ? ', at ' + enOr(e.location) : ''}): ${e ? enOr(e.background) : '(empty)'}`;
         });
     }
     function castLine(e, state) {
@@ -1148,8 +1148,8 @@ ${TAG_STYLE}`;
             cast.list.filter(e => e.on !== false).map(e => castLine(e, state)).join('\n') || '(empty — invent consistent looks and report them in state.cast)',
             '',
             '# CURRENT STATE',
-            `location: ${state.location || '?'}`,
-            `time: ${state.time || '?'}`,
+            `location: ${enOr(state.location)}`,
+            `time: ${enOr(state.time)}`,
             ...bgLines(state),
             '',
         ];
@@ -2199,6 +2199,7 @@ Rules
         return all;
     }
 
+    const thumbFixed = p => !!p.thumbFixed || (!p.thumbAt && !p.thumbPath && String(p.thumb || '').startsWith('data:'));
     async function shrinkImage(bytes, maxW = 240) {
         try {
             const bmp = await createImageBitmap(new Blob([bytes], { type: mimeOf(bytes) }));
@@ -2221,10 +2222,10 @@ Rules
     }
     async function setArtistThumb(presetId, bytes, path) {
         const p = st.presets.find(x => x.id === presetId);
-        if (!p || !bytes || BUILTIN_THUMB[p.id]) return;
+        if (!p || !bytes || BUILTIN_THUMB[p.id] || thumbFixed(p)) return;
         const thumb = await shrinkImage(bytes);
         const now = st.presets.find(x => x.id === presetId);
-        if (!now) return;
+        if (!now || thumbFixed(now)) return;
         now.thumb = thumb;
         now.thumbPath = path ?? '';
         now.thumbAt = Date.now();
@@ -3402,6 +3403,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ps-th img.ps-dim{opacity:.55}
 .ps-it .ps-badge{position:absolute;top:4px;left:4px;display:block;padding:1px 6px;overflow:visible;-webkit-line-clamp:none;font-size:.64rem;font-weight:700;line-height:1.4;color:#fff;background:var(--accent)}
 .ps-it .ps-badge.ps-badge-r{left:auto;right:4px}
+.ps-tags{position:absolute;top:4px;left:24px;right:4px;z-index:1;display:flex;flex-wrap:wrap;justify-content:space-between;gap:3px;pointer-events:none}
+.ps-tags i{padding:1px 6px;font-size:.64rem;font-style:normal;font-weight:700;line-height:1.4;color:#fff;white-space:nowrap;background:var(--accent)}
+.ps-tags i.ps-tag-ac{margin-left:auto;background:var(--good)}
 .ps-it.ps-as.ps-on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .ps-it .ps-chk{position:absolute;top:5px;left:5px;display:grid;place-items:center;width:20px;height:20px;padding:0;overflow:visible;-webkit-line-clamp:none;font-size:.78rem;font-weight:700;line-height:1;color:#fff;background:var(--accent);border:2px solid var(--accent)}
 .ps-pool{margin-top:10px}
@@ -3573,7 +3577,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .sp-hd b{font-size:.95rem}
 .sp.lock .sp-hd b{color:var(--muted)}
 .sp.lock .sp-hd{opacity:.75}
-.sp-hd .lnk{margin-left:2px}
+.sp-hd .lnk{min-height:26px;margin-left:2px;padding:2px 12px;font-size:.8rem;font-weight:700;line-height:1.4;color:var(--accent2);text-decoration:none;background:var(--soft);border:1px solid var(--accent)}
+.sp-hd .lnk:hover{color:#fff;background:var(--accent)}
 .sp-sum{min-width:0;overflow-wrap:anywhere;font-size:.78rem;color:var(--muted)}
 .sp.done .sp-sum{color:var(--good);font-weight:700}
 .sp-bd{padding-top:10px}
@@ -4647,7 +4652,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 let info, bytes;
                 try { bytes = new Uint8Array(await file.arrayBuffer()); info = await readImageInfo(bytes); } catch { info = { kind: 'broken' }; }
                 const name = file.name.replace(/\.[^.]+$/, '');
-                if (info.kind === 'nai') srcs.push({ name, thumb: await shrinkImage(bytes, 240), info });
+                if (info.kind === 'nai') srcs.push({ name, thumb: await shrinkImage(bytes, 240), info, fixed: true });
                 else f.bad[info.kind === 'none' || info.kind === 'other' ? info.kind : 'broken'].push(name);
                 f.n++;
             }
@@ -4672,7 +4677,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }
         function presetOf(g) {
             const first = g.srcs[0];
-            return { id: uid(), name: g.name.trim() || g.nameHint, pos: buildText(g.pos, g.ov, 'p'), neg: buildText(analyzeNeg(negOf(g.meta), g.dropChild), g.ov, 'n'), ...(g.useGen ? genOf(g.meta).g : {}), thumb: first.thumb || '', thumbPath: first.path || '' };
+            return { id: uid(), name: g.name.trim() || g.nameHint, pos: buildText(g.pos, g.ov, 'p'), neg: buildText(analyzeNeg(negOf(g.meta), g.dropChild), g.ov, 'n'), ...(g.useGen ? genOf(g.meta).g : {}), thumb: first.thumb || '', thumbPath: first.path || '', ...(first.fixed && first.thumb ? { thumbFixed: true } : {}) };
         }
         function autoAdd(g, src) {
             const p = presetOf(g);
@@ -4820,7 +4825,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     function presetGrid(after, edit, asset = false, head = null) {
         const cur = edit ? edit.cur : asset ? acPreset() : preset();
         const used = preset().id, acUsed = acPreset().id;
-        const badge = t => h('small', { style: 'margin-left:6px;font-weight:400;color:var(--accent)' }, t);
+        const tags = p => {
+            const il = edit && p.id === used, ac = edit && p.id === acUsed;
+            return il || ac ? h('div', { class: 'ps-tags' }, il ? h('i', null, '삽화') : null, ac ? h('i', { class: 'ps-tag-ac' }, '애드 에셋') : null) : null;
+        };
         return h('div', { class: 'ps', role: 'radiogroup' }, head, st.presets.map(p => h('button', {
             class: 'ps-it' + (p.id === cur.id ? ' sel' : '') + (p.id === ui.newId ? ' ps-new' : ''), type: 'button', role: 'radio', 'aria-checked': p.id === cur.id ? 'true' : 'false',
             ...(p.id === ui.newId ? { style: `animation-delay:-${Math.max(0, Date.now() - (ui.newAt || 0))}ms` } : {}),
@@ -4830,8 +4838,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }, h('div', { class: 'ps-th' }, BUILTIN_THUMB[p.id] ? h('img', { src: BUILTIN_THUMB[p.id], alt: '' })
             : p.thumb ? h('img', { src: p.thumb, alt: '' })
             : p.thumbPath ? h('img', { 'data-path': p.thumbPath, alt: '' })
-            : h('em', { class: 'ps-none' }, '아직 그린 그림 없음')),
-        h('b', null, p.name || '이름 없음', edit && p.id === used ? badge('· 삽화') : null, edit && p.id === acUsed ? badge('· 애드 에셋') : null), h('span', { title: p.pos || '' }, p.pos))));
+            : h('em', { class: 'ps-none' }, '아직 그린 그림 없음'), tags(p)),
+        h('b', null, p.name || '이름 없음'), h('span', { title: p.pos || '' }, p.pos))));
     }
 
     const noChat = pane => add(pane, h('div', { class: 'ix-empty' }, h('b', null, '열린 채팅이 없습니다'), '봇과 채팅을 연 뒤 다시 열어 주세요.'));
@@ -5600,7 +5608,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'ix-acts', style: 'margin:0 0 14px' },
                 h('button', { class: 'ix-btn sm', type: 'button', onclick: toIllust }, '삽화 그림체 변경'),
                 h('button', { class: 'ix-btn sm', type: 'button', onclick: toAsset }, '애드 에셋 그림체 변경')),
-            h('h2', { class: 'sub', style: 'margin-top:0' }, '그림체 목록', h('small', null, '누른 그림체를 아래에서 고칩니다 · 카드 그림은 그 그림체로 마지막에 그린 것 (내장 그림체 셋은 고정)')),
+            h('h2', { class: 'sub', style: 'margin-top:0' }, '그림체 목록', h('small', null, '누른 그림체를 아래에서 고칩니다 · 카드 그림은 그 그림체로 마지막에 그린 것 (내장 그림체와 이미지 첨부로 넣은 그림체는 고정)')),
             presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }, false, tail.head), tail.tray,
             h('div', { class: 'ix-acts' },
                 saveBtn,
@@ -5614,7 +5622,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('button', {
                     class: 'ix-btn', type: 'button',
                     onclick: () => {
-                        const p = { ...cur, id: uid(), name: cur.name + ' 사본', thumb: '', thumbPath: '' };
+                        const p = { ...cur, id: uid(), name: cur.name + ' 사본', thumb: '', thumbPath: '', thumbFixed: false };
                         st.presets.push(p); ui.styleId = p.id; savePresets(); renderNow();
                     },
                 }, '복제'),
