@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.106.6
+//@display-name 🎨 이매진 v3.106.7
 //@api 3.0
-//@version 3.106.6
+//@version 3.106.7
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.106.6';
+    const VERSION = '3.106.7';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5974,6 +5974,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const IN_GAP = '6px';
+    const IN_EDGE = '0.375rem';
+    const IN_TAIL = '-10px';
     async function tightenButtons(row, force = false) {
         const kids = await row.getChildren();
         const n = await kids.length();
@@ -5987,14 +5989,19 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const sign = n + '|' + items.map(x => x[1]).join('|');
         if (sign === root.kids && !force) return;
         root.kids = sign;
+        const isBtn = cls => /(^|\s)w-12(\s|$)/.test(cls);
+        const tail = items.length && isBtn(items[items.length - 1][1]) ? items.length - 1 : -1;
         let first = true;
-        for (const [k, cls] of items) {
-            if (!/(^|\s)w-12(\s|$)/.test(cls)) continue;
+        for (let i = 0; i < items.length; i++) {
+            const [k, cls] = items[i];
+            if (!isBtn(cls)) continue;
             const now = await k.getStyle('marginLeft');
-            if (first) {
-                first = false;
-                if (now === IN_GAP) await k.setStyle('marginLeft', '');
-            } else if (now !== IN_GAP) await k.setStyle('marginLeft', IN_GAP);
+            const want = first ? IN_EDGE : IN_GAP;
+            first = false;
+            if (now !== want) await k.setStyle('marginLeft', want);
+            const right = await k.getStyle('marginRight');
+            if (i === tail) { if (right !== IN_TAIL) await k.setStyle('marginRight', IN_TAIL); }
+            else if (right === IN_TAIL) await k.setStyle('marginRight', '');
         }
     }
 
