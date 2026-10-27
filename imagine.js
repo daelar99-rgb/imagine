@@ -5332,7 +5332,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const tail = SA.tailParts();
         const toIllust = () => {
             ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; ui.menu = ''; acs.menu = '';
-            if (st.set.setup?.preset) ui.reopen = 5;
+            if (st.set.setup?.preset && !st.busy) ui.reopen = 5;
             renderNow();
         };
         const toAsset = () => {
