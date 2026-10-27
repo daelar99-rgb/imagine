@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.107.1
+//@display-name 🎨 이매진 v3.108.0
 //@api 3.0
-//@version 3.107.1
+//@version 3.108.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.107.1';
+    const VERSION = '3.108.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -4435,6 +4435,46 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             return `${base} ${i}`;
         }
         let seq = 0, newT = 0;
+        const hintOf = g => { const names = artistNames(g.pos); return names.length ? `${names[0][0]}${names.length > 1 ? ` 외 ${names.length - 1}명` : ''}` : g.srcs[0].name; };
+        const sameOf = g => { const k = styleKey(analyzePos(buildText(g.pos, g.ov, 'p'))); return k ? st.presets.find(p => p.pos && styleKey(analyzePos(p.pos)) === k) : undefined; };
+        const CLEAN_SYS = 'You sort NovelAI image prompt tags by what they describe. Reply with JSON only.';
+        const CLEAN_KEEP = { artist: 'artist', style: 'style', quality: 'quality' };
+        const KIND_KO = { artist: '작가로 남김', style: '화풍으로 남김', quality: '품질로 남김', scene: '뺌' };
+        const guessed = tg => tg.kind === 'style' || tg.kind === 'scene';
+        function cleanPrompt(raw, list) {
+            return ['Full prompt (context only):', raw, '', 'Tags to sort:', ...list.map(c => `- ${c}`), '',
+                'Kinds:',
+                'artist = an artist or illustrator name, with or without "artist:"',
+                'style = art style, medium, rendering, line, color or lighting look',
+                'quality = quality or aesthetic boosters (masterpiece, hyper detail, very aesthetic)',
+                'subject = the character itself: count, gender, age, body, hair, eyes, clothes, expression, pose',
+                'scene = place, background, objects, action, camera, composition, censorship, text or anything else',
+                'Reply as JSON: {"tags":[{"tag":"...","kind":"artist|style|quality|subject|scene"}]}'].join('\n');
+        }
+        async function refineByModel(g) {
+            const chips = g.pos.flatMap(it => it.tags || [it]).filter(guessed);
+            const list = [...new Set(chips.map(tg => tg.c))];
+            if (!list.length) return;
+            const c = g.clean = { n: list.length, prompt: cleanPrompt(posOf(g.meta), list), reply: '', err: '', unread: false, moved: [] };
+            try { c.reply = await requestModel(CLEAN_SYS, c.prompt, true, st.set.llm); } catch (error) { c.err = String(error?.message || error); return; }
+            let raw = [];
+            try { raw = JSON.parse(String(c.reply).match(/\{[\s\S]*\}/)?.[0] || '{}').tags || []; } catch (e) { raw = []; }
+            const want = new Set(list), kinds = new Map();
+            for (const t of Array.isArray(raw) ? raw : []) {
+                const core = coreOf(String(t?.tag || '')), kind = String(t?.kind || '').trim().toLowerCase();
+                if (kind && want.has(core) && !kinds.has(core)) kinds.set(core, CLEAN_KEEP[kind] || 'scene');
+            }
+            if (!kinds.size) { c.unread = true; return; }
+            const seen = new Set();
+            for (const tg of chips) {
+                const to = kinds.get(tg.c);
+                if (!to || to === tg.kind) continue;
+                const keep = KEEP_KINDS.has(to);
+                if ((keep !== tg.keep || to === 'artist') && !seen.has(tg.c)) { seen.add(tg.c); c.moved.push({ c: tg.c, to }); }
+                tg.kind = to; tg.keep = keep;
+            }
+            g.nameHint = hintOf(g);
+        }
         function groupStyles(srcs) {
             const map = new Map();
             for (const s of srcs) {
@@ -4446,11 +4486,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             }
             return [...map.values()].map(g => {
                 const same = st.presets.find(p => p.pos && styleKey(analyzePos(p.pos)) === g.key);
-                const names = artistNames(g.pos);
-                return {
-                    ...g, id: 'g' + (++seq), same, added: '', ov: new Map(), useGen: true, dropChild: true, name: '',
-                    nameHint: names.length ? `${names[0][0]}${names.length > 1 ? ` 외 ${names.length - 1}명` : ''}` : g.srcs[0].name,
-                };
+                return { ...g, id: 'g' + (++seq), same, added: '', ov: new Map(), useGen: true, dropChild: true, name: '', nameHint: hintOf(g) };
             });
         }
         async function readBytes(path) {
@@ -4468,6 +4504,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (p !== 'person') return { why: p };
             const g = groupStyles([{ name: a.name, path: a.path, thumb: '', info }])[0];
             if (g.same) return { why: 'same', same: g.same };
+            s.phase = 'clean'; renderNow();
+            await refineByModel(g);
+            if (ui.scan !== s) return null;
+            if (g.clean?.moved.length) { g.same = sameOf(g); if (g.same) return { why: 'same', same: g.same }; }
             g.nameHint = nameHintOf();
             return { g };
         }
@@ -4485,7 +4525,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             return false;
         }
         async function startScan() {
-            if (scanWait || (ui.scan && ui.scan.chaId === st.view?.chaId && (ui.scan.phase === 'model' || ui.scan.phase === 'read'))) return;
+            if (scanWait || (ui.scan && ui.scan.chaId === st.view?.chaId && busyPhase(ui.scan))) return;
             const chaId = st.view?.chaId;
             scanWait = true;
             try { made = new Set((await loadAst(chaId).catch(() => null))?.made ?? []); } finally { scanWait = false; }
@@ -4502,7 +4542,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             await analyze(s, s.picks, s.fallback ? 'fallback' : 'model');
         }
         async function pickOther(s, a) {
-            if (s.phase === 'read') return;
+            if (s.phase === 'read' || s.phase === 'clean') return;
             const back = s.group ? 'done' : 'none';
             s.msg = '';
             const r = await readOne(s, a);
@@ -4531,7 +4571,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 f.n++;
             }
             if (ui.files !== f) return;
-            f.groups = groupStyles(srcs);
+            const groups = groupStyles(srcs);
+            if (groups[0]) {
+                f.cleaning = true; renderNow();
+                await refineByModel(groups[0]);
+                if (ui.files !== f) return;
+                f.cleaning = false;
+            }
+            f.groups = groups;
             if (f.groups[0]) autoAdd(f.groups[0], f);
             renderNow();
         }
@@ -4578,12 +4625,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     h('b', null, q), h('small', { class: 'ps-sub' }, sub)));
         }
         const kindOfAsset = a => isSelf(a) ? '감정 그림 · 봇 본인' : '추가 에셋';
+        const busyPhase = s => s.phase === 'model' || s.phase === 'read' || s.phase === 'clean';
+        const CLEAN_TITLE = '모델이 프롬프트 정리하는 중';
         function busyTile(s) {
-            const model = s.phase === 'model';
+            const model = s.phase === 'model', clean = s.phase === 'clean';
             return h('div', { class: 'ps-it ps-ent', 'aria-busy': 'true' },
-                h('div', { class: 'ps-th' }, !model && s.cur?.path ? h('img', { class: 'ps-dim', 'data-path': s.cur.path, alt: '' }) : null, h('span', { class: 'ps-ic' }, model ? '🤖' : '🔍'), h('span', { class: 'ps-bar ps-run' }, h('i'))),
-                h('b', null, model ? '모델이 그림 고르는 중' : `「${s.cur?.name || ''}」 읽는 중`),
-                h('small', { class: 'ps-sub' }, model ? `에셋 이름 ${s.list.length}개를 보냅니다` : s.cur ? kindOfAsset(s.cur) : ' '));
+                h('div', { class: 'ps-th' }, s.phase === 'read' && s.cur?.path ? h('img', { class: 'ps-dim', 'data-path': s.cur.path, alt: '' }) : null, h('span', { class: 'ps-ic' }, model || clean ? '🤖' : '🔍'), h('span', { class: 'ps-bar ps-run' }, h('i'))),
+                h('b', null, model ? '모델이 그림 고르는 중' : clean ? CLEAN_TITLE : `「${s.cur?.name || ''}」 읽는 중`),
+                h('small', { class: 'ps-sub' }, model ? `에셋 이름 ${s.list.length}개를 보냅니다` : clean ? '그림은 보내지 않고 태그 글만 보냅니다' : s.cur ? kindOfAsset(s.cur) : ' '));
         }
         function assetTile(a, on, onclick, badge) {
             return h('button', { class: 'ps-it ps-as' + (on ? ' ps-on' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false', onclick },
@@ -4614,6 +4663,17 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 s.err ? [h('p', null, h('b', null, '모델 오류')), h('pre', { class: 'ps-pre' }, s.err)] : null,
                 s.reply ? [h('p', null, h('b', null, '모델 답')), h('pre', { class: 'ps-pre' }, s.reply)] : null));
         }
+        function cleanBox(c) {
+            if (!c) return null;
+            const head = c.err || c.unread ? '모델 답을 쓰지 못해 규칙으로 가른 결과를 그대로 넣었습니다'
+                : c.moved.length ? c.moved.map(m => `${m.c} → ${KIND_KO[m.to] || m.to}`).join(', ') : '규칙으로 가른 결과와 같습니다';
+            return h('div', { class: 'ps-why' }, h('details', null,
+                h('summary', null, '모델이 프롬프트를 어떻게 정리했나요'),
+                h('p', null, h('b', null, `다시 가른 태그 ${c.n}개`), ' · ', head),
+                h('p', null, h('b', null, '보낸 글')), h('pre', { class: 'ps-pre' }, c.prompt),
+                c.err ? [h('p', null, h('b', null, '모델 오류')), h('pre', { class: 'ps-pre' }, c.err)] : null,
+                c.reply ? [h('p', null, h('b', null, '모델 답')), h('pre', { class: 'ps-pre' }, c.reply)] : null));
+        }
         function pickLine(s) {
             const src = s.src;
             if (!src) return '';
@@ -4629,9 +4689,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (!n) return out;
             out.tiles.push(askTile(`「${botName()}」 그림체 가져오기`, `에셋 ${n}장 중 인물 그림 하나로`, startScan, '에셋에서 그림체 찾기'));
             if (!s) return out;
-            if (s.phase === 'model' || s.phase === 'read') {
+            if (busyPhase(s)) {
                 out.tiles.push(busyTile(s));
-                if (s.phase === 'read' && s.choose) out.tray.push(assetGrid(s, () => {}, s.src?.name, '읽는 중입니다'));
+                if (s.phase !== 'model' && s.choose) out.tray.push(assetGrid(s, () => {}, s.src?.name, '읽는 중입니다'));
                 return out;
             }
             const g = s.group;
@@ -4642,7 +4702,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 clearBtn('이 결과로 넣은 그림체를 목록에서 뺍니다', () => { dropAdds(ui.scan); ui.scan = null; renderNow(); })));
             out.tray.push(msgBox(s));
             if (s.choose) out.tray.push(assetGrid(s, a => pickOther(s, a), s.src?.name, '누르면 그 그림을 바로 읽어 그림체를 하나 더 넣습니다'));
-            out.tray.push(scanBox(s));
+            out.tray.push(scanBox(s), cleanBox(g?.clean));
             return out;
         }
         function fileParts() {
@@ -4650,8 +4710,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const f = ui.files, out = { tiles: [], tray: [] };
             if (f && !f.groups) {
                 out.tiles.push(h('div', { class: 'ps-it ps-ent', 'aria-busy': 'true' },
-                    h('div', { class: 'ps-th' }, h('span', { class: 'ps-ic' }, '🖼️'), h('span', { class: 'ps-bar ps-run' }, h('i'))),
-                    h('b', null, `「${f.name}」 읽는 중`), h('small', { class: 'ps-sub' }, '첨부한 이미지')));
+                    h('div', { class: 'ps-th' }, h('span', { class: 'ps-ic' }, f.cleaning ? '🤖' : '🖼️'), h('span', { class: 'ps-bar ps-run' }, h('i'))),
+                    h('b', null, f.cleaning ? CLEAN_TITLE : `「${f.name}」 읽는 중`), h('small', { class: 'ps-sub' }, f.cleaning ? '그림은 보내지 않고 태그 글만 보냅니다' : '첨부한 이미지')));
                 return out;
             }
             out.tiles.push(h('div', { class: 'ps-it ps-ent' },
@@ -4666,6 +4726,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     : ['첨부한 이미지 ', h('b', null, `「${f.name}」`), `에서 그림체를 찾지 못했습니다 (${bad ? bad[1] : 'NovelAI 그림 정보가 없음'}).`],
                 g ? null : h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', onclick: pickStyleFile }, '다른 이미지로'),
                 clearBtn('이 이미지로 넣은 그림체를 목록에서 뺍니다', () => { dropAdds(ui.files); ui.files = null; renderNow(); })));
+            out.tray.push(cleanBox(g?.clean));
             return out;
         }
         function tailParts() {
