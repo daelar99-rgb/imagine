@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.106.1
+//@display-name 🎨 이매진 v3.106.2
 //@api 3.0
-//@version 3.106.1
+//@version 3.106.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.106.1';
+    const VERSION = '3.106.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5344,8 +5344,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         };
         add(pane,
             h('div', { class: 'ix-acts', style: 'margin:0 0 14px' },
-                h('button', { class: 'ix-btn', type: 'button', onclick: toIllust }, `삽화 그림체 변경 · 지금 ${preset().name || '이름 없음'}`),
-                h('button', { class: 'ix-btn', type: 'button', onclick: toAsset }, `애드 에셋 그림체 변경 · 지금 ${acPreset().name || '이름 없음'}`)),
+                h('button', { class: 'ix-btn sm', type: 'button', onclick: toIllust }, '삽화 그림체 변경'),
+                h('button', { class: 'ix-btn sm', type: 'button', onclick: toAsset }, '애드 에셋 그림체 변경')),
             h('h2', { class: 'sub', style: 'margin-top:0' }, '그림체 목록', h('small', null, '누른 그림체를 아래에서 고칩니다 · 카드 그림은 그 그림체로 마지막에 그린 것 (내장 그림체 셋은 고정)')),
             presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }, false, tail.head), tail.tray,
             h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림 정보를 지운 그림(트위터 · 디스코드에 올렸다 받은 그림 등)과 투명도 속에 숨긴 정보(stealth)는 읽지 못합니다. 그림은 이 기기 안에서만 읽습니다.'),
