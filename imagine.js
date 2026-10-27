@@ -4461,7 +4461,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             try { raw = JSON.parse(String(c.reply).match(/\{[\s\S]*\}/)?.[0] || '{}').tags || []; } catch (e) { raw = []; }
             const want = new Set(list), kinds = new Map();
             for (const t of Array.isArray(raw) ? raw : []) {
-                const core = coreOf(String(t?.tag || '')), kind = String(t?.kind || '').trim().toLowerCase();
+                const core = coreOf(String(t?.tag || '')).replace(/^artist:\s*/, ''), kind = String(t?.kind || '').trim().toLowerCase();
                 if (kind && want.has(core) && !kinds.has(core)) kinds.set(core, CLEAN_KEEP[kind] || 'scene');
             }
             if (!kinds.size) { c.unread = true; return; }
