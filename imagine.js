@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.113.2
+//@display-name 🎨 이매진 v3.113.3
 //@api 3.0
-//@version 3.113.2
+//@version 3.113.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.113.2';
+    const VERSION = '3.113.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -643,6 +643,55 @@
             ss[`$nc_${n}_outfit`] = joinTags(wearOf(e, state, 'top'), wearOf(e, state, 'bottom'));
             ss[`$nc_${n}_hair`] = joinTags(['hairstyle', 'bangs', 'haircolor'].map(k => wearOf(e, state, k)));
         }
+    }
+    const sameJson = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    const bgRaw = list => (Array.isArray(list) ? list : []).map(e => ({ location: tidy(e?.location), background: bgText(e?.background) }));
+    function mergeState(live, base, mine, edit = false, re = null) {
+        const out = { ...live, wear: {}, seeded: !!(live.seeded || mine.seeded) };
+        for (const [id, w] of Object.entries(live.wear ?? {})) out.wear[id] = { ...w };
+        for (const k of ['location', 'time']) if ((mine[k] ?? '') !== (base[k] ?? '')) out[k] = mine[k] ?? '';
+        for (const id of new Set([...Object.keys(base.wear ?? {}), ...Object.keys(mine.wear ?? {})])) {
+            const b = base.wear?.[id] ?? {}, m = mine.wear?.[id] ?? {};
+            for (const k of new Set([...Object.keys(b), ...Object.keys(m)])) {
+                if (b[k] === m[k]) continue;
+                if (m[k] === undefined) { if (out.wear[id]) delete out.wear[id][k]; }
+                else (out.wear[id] ??= {})[k] = m[k];
+            }
+            if (out.wear[id] && !Object.keys(out.wear[id]).length) delete out.wear[id];
+        }
+        if (Array.isArray(mine.looked)) out.looked = [...new Set([...(live.looked ?? []), ...mine.looked])];
+        const rb = bgRaw(base.backgrounds), rm = bgRaw(mine.backgrounds), bs = bgSlots(rb), ms = bgSlots(rm);
+        let ls = bgSlots(live.backgrounds);
+        if (sameJson(ms, bs)) {
+        } else if (sameJson(ls, bs)) ls = ms;
+        else if (edit) {
+            for (let i = 0; i < Math.max(rb.length, rm.length); i++) {
+                const b = rb[i], m = rm[i] ?? { location: '', background: '' };
+                if (sameJson(b, m)) continue;
+                const at = b?.background ? ls.findIndex(x => x.background === b.background) : i === 0 && ls[0] && !ls[0].background ? 0 : -1;
+                if (at >= 0) ls[at] = m;
+                else if (i === 0 && m.background) ls.unshift(m);
+            }
+        } else if (re?.top) {
+            const top = re.top, b = bs[re.bi];
+            let at = top.background ? ls.findIndex(x => x.background === top.background) : -1;
+            if (at < 0) at = b?.background ? ls.findIndex(x => x.background === b.background) : re.bi === 0 && ls[0] && !ls[0].background ? 0 : -1;
+            if (at < 0) at = Math.min(re.bi, ls.length);
+            ls[at] = top;
+            ls = ls.filter((x, k) => k === at || !top.background || x.background !== top.background);
+        } else if (ms[0] && !sameJson(ms[0], bs[0])) {
+            const top = ms[0];
+            if (bs[0] && top.background === bs[0].background) {
+                if (ls[0]) ls[0] = { ...ls[0], location: top.location };
+            } else {
+                let at = top.background ? ls.findIndex(x => x.background === top.background) : -1;
+                if (at < 0 && ls[0] && !ls[0].background) at = 0;
+                if (at >= 0) ls.splice(at, 1);
+                ls.unshift(top);
+            }
+        }
+        out.backgrounds = bgSlots(ls);
+        return out;
     }
 
     const msgKeyOf = (m, i, list) => {
@@ -1435,7 +1484,7 @@ Rules
         return out;
     }
 
-    function applyState(plan, cast, state, fresh = new Set()) {
+    function applyState(plan, cast, state, fresh = new Set(), re = null) {
         let castChanged = false;
         const s = plan?.state ?? {};
         state.seeded = true;
@@ -1448,10 +1497,20 @@ Rules
             else state[k] = t;
         }
         const moved = typeof s.moved === 'boolean' ? s.moved : placeKey(state.location) !== prevLoc;
-        const slots = bgSlots(state.backgrounds);
+        let slots = bgSlots(state.backgrounds);
         const got = bgText(s.background);
         if (got && CJK_RE.test(got)) console.warn(LOG, 'background is not English', got);
-        if (got && !CJK_RE.test(got)) {
+        if (re) {
+            let at = re.bg ? slots.findIndex(e => e.background === re.bg) : 0;
+            if (at < 0) at = 0;
+            const top = got && !CJK_RE.test(got) ? { location: state.location, background: got }
+                : moved ? { location: state.location, background: '' }
+                : { location: state.location, background: slots[at]?.background ?? '' };
+            slots[at] = top;
+            slots = slots.filter((e, k) => k === at || !top.background || e.background !== top.background);
+            re.bi = at;
+            re.top = top;
+        } else if (got && !CJK_RE.test(got)) {
             let at = slots.findIndex(e => e.background === got);
             if (at < 0 && slots[0] && !slots[0].background) at = 0;
             if (at >= 0) slots.splice(at, 1);
@@ -1583,7 +1642,7 @@ Rules
         return `${top}${withTags(head, add)}${TAG_JOIN}${s.slice(at)}`;
     }
 
-    const CJK_RE = /[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/;
+    const CJK_RE = /[\u1100-\u11ff\u3000-\u303f\u3040-\u30ff\u3130-\u318f\u3400-\u9fff\uac00-\ud7af\uff00-\uffef]/;
     const flatText = t => String(t ?? '').replace(/["'“”‘’「」『』]/g, '').replace(/\s+/g, '');
     function checkLang(images, text) {
         const src = flatText(text);
@@ -2362,7 +2421,8 @@ Rules
             const old = recs[key];
             const cast = await loadCast(chaId);
             const state = readState(chat);
-            let reqs, plan = old?.plan ?? null, stateChanged = false;
+            const stateBase = JSON.parse(JSON.stringify(state));
+            let reqs, plan = old?.plan ?? null, stateChanged = false, re = null;
 
             if (job.mode === 'draw') {
                 if (!old?.images?.length) throw new Error('다시 그릴 기록이 없습니다.');
@@ -2429,7 +2489,8 @@ Rules
                 state.wear ??= {};
                 const fresh = await resolveUnknown(char, plan, cast, state, job.ci === await api.getCurrentCharacterIndex());
                 if (busy.stop) throw stopError();
-                if (applyState(plan, cast, state, fresh) || fresh.size || fresh.changed) await saveCast(chaId, cast);
+                if (old?.images?.length) re = { bg: bgText(old.plan?.state?.background) };
+                if (applyState(plan, cast, state, fresh, re) || fresh.size || fresh.changed) await saveCast(chaId, cast);
                 stateChanged = true;
                 let images = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object');
                 if (!images.length) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
@@ -2437,7 +2498,8 @@ Rules
                 checkLang(images, plainText(msg.data, 8000) + (emphasize ? '\n' + plainText(input.data) : ''));
                 if (tidy(plan.genre)) images = images.map(img => tidy(img.genre) ? img : { ...img, genre: plan.genre });
                 if (askGenre()) console.log(LOG, 'genre', images.map(img => `${img.genre ?? '(none)'} → ${genreKey(img.genre) || '-'}${monoNow() ? ` · severity ${severityOf(img) || '-'}${isDynamic(img) ? ' · dynamic' : ''}` : ''}`).join(' | '));
-                reqs = images.map(img => buildReq(img, cast, state));
+                const drawState = re ? { ...state, backgrounds: [re.top] } : state;
+                reqs = images.map(img => buildReq(img, cast, drawState));
             }
 
             if (busy.est.P) ilPush(planKey(busy.llm), (Date.now() - busy.at) / 1000);
@@ -2482,7 +2544,7 @@ Rules
             busy.stage = 2;
             busy.at = Date.now();
             render();
-            const spot = await commit(job, char, key, idx, out, stateChanged ? state : null, cast) ?? { key, idx };
+            const spot = await commit(job, char, key, idx, out, stateChanged ? state : null, cast, stateBase, re) ?? { key, idx };
             if (spot.key !== key) { delete recs[key]; failed.delete(key); }
             const images = job.only ? old.images.map(x => x.name === job.only ? out[0] : x) : out;
             recs[spot.key] = {
@@ -2598,7 +2660,7 @@ Rules
     const COMMIT_CHECKS = [250, 450, 700];
     const DROP_LATER = 4000;
     const hasName = (text, name) => new RegExp(escapeRe(name) + '(?![a-z0-9_])', 'i').test(String(text ?? ''));
-    async function commit(job, char0, key, idx, out, state, cast) {
+    async function commit(job, char0, key, idx, out, state, cast, stateBase, re) {
         const recs = await loadRecs(char0.chaId);
         const oldNames = new Set(job.only ? [job.only] : (recs[key]?.images ?? []).map(x => x.name));
         const isChar = char0.type !== 'group';
@@ -2634,7 +2696,7 @@ Rules
             if (i < 0) return false;
             apply(chat.message[i]);
             spot = { idx: i, key: msgKeyOf(chat.message[i], i, chat.message) };
-            if (state && i === lastBotIndex(chat)) writeStateInto(chat, state, cast);
+            if (state && i === lastBotIndex(chat)) writeStateInto(chat, mergeState(readState(chat), stateBase, state, false, re), cast);
             await api.setChatToIndex(job.ci, job.chi, chat);
             return true;
         };
@@ -5269,26 +5331,45 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             writeVarsSoon(v);
         }, 500);
     }
+    let stateFor = null, stateWriting = null;
     function writeVarsSoon(v = st.view) {
         clearTimeout(stateTimer);
-        stateTimer = setTimeout(async () => {
-            if (!v) return;
+        stateFor = v;
+        stateTimer = setTimeout(() => void flushPanelState(), 600);
+    }
+    function flushPanelState() {
+        const v = stateFor;
+        clearTimeout(stateTimer);
+        stateTimer = 0;
+        stateFor = null;
+        if (!v) return stateWriting;
+        const prev = stateWriting;
+        const run = (async () => {
+            await prev?.catch(() => {});
             try {
                 const chat = await api.getChatFromIndex(v.ci, v.chi);
                 if (chat?.isStreaming) { writeVarsSoon(v); return; }
                 if (!chat || chatKeyOf(chat, v.chi) !== v.chatKey) return;
                 if ((await api.getCharacterFromIndex(v.ci))?.chaId !== v.chaId) return;
-                writeStateInto(chat, liveState(v), v.cast);
+                const lv = liveView(v), mine = JSON.parse(JSON.stringify(liveState(v)));
+                writeStateInto(chat, mergeState(readState(chat), lv.stateBase ?? {}, mine, true), v.cast);
                 await api.setChatToIndex(v.ci, v.chi, chat);
+                lv.stateBase = mine;
             } catch (error) {
                 console.warn(LOG, 'state', error);
             }
-        }, 600);
+        })();
+        const p = run.finally(() => { if (stateWriting === p) stateWriting = null; });
+        stateWriting = p;
+        return p;
     }
 
-    const liveState = v => {
+    const liveView = v => {
         const now = st.view;
-        const s = now && now.chaId === v.chaId && now.chatKey === v.chatKey ? now.state : v.state;
+        return now && now.chaId === v.chaId && now.chatKey === v.chatKey ? now : v;
+    };
+    const liveState = v => {
+        const s = liveView(v).state;
         s.wear ??= {};
         return s;
     };
@@ -5317,7 +5398,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const setBg = () => {
             const ls = liveState(v);
             const now = bgSlots(ls.backgrounds);
-            ls.backgrounds = bgSlots(bg.map((ta, i) => ({ location: i ? now[i]?.location ?? '' : ls.location, background: ta.value })));
+            ls.backgrounds = bgRaw(bg.map((ta, i) => ({ location: i ? now[i]?.location ?? '' : ls.location, background: ta.value })));
             writeVarsSoon(v);
         };
         const ex = 'dim room lit by a warm orange desk lamp, a small wooden desk under the window, the closed window shows a dark street';
@@ -5827,6 +5908,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     async function refreshView() {
+        if (stateTimer) flushPanelState();
+        await stateWriting?.catch(() => {});
         const ci = await api.getCurrentCharacterIndex();
         const chi = await api.getCurrentChatIndex();
         const char = await api.getCharacterFromIndex(ci);
@@ -5839,12 +5922,13 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         acReadHave(char);
         if (botHidden(char)) setAssetOff(chaId, true);
         const rawMsgs = chat.message ?? [];
+        const state = readState(chat);
         st.view = {
             ci, chi, chaId, name: char.name, group: char.type === 'group',
             assets: [...(char.emotionImages ?? []).map(x => ({ name: x?.[0], path: x?.[1], from: 'emotion' })), ...(char.additionalAssets ?? []).map(x => ({ name: x?.[0], path: x?.[1] }))]
                 .filter(a => a.name && a.path).map(a => ({ ...a, mine: /^nc_/i.test(a.name) })),
             chatKey: chatKeyOf(chat, chi), cast, recs, hasKey: !!key,
-            state: readState(chat),
+            state, stateBase: JSON.parse(JSON.stringify(state)),
             hidden: botHidden(char) || st.set.assetOff.includes(chaId),
             rawMsgs: rawMsgs.map(m => ({ chatId: m?.chatId })),
             msgs: rawMsgs.map((m, i) => { const key = msgKeyOf(m, i, rawMsgs); return { i, role: m?.role, key, text: excerpt(m?.data, 120), recKey: recKeyIn(recs, chat, key, i) }; }),
