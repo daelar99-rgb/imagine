@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.105.0
+//@display-name 🎨 이매진 v3.106.0
 //@api 3.0
-//@version 3.105.0
+//@version 3.106.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.105.0';
+    const VERSION = '3.106.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3655,7 +3655,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
         ['gallery', () => ['삽화 목록', galCount() ? h('em', { class: 'cnt' }, galCount()) : null]],
     ];
-    const SIDE_TABS = [['cast', '등장인물'], ['style', '작가'], ['set', '설정']];
+    const SIDE_TABS = [['cast', '등장인물'], ['style', '그림체'], ['set', '설정']];
 
     function render() {
         if (!ui.root?.isConnected) return;
@@ -4341,14 +4341,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const isMine = a => a.mine || made.has(a.name) || !!astCache.get(st.view?.chaId)?.made?.includes(a.name);
         const usable = () => (st.view?.assets ?? []).filter(a => !isMine(a));
         const assetOf = name => usable().find(a => a.name === name);
-        const SKIP = { bg: '배경 · 사물 그림', nohuman: '인물 태그 없음', noinfo: 'NovelAI 그림 정보 없음', same: '이미 있는 작가와 같은 그림체' };
+        const SKIP = { bg: '배경 · 사물 그림', nohuman: '인물 태그 없음', noinfo: 'NovelAI 그림 정보 없음', same: '이미 있는 그림체와 같음' };
         const WHY_MSG = {
             bg: '배경 · 사물 그림(no humans)이라서 그림체를 가져오지 않습니다.',
             nohuman: '인물 태그가 없는 그림이라서 건너뜁니다. 인물이 그려진 그림을 골라 주세요.',
             noinfo: 'NovelAI 그림 정보가 없습니다. 그림 정보를 지운 그림이거나 NovelAI로 그린 그림이 아닐 수 있습니다.',
         };
         function failMsg(a, r) {
-            if (r.why === 'same') return `「${a.name}」의 그림체는 이미 있는 작가 「${r.same.name}」${josa(r.same.name, '과', '와')} 같아서 넣지 않습니다. 다른 그림을 골라 주세요.`;
+            if (r.why === 'same') return `「${a.name}」의 그림체는 이미 있는 그림체 「${r.same.name}」${josa(r.same.name, '과', '와')} 같아서 넣지 않습니다. 다른 그림을 골라 주세요.`;
             return `「${a.name}」${josa(a.name, '은', '는')} ${WHY_MSG[r.why]}`;
         }
         const PICK_SYS = 'You pick image assets by file name. Reply with JSON only.';
@@ -4435,15 +4435,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             try { made = new Set((await loadAst(chaId).catch(() => null))?.made ?? []); } finally { scanWait = false; }
             if (st.view?.chaId !== chaId) return;
             const list = usable();
-            const s = ui.scan = { chaId: st.view?.chaId, phase: 'model', list, prompt: pickPrompt(list), reply: '', err: '', picks: [], fallback: false, tried: [], group: null, src: null, cur: null, choose: false, msg: '', adds: [] };
+            const adds = ui.scan?.chaId === chaId ? ui.scan.adds : [];
+            const s = ui.scan = { chaId, phase: 'model', list, prompt: pickPrompt(list), reply: '', err: '', picks: [], fallback: false, tried: [], group: null, src: null, cur: null, choose: false, msg: '', adds };
             renderNow();
             let reply = '';
             try { reply = await requestModel(PICK_SYS, s.prompt, true, st.set.llm); } catch (error) { s.err = String(error?.message || error); }
             if (ui.scan !== s) return;
             s.reply = reply;
             Object.assign(s, parsePicks(reply, list));
-            const ok = await analyze(s, s.picks, s.fallback ? 'fallback' : 'model');
-            if (ui.scan === s && !ok) { s.choose = true; renderNow(); }
+            await analyze(s, s.picks, s.fallback ? 'fallback' : 'model');
         }
         async function pickOther(s, a) {
             if (s.phase === 'read') return;
@@ -4455,7 +4455,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 s.group = r.g; s.src = { name: a.name, why: s.picks.find(p => p.name === a.name)?.why || '', via: 'user' };
                 s.phase = 'done'; s.choose = false;
                 autoAdd(r.g, s);
-            } else { noteTry(s, a.name, r.why); s.msg = failMsg(a, r); s.phase = back; }
+            } else { noteTry(s, a.name, r.why); s.msg = failMsg(a, r); s.phase = back; s.choose = false; }
             renderNow();
         }
         const isImg = f => /^image\/(png|webp|jpeg)$/.test(f.type) || /\.(png|webp|jpe?g)$/i.test(f.name);
@@ -4494,7 +4494,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const p = presetOf(g);
             src.adds.push({ id: p.id, prev: st.presetId, prevStyle: ui.styleId });
             st.presets.push(p); g.added = p.name;
-            st.presetId = p.id; ui.styleId = p.id; ui.newId = p.id; ui.newAt = Date.now();
+            ui.styleId = p.id; ui.newId = p.id; ui.newAt = Date.now();
             clearTimeout(newT); newT = setTimeout(() => { ui.newId = ''; }, 1300);
             savePresets();
         }
@@ -4571,10 +4571,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (ui.scan && ui.scan.chaId !== st.view?.chaId) ui.scan = null;
             const s = ui.scan, n = usable().length, out = { tiles: [], tray: [] };
             if (!n) return out;
-            if (!s) {
-                out.tiles.push(askTile(`「${botName()}」 그림체 가져오기`, `에셋 ${n}장 중 인물 그림 하나로`, startScan, '에셋에서 그림체 찾기'));
-                return out;
-            }
+            out.tiles.push(askTile(`「${botName()}」 그림체 가져오기`, `에셋 ${n}장 중 인물 그림 하나로`, startScan, '에셋에서 그림체 찾기'));
+            if (!s) return out;
             if (s.phase === 'model' || s.phase === 'read') {
                 out.tiles.push(busyTile(s));
                 if (s.phase === 'read' && s.choose) out.tray.push(assetGrid(s, () => {}, s.src?.name, '읽는 중입니다'));
@@ -4582,12 +4580,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             }
             const g = s.group;
             out.tray.push(h('p', { class: 'ps-sum' },
-                g ? [pickLine(s), ` 「${g.added}」${josa(g.added, '으로', '로')} 추가하고 골랐습니다.`]
-                    : [`모델이 고른 ${s.picks.map(p => `「${p.name}」`).join(' · ')}에서 쓸 수 있는 인물 그림을 찾지 못했습니다. 아래에서 다른 에셋을 골라 보세요.`],
-                g ? h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', 'aria-expanded': s.choose ? 'true' : 'false', onclick: () => { s.choose = !s.choose; s.msg = ''; renderNow(); } }, s.choose ? '고르기 닫기' : '다른 에셋으로') : null,
-                clearBtn('이 결과로 넣은 작가를 목록에서 뺍니다', () => { dropAdds(ui.scan); ui.scan = null; renderNow(); })));
+                g ? [pickLine(s), ` 「${g.added}」${josa(g.added, '으로', '로')} 그림체 목록에 추가했습니다.`]
+                    : [`모델이 고른 ${s.picks.map(p => `「${p.name}」`).join(' · ')}에서 쓸 수 있는 인물 그림을 찾지 못했습니다. 「다른 에셋으로」를 눌러 다른 에셋을 골라 보세요.`],
+                h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', 'aria-expanded': s.choose ? 'true' : 'false', onclick: () => { s.choose = !s.choose; if (!s.choose) s.msg = ''; renderNow(); } }, s.choose ? '고르기 닫기' : '다른 에셋으로'),
+                clearBtn('이 결과로 넣은 그림체를 목록에서 뺍니다', () => { dropAdds(ui.scan); ui.scan = null; renderNow(); })));
             out.tray.push(msgBox(s));
-            if (s.choose) out.tray.push(assetGrid(s, a => pickOther(s, a), s.src?.name, '누르면 그 그림을 바로 읽어 작가를 하나 더 넣습니다'));
+            if (s.choose) out.tray.push(assetGrid(s, a => pickOther(s, a), s.src?.name, '누르면 그 그림을 바로 읽어 그림체를 하나 더 넣습니다'));
             out.tray.push(scanBox(s));
             return out;
         }
@@ -4608,10 +4606,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const g = f.groups[0], bad = BAD_KINDS.find(([k]) => f.bad[k].length);
             out.tray.push(h('p', { class: 'ps-sum' },
                 !f.total ? `「${f.name}」${josa(f.name, '은', '는')} 이미지 파일(PNG · WebP · JPEG)이 아닙니다.`
-                    : g ? ['첨부한 이미지 ', h('b', null, `「${f.name}」`), `에서 그림체를 가져와 「${g.added}」${josa(g.added, '으로', '로')} 추가하고 골랐습니다.`]
+                    : g ? ['첨부한 이미지 ', h('b', null, `「${f.name}」`), `에서 그림체를 가져와 「${g.added}」${josa(g.added, '으로', '로')} 그림체 목록에 추가했습니다.`]
                     : ['첨부한 이미지 ', h('b', null, `「${f.name}」`), `에서 그림체를 찾지 못했습니다 (${bad ? bad[1] : 'NovelAI 그림 정보가 없음'}).`],
                 g ? null : h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', onclick: pickStyleFile }, '다른 이미지로'),
-                clearBtn('이 이미지로 넣은 작가를 목록에서 뺍니다', () => { dropAdds(ui.files); ui.files = null; renderNow(); })));
+                clearBtn('이 이미지로 넣은 그림체를 목록에서 뺍니다', () => { dropAdds(ui.files); ui.files = null; renderNow(); })));
             return out;
         }
         function tailParts() {
@@ -4702,10 +4700,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         onclick: () => { st.set = { ...st.set, kind: k }; setStep('kind'); ui.reopen = 0; renderNow(); },
                     }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
                 }))),
-            step(5, '작가 고르기', preset().name || '이름 없음', () => { const t = SA.tailParts(); return [
+            step(5, '그림체 고르기', preset().name || '이름 없음', () => { const t = SA.tailParts(); return [
                 presetGrid(() => { ui.reopen = 0; }, null, false, t.head), t.tray,
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 누르면 그 작가로 다음 단계로 넘어갑니다. 작가를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '작가 탭'), '을 여세요.'),
-                ui.reopen === 5 && su.preset ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 작가로 다음'))]; }),
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 누르면 그 그림체로 다음 단계로 넘어갑니다. 그림체를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '그림체 탭'), '을 여세요.'),
+                ui.reopen === 5 && su.preset ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 그림체로 다음'))]; }),
             step(6, '장 수 고르기', `${countNow()}장`, () => h('div', { class: 'cf-card' }, h('div', { class: 'cf-row' },
                 h('div', { class: 'cf-tx' }, h('b', null, '한 번에 몇 장을 그릴까요?'), h('p', null, '장마다 답변 속 다른 장면을 고릅니다. 장마다 NAI 요청이 하나씩 갑니다.')),
                 seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장']], su.count ? countNow() : null, n => { st.set = { ...st.set, count: n }; setStep('count'); ui.reopen = 0; renderNow(); })))),
@@ -4737,7 +4735,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
                     h('span', null, st.set.auto ? '채팅을 진행하면 자동으로 이미지가 생성됩니다.' : '자동 그리기가 꺼져 있으니, 봇 답변 아래의 「이미지 생성」 버튼을 눌러 그 답변을 그리세요.'))),
             h('ul', { class: 'fn-ck' },
-                li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `작가 ${preset().name || '이름 없음'}`),
+                li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `그림체 ${preset().name || '이름 없음'}`),
                 li(`봇 답변마다 ${n}장을 그립니다`, n > 1 ? '장마다 다른 장면' : ''),
                 li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`)),
             h('div', { class: 'cf-row sw' },
@@ -5332,8 +5330,23 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }));
         sync();
         const tail = SA.tailParts();
+        const toIllust = () => {
+            ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; ui.menu = ''; acs.menu = '';
+            if (st.set.setup?.preset) ui.reopen = 5;
+            renderNow();
+        };
+        const toAsset = () => {
+            const v = st.view, a = v && !v.group ? acAst() : null;
+            ui.mode = 'asset'; ui.atab = 'make'; ui.side = ''; ui.menu = ''; acs.menu = '';
+            if (a && a.step > 5) { acs.reopen = 5; acs.reopenCha = v.chaId; acs.llmOpen = false; acs.trErr = ''; acs.msg = ''; }
+            renderNow();
+            void acAnlas();
+        };
         add(pane,
-            h('h2', { class: 'sub', style: 'margin-top:0' }, '작가 목록', h('small', null, '누른 작가를 아래에서 고칩니다 · 그릴 작가는 준비 탭에서 고릅니다 · 카드 그림은 그 작가로 마지막에 그린 것 (내장 작가 셋은 고정)')),
+            h('div', { class: 'ix-acts', style: 'margin:0 0 14px' },
+                h('button', { class: 'ix-btn', type: 'button', onclick: toIllust }, `삽화 그림체 변경 · 지금 ${preset().name || '이름 없음'}`),
+                h('button', { class: 'ix-btn', type: 'button', onclick: toAsset }, `애드 에셋 그림체 변경 · 지금 ${acPreset().name || '이름 없음'}`)),
+            h('h2', { class: 'sub', style: 'margin-top:0' }, '그림체 목록', h('small', null, '누른 그림체를 아래에서 고칩니다 · 카드 그림은 그 그림체로 마지막에 그린 것 (내장 그림체 셋은 고정)')),
             presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }, false, tail.head), tail.tray,
             h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림 정보를 지운 그림(트위터 · 디스코드에 올렸다 받은 그림 등)과 투명도 속에 숨긴 정보(stealth)는 읽지 못합니다. 그림은 이 기기 안에서만 읽습니다.'),
             h('div', { class: 'ix-acts' },
@@ -5341,10 +5354,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('button', {
                     class: 'ix-btn', type: 'button',
                     onclick: () => {
-                        const p = { id: uid(), name: '새 작가', pos: '', neg: ARTIST1.neg };
+                        const p = { id: uid(), name: '새 그림체', pos: '', neg: ARTIST1.neg };
                         st.presets.push(p); ui.styleId = p.id; savePresets(); renderNow();
                     },
-                }, '+ 새 작가'),
+                }, '+ 새 그림체'),
                 h('button', {
                     class: 'ix-btn', type: 'button',
                     onclick: () => {
@@ -5382,7 +5395,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         num('리스케일', 'cfgRescale', '0', '1', '0.02'))),
                 stepWarn,
                 h('div', { style: 'display:grid;gap:3px;font-size:.76rem;color:var(--muted)' }, '샘플러 (노이즈 스케줄은 karras 고정)', samplerBox),
-                h('p', { class: 'ix-hint' }, '만화(2~4컷)를 그릴 때는 판 나눔 태그(comic, multiple panels, manga …)를 앱이 붙이고, 긍정의 sound effects 와 부정의 4koma · 2koma · multiple views(대사를 그릴 때는 subtitles · captions 도)를 그 요청에서만 뺍니다. 저장된 작가 프롬프트는 바뀌지 않습니다.')));
+                h('p', { class: 'ix-hint' }, '만화(2~4컷)를 그릴 때는 판 나눔 태그(comic, multiple panels, manga …)를 앱이 붙이고, 긍정의 sound effects 와 부정의 4koma · 2koma · multiple views(대사를 그릴 때는 subtitles · captions 도)를 그 요청에서만 뺍니다. 저장된 그림체 프롬프트는 바뀌지 않습니다.')));
         return pane;
     }
 
@@ -5441,7 +5454,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
                     keyBox(true))),
             grp('그리기',
-                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · LLM 모델 · NAI 모델은 ', toReady, '에서, 작가는 작가 탭에서 바꿉니다. 애드 에셋의 LLM 모델은 애드 에셋 준비 탭에서 따로 고릅니다. 지금: ', recipe())),
+                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · LLM 모델 · NAI 모델은 ', toReady, '에서, 그림체는 그림체 탭에서 바꿉니다. 애드 에셋의 LLM 모델은 애드 에셋 준비 탭에서 따로 고릅니다. 지금: ', recipe())),
                 row('sw', '답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
                     '끄면 답변 아래 「이미지 생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 준비 탭을 마치기 전에는 켜져 있어도 그리지 않습니다.',
                     toggle(s.auto, () => setVal('auto', !s.auto))),
@@ -5456,7 +5469,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 row('sw', '장르 태그', '모델이 그림마다 장르를 고르면 그 장르의 태그를 붙입니다.',
                     null,
                     toggle(s.genre !== false, () => setVal('genre', s.genre === false))),
-                row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 작가가 「이매진 그림체」일 때만 동작합니다.',
+                row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 그림체가 「이매진 그림체」일 때만 동작합니다.',
                     null,
                     toggle(s.dynamic !== false, () => setVal('dynamic', s.dynamic === false))),
                 dynMinRow()),
@@ -5579,7 +5592,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     const TIPS = [
         '답변 아래 「🎨 이미지 생성」으로 그 답변만 그립니다.',
-        '작가 탭에서 그림체를 만들고 고를 수 있습니다.',
+        '그림체 탭에서 그림체를 만들고 고칠 수 있습니다.',
         '설정 탭에서 PC · 모바일 그림 가로 크기를 바꿉니다.',
         '애드 에셋은 레퍼런스부터 그리고 확인을 받습니다.',
         '애드 에셋 커스텀에 「웃음, 눈물」처럼 감정을 적어 보세요.',
@@ -8231,8 +8244,8 @@ Rules:
         };
         const sArtist = () => [
             presetGrid(null, null, true),
-            h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, `작가 탭과 같은 목록입니다. 여기서 고른 작가는 애드 에셋에만 쓰고, 삽화 작가(지금 ${preset().name || '이름 없음'})와 따로 저장합니다. 작가를 고치거나 새로 만들려면 `,
-                h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '작가 탭'), '에서 합니다.'),
+            h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, `그림체 탭과 같은 목록입니다. 여기서 고른 그림체는 애드 에셋에만 쓰고, 삽화 그림체(지금 ${preset().name || '이름 없음'})와 따로 저장합니다. 그림체를 고치거나 새로 만들려면 `,
+                h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '그림체 탭'), '에서 합니다.'),
             h('details', { class: 'ad-set', style: 'margin-top:14px', open: acs.adv, ontoggle: ev => { acs.adv = ev.currentTarget.open; } },
                 h('summary', null, '고급 설정 ', h('small', null, `시점 태그 · ${tidy(a.view.split(',')[0]) || '시점 없음'}`)),
                 h('div', { class: 'cf-row vw', style: 'margin-top:8px' },
@@ -8406,7 +8419,7 @@ Rules:
 
             return [
                 h('div', { class: 'ix-acts', style: 'margin-top:0' }, addBtn(),
-                    h('span', { class: 'ix-hint' }, `${acPreset().name || '작가'} · ${modelName(st.set.model)} · 레퍼런스 ${a.ref ? '켬' : '끔'}${hasSp ? ` · 특수 ${sp.icon} ${sp.ko}` : ''} · 남은 ${left.length}장 약 ${avgLeft}`)),
+                    h('span', { class: 'ix-hint' }, `${acPreset().name || '그림체'} · ${modelName(st.set.model)} · 레퍼런스 ${a.ref ? '켬' : '끔'}${hasSp ? ` · 특수 ${sp.icon} ${sp.ko}` : ''} · 남은 ${left.length}장 약 ${avgLeft}`)),
                 showing ? viewChips(true) : null,
                 msgBox(),
                 refView ? h('p', { class: 'ix-hint', style: 'margin:10px 0 0' }, h('b', null, '레퍼런스 먼저. '), `인물 × 복장마다 한 장씩, 모두 ${refPlan.length}장을 그리고 멈춥니다. 확인한 뒤에 나머지를 그립니다.`) : null,
@@ -8423,7 +8436,7 @@ Rules:
             step(2, '복장 고르기', acOutfitLabel(a), sOutfit),
             step(3, '에셋 개수', `에셋 ${emos.length}개 · 총 ${total}장`, sCount),
             step(4, '감정 에셋 확인', `에셋 ${emos.length}종${hasSp ? ` · 특수 ${sp.icon} ${sp.ko}` : ''}`, sSpecial),
-            step(5, '작가 고르기', `${acPreset().name} · ${tidy(a.view.split(',')[0]) || '시점 없음'}`, sArtist),
+            step(5, '그림체 고르기', `${acPreset().name} · ${tidy(a.view.split(',')[0]) || '시점 없음'}`, sArtist),
             step(6, 'NAI 모델 고르기', `${modelName(st.set.model)} · 레퍼런스 ${a.ref ? '켬' : '끔'}`, sModel),
             step(7, '글로벌노트', ptOff ? '꺼 둠' : a.gnEdited ? '직접 고친 글' : '자동으로 쓴 글', sNote),
             step(8, '애드 에셋', !left.length && plan.length ? `${plan.length}장 완료` : '', sRun),
@@ -8594,7 +8607,7 @@ Rules:
                     h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: close }, '×')),
                 h('div', { class: 'dlg-b' },
                     h('p', { class: 'ix-hint', style: 'margin:0 0 8px' }, '이 그림 한 장의 프롬프트입니다. 저장한 프롬프트는 이 그림을 다시 그릴 때마다 씁니다(준비 탭의 다시 그리기 포함).'),
-                    h('h3', { class: 'sub' }, '본 프롬프트 ', h('small', null, '작가 · 구도 · 배경')),
+                    h('h3', { class: 'sub' }, '본 프롬프트 ', h('small', null, '그림체 · 구도 · 배경')),
                     ta('base', '본 프롬프트', 4),
                     h('h3', { class: 'sub' }, `캐릭터 칸 · ${t.e.name} `, h('small', null, '외형 · 복장 · 감정 · 자세')),
                     ta('slot', '캐릭터 칸', 5),
