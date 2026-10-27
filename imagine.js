@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.111.0
+//@display-name 🎨 이매진 v3.112.0
 //@api 3.0
-//@version 3.111.0
+//@version 3.112.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.111.0';
+    const VERSION = '3.112.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -581,28 +581,32 @@
                 for (const [id, o] of Object.entries(old)) if (tidy(o)) (wear[id] ??= {}).outfit ??= tidy(o);
                 for (const [id, w] of Object.entries(wear)) if (isOldWear(w)) wear[id] = fromOldWear(w, null, true).wear;
                 const seeded = v.seeded === true || Object.keys(old).length > 0;
-                const place = 'placeAt' in v ? placeSlots(v.place) : placeSlots([placeSlots(v.place).filter(Boolean).join(', ')]);
-                const out = { location: '', time: '', ...v, place, placeAt: placeIndex(v.placeAt, place), wear, seeded };
+                const backgrounds = 'backgrounds' in v ? bgSlots(v.backgrounds) : bgFromOld(v);
+                const out = { location: '', time: '', ...v, backgrounds, wear, seeded };
                 delete out.outfits;
                 delete out.places;
+                delete out.place;
+                delete out.placeAt;
                 return out;
             }
         } catch {}
-        return { location: '', time: '', place: ['', '', ''], placeAt: 0, wear: {}, seeded: false };
+        return { location: '', time: '', backgrounds: [], wear: {}, seeded: false };
     }
-    const PLACE_ITEMS = 3, PLACE_ITEM_MAX = 400;
+    const BG_SLOTS = 3, BG_MAX = 400;
     const placeKey = loc => tidy(loc).toLowerCase();
-    function placeSlots(p) {
-        const raw = Array.isArray(p) ? p : tidy(p) ? [p] : [];
-        return Array.from({ length: PLACE_ITEMS }, (_, i) => tidy(String(raw[i] ?? '').replace(/[.。\s]+$/, '')).slice(0, PLACE_ITEM_MAX));
+    const bgText = t => tidy(String(t ?? '').replace(/[.。\s]+$/, '')).slice(0, BG_MAX);
+    function bgSlots(list) {
+        const all = (Array.isArray(list) ? list : []).map(e => typeof e === 'string' ? { location: '', background: bgText(e) } : { location: tidy(e?.location), background: bgText(e?.background) });
+        return all.filter((e, i) => i === 0 || e.background).slice(0, BG_SLOTS);
     }
-    function placeIndex(i, slots) {
-        const n = Number(i);
-        if (Number.isInteger(n) && n >= 0 && n < PLACE_ITEMS) return n;
-        return Math.max(0, slots.findIndex(Boolean));
+    function bgFromOld(v) {
+        const raw = Array.isArray(v.place) ? v.place.map(bgText) : [bgText(v.place)];
+        const n = Number(v.placeAt);
+        const one = 'placeAt' in v ? raw[Number.isInteger(n) && n >= 0 ? n : 0] || raw.find(Boolean) : bgText(raw.filter(Boolean).join(', '));
+        return one ? [{ location: tidy(v.location), background: one }] : [];
     }
     function currentPlace(state) {
-        const t = placeSlots(state?.place)[placeIndex(state?.placeAt, placeSlots(state?.place))];
+        const t = bgSlots(state?.backgrounds)[0]?.background ?? '';
         return t && !CJK_RE.test(t) ? t : '';
     }
     function withPlace(img, state) {
@@ -937,12 +941,12 @@ ${TAG_STYLE}`;
 
     const PANEL_RULES = {
         one: `PANELS = 1 (one moment, no panel borders)
-- scene: the background and details only, in this order: "indoors" or "outdoors", then a simple place tag (e.g. "indoors, classroom"), then detail tags (lighting, time, weather, mood, background objects). The app adds the current background slot (state.place[state.placeAt]) after scene itself, so do not repeat it; any lighting tag in scene must match that slot's brightness and light color; add only what this moment shows besides it. Danbooru tags plus up to 3 short sentences when tags alone cannot show the moment. No character appearance, no camera / framing (it goes in chars[].tags), no count tags (the app adds 1girl / 1boy counts itself), no names.
+- scene: the background and details only, in this order: "indoors" or "outdoors", then a simple place tag (e.g. "indoors, classroom"), then detail tags (lighting, time, weather, mood, background objects). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color; add only what this moment shows besides it. Danbooru tags plus up to 3 short sentences when tags alone cannot show the moment. No character appearance, no camera / framing (it goes in chars[].tags), no count tags (the app adds 1girl / 1boy counts itself), no names.
 - chars[].tags: Danbooru tags (a short phrase is fine for an action no tag covers), in this order: first expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then composition and pose (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — camera angle, pose, action; the gaze goes in chars[].gaze, not here). For interactions prefix tags with source#, target# or mutual# (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
 - cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 1 character write "C3": the app sends no position for a single character.`,
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
-- scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds the current background slot (state.place[state.placeAt]) after scene itself, so do not repeat it; any lighting tag in scene must match that slot's brightness and light color. No characters, no panels, no camera, no sentences.
+- scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color. No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
   - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis); name anything not in CAST by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
@@ -1070,7 +1074,7 @@ ${TAG_STYLE}`;
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
 Output ONE JSON object only, no prose:
-{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","place":["background 1","background 2","background 3"],"placeAt":0,"cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
+{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","background":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"...","bottom":"...","shoes":"...","type":"girl|boy|other","look":"..."}]},
  "images":[${imageOut}]}
 
 CANVAS: ${shape}, ${w}x${h}. Every image uses this canvas; frame each moment for it.
@@ -1091,20 +1095,19 @@ STATE
 - Update a slot when the story changes it (undressing, getting wet, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
 - Colors follow the COLOR RULE: every item in top, bottom, shoes and the headwear / hair accessories in hairstyle has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is not in CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
-- location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. Use the names the story gives. Too vague: "Rito's room", "school", "a cafe". Specific enough: "Rito's bedroom on the second floor of the Yuuki house, at the desk by the window", "the third-floor library of Sainan High School, a seat by the window", "a small cafe on a back street near Shibuya Station, a two-seat table by the counter". While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague or not in English (then rewrite the same place specifically in English).
+- location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. NEVER use proper nouns: no person names, family names, school, shop, station, city or country names; describe the place by its kind and features instead ("a teenage boy's bedroom", not "Rito's bedroom"). Too vague: "his room", "school", "a cafe". Specific enough: "a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window", "the third-floor library of a high school, a seat by the window", "a small cafe on a back street near a train station, a two-seat table by the counter". While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague, not in English or contains a proper noun (then rewrite the same place specifically in English without names).
 - moved: true only when the characters went to another location since CURRENT STATE (location is then the new one); otherwise false. Walking around inside the same room is not moving.
 - time: the time of day in English, as a clock time when the story states or implies one (e.g. "1:00 PM", "8:30 PM", "11:30 PM"), otherwise a part of the day (e.g. "early morning", "dusk", "late night"). Move it forward when the story moves time forward; otherwise copy it (rewrite it in English if CURRENT STATE's time is not English).
-- place: 3 BACKGROUND SLOTS of the current location, so every image of this location shows the same room. Each slot is ONE complete background in English: what the camera sees when it faces one part of the location (one wall, corner or view), in 1 to 3 short sentences: how bright it is and the color of the light, furniture and objects with material and color, whether doors, windows and curtains are open or closed, what is visible outside. Every slot starts with the brightness and light color, indoors and outdoors alike: indoors say whether the room is bright or dim and what lights it (e.g. "a bright room under white ceiling lights", "a dim room lit only by a warm orange desk lamp", "a dark room lit by pale blue moonlight through the window"); outdoors say the light of the sky or the lamps (e.g. "bright midday sunlight", "orange sunset light", "a dark street under yellow street lamps"). The 3 slots are 3 different views of the same location. Example for a bedroom at night:
-  ["dim room lit by a warm orange desk lamp, a small wooden desk under the window with stacked textbooks, light blue wallpaper with a soccer poster, the closed window shows a dark residential street under yellow street lamps", "dim warm orange lamplight, a single bed with a navy blue blanket against the wall, a tall bookshelf full of manga beside it, a round clock above the bed", "dim room, the hallway light shines white through the half-open sliding door, a low wooden table on a beige rug in the middle of the floor, a folded futon in the corner"]
-- placeAt: the number (0, 1 or 2) of the ONE slot that the TARGET MESSAGE's moment shows; only that slot is drawn. Choose the slot that faces where the characters are and what they look at.
-- moved false: copy all 3 slots from CURRENT STATE word for word and change only what the story changes (a window opened, a table knocked over, the lights turned on or off, the sun went down: then rewrite the brightness and light color of all 3 slots); if a CURRENT STATE slot does not say its brightness and light color, add them at the front and keep the rest word for word; fill an empty slot with another view of the same location. moved true or all slots empty: write 3 new slots that fit the new location. No characters or weather in the slots (those stay in scene).
-- CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time / place (the room's furniture, doors and windows, the view outside) and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
+- background: write ONE NEW background in English for this draw, every time, from the chat: what the camera sees BEHIND the characters in the TARGET MESSAGE's moment (the wall, corner or view behind them), in 1 to 3 short sentences: how bright it is and the color of the light, furniture and objects with material and color, whether doors, windows and curtains are open or closed, what is visible outside. It always starts with the brightness and light color, indoors and outdoors alike: indoors say whether the room is bright or dim and what lights it (e.g. "a bright room under white ceiling lights", "a dim room lit only by a warm orange desk lamp", "a dark room lit by pale blue moonlight through the window"); outdoors say the light of the sky or the lamps (e.g. "bright midday sunlight", "orange sunset light", "a dark street under yellow street lamps"). No proper nouns (no person, school, shop or place names), no characters and no weather (those stay in scene). Example for a teenage boy's bedroom at night, seen behind someone sitting at the desk:
+  "dim room lit by a warm orange desk lamp, a small wooden desk under the window with stacked textbooks, light blue wallpaper with a soccer poster, the closed window shows a dark residential street under yellow street lamps"
+- Past backgrounds: CURRENT STATE lists the last 3 backgrounds the app kept (background[0] is the newest), each with the location where it was seen. Read all 3 before writing. They are references, not slots to fill or copy: always write a new background for the TARGET MESSAGE. When the characters are at a location that appears there (still in the same room, or back at an earlier place), keep its furniture, materials, colors and layout the same, and change only what the chat changed (they now face another wall, a window opened, a table was knocked over, the lights went on or off, the sun went down: then the brightness and light color change too). At a new location, write it fresh. Do not rewrite the past backgrounds; the app keeps them.
+- CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time / background (the room's furniture, doors and windows, the view outside) and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
 - PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${plainInput ? `
 - USER INPUT: what the user wrote just before the TARGET MESSAGE; the TARGET MESSAGE is the reply to it. Context only: use it to understand what the reply answers (who acts, what was said or done), but draw the moments the TARGET MESSAGE narrates, and never copy after or spoken lines from USER INPUT.` : ''}${withInput ? `
 - USER ACTION: what the user just wrote: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
 
 GENERAL
-- LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.place, state.cast slots / look) and state.location and state.time are English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
+- LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.background, state.cast slots / look) and state.location and state.time are English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
 - ${nameFields} the CAST key exactly as written at the start of its CAST line, never the name or an alias. A character not in CAST uses its new key from state.cast; a monster or creature uses a short English noun.
 - uc (optional): extra negative tags only for this image / character.
 - title: a short Korean caption of the image (max 20 characters).
@@ -1119,9 +1122,13 @@ ${TAG_STYLE}`;
     const HISTORY_MAX = 40000;
     const PREV_MSG = 4000;
 
-    function placeLines(state) {
-        const slots = placeSlots(state?.place), at = placeIndex(state?.placeAt, slots);
-        return slots.map((t, i) => `place[${i}]${i === at ? ' (CURRENT)' : ''}: ${t && !CJK_RE.test(t) ? t : '?'}`);
+    function bgLines(state) {
+        const slots = bgSlots(state?.backgrounds);
+        const en = t => t && !CJK_RE.test(t) ? t : '?';
+        return Array.from({ length: BG_SLOTS }, (_, i) => {
+            const e = slots[i];
+            return `background[${i}] (${i ? 'past' : 'newest'}${e ? ', at ' + en(e.location) : ''}): ${e ? en(e.background) : '(empty)'}`;
+        });
     }
     function castLine(e, state) {
         const alias = e.aliases?.length ? `; aliases: ${e.aliases.join(', ')}` : '';
@@ -1142,7 +1149,7 @@ ${TAG_STYLE}`;
             '# CURRENT STATE',
             `location: ${state.location || '?'}`,
             `time: ${state.time || '?'}`,
-            ...placeLines(state),
+            ...bgLines(state),
             '',
         ];
         if (!state.seeded) {
@@ -1439,14 +1446,23 @@ Rules
             if (CJK_RE.test(t)) console.warn(LOG, k + ' is not English', t);
             else state[k] = t;
         }
-        const got = Array.isArray(s.place) || tidy(s.place) ? placeSlots(s.place) : null;
-        if (got?.some(t => t && CJK_RE.test(t))) console.warn(LOG, 'place is not English', s.place);
         const moved = typeof s.moved === 'boolean' ? s.moved : placeKey(state.location) !== prevLoc;
-        const prev = moved ? placeSlots([]) : placeSlots(state.place);
-        state.place = prev.map((t, i) => got?.[i] && !CJK_RE.test(got[i]) ? got[i] : t);
-        const wantAt = Number(s.placeAt);
-        state.placeAt = placeIndex(Number.isInteger(wantAt) && wantAt >= 0 && wantAt < PLACE_ITEMS ? wantAt : moved ? null : state.placeAt, state.place);
+        const slots = bgSlots(state.backgrounds);
+        const got = bgText(s.background);
+        if (got && CJK_RE.test(got)) console.warn(LOG, 'background is not English', got);
+        if (got && !CJK_RE.test(got)) {
+            let at = slots.findIndex(e => e.background === got);
+            if (at < 0 && slots[0] && !slots[0].background) at = 0;
+            if (at >= 0) slots.splice(at, 1);
+            slots.unshift({ location: state.location, background: got });
+        } else if (moved) {
+            if (slots[0]?.background) slots.unshift({ location: state.location, background: '' });
+            else slots[0] = { location: state.location, background: '' };
+        } else if (slots[0]) slots[0].location = state.location;
+        state.backgrounds = bgSlots(slots);
         delete state.places;
+        delete state.place;
+        delete state.placeAt;
         for (const raw of Array.isArray(s.cast) ? s.cast : []) {
             const name = tidy(raw?.name);
             if (!name || name.toLowerCase() === 'narration') continue;
@@ -3342,7 +3358,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .pl-cap{font-size:.74rem;color:var(--muted)}
 .pl-row{display:grid;grid-template-columns:44px 1fr;gap:6px;align-items:start}
 .cc-sec .pl-slot{min-height:56px}
-.pl-at{height:28px;padding:0;font:inherit;font-size:.72rem;font-weight:700;color:var(--muted);background:#fff;border:1px solid var(--line2);cursor:pointer}
+.pl-at{display:flex;align-items:center;justify-content:center;height:28px;font-size:.72rem;font-weight:700;color:var(--muted);background:#fff;border:1px solid var(--line2)}
+.pl-body{display:grid;gap:3px;min-width:0}
+.pl-was{font-size:.7rem;color:var(--muted);overflow-wrap:anywhere}
 .pl-row.on .pl-at{color:#fff;background:#00897b;border-color:#00897b}
 .pl-row.on .pl-slot{border-color:#00897b}
 /* 이 봇의 그림 숨기기: 버튼 안에서 왼쪽부터 게이지가 찬다 */
@@ -5274,8 +5292,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const s = v.state;
         const isOpen = !!ui.placeOpen;
         const flip = () => { ui.placeOpen = !isOpen; renderNow(); };
-        const slots = placeSlots(s.place), at = placeIndex(s.placeAt, slots);
-        const sum = [s.time, slots[at]].map(tidy).filter(Boolean).join(' · ') || '배경 변수 없음 · 처음 그릴 때 채팅에서 찾습니다';
+        const slots = bgSlots(s.backgrounds);
+        const sum = [s.time, slots[0]?.background].map(tidy).filter(Boolean).join(' · ') || '백그라운드 없음 · 처음 그릴 때 채팅에서 찾습니다';
         const nm = h('span', { class: 'cc-nm' }, tidy(s.location) || '장소 모름');
         const card = h('article', { class: 'cc pl' + (isOpen ? ' open' : ''), style: '--cc:#00897b' },
             h('div', {
@@ -5287,44 +5305,49 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('span', { class: 'cc-cv', 'aria-hidden': 'true' }, '▾')));
         if (!isOpen) return card;
         const bg = [];
-        const setPlace = () => { liveState(v).place = placeSlots(bg.map(e => e.value)); writeVarsSoon(v); };
-        const setAt = i => { liveState(v).placeAt = i; writeVarsSoon(v); renderNow(); };
-        const ex = [
-            'dim room lit by a warm orange desk lamp, a small wooden desk under the window, the closed window shows a dark street',
-            'dim warm orange lamplight, a single bed with a navy blue blanket against the wall, a tall bookshelf beside it',
-            'dim room, white hallway light through the half-open sliding door, a low wooden table on a beige rug',
-        ];
-        const rows = slots.map((t, i) => {
+        const setBg = () => {
+            const ls = liveState(v);
+            const now = bgSlots(ls.backgrounds);
+            ls.backgrounds = bgSlots(bg.map((ta, i) => ({ location: i ? now[i]?.location ?? '' : ls.location, background: ta.value })));
+            writeVarsSoon(v);
+        };
+        const ex = 'dim room lit by a warm orange desk lamp, a small wooden desk under the window, the closed window shows a dark street';
+        const rows = Array.from({ length: BG_SLOTS }, (_, i) => {
+            const e = slots[i];
             const ta = h('textarea', {
-                class: 'cf-ta pl-slot', maxlength: String(PLACE_ITEM_MAX), placeholder: '예: ' + ex[i], 'aria-label': '배경 슬롯 ' + (i + 1),
-                oninput: setPlace,
-            }, t);
+                class: 'cf-ta pl-slot', maxlength: String(BG_MAX), 'aria-label': i ? '지난 백그라운드 ' + i : '지금 백그라운드',
+                placeholder: i ? '아직 없음 (새 백그라운드를 그리면 지금 것이 여기로 내려옵니다)' : '예: ' + ex,
+                disabled: i > 0 && !e, oninput: setBg,
+            }, e?.background ?? '');
             bg.push(ta);
-            return h('div', { class: 'pl-row' + (i === at ? ' on' : '') },
-                h('button', {
-                    class: 'pl-at', type: 'button', 'aria-pressed': i === at ? 'true' : 'false', title: i === at ? '지금 그리는 배경' : '이 슬롯을 지금 배경으로',
-                    onclick: () => setAt(i),
-                }, i === at ? '지금' : String(i + 1)),
-                ta);
+            return h('div', { class: 'pl-row' + (i ? '' : ' on') },
+                h('span', { class: 'pl-at' }, i ? '지난 ' + i : '지금'),
+                h('div', { class: 'pl-body' }, i && e?.location ? h('small', { class: 'pl-was' }, e.location) : null, ta));
         });
         add(card, h('div', { class: 'cc-bd' },
             h('div', { class: 'cc-sec' },
-                h('h4', null, '지금 장소', h('small', null, '이 채팅에만 저장됩니다 · 장소 · 시간 · 배경 모두 영어로 씁니다')),
-                h('label', null, '장소 (구체적으로)',
+                h('h4', null, '지금 장소', h('small', null, '이 채팅에만 저장됩니다 · 장소 · 시간 · 백그라운드 모두 영어로 씁니다')),
+                h('label', null, '장소 (구체적으로 · 이름 없이)',
                     h('textarea', {
-                        class: 'cf-ta pl-loc', 'aria-label': '장소', placeholder: "모름 (예: Rito's bedroom on the second floor of the Yuuki house, at the desk by the window)",
-                        oninput: ev => { const t = ev.target.value.replace(/\s+/g, ' ').trim(); liveState(v).location = t; nm.textContent = t || '장소 모름'; writeVarsSoon(v); },
+                        class: 'cf-ta pl-loc', 'aria-label': '장소', placeholder: "모름 (예: a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window)",
+                        oninput: ev => {
+                            const t = ev.target.value.replace(/\s+/g, ' ').trim(), ls = liveState(v);
+                            ls.location = t;
+                            if (ls.backgrounds?.[0]) ls.backgrounds[0].location = t;
+                            nm.textContent = t || '장소 모름';
+                            writeVarsSoon(v);
+                        },
                     }, s.location ?? '')),
                 h('label', null, '시간',
                     h('input', {
                         class: 'cf-in', value: s.time ?? '', placeholder: '모름 (예: 8:30 PM)', 'aria-label': '시간',
                         oninput: ev => { liveState(v).time = ev.target.value.trim(); writeVarsSoon(v); },
                     })),
-                h('div', { class: 'pl-slots', role: 'group', 'aria-label': '배경 슬롯' },
-                    h('span', { class: 'pl-cap' }, '배경 슬롯 3개 (슬롯마다 이 장소의 한쪽 모습 하나 · 맨 앞에 밝기와 조명색, 가구와 재질 · 색, 창문 · 문이 열렸는지, 창밖에 보이는 것)'), ...rows),
-                h('span', { class: 'ix-hint' }, '그릴 때마다 연출 모델이 세 슬롯을 모두 받아 이어 쓰고, 이번 장면이 보는 슬롯 하나를 「지금」으로 고릅니다. 앱은 「지금」 슬롯 하나만 그림의 장면 태그 뒤에 붙입니다. 실내든 실외든 슬롯마다 밝은 방인지 어두운 방인지, 무슨 빛이 어떤 색으로 비추는지를 적고, 불을 켜거나 해가 지면 세 슬롯의 밝기를 함께 고칩니다. 장소가 바뀌면 세 슬롯을 비우고 새 장소에 맞게 다시 씁니다.')),
+                h('div', { class: 'pl-slots', role: 'group', 'aria-label': '백그라운드 슬롯' },
+                    h('span', { class: 'pl-cap' }, '백그라운드 슬롯 3개 (지금 1개 + 지난 2개 · 그릴 때마다 새로 씀 · 그림에서 인물 뒤로 보이는 모습 · 맨 앞에 밝기와 조명색, 가구와 재질 · 색, 창문 · 문이 열렸는지, 창밖에 보이는 것)'), ...rows),
+                h('span', { class: 'ix-hint' }, '그릴 때마다 연출 모델이 이번 그림에서 인물 뒤로 보이는 백그라운드 하나를 씁니다. 앱은 「지금」 슬롯 하나만 그림의 장면 태그 뒤에 붙이고, 새 백그라운드가 오면 지금 것을 「지난」 슬롯으로 내려 최근 3개를 남깁니다. 새로 쓸 때는 지난 백그라운드 3개를 모두 참고해, 같은 장소라면 가구 · 색 · 빛을 이어 가고 지금 채팅에서 바뀐 것만 고칩니다. 실내든 실외든 밝은 방인지 어두운 방인지, 무슨 빛이 어떤 색으로 비추는지를 맨 앞에 적습니다.')),
             st.set.vars ? h('div', { class: 'cc-sec' },
-                h('span', { class: 'ix-hint' }, '변수: {{getvar::nc_location}} · {{getvar::nc_time}} · {{getvar::nc_background}} (배경 변수) · 인물은 {{getvar::nc_이름_top}} · hairstyle · bangs · haircolor · eyes · height · body · bottom · shoes')) : null));
+                h('span', { class: 'ix-hint' }, '변수: {{getvar::nc_location}} · {{getvar::nc_time}} · {{getvar::nc_background}} (지금 백그라운드) · 인물은 {{getvar::nc_이름_top}} · hairstyle · bangs · haircolor · eyes · height · body · bottom · shoes')) : null));
         return card;
     }
 
@@ -5736,7 +5759,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     h('textarea', { class: 'cf-ta', style: 'min-height:64px', 'aria-label': '프롬프트 맨 아래', oninput: textSet('extra') }, s.extra))),
             grp('저장',
                 row('sw', 'WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다.', null, toggle(s.webp, () => setVal('webp', !s.webp))),
-                row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 아홉 칸과 그 밖의 특징, 장소 · 시간 · 배경 변수를 채팅 변수에 적습니다.',
+                row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 아홉 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
                     null,
                     toggle(s.vars, () => setVal('vars', !s.vars)))),
             devRow(),
