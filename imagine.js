@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.103.1
+//@display-name 🎨 이매진 v3.103.2
 //@api 3.0
-//@version 3.103.1
+//@version 3.103.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.103.1';
+    const VERSION = '3.103.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -130,6 +130,20 @@
     const save = (key, value) => api.pluginStorage.setItem(key, value).catch(error => console.warn(LOG, 'save', key, error));
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6).padEnd(4, '0');
     const randSeed = () => Math.floor(Math.random() * 4294967295);
+    const INST = uid();
+    let instAt = 0, instOld = false;
+    async function retired() {
+        if (instOld) return true;
+        if (Date.now() - instAt < 1000) return false;
+        instAt = Date.now();
+        const v = await api.pluginStorage.getItem('nc:inst').catch(() => null);
+        if (v && v !== INST) {
+            instOld = true;
+            console.warn(LOG, 'newer instance found, retiring');
+            void rootQueue(retireRoot);
+        }
+        return instOld;
+    }
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     function fnv(s) {
         let x = 0x811c9dc5;
@@ -614,7 +628,10 @@
             if (best >= 0) return best;
             if (Number.isInteger(idx) && list[idx]?.chatId) return -1;
         }
-        if (key?.startsWith('#')) idx = Number(key.slice(1));
+        if (key?.startsWith('#')) {
+            idx = Number(key.slice(1));
+            if (list[idx]?.role !== 'char') return -1;
+        }
         return Number.isInteger(idx) && idx >= 0 && idx < list.length ? idx : -1;
     }
     function recKeyIn(recs, chat, key, i) {
@@ -725,13 +742,33 @@
     const jsonError = t => { try { JSON.parse(t); return ''; } catch (e) { return String(e?.message || e); } };
     const tryJson = t => {
         try { return JSON.parse(t); } catch {}
-        try { return JSON.parse(t.replace(/,\s*([}\]])/g, '$1')); } catch { return undefined; }
+        try { return JSON.parse(dropTrailingCommas(t)); } catch { return undefined; }
     };
+    function dropTrailingCommas(t) {
+        let out = '', inStr = false;
+        for (let i = 0; i < t.length; i++) {
+            const c = t[i];
+            if (inStr) {
+                out += c;
+                if (c === '\\') { out += t[i + 1] ?? ''; i++; }
+                else if (c === '"') inStr = false;
+                continue;
+            }
+            if (c === '"') inStr = true;
+            else if (c === ',') {
+                let j = i + 1;
+                while (j < t.length && /\s/.test(t[j])) j++;
+                if (t[j] === '}' || t[j] === ']') continue;
+            }
+            out += c;
+        }
+        return out;
+    }
     const askError = (msg, hint, raw) => Object.assign(new Error(msg), { hint, raw });
     function parseJson(text, want) {
         const s = String(text).replace(/<(think|thinking|thoughts)>[\s\S]*?<\/\1>/gi, '').replace(/<details\s[^>]*data-pm-thinking[^>]*>[\s\S]*?<\/details>/gi, '');
         const parts = [...[...s.matchAll(/```[\w-]*\s*([\s\S]*?)```/g)].map(m => m[1]), s];
-        let first, broken = '';
+        let first, broken = '', cut = false;
         for (const part of parts) {
             for (let a = part.indexOf('{'); a >= 0; a = part.indexOf('{', a + 1)) {
                 if (!/^\{\s*["“}]/.test(part.slice(a, a + 64))) continue;
@@ -741,7 +778,8 @@
                 if (v === undefined) v = tryJson(part.slice(a, part.lastIndexOf('}') + 1));
                 if (v === undefined) v = tryJson(part.slice(a, part.lastIndexOf('}') + 1).replace(/[“”]/g, '"'));
                 if (v === undefined) {
-                    broken ||= body ? jsonError(body) || 'invalid JSON' : 'the JSON object is not closed (it may be cut off)';
+                    if (!body) { cut = true; break; }
+                    broken ||= jsonError(body) || 'invalid JSON';
                     continue;
                 }
                 if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
@@ -749,6 +787,7 @@
                 first ??= v;
             }
         }
+        if (cut) throw askError('응답이 중간에 끊겨 JSON이 닫히지 않았습니다.', 'it was cut off before the JSON closed. Answer much shorter: fewer items and shorter strings');
         if (first) return first;
         if (broken) throw askError(`응답의 JSON 문법이 깨져 있습니다 (${broken}).`, `its JSON could not be parsed: ${broken}`);
         throw askError(noJsonMessage(s), 'it contained no JSON object');
@@ -792,7 +831,7 @@
                     return v;
                 } catch (error) {
                     if (error?.isStop || busy?.stop) throw stopError();
-                    lastError = error;
+                    lastError = error && typeof error === 'object' ? error : new Error(String(error));
                     msgs.push(String(error?.message || error));
                     if (text) lastError.raw = String(text).slice(0, RAW_MAX);
                     console.warn(LOG, `scene model try ${attempt + 1}/${ASK_TRIES}`, error, String(text).slice(0, 2000));
@@ -885,7 +924,7 @@ ${TAG_STYLE}`;
     const genreNow = () => st.set.genre !== false;
     const GENRE_TAGS = {
         action: 'action, motion lines, motion blur',
-        romance: 'romance, soft lighting, bokeh',
+        romance: 'romance, soft lighting',
         comedy: 'comedy, emphasis lines',
         horror: 'horror (theme), ominous, dark, shadow',
         sad: 'melancholy, dim lighting',
@@ -1205,11 +1244,11 @@ Return entries only for the characters in this list that the character sheet, lo
         let found = new Map();
         try {
             found = await lookupCast(char, names);
+            for (const n of names) state.looked.push(nameKey(n));
         } catch (error) {
             if (error.isStop) throw error;
             console.warn(LOG, 'lookup', error);
         }
-        for (const n of names) state.looked.push(nameKey(n));
         for (const [name, fresh] of found) {
             const old = findCast(cast, name);
             if (old && old.src === 'chat') {
@@ -1244,10 +1283,10 @@ Return entries only for the characters in this list that the character sheet, lo
     function findCast(cast, name) {
         const n = tidy(name).toLowerCase();
         if (!n) return null;
+        const k = nameKey(n);
         return cast.list.find(e => e.name.toLowerCase() === n)
             ?? cast.list.find(e => e.aliases?.some(a => a.toLowerCase() === n))
-            ?? cast.list.find(e => e.name && (n.includes(e.name.toLowerCase()) || e.name.toLowerCase().includes(n)))
-            ?? cast.list.find(e => [e.name, ...(e.aliases ?? [])].some(a => a && nameKey(a) && nameKey(a) === nameKey(n)))
+            ?? (k ? cast.list.find(e => [e.name, ...(e.aliases ?? [])].some(a => a && nameKey(a) === k)) : null)
             ?? null;
     }
     const nameKey = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9\uac00-\ud7a3]/g, '').replace(/yeo/g, 'yu').replace(/eo/g, 'u').replace(/oo/g, 'u')
@@ -1457,10 +1496,11 @@ Return entries only for the characters in this list that the character sheet, lo
         }
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
+        const single = slots.length === 1;
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), COMIC_TAGS, img.scene),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, img.scene),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: clampInt(slots.length, 2, 4, 2),
+            slots, w, h, panels: single ? 1 : clampInt(slots.length, 2, 4, 2),
             useCoords: false,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
@@ -1629,7 +1669,7 @@ Return entries only for the characters in this list that the character sheet, lo
         };
     }
 
-    const spaceNum = t => typeof t === 'string' ? t.replace(/(?<=[A-Za-z][^,:\n]*\d)::/g, ' ::') : t;
+    const spaceNum = t => typeof t === 'string' ? t.replace(/(?<=[A-Za-z][^,+:\n]*\d)::/g, ' ::') : t;
     function naiBody(req, seed, s = st.set) {
         req = { ...req, base: spaceNum(req.base), neg: spaceNum(req.neg), slots: (req.slots ?? []).map(sl => ({ ...sl, prompt: spaceNum(sl.prompt), uc: spaceNum(sl.uc) })) };
         const coords = coordsOn(req);
@@ -1801,6 +1841,7 @@ Return entries only for the characters in this list that the character sheet, lo
     const joinBytes = (a, b) => { const c = new Uint8Array(a.length + b.length); c.set(a); c.set(b, a.length); return c; };
 
     let naiStreamOff = false;
+    const midStreamError = () => new Error('NAI 그림을 받는 도중에 연결이 끊겼습니다. Anlas 가 두 번 나가지 않게 다시 보내지 않았습니다. 다시 시도해 주세요.');
     async function naiStream(key, body, stopped, onStep) {
         const sb = { ...body, parameters: { ...body.parameters, stream: 'msgpack' } };
         const t0 = Date.now();
@@ -1852,12 +1893,14 @@ Return entries only for the characters in this list that the character sheet, lo
             if (stopped()) return null;
             console.warn(LOG, 'NAI stream broke, back to old endpoint', error);
             naiStreamOff = true;
+            if (firstAt) throw midStreamError();
             return null;
         }
         if (!finalImg) {
             if (stopped()) return null;
             console.warn(LOG, 'NAI stream ended without final, back to old endpoint');
             naiStreamOff = true;
+            if (firstAt) throw midStreamError();
             return null;
         }
         console.log(LOG, 'NAI stream ms', { first: firstAt ? firstAt - t0 : null, final: Date.now() - t0 });
@@ -2012,13 +2055,17 @@ Return entries only for the characters in this list that the character sheet, lo
     async function setArtistThumb(presetId, bytes, path) {
         const p = st.presets.find(x => x.id === presetId);
         if (!p || !bytes || BUILTIN_THUMB[p.id]) return;
-        p.thumb = await shrinkImage(bytes);
-        p.thumbPath = path ?? '';
-        p.thumbAt = Date.now();
+        const thumb = await shrinkImage(bytes);
+        const now = st.presets.find(x => x.id === presetId);
+        if (!now) return;
+        now.thumb = thumb;
+        now.thumbPath = path ?? '';
+        now.thumbAt = Date.now();
         savePresets();
     }
 
     let queue = Promise.resolve();
+    const inQueue = fn => { const p = queue.then(fn); queue = p.catch(() => {}); return p; };
     let gen = 0;
     const queued = new Map();
     const failed = new Map();
@@ -2027,6 +2074,7 @@ Return entries only for the characters in this list that the character sheet, lo
         const live = j => j.key === job.key && (!j.only || !job.only || j.only === job.only) && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
         if (job.key && [...jobsOn].some(live)) { console.info(LOG, 'skip duplicate job', job.key); return Promise.resolve(); }
         job.gen = gen;
+        job.chatKeyP ??= Promise.resolve(api.getChatFromIndex(job.ci, job.chi)).then(c => c ? chatKeyOf(c, job.chi) : '', () => '');
         st.jobs++;
         if (job.key) failed.delete(job.key);
         if (job.key) queued.set(job.key, (queued.get(job.key) ?? 0) + 1);
@@ -2125,6 +2173,8 @@ Return entries only for the characters in this list that the character sheet, lo
             const char = await api.getCharacterFromIndex(job.ci);
             const chat = await api.getChatFromIndex(job.ci, job.chi);
             if (!char || !chat) throw new Error('채팅을 찾지 못했습니다.');
+            const want = await job.chatKeyP;
+            if (want && chatKeyOf(chat, job.chi) !== want) throw new Error('그리기를 기다리는 사이에 채팅이 바뀌었습니다. 그 채팅을 열고 다시 눌러 주세요.');
             const idx = findMsg(chat, job.key, job.idx ?? lastBotIndex(chat));
             if (idx < 0) throw new Error('그릴 답변을 찾지 못했습니다.');
             const msg = chat.message[idx];
@@ -2168,7 +2218,11 @@ Return entries only for the characters in this list that the character sheet, lo
                     busy.lore = true;
                     render();
                     try {
-                        mergeCast(cast, await readLore(char));
+                        const lore = readLore(char);
+                        lore.catch(() => {});
+                        const got = await Promise.race([lore, busy.halt]);
+                        if (busy.stop) throw stopError();
+                        mergeCast(cast, got);
                     } catch (error) {
                         if (error.isStop) throw error;
                         console.warn(LOG, 'lore', error);
@@ -2229,10 +2283,14 @@ Return entries only for the characters in this list that the character sheet, lo
                 if (busy.stop) throw stopError();
                 let ext = isWebp(bytes) ? 'webp' : 'png';
                 if (st.set.webp && ext === 'png') {
-                    const w = await toWebp(bytes);
+                    const w = await Promise.race([toWebp(bytes), busy.halt]);
+                    if (busy.stop) throw stopError();
                     if (w) { bytes = w; ext = 'webp'; }
                 }
-                const path = await api.saveAsset(bytes);
+                const saving = Promise.resolve(api.saveAsset(bytes));
+                saving.catch(() => {});
+                const path = await Promise.race([saving, busy.halt]);
+                if (busy.stop) throw stopError();
                 if (i === 0) firstBytes = bytes;
                 out.push({ name: 'nc_' + uid(), path, ext, seed, req: reqs[i], title: reqs[i].title ?? '' });
                 ilPush('img', (Date.now() - busy.at) / 1000);
@@ -2242,10 +2300,11 @@ Return entries only for the characters in this list that the character sheet, lo
             busy.stage = 2;
             busy.at = Date.now();
             render();
-            await commit(job, char, key, idx, out, stateChanged ? state : null, cast);
+            const spot = await commit(job, char, key, idx, out, stateChanged ? state : null, cast) ?? { key, idx };
+            if (spot.key !== key) { delete recs[key]; failed.delete(key); }
             const images = job.only ? old.images.map(x => x.name === job.only ? out[0] : x) : out;
-            recs[key] = {
-                key, idx, chat: chatKeyOf(chat, job.chi), at: Date.now(), hash: msgHash(msg),
+            recs[spot.key] = {
+                key: spot.key, idx: spot.idx, chat: chatKeyOf(chat, job.chi), at: Date.now(), hash: msgHash(msg),
                 excerpt: excerpt(msg.data, 80), plan, images, group: char.type === 'group',
             };
             await saveRecs(chaId, recs);
@@ -2282,6 +2341,13 @@ Return entries only for the characters in this list that the character sheet, lo
         scan(/<[a-z\/!][^>]*>/gi);
         scan(/\{\{[\s\S]*?\}\}/g);
         scan(MARK_RE);
+        scan(/<(table|details)\b[\s\S]*?(?:<\/\1>|$)/gi);
+        const opens = [];
+        for (const m of src.matchAll(/\{\{(#|\/)[^{}]*\}\}/g)) {
+            if (m[1] === '#') opens.push(m.index);
+            else if (opens.length) { const s = opens.pop(); if (!opens.length) out.push([s, m.index + m[0].length]); }
+        }
+        if (opens.length) out.push([opens[0], src.length]);
         return out;
     }
     const MARK_RE = /♬\[[^\]\n]*\]♬|♣️?\[[^\]\n]*\]♣️?|⟦[^⟧\n]*⟧|\[[A-Z][A-Z0-9_]*(?::[^\[\]\n]*)?\]|<<[A-Z][A-Z0-9_]*(?::[^<>\n]*)?>>/g;
@@ -2329,8 +2395,8 @@ Return entries only for the characters in this list that the character sheet, lo
         }
         return src.length;
     }
-    function placeTags(text, items) {
-        const src = stripOurs(text);
+    function placeTags(text, items, keep) {
+        const src = keep ? String(text ?? '') : stripOurs(text);
         const blocked = blockedRanges(src);
         const tail = tailStart(src);
         const spots = items.map((it, order) => {
@@ -2348,6 +2414,7 @@ Return entries only for the characters in this list that the character sheet, lo
     }
 
     const COMMIT_CHECKS = [250, 450, 700];
+    const DROP_LATER = 4000;
     const hasName = (text, name) => new RegExp(escapeRe(name) + '(?![a-z0-9_])', 'i').test(String(text ?? ''));
     async function commit(job, char0, key, idx, out, state, cast) {
         const recs = await loadRecs(char0.chaId);
@@ -2368,13 +2435,15 @@ Return entries only for the characters in this list that the character sheet, lo
         const landed = m => want.every(n => hasName(m.data, n)) && gone.every(n => !hasName(m.data, n));
         const apply = m => {
             if (job.only) {
-                if (put) m.data = String(m.data ?? '').replace(new RegExp(escapeRe(job.only) + '(?![a-z0-9_])', 'gi'), out[0].name);
+                if (put && hasName(m.data, job.only)) m.data = String(m.data ?? '').replace(new RegExp(escapeRe(job.only) + '(?![a-z0-9_])', 'gi'), out[0].name);
+                else if (put) m.data = placeTags(m.data, [{ name: out[0].name, after: out[0].req?.after }], true);
             } else {
                 m.data = put
                     ? placeTags(m.data, out.map(o => ({ name: o.name, after: o.req?.after })))
                     : stripOurs(m.data);
             }
         };
+        let spot = null;
         const write = async () => {
             const chat = await api.getChatFromIndex(job.ci, job.chi);
             if (!chat) return false;
@@ -2382,11 +2451,13 @@ Return entries only for the characters in this list that the character sheet, lo
             const i = findMsg(chat, key, idx);
             if (i < 0) return false;
             apply(chat.message[i]);
+            spot = { idx: i, key: msgKeyOf(chat.message[i], i, chat.message) };
             if (state && i === lastBotIndex(chat)) writeStateInto(chat, state, cast);
             await api.setChatToIndex(job.ci, job.chi, chat);
             return true;
         };
-        const first = await write();
+        let first = false, writeErr = null;
+        try { first = await write(); } catch (error) { writeErr = error; }
         const lost = !first;
         let ok = first;
         let reverted = false;
@@ -2407,31 +2478,38 @@ Return entries only for the characters in this list that the character sheet, lo
             }
         }
         if (isChar) {
-            const drop = ok ? (reverted ? [] : gone) : want;
-            const char = drop.length ? await api.getCharacterFromIndex(job.ci) : null;
-            if (char && char.chaId === char0.chaId) {
+            const drop = names => async () => {
+                const char = await api.getCharacterFromIndex(job.ci);
+                if (!char || char.chaId !== char0.chaId) return;
                 const used = ncUsed(char);
-                const out2 = new Set(drop.map(n => n.toLowerCase()).filter(n => !used.has(n)));
+                const out2 = new Set(names.map(n => n.toLowerCase()).filter(n => !used.has(n)));
                 const before = (char.additionalAssets ?? []).length;
                 char.additionalAssets = (char.additionalAssets ?? []).filter(a => !out2.has(ncLow(a)));
                 if (char.additionalAssets.length !== before) await api.setCharacterToIndex(job.ci, char);
-            }
+            };
+            if (!ok && want.length) await drop(want)();
+            else if (ok && !reverted && gone.length) setTimeout(() => { inQueue(drop(gone)).catch(error => console.warn(LOG, 'drop old', error)); }, DROP_LATER);
         }
+        if (writeErr) throw writeErr;
         if (lost) throw new Error('그림을 넣을 답변을 찾지 못했습니다. 그리는 사이에 답변이나 채팅이 지워졌거나 옮겨졌습니다.');
         if (!ok) throw new Error('그림을 답변에 넣었지만 리수가 답변을 예전 글로 되돌렸습니다. 답변이 끝난 뒤 다시 눌러 주세요.');
+        return spot;
     }
 
     async function removeRecord(rec) {
         const v = st.view;
         if (!v) return;
+        if (st.jobs > 0 || st.busy) throw new Error('그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.');
         const names = new Set((rec.images ?? []).map(x => x.name.toLowerCase()));
         const chat = await api.getChatFromIndex(v.ci, v.chi);
+        if (chat?.isStreaming) throw new Error('답변이 나오는 중입니다. 끝난 뒤에 다시 눌러 주세요.');
         const i = findMsg(chat, rec.key, rec.idx);
-        if (chat && i >= 0) {
+        if (chat && i >= 0 && (!rec.chat || chatKeyOf(chat, v.chi) === rec.chat)) {
             const m = chat.message[i];
-            m.data = String(m.data ?? '').replace(TAG_RE, tag => [...names].some(n => tag.toLowerCase().includes(n)) ? '' : tag).replace(/\s+$/, '');
+            m.data = String(m.data ?? '').replace(TAG_RE, tag => [...names].some(n => hasName(tag, n)) ? '' : tag).replace(/\s+$/, '');
             await api.setChatToIndex(v.ci, v.chi, chat);
         }
+        for (const x of rec.images ?? []) dropThumb(x.path);
         if (!rec.group) {
             const char = await api.getCharacterFromIndex(v.ci);
             if (char?.chaId === v.chaId) {
@@ -2449,7 +2527,7 @@ Return entries only for the characters in this list that the character sheet, lo
     const autoSeen = new Map();
     async function onOutput(ev) {
         try {
-            if (!st.set.auto || !setupDone()) return;
+            if (!st.set.auto || !setupDone() || await retired()) return;
             const { characterIndex: ci, chatIndex: chi, messageIndex } = ev ?? {};
             const msg = ev?.chat?.message?.[messageIndex];
             if (!msg || msg.role !== 'char' || !Number.isInteger(ci) || !Number.isInteger(chi)) return;
@@ -2457,11 +2535,12 @@ Return entries only for the characters in this list that the character sheet, lo
             const hash = msgHash(msg);
             const seenKey = `${ev.char?.chaId}|${key}`;
             if (autoSeen.get(seenKey) === hash) return;
-            autoSeen.set(seenKey, hash);
-            if (autoSeen.size > 500) autoSeen.delete(autoSeen.keys().next().value);
             const recs = await loadRecs(ev.char?.chaId);
             if (recs[key]?.hash === hash) return;
             if (!(await naiKey())) { tellOnce('nokey', NO_KEY_AUTO); return; }
+            if (autoSeen.get(seenKey) === hash) return;
+            autoSeen.set(seenKey, hash);
+            if (autoSeen.size > 500) autoSeen.delete(autoSeen.keys().next().value);
             enqueue({ ci, chi, key, idx: messageIndex, mode: 'new', auto: true, label: '새 답변 그리는 중' }).catch(() => {});
         } catch (error) {
             console.warn(LOG, 'output listener', error);
@@ -2474,7 +2553,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 clearTimeout(settleTimer);
                 settleTimer = setTimeout(() => {
                     settleTimer = null;
-                    checkLatest().catch(error => console.warn(LOG, 'output settle', error));
+                    retired().then(old => old ? null : checkLatest()).catch(error => console.warn(LOG, 'output settle', error));
                 }, 2500);
             }
         } catch {}
@@ -2520,10 +2599,14 @@ Return entries only for the characters in this list that the character sheet, lo
     const HIDE_CLOSE = '</span><!--/nc-hide-->';
     const HIDE_BG = 'background-image:none!important;--nc-hide:1;';
     const hasHide = s => String(s ?? '').includes('--nc-hide:1;');
-    const unhide = s => [HIDE_ATTR, HIDE_OPEN, HIDE_CLOSE, HIDE_DECL, HIDE_BG].reduce((t, m) => t.split(m).join(''), String(s ?? ''));
+    const unhide = s => {
+        const t = String(s ?? '').replace(new RegExp(' style=' + escapeRe(HIDE_DECL) + ' (?=[A-Za-z_:@{$])', 'g'), ' ');
+        return [HIDE_ATTR, HIDE_OPEN, HIDE_CLOSE, HIDE_DECL, HIDE_BG].reduce((x, m) => x.split(m).join(''), t);
+    };
     const HIDE_IMAGE = /background(-image)?\s*:[^;]*url\(|<img\b|<video\b|<picture\b|url\(|\{\{\s*(raw|img|image|asset|source|inlay|inlayed|bg|emotion|path)\s*::|\.(webp|png|jpe?g|gif|avif)\b|object-fit|background-size/i;
     const HIDE_LINE = /<(img|video|picture)\b|url\(|\{\{\s*(raw|img|image|asset|source|inlay|inlayed|bg|emotion|path)\s*::|\.(webp|png|jpe?g|gif|avif)\b/i;
     const RESIZE_MARKS = ['리사이징 갱신용 (지우지 마세요)', '이매진 갱신용 (지우지 마세요)'];
+    const isResizeMark = c => { const s = String(c ?? '').trim(); return RESIZE_MARKS.includes(s) || /^(리사이징|이매진) 갱신용.*\(지우지 마세요\)$/.test(s); };
     const TOKEN_LIMIT = /context[_ ]?(length|window)|max(imum)?[_ ]?(context|tokens?)|(prompt|input|request|message|context)([_ ]body)?([_ ](is|was))?[_ ]too[_ ](long|large)|too[_ ]many[_ ]tokens|exceed\w*[\s\S]{0,60}tokens?|tokens?[\s\S]{0,60}(exceed|limit)|토큰[\s\S]{0,20}(초과|넘)|컨텍스트[\s\S]{0,20}(초과|넘)|\b413\b/i;
     const isTokenLimit = error => !error?.isStop && TOKEN_LIMIT.test(String(error?.message ?? error ?? ''));
 
@@ -2544,7 +2627,7 @@ Return entries only for the characters in this list that the character sheet, lo
         if (HIDE_IMAGE.test(bg)) out.push({ id: 'bg', label: '백그라운드 임베딩', text: bg });
         (char?.customscript ?? []).forEach((s, i) => {
             const text = String(s?.out ?? '');
-            if (!s || s.type !== 'editdisplay' || RESIZE_MARKS.includes(s.comment) || !HIDE_IMAGE.test(text)) return;
+            if (!s || s.type !== 'editdisplay' || isResizeMark(s.comment) || !HIDE_IMAGE.test(text)) return;
             out.push({ id: 'script:' + i, index: i, label: s.comment?.trim() || `이름 없는 정규식 ${i + 1}`, text, input: String(s.in ?? ''), comment: s.comment ?? '' });
         });
         (Array.isArray(char?.triggerscript) ? char.triggerscript : []).forEach((t, i) => {
@@ -2609,6 +2692,35 @@ Output a single JSON object only:
         }
         return d === 0;
     }
+    function luaStrings(code) {
+        const out = [];
+        const s = String(code ?? '');
+        const longAt = i => { const m = /^\[(=*)\[/.exec(s.slice(i, i + 64)); return m ? m[1].length : -1; };
+        for (let i = 0; i < s.length; i++) {
+            const c = s[i];
+            if (c === '-' && s[i + 1] === '-') {
+                const lv = s[i + 2] === '[' ? longAt(i + 2) : -1;
+                if (lv >= 0) { const e = s.indexOf(']' + '='.repeat(lv) + ']', i + 4 + lv); i = e < 0 ? s.length : e + lv + 1; }
+                else { const e = s.indexOf('\n', i); i = e < 0 ? s.length : e; }
+                continue;
+            }
+            if (c === '[') {
+                const lv = longAt(i);
+                if (lv < 0) continue;
+                const from = i + lv + 2, e = s.indexOf(']' + '='.repeat(lv) + ']', from);
+                out.push([from, e < 0 ? s.length : e]);
+                i = e < 0 ? s.length : e + lv + 1;
+                continue;
+            }
+            if (c === '"' || c === "'") {
+                let j = i + 1;
+                while (j < s.length && s[j] !== c && s[j] !== '\n') j += s[j] === '\\' ? 2 : 1;
+                out.push([i + 1, Math.min(j, s.length)]);
+                i = j;
+            }
+        }
+        return out;
+    }
     function checkHide(item, byId, luaMode) {
         const t = byId[item?.target];
         if (!t) return 'unknown target';
@@ -2620,6 +2732,7 @@ Output a single JSON object only:
         const at = t.text.indexOf(find);
         if (at < 0) return 'find was not found verbatim in that target';
         if (t.text.indexOf(find, at + 1) >= 0) return 'find occurs more than once in that target';
+        if (t.lua && !luaStrings(t.text).some(([a, b]) => a <= at && at + find.length <= b)) return 'in a Lua trigger, find must lie inside one Lua string literal';
         if (kind === 'tag') {
             const m = /^<([a-zA-Z][\w-]*)/.exec(find);
             if (!m) return 'a "tag" find must start with "<" and the tag name';
@@ -2629,6 +2742,7 @@ Output a single JSON object only:
         if (kind === 'rule') {
             const body = find.trimEnd();
             if (!body.endsWith('{') || body.length < 2) return 'a "rule" find must be the selector ending with "{"';
+            if (/^\s*@/.test(body)) return 'an @-rule such as @media is not a rule; report the selector of the rule inside it';
             return { kind, at, pos: at + body.length };
         }
         const cbs = find.trim();
@@ -2783,7 +2897,7 @@ Output a single JSON object only:
             hideStage(job, '봇에 저장하는 중', [0.95, 1]);
             if (job.stop) throw stopError();
             job.saving = true;
-            const n = await saveHide(job, byId, ok);
+            const n = await inQueue(() => saveHide(job, byId, ok));
             setAssetOff(job.chaId, true);
             await redrawChat().catch(error => console.warn(LOG, 'hide redraw', error));
             if (st.view?.chaId === job.chaId) st.view.hidden = true;
@@ -2832,16 +2946,19 @@ Output a single JSON object only:
         if (!v || hide.job) return;
         hide.msg = null;
         try {
-            const char = await api.getCharacterFromIndex(v.ci);
-            if (!char || char.chaId !== v.chaId) throw new Error('봇을 읽지 못했습니다.');
-            let n = 0;
-            if (hasHide(char.backgroundHTML)) { char.backgroundHTML = unhide(char.backgroundHTML); n++; }
-            for (const s of char.customscript ?? []) if (s && hasHide(s.out)) { s.out = unhide(s.out); n++; }
-            for (const t of Array.isArray(char.triggerscript) ? char.triggerscript : []) {
-                const fx = t?.effect?.[0];
-                if (fx && hasHide(fx.code)) { fx.code = unhide(fx.code); n++; }
-            }
-            if (n) await api.setCharacterToIndex(v.ci, char);
+            let n = await inQueue(async () => {
+                const char = await api.getCharacterFromIndex(v.ci);
+                if (!char || char.chaId !== v.chaId) throw new Error('봇을 읽지 못했습니다.');
+                let k = 0;
+                if (hasHide(char.backgroundHTML)) { char.backgroundHTML = unhide(char.backgroundHTML); k++; }
+                for (const s of char.customscript ?? []) if (s && hasHide(s.out)) { s.out = unhide(s.out); k++; }
+                for (const t of Array.isArray(char.triggerscript) ? char.triggerscript : []) {
+                    const fx = t?.effect?.[0];
+                    if (fx && hasHide(fx.code)) { fx.code = unhide(fx.code); k++; }
+                }
+                if (k) await api.setCharacterToIndex(v.ci, char);
+                return k;
+            });
             if (setAssetOff(v.chaId, false)) n++;
             v.hidden = false;
             await redrawChat().catch(error => console.warn(LOG, 'unhide redraw', error));
@@ -3685,25 +3802,38 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('span', null, '그림은 봇의 추가 에셋에 nc_… 이름으로 저장됩니다'));
     }
 
-    function armButton(label, armedLabel, onFire, cls = 'ix-btn sm warn') {
-        let armed = false, timer = 0;
+    const armedKeys = new Map();
+    function armButton(label, armedLabel, onFire, cls = 'ix-btn sm warn', key = '') {
+        let armed = false, timer = 0, kids = null;
+        const arm = ms => {
+            armed = true;
+            kids ??= [...btn.childNodes];
+            btn.classList.add('armed');
+            btn.textContent = armedLabel;
+            timer = setTimeout(() => {
+                armed = false;
+                if (key && (armedKeys.get(key) ?? 0) <= Date.now()) armedKeys.delete(key);
+                btn.classList.remove('armed');
+                btn.replaceChildren(...kids);
+            }, ms);
+        };
         const btn = h('button', {
             class: cls, type: 'button',
             onclick: () => {
                 if (!armed) {
-                    armed = true;
-                    const kids = [...btn.childNodes];
-                    btn.classList.add('armed');
-                    btn.textContent = armedLabel;
-                    timer = setTimeout(() => { armed = false; btn.classList.remove('armed'); btn.replaceChildren(...kids); }, 3000);
+                    if (key) armedKeys.set(key, Date.now() + 3000);
+                    arm(3000);
                     return;
                 }
                 clearTimeout(timer);
                 armed = false;
+                if (key) armedKeys.delete(key);
                 btn.disabled = true;
                 Promise.resolve().then(onFire).catch(error => console.warn(LOG, 'arm', error)).finally(() => { btn.disabled = false; });
             },
         }, label);
+        const left = key ? (armedKeys.get(key) ?? 0) - Date.now() : 0;
+        if (left > 0) arm(left);
         return btn;
     }
 
@@ -3761,7 +3891,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (key === 'pc' || key === 'mo') st.sizeNote = { cls: 'wait', text: SIZE_WAIT };
         renderNow();
         if (['tap', 'ubtn', 'panelBtn', 'pc', 'mo'].includes(key)) void syncRoot(key);
-        if (key === 'ubtn') void redrawChat();
+        if (key === 'ubtn') void sizeChanged(false, true);
         if (key === 'pc' || key === 'mo') sizeChanged();
         else if (key === 'tap' || key === 'ptOff') sizeChanged(false);
     }
@@ -3865,7 +3995,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     st.keyDraft = '';
                     renderNow();
                     void rootQueue(() => paintBusy());
-                }, 'ix-btn warn') : null));
+                }, 'ix-btn warn', 'key') : null));
         input.addEventListener('input', () => { st.keyDraft = input.value; });
         if (st.keyDraft) input.value = st.keyDraft;
         else if (v?.hasKey) void naiKey().then(k => { if (k && !input.value) input.value = k; }).catch(() => {});
@@ -4099,8 +4229,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }
         const isSelf = a => a.from === 'emotion';
         const botName = () => st.view?.name || '봇';
-        let made = new Set();
-        const isMine = a => a.mine || made.has(a.name);
+        let made = new Set(), scanWait = false;
+        const isMine = a => a.mine || made.has(a.name) || !!astCache.get(st.view?.chaId)?.made?.includes(a.name);
         const usable = () => (st.view?.assets ?? []).filter(a => !isMine(a));
         const assetOf = name => usable().find(a => a.name === name);
         const SKIP = { bg: '배경 · 사물 그림', nohuman: '인물 태그 없음', noinfo: 'NovelAI 그림 정보 없음', same: '이미 있는 작가와 같은 그림체' };
@@ -4191,8 +4321,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             return false;
         }
         async function startScan() {
+            if (scanWait || (ui.scan && ui.scan.chaId === st.view?.chaId && (ui.scan.phase === 'model' || ui.scan.phase === 'read'))) return;
             const chaId = st.view?.chaId;
-            made = new Set((await loadAst(chaId).catch(() => null))?.made ?? []);
+            scanWait = true;
+            try { made = new Set((await loadAst(chaId).catch(() => null))?.made ?? []); } finally { scanWait = false; }
             if (st.view?.chaId !== chaId) return;
             const list = usable();
             const s = ui.scan = { chaId: st.view?.chaId, phase: 'model', list, prompt: pickPrompt(list), reply: '', err: '', picks: [], fallback: false, tried: [], group: null, src: null, cur: null, choose: false, msg: '', adds: [] };
@@ -4223,7 +4355,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         async function handleFiles(files) {
             files = [...files];
             const imgs = files.filter(isImg), list = imgs.slice(0, 1);
-            const f = ui.files = { n: 0, total: list.length, groups: null, bad: { none: [], other: [], broken: [] }, name: (list[0] || files[0])?.name.replace(/\.[^.]+$/, '') || '', adds: [] };
+            const f = ui.files = { chaId: st.view?.chaId, n: 0, total: list.length, groups: null, bad: { none: [], other: [], broken: [] }, name: (list[0] || files[0])?.name.replace(/\.[^.]+$/, '') || '', adds: [] };
             renderNow();
             const srcs = [];
             for (const file of list) {
@@ -4254,7 +4386,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const p = presetOf(g);
             src.adds.push({ id: p.id, prev: st.presetId, prevStyle: ui.styleId });
             st.presets.push(p); g.added = p.name;
-            st.presetId = p.id; ui.styleId = p.id; ui.newId = p.id;
+            st.presetId = p.id; ui.styleId = p.id; ui.newId = p.id; ui.newAt = Date.now();
             clearTimeout(newT); newT = setTimeout(() => { ui.newId = ''; }, 1300);
             savePresets();
         }
@@ -4272,6 +4404,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (gone.has(st.presetId)) st.presetId = adds.map(x => x.prev).find(alive) || st.presets[0]?.id || '';
             if (gone.has(ui.styleId)) ui.styleId = adds.map(x => x.prevStyle).find(alive) || st.presetId;
             if (gone.has(ui.newId)) ui.newId = '';
+            if (gone.has(st.set.acPresetId)) { st.set = { ...st.set, acPresetId: '' }; saveSet(); }
             savePresets();
         }
         function askTile(q, sub, onclick, label) {
@@ -4351,6 +4484,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             return out;
         }
         function fileParts() {
+            if (ui.files && ui.files.chaId !== st.view?.chaId) ui.files = null;
             const f = ui.files, out = { tiles: [], tray: [] };
             if (f && !f.groups) {
                 out.tiles.push(h('div', { class: 'ps-it ps-ent', 'aria-busy': 'true' },
@@ -4385,6 +4519,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const badge = t => h('small', { style: 'margin-left:6px;font-weight:400;color:var(--accent)' }, t);
         return h('div', { class: 'ps', role: 'radiogroup' }, head, st.presets.map(p => h('button', {
             class: 'ps-it' + (p.id === cur.id ? ' sel' : '') + (p.id === ui.newId ? ' ps-new' : ''), type: 'button', role: 'radio', 'aria-checked': p.id === cur.id ? 'true' : 'false',
+            ...(p.id === ui.newId ? { style: `animation-delay:-${Math.max(0, Date.now() - (ui.newAt || 0))}ms` } : {}),
             onclick: edit ? () => edit.pick(p.id)
                 : asset ? () => { st.set = { ...st.set, acPresetId: p.id }; saveSet(); after?.(); renderNow(); }
                 : () => { st.presetId = p.id; savePresets(); setStep('preset'); after?.(); renderNow(); },
@@ -4482,7 +4617,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'ix-msg err', role: 'alert' }, `#${f.idx} 답변을 그리지 못했습니다. ${f.error}`),
             rawBox(f),
             h('div', { class: 'ix-acts' },
-                h('button', { class: 'ix-btn main sm', type: 'button', disabled: !v.hasKey || st.jobs > 0, onclick: () => draw(f.idx, 'new') }, '↻ 다시 시도'),
+                h('button', { class: 'ix-btn main sm', type: 'button', disabled: !v.hasKey || st.jobs > 0, onclick: () => { const i = v.msgs.find(m => m.key === f.key)?.i ?? -1; if (i >= 0) draw(i, 'new'); else { failed.delete(f.key); st.err = '그 답변을 찾지 못했습니다. 지워졌거나 옮겨졌을 수 있습니다.'; renderNow(); } } }, '↻ 다시 시도'),
                 h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { failed.delete(f.key); st.err = ''; renderNow(); } }, '닫기'))];
         const el = Date.now() - ui.readyAt, fresh = el < 1200;
         const ok = h('span', { class: 'fn-ok' + (fresh ? '' : ' still'), 'aria-hidden': 'true' });
@@ -4568,7 +4703,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     ui.menu = '';
                     await refreshView().catch(() => {});
                     renderNow();
-                }, 'ix-btn warn')));
+                }, 'ix-btn warn', 'all:' + v.chatKey)));
         return pane;
     }
 
@@ -4618,7 +4753,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         try { await removeRecord(r); } catch (error) { st.err = error.message || String(error); }
                         await refreshView().catch(() => {});
                         renderNow();
-                    }),
+                    }, undefined, 'gone:' + r.key),
                 h('span', { class: 'ix-hint' }, '채팅에서 지운 답변이라 다시 그릴 수 없습니다. 지우면 봇 에셋 · 기록에서도 뺍니다')));
     }
 
@@ -4655,7 +4790,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 try { await removeImage(v.ci, v.chi, { chaId: v.chaId, type: v.group ? 'group' : 'char' }, a.key, a.i, x.name.toLowerCase()); }
                 catch (error) { st.err = error.message || String(error); }
                 renderNow();
-            }, 'del'));
+            }, 'del', 'img:' + a.key + ':' + x.name));
     }
 
     const DOT_COLORS = ['#00b4ff', '#ff6fa5', '#a78bfa', '#ff914d', '#00e08a', '#facc15', '#f87171', '#38bdf8'];
@@ -4815,28 +4950,36 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     let castTimer = 0, stateTimer = 0;
     function castChanged(e) {
         if (e && e.src !== 'persona') e.src = 'edit';
+        const v = st.view;
         clearTimeout(castTimer);
         castTimer = setTimeout(() => {
-            const v = st.view;
             if (v) saveCast(v.chaId, v.cast);
-            writeVarsSoon();
+            writeVarsSoon(v);
         }, 500);
     }
-    function writeVarsSoon() {
+    function writeVarsSoon(v = st.view) {
         clearTimeout(stateTimer);
         stateTimer = setTimeout(async () => {
-            const v = st.view;
             if (!v) return;
             try {
                 const chat = await api.getChatFromIndex(v.ci, v.chi);
-                if (!chat) return;
-                writeStateInto(chat, v.state, v.cast);
+                if (chat?.isStreaming) { writeVarsSoon(v); return; }
+                if (!chat || chatKeyOf(chat, v.chi) !== v.chatKey) return;
+                if ((await api.getCharacterFromIndex(v.ci))?.chaId !== v.chaId) return;
+                writeStateInto(chat, liveState(v), v.cast);
                 await api.setChatToIndex(v.ci, v.chi, chat);
             } catch (error) {
                 console.warn(LOG, 'state', error);
             }
         }, 600);
     }
+
+    const liveState = v => {
+        const now = st.view;
+        const s = now && now.chaId === v.chaId && now.chatKey === v.chatKey ? now.state : v.state;
+        s.wear ??= {};
+        return s;
+    };
 
     function slotPreview(e, state) {
         return joinTags(identTags(e.type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)));
@@ -4871,7 +5014,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     h('label', { class: 'st-f' }, label,
                         h('input', {
                             class: 'cf-in', value: v.state[k] ?? '', placeholder: `모름 (예: ${ex})`, 'aria-label': label.slice(3),
-                            oninput: ev => { v.state[k] = ev.target.value.trim(); writeVarsSoon(); },
+                            oninput: ev => { liveState(v)[k] = ev.target.value.trim(); writeVarsSoon(v); },
                         }))),
                 st.set.vars ? h('span', { class: 'ix-hint' }, '변수: {{getvar::nc_이름_top}} · hairstyle · bangs · haircolor · eyes · height · body · bottom · shoes') : null),
             h('h2', { class: 'sub' }, '등장인물', h('small', null, `${v.cast.list.length}명 · 이름을 누르면 펼쳐서 고칩니다`),
@@ -4922,10 +5065,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         class: 'cf-in now' + (now[k] ? ' on' : ''), value: now[k] ?? '', placeholder: baseWear(e, k) || (group === '옷' ? '모름 (벗었으면 none)' : '모름'), 'aria-label': `지금 ${label}`,
                         oninput: ev => {
                             const t = ev.target.value.trim();
-                            const w = (v.state.wear[e.id] ??= {});
+                            const w = (liveState(v).wear[e.id] ??= {});
                             if (t) w[k] = t; else delete w[k];
                             ev.target.classList.toggle('on', !!t);
-                            writeVarsSoon();
+                            writeVarsSoon(v);
                         },
                     }));
                 add(card, h('div', { class: 'cc-bd' },
@@ -4953,11 +5096,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     h('div', { class: 'cc-ft' },
                         armButton('인물 삭제', '한 번 더 누르면 삭제', () => {
                             v.cast.list = v.cast.list.filter(x => x !== e);
-                            delete v.state.wear[e.id];
+                            delete liveState(v).wear[e.id];
                             open.delete(e.id);
                             castChanged();
                             renderNow();
-                        }))));
+                        }, undefined, 'cast:' + e.id))));
             }
             add(pane, card);
         });
@@ -4990,7 +5133,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const cast = await loadCast(v.chaId);
             mergeCast(cast, fresh);
             await saveCast(v.chaId, cast);
-            writeVarsSoon();
+            writeVarsSoon(v);
             res = ['ok', `인물 ${fresh.length}명을 읽었습니다.`];
             st.note = res[1];
             st.ok = true;
@@ -5001,7 +5144,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         } finally {
             if (st.lore === busy) st.lore = null;
             finish();
-            renderNow();
+            render();
         }
         return res;
     }
@@ -5075,7 +5218,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     presetDrafts.delete(cur.id);
                     savePresets();
                     renderNow();
-                }, 'ix-btn') : null,
+                }, 'ix-btn', 'reset:' + cur.id) : null,
                 st.presets.length > 1 ? armButton('삭제', '한 번 더 누르면 삭제', () => {
                     st.presets = st.presets.filter(p => p.id !== cur.id);
                     if (!st.presets.some(p => p.id === st.presetId)) st.presetId = st.presets[0].id;
@@ -5083,7 +5226,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     ui.styleId = st.presetId;
                     savePresets();
                     renderNow();
-                }, 'ix-btn warn') : null,
+                }, 'ix-btn warn', 'preset:' + cur.id) : null,
                 stateTx),
             h('div', { class: 'ed', oninput: sync },
                 h('label', null, '이름', h('input', { value: draft.name, oninput: e => { draft.name = e.target.value; } })),
@@ -5234,7 +5377,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const lb = ui.root?.querySelector('.lb');
             if (lb) lb.remove(); else closePanel();
         });
-        listen(doc, 'focusout', () => setTimeout(() => { if (render.pending) render(); }, 0));
+        let ptrDown = false;
+        const flush = () => setTimeout(() => { if (render.pending) render(); }, 0);
+        listen(doc, 'pointerdown', () => { ptrDown = true; });
+        listen(doc, 'pointerup', () => { ptrDown = false; flush(); });
+        listen(doc, 'pointercancel', () => { ptrDown = false; flush(); });
+        listen(doc, 'focusout', () => { if (!ptrDown) flush(); });
     }
     function closePanel() {
         acs.edit = null;
@@ -5252,12 +5400,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const chaIdAt = new Map();
+    const CHA_TTL = 5000;
     async function curChaId() {
         const ci = await api.getCurrentCharacterIndex();
         if (!Number.isInteger(ci) || ci < 0) return '';
-        if (st.view?.ci === ci) return st.view.chaId;
-        if (!chaIdAt.has(ci)) chaIdAt.set(ci, (await api.getCharacterFromIndex(ci))?.chaId ?? '');
-        return chaIdAt.get(ci);
+        const hit = chaIdAt.get(ci);
+        if (hit && Date.now() - hit.t < CHA_TTL) return hit.p;
+        const p = api.getCharacterFromIndex(ci).then(c => c?.chaId ?? '', () => '');
+        chaIdAt.set(ci, { p, t: Date.now() });
+        return p;
     }
 
     async function refreshView() {
@@ -5266,7 +5417,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const char = await api.getCharacterFromIndex(ci);
         const chat = char ? await api.getChatFromIndex(ci, chi) : null;
         chaIdAt.clear();
-        if (char?.chaId) chaIdAt.set(ci, char.chaId);
+        if (char?.chaId) chaIdAt.set(ci, { p: Promise.resolve(char.chaId), t: Date.now() });
         if (!char || !chat) { st.view = null; return; }
         const chaId = char.chaId;
         const [cast, recs, key] = await Promise.all([loadCast(chaId), loadRecs(chaId), naiKey(), loadAst(chaId)]);
@@ -5396,7 +5547,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
     const ACT_LABEL = { panel: '🎨 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', del: '🗑 지우기' };
     const actHtml = name => `<div class="nc-act" style="${ACT_STYLE}">`
-        + Object.entries(ACT_LABEL).map(([k, label]) => `<span class="nc-act-b nc-${k} nc-for-${name}" style="${BTN_STYLE}">${label}</span>`).join('')
+        + Object.entries(ACT_LABEL).map(([k, label]) => `<span class="nc-act-b nc-${k} nc-for-${name} nc-at-{{chat_index}}" style="${BTN_STYLE}">${label}</span>`).join('')
         + '</div>';
     const FIG_RE = /<div class="nc-fig nc-id-(nc_[a-z0-9_]+)">(<div class="nc-act">)?/gi;
     const INLAY_RE = /(<div class="nc-fig nc-id-nc_[a-z0-9_]+" style="[^"]*">(?:<div class="nc-act"[^>]*>.*?<\/div>)?\s*)<div class="risu-inlay-image">(\s*)<img\b/gi;
@@ -5445,6 +5596,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const dropAssets = (text, on) => on ? text.replace(RISU_ASSET_RE, '') : text;
     async function ncDisplay(content) {
         if (typeof content !== 'string') return null;
+        if (await retired()) return content;
         const gen = genHtml();
         const hasFig = content.includes('nc-fig'), hasPt = content.includes('nc-pt');
         const needId = (st.set.assetOff.length > 0 && /risu-inlay-image|<img src="|<video /.test(content)) || (st.set.ptOff.length > 0 && hasPt);
@@ -5497,11 +5649,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const curIdx = await api.getCurrentCharacterIndex();
         let curId = '';
         const cur = Number.isInteger(curIdx) ? await api.getCharacterFromIndex(curIdx) : null;
+        let late = false;
         if (cur?.chaId) {
             curId = cur.chaId;
             const mine = hasVars(cur.defaultVariables) || Object.keys(await loadRecs(cur.chaId)).length > 0;
             const fresh = mine ? await api.getCharacterFromIndex(curIdx) : null;
-            if (fresh?.chaId === curId && putVars(fresh)) await api.setCharacterToIndex(curIdx, fresh);
+            const chat = fresh ? await api.getChatFromIndex(curIdx, await api.getCurrentChatIndex()) : null;
+            if (chat?.isStreaming) late = true;
+            else if (fresh?.chaId === curId && putVars(fresh)) await api.setCharacterToIndex(curIdx, fresh);
         }
         for (let i = 0; i < 100000; i++) {
             if (i === curIdx) continue;
@@ -5510,6 +5665,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (!c.chaId || c.chaId === curId || !hasVars(c.defaultVariables)) continue;
             if (putVars(c)) await api.setCharacterToIndex(i, c);
         }
+        return late ? 'streaming' : true;
     }
 
     async function redrawChat() {
@@ -5524,6 +5680,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (m.disabled === undefined) m.disabled = false;
             else if (m.disabled === false) delete m.disabled;
         }
+        const now = await api.getChatFromIndex(ci, chi);
+        if (!now || now.isStreaming || now.message?.length !== chat.message.length || await api.getCurrentChatIndex() !== chi) return 'streaming';
         await api.setChatToIndex(ci, chi, chat);
         return true;
     }
@@ -5532,15 +5690,18 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     let sizeChain = Promise.resolve();
     let sizeTimer = 0;
     let laterTimer = 0;
-    function sizeChanged(vars = true) {
+    let sizeVars = false, sizeLoud = false;
+    function sizeChanged(vars = true, quiet = false) {
+        sizeVars ||= vars;
+        sizeLoud ||= !quiet;
         clearTimeout(sizeTimer);
         clearTimeout(laterTimer);
         sizeTimer = setTimeout(() => {
             sizeTimer = 0;
-            sizeChain = sizeChain.then(async () => {
-                if (vars) await syncVars();
-                await redrawNow(0);
-            }).catch(error => {
+            const withV = sizeVars, loud = sizeLoud;
+            sizeVars = false;
+            sizeLoud = false;
+            sizeChain = sizeChain.then(() => redrawNow(0, withV, loud)).catch(error => {
                 console.warn(LOG, 'size', error);
                 st.sizeNote = { cls: 'err', text: `지금 채팅에 반영하지 못했습니다: ${error.message || error}. 채팅방을 다시 열면 바뀐 크기로 보입니다.` };
                 render();
@@ -5548,19 +5709,20 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         }, 600);
         return sizeChain;
     }
-    async function redrawNow(tries) {
-        const result = await redrawChat();
+    async function redrawNow(tries, vars = false, loud = true) {
+        const late = vars ? await syncVars() === 'streaming' : false;
+        const result = late ? 'streaming' : await redrawChat();
         if (result === 'streaming') {
             if (tries < 90) {
-                st.sizeNote = { cls: 'warn', text: '답변이 나오는 중이라, 끝나면 채팅을 다시 그립니다.' };
+                if (loud) st.sizeNote = { cls: 'warn', text: '답변이 나오는 중이라, 끝나면 채팅을 다시 그립니다.' };
                 laterTimer = setTimeout(() => {
                     laterTimer = 0;
-                    sizeChain = sizeChain.then(() => redrawNow(tries + 1)).catch(error => console.warn(LOG, 'size later', error));
+                    sizeChain = sizeChain.then(() => redrawNow(tries + 1, late, loud)).catch(error => console.warn(LOG, 'size later', error));
                 }, 2000);
-            } else {
+            } else if (loud) {
                 st.sizeNote = { cls: 'err', text: '답변이 3분 넘게 이어져 채팅을 다시 그리지 않았습니다. 채팅방을 다시 열면 바뀐 크기로 보입니다.' };
             }
-        } else {
+        } else if (loud) {
             st.sizeNote = result === 'nochat'
                 ? { cls: 'ok', text: '✔ 저장했습니다. 지금 열린 채팅이 없어 다시 그리지 않았습니다.' }
                 : { cls: 'ok', text: '✔ 지금 채팅에 반영했습니다.' };
@@ -5578,7 +5740,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const panSel = () => st.set.panelBtn ? '.nc-panbtn' : '';
     const inRect = (r, e) => !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
     const HOVER_SEL = '.nc-panbtn:hover, .x-risu-nc-gen:hover, .x-risu-nc-act-b:hover, .x-risu-nc-fig:hover';
-    const hoverKey = cls => String(cls ?? '').split(/\s+/).filter(c => c && c !== 'x-risu-nc-on').sort().join(' ');
+    const hoverKey = cls => String(cls ?? '').split(/\s+/).filter(c => c && c !== 'x-risu-nc-on' && c !== 'x-risu-nc-armed').sort().join(' ');
     async function hoverCheck(d, event) {
         const ours = (async () => {
             const seen = new Set();
@@ -5602,7 +5764,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             }
         })();
         const [seen, live] = await Promise.all([ours, fresh]);
-        return async el => !live || seen.has(hoverKey(await el.getClassName()));
+        const check = async el => !live || seen.has(hoverKey(await el.getClassName()));
+        check.none = live && seen.size === 0;
+        return check;
     }
 
     async function rootDoc() {
@@ -5626,7 +5790,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const d = root.doc;
         if (!d) return;
         try {
-            let f = await d.querySelector('body > iframe[x-nc-panel]');
+            if (!ui.root?.isConnected) return;
+            let f = await d.querySelector('body > iframe[x-nc-panel="1"]');
+            if (f && await f.getStyle('display') !== 'block') {
+                await f.setAttribute('x-nc-panel', '0');
+                f = null;
+            }
             if (!f) {
                 const all = await d.querySelectorAll('body > iframe');
                 const hit = [];
@@ -5663,15 +5832,18 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function tightenButtons(row, force = false) {
         const kids = await row.getChildren();
         const n = await kids.length();
-        const head = n ? String(await (await kids.at(0)).getClassName() ?? '') : '';
-        const sign = n + '|' + head;
+        const items = [];
+        for (let i = 0; i < n; i++) {
+            const k = await kids.at(i);
+            const cls = String(await k.getClassName() ?? '');
+            if (cls.includes('text-input-area')) break;
+            items.push([k, cls]);
+        }
+        const sign = n + '|' + items.map(x => x[1]).join('|');
         if (sign === root.kids && !force) return;
         root.kids = sign;
         let first = true;
-        for (let i = 0; i < n; i++) {
-            const k = await kids.at(i);
-            const cls = i ? String(await k.getClassName() ?? '') : head;
-            if (cls.includes('text-input-area')) break;
+        for (const [k, cls] of items) {
             if (!/(^|\s)w-12(\s|$)/.test(cls)) continue;
             const now = await k.getStyle('marginLeft');
             if (first) {
@@ -5840,6 +6012,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         root.figMarked = marked;
     }
     async function paintBusy(force = false) {
+        if (!root.on) { stopTick(); return; }
         if (st.jobs > 0) startTick(); else stopTick();
         await paintGen(force, true);
         await paintFigs(true);
@@ -5849,8 +6022,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const b = await d.createElement('button');
         await b.setClassName(PANBTN_CLASS);
         await b.setInnerHTML(PAN_ICON);
-        await b.setStyle('cursor', 'pointer');
-        await b.setStyle('flexShrink', '0');
+        await b.setStyleAttribute('cursor:pointer;flex-shrink:0 !important;width:3rem !important;height:3rem !important');
         if (!root.on || !panSel() || await d.querySelector('.nc-panbtn')) return false;
         await row.prepend(b);
         return true;
@@ -5875,7 +6047,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     async function onRootClick(event) {
         const d = root.doc;
         if (event.button !== 0 || !root.on || !d) return;
+        if (await retired()) return;
         const onTop = await hoverCheck(d, event);
+        if (onTop.none) { if (st.set.tap) await toggleFig(d, event, onTop); return; }
         const pb = panSel() ? await d.querySelector('.nc-panbtn') : null;
         if (pb && inRect(await pb.getBoundingClientRect(), event)) {
             if (await onTop(pb)) void openPanel().catch(error => console.error(LOG, 'panel', error));
@@ -5905,7 +6079,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const name = /(?:^|\s)x-risu-nc-for-(nc_[a-z0-9_]+)/i.exec(cls)?.[1];
             const act = /(?:^|\s)x-risu-nc-(panel|draw|new|del)(?:\s|$)/.exec(cls)?.[1];
             if (act === 'panel') return void openPanel().catch(error => console.error(LOG, 'panel', error));
-            if (name && act) await figAction(act, name, el);
+            if (name && act) await figAction(act, name, el, genIdx(cls));
             return;
         }
         await toggleFig(d, event, onTop);
@@ -5952,23 +6126,41 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     async function startRoot() {
-        if (root.on || !needRoot()) return;
+        if (root.on || !needRoot() || instOld) return;
         const d = await rootDoc();
         if (!d || root.on || !needRoot()) return;
         root.on = true;
         root.look = '';
         root.pct = -1;
-        root.clickId = await d.addEventListener('click', event => void onRootClick(event));
-        root.observer = await api.createMutationObserver(() => {
-            if (root.timer) return;
-            root.timer = setTimeout(() => {
-                root.timer = 0;
-                void rootQueue(placeButton);
-            }, 300);
-        });
-        const body = await d.querySelector('body');
-        if (body) await root.observer.observe(body, { childList: true, subtree: true });
+        try {
+            root.clickId = await d.addEventListener('click', event => void onRootClick(event));
+            root.observer = await api.createMutationObserver(() => {
+                if (root.timer) return;
+                root.timer = setTimeout(() => {
+                    root.timer = 0;
+                    void rootQueue(placeButton);
+                }, 300);
+            });
+            const body = await d.querySelector('body');
+            if (body) await root.observer.observe(body, { childList: true, subtree: true });
+        } catch (error) {
+            await stopRoot();
+            throw error;
+        }
         await placeButton();
+    }
+
+    async function retireRoot() {
+        root.on = false;
+        stopTick();
+        clearTimeout(root.timer);
+        root.timer = 0;
+        try { await root.observer?.disconnect(); } catch {}
+        root.observer = null;
+        if (root.clickId && root.doc) {
+            try { await root.doc.removeEventListener('click', root.clickId); } catch {}
+            root.clickId = '';
+        }
     }
 
     async function stopRoot() {
@@ -6027,6 +6219,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const armed = { name: '', el: null, timer: 0 };
+    const ARMED = 'x-risu-nc-armed';
     const setLabel = async (el, text) => { try { await el.setInnerHTML(text); } catch {} };
     function disarm() {
         clearTimeout(armed.timer);
@@ -6034,9 +6227,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         armed.name = '';
         armed.el = null;
         armed.timer = 0;
-        if (el) { void setLabel(el, ACT_LABEL.del); void el.setStyle('background', '').catch(() => {}); }
+        if (el) { void setLabel(el, ACT_LABEL.del); void el.setStyle('background', '').catch(() => {}); void el.removeClass(ARMED).catch(() => {}); }
     }
-    async function figAction(act, name, el) {
+    async function figAction(act, name, el, at = NaN) {
         if (doubleTap(`f:${act}:${String(name).toLowerCase()}`)) return;
         try {
             const ci = await api.getCurrentCharacterIndex();
@@ -6050,18 +6243,20 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const char = await api.getCharacterFromIndex(ci);
             const chat = char ? await api.getChatFromIndex(ci, chi) : null;
             const list = chat?.message ?? [];
-            const idx = list.findIndex(m => String(m?.data ?? '').toLowerCase().includes(`::${low}}}`));
+            const has = m => String(m?.data ?? '').toLowerCase().includes(`::${low}}}`);
+            const idx = Number.isInteger(at) && has(list[at]) ? at : list.findIndex(has);
             if (idx < 0) return;
             const key = msgKeyOf(list[idx], idx, list);
             if (act !== 'del' && armed.name) disarm();
             if (queued.has(key)) { await api.alert?.('이 답변은 지금 그리는 중입니다.'); return; }
             if (act === 'del') {
+                if (armed.name === low && !await el.hasClass(ARMED).catch(() => false)) disarm();
                 if (armed.name !== low) {
                     disarm();
                     armed.name = low;
                     armed.el = el;
                     await setLabel(el, '정말 지울까요?');
-                    try { await el.setStyle('background', 'rgba(220,38,38,.92)'); } catch {}
+                    try { await el.setStyle('background', 'rgba(220,38,38,.92)'); await el.addClass(ARMED); } catch {}
                     armed.timer = setTimeout(disarm, 3000);
                     return;
                 }
@@ -6105,6 +6300,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (i < 0) return;
         const m = chat.message[i];
         m.data = String(m.data ?? '').replace(TAG_RE, tag => tag.toLowerCase().includes(`::${low}}}`) ? '' : tag).replace(/\s+$/, '');
+        const now = await api.getChatFromIndex(ci, chi);
+        if (!now || now.isStreaming || now.message?.length !== chat.message.length) { await api.alert?.('채팅이 바뀌는 중이라 지우지 않았습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
         await api.setChatToIndex(ci, chi, chat);
         const recs = await loadRecs(char0.chaId);
         const rk = recKeyIn(recs, chat, key, i) || key;
@@ -6214,7 +6411,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         ['shy', '수줍음', '☺️', 'shy, blush, looking away, fidgeting'],
         ['flustered', '당황', '😵', 'flustered, wavy mouth, flying sweatdrops, blush, waving hands'],
         ['embarrassed', '민망', '🙈', 'embarrassed, full-face blush, covering face, peeking through fingers'],
-        ['lovestruck', '두근', '😍', 'heart-shaped pupils, blush, hands on own cheeks, sparkle'],
+        ['lovestruck', '두근', '😍', 'heart-shaped pupils, blush, hands on own cheeks'],
         ['shocked', '충격', '😱', 'shocked, constricted pupils, hands on own head, open mouth'],
         ['amazed', '감탄', '🤩', 'sparkling eyes, open mouth, smile, own hands clasped'],
         ['scared', '겁먹음', '😨', 'scared, trembling, sweat, hands up, leaning back'],
@@ -6264,7 +6461,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     ];
     const AC_NOTE_OPEN = '{{// 이매진 에셋}}';
     const AC_NOTE_CLOSE = '{{// 이매진 에셋 끝}}';
-    const AC_NOTE_RE = /\{\{\/\/ 이매진 에셋\}\}[\s\S]*?\{\{\/\/ 이매진 에셋 끝\}\}/;
+    const AC_NOTE_RE = /\{\{\/\/ 이매진 에셋\}\}(?:(?!\{\{\/\/ 이매진 에셋\}\})[\s\S])*?\{\{\/\/ 이매진 에셋 끝\}\}/g;
+    const AC_ORPHAN_RE = /[^\S\n]*\{\{\/\/ 이매진 에셋(?: 끝)?\}\}[^\S\n]*/g;
     const AC_LORE_LOOK = name => `이매진 · ${name} 외형`;
     const AC_LORE_ASSET = name => `이매진 · ${name} 에셋`;
     const AC_PER_SEC = 22;
@@ -6590,6 +6788,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         gn: '', gnEdited: false, step: 1, edits: {}, refName: {}, slugs: {}, slugBy: {}, enNames: {}, asked: false, made: [],
         prompts: {},
         refOf: {},
+        spKeys: [],
     });
     const astCache = new Map();
     const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -6603,7 +6802,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (a.count === 'custom' && !a.custom && !(Number(a.step) <= 3 && acCustomItems(a.customText).length)) a.count = 10;
         if (![1, 10, 50, 'custom'].includes(a.count)) a.count = 10;
         for (const k of ['picked', 'outfits', 'botOutfits']) if (a[k] !== null && !Array.isArray(a[k])) a[k] = null;
-        for (const k of ['extra', 'specials', 'made']) if (!Array.isArray(a[k])) a[k] = [];
+        for (const k of ['extra', 'specials', 'made', 'spKeys']) if (!Array.isArray(a[k])) a[k] = [];
+        a.spKeys = a.spKeys.filter(k => typeof k === 'string');
         a.extra = a.extra.filter(o => !(isObj(o) && o.gone));
         for (const k of ['edits', 'refName', 'slugs', 'slugBy', 'enNames', 'prompts', 'refOf']) if (!isObj(a[k])) a[k] = {};
         for (const [k, x] of Object.entries(a.refOf)) if (typeof x !== 'string') delete a.refOf[k];
@@ -6645,6 +6845,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         an: null, anAt: 0, anBusy: false, anErr: '', anShow: false, anFlash: false, quota: null, anT0: 0,
         refs: new Map(), times: [], timer: 0, fail: new Map(), menu: '', who: '', outfit: '', adv: false, trErr: '', lw: 'all',
         reopen: 0, reopenCha: '', llmOpen: false,
+        ren: false,
         sp: false, spAt: 0, spErr: '',
         fOpen: false, mOpen: false, finAt: 0,
     };
@@ -6704,7 +6905,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             if (back) { out[e.id] = back[0]; used.add(back[0]); gone.delete(back[0]); continue; }
             const base = acSlugBase(a, e);
             let s = base, n = 2;
-            while (used.has(s) || gone.has(s)) s = base.slice(0, 10) + n++;
+            const foreign = k => [...acHas().keys()].some(x => x.startsWith(`c_${k}_`) && !a.made.includes(x));
+            while (used.has(s) || gone.has(s) || foreign(s)) s = base.slice(0, 10) + n++;
             out[e.id] = s;
             used.add(s);
         }
@@ -6908,6 +7110,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             const ci = await api.getCurrentCharacterIndex();
             const now = await api.getCharacterFromIndex(ci);
             if (now?.chaId !== run.chaId) throw Object.assign(new Error('봇이 바뀌어 멈췄습니다. 이 봇의 채팅으로 돌아와 애드 에셋을 다시 누르면 남은 칸부터 그립니다.'), { moved: true });
+            run.ci = ci;
             run.cur = t;
             run.curAt = Date.now();
             render();
@@ -6956,6 +7159,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
     async function acEnd(a, run) {
         if (acs.run === run) { acs.run = null; clearInterval(acs.timer); acs.timer = 0; }
+        let note = '';
+        try { note = await acSyncNote(a, run.ci, run.chaId); } catch (error) { console.warn(LOG, 'note', error); }
         if (run.ended === 'stop') {
             acs.msg = `멈췄습니다. 그린 ${run.done}장은 봇 에셋에 남겨 두었습니다. 애드 에셋을 다시 누르면 남은 칸부터 그립니다.`;
             acs.msgOk = false;
@@ -6963,10 +7168,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             acs.msg = '';
             acs.msgOk = true;
         } else if (!run.ended) {
-            let note = '';
-            try { note = await acSyncNote(a, run.ci, run.chaId); } catch (error) { console.warn(LOG, 'note', error); }
             const names = [...new Set(run.tasks.map(t => t.e.name))];
-            const hv = acHave.get(run.chaId) ?? new Map(), all = acPlan(a).every(t => hv.has(t.name));
+            const hv = acHave.get(run.chaId) ?? new Map(), all = st.view?.chaId === run.chaId && acPlan(a).every(t => hv.has(t.name));
             acs.msg = run.single ? `${run.tasks[0].name}을(를) 다시 그렸습니다.`
                 : all ? ''
                 : `애드 에셋을 마쳤습니다. ${names.join(' · ')} ${names.length}명, ${run.n}장을 봇에 넣고 인물마다 로어북 「외형」 · 「에셋」을 썼습니다.`;
@@ -6980,13 +7183,20 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     async function acCommit(a, run, t, path, ext) {
-        const char = await api.getCharacterFromIndex(run.ci);
-        if (char?.chaId !== run.chaId) throw Object.assign(new Error('봇이 바뀌어 그림을 넣지 못했습니다. 이 봇의 채팅에서 다시 눌러 주세요.'), { moved: true });
+        let char = await api.getCharacterFromIndex(run.ci);
+        if (char?.chaId !== run.chaId) {
+            const ci = await api.getCurrentCharacterIndex();
+            const now = ci === run.ci ? null : await api.getCharacterFromIndex(ci);
+            if (now?.chaId !== run.chaId) throw Object.assign(new Error('봇이 바뀌어 그림을 넣지 못했습니다. 이 봇의 채팅에서 다시 눌러 주세요.'), { moved: true });
+            run.ci = ci;
+            char = now;
+        }
         const drop = new Set([t.name]);
         if (t.emo.special && !t.keep) {
             const pre = `c_${t.slug}_${t.o.key}_`;
             const keep = new Set([...AC_EMO.map(r => r[0]), ...(a.custom?.emos ?? []).map(m => m.key)]);
-            for (const n of a.made) if (n.startsWith(pre) && !keep.has(n.slice(pre.length))) drop.add(n);
+            const sp = new Set(['special', ...acSpecialList(a).map(x => x.key), acSpecial(a).key, a.special?.key, ...a.spKeys].filter(k => k && !keep.has(k)));
+            for (const n of a.made) if (n.startsWith(pre) && n !== t.name && sp.has(n.slice(pre.length))) drop.add(n);
         }
         const gone = (char.additionalAssets ?? []).filter(x => drop.has(x?.[0])).map(x => x[1]);
         char.additionalAssets = acSwapIn(char.additionalAssets ?? [], x => x?.[0], drop, t.name, [t.name, path, ext]);
@@ -6996,7 +7206,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         acReadHave(char);
         a.made = made;
         for (const [k, n] of Object.entries(a.refName)) if (drop.has(n) && n !== t.name) delete a.refName[k];
-        for (const k of Object.keys(a.refOf)) if (drop.has(k) && k !== t.name) delete a.refOf[k];
+        for (const [k, n] of Object.entries(a.refOf)) if ((drop.has(k) || drop.has(n)) && k !== t.name) delete a.refOf[k];
+        if (t.emo.special && !a.spKeys.includes(t.emo.key)) a.spKeys = [...a.spKeys, t.emo.key].slice(-50);
         for (const p of gone) if (p !== path) dropThumb(p);
         saveAst(run.chaId);
     }
@@ -7012,14 +7223,23 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         out.splice(pos < 0 ? out.length : pos, 0, item);
         return out;
     }
-    function acLore(char, a, e, slug, made = a.made) {
+    function acLoreHit(x, kind, name, slugs) {
+        if (typeof x?.comment !== 'string' || !x.comment.startsWith('이매진 · ') || !x.comment.endsWith(` ${kind}`)) return false;
+        const parts = String(x.key ?? '').split(',').map(v => v.trim());
+        const tail = parts.length > 1 ? parts[parts.length - 1] : '';
+        if (AC_SLUG_RE.test(tail)) return slugs.includes(tail);
+        return x.comment === `이매진 · ${name} ${kind}`;
+    }
+    function acLore(char, a, e, slug, made = a.made, olds = []) {
         const lore = Array.isArray(char.globalLore) ? char.globalLore : (char.globalLore = []);
         const pre = `c_${slug}_`;
-        const mine = new Set([...made, ...acPlan(a, e.id).map(t => t.name)]);
+        const mine = new Set([...made, ...(st.view?.chaId === char.chaId ? acPlan(a, e.id).map(t => t.name) : [])]);
         const names = (char.additionalAssets ?? []).map(x => x?.[0]).filter(n => typeof n === 'string' && n.startsWith(pre) && mine.has(n));
         const comments = [AC_LORE_LOOK(e.name), AC_LORE_ASSET(e.name)];
+        const kinds = ['외형', '에셋'], keys = [slug, ...olds];
+        const hit = (x, j) => acLoreHit(x, kinds[j], e.name, keys);
         if (!names.length) {
-            char.globalLore = lore.filter(x => !comments.includes(x?.comment));
+            char.globalLore = lore.filter(x => !kinds.some((k, j) => hit(x, j)));
             return;
         }
         const rows = WEAR.map(([k]) => [k, baseWear(e, k)]);
@@ -7035,10 +7255,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         comments.forEach((comment, i) => {
             if (off && i === 1) return;
             const ent = { key: `${e.name}, ${slug}`, secondkey: '', insertorder: 100, comment, content: contents[i], mode: 'normal', alwaysActive: false, selective: false, useRegex: false };
-            const at = lore.findIndex(x => x?.comment === comment);
+            const at = lore.findIndex(x => hit(x, i));
             if (at >= 0) lore[at] = { ...lore[at], ...ent }; else lore.push(ent);
         });
-        if (off) char.globalLore = lore.filter(x => x?.comment !== comments[1]);
+        const keepAt = kinds.map((k, j) => lore.findIndex(x => hit(x, j)));
+        char.globalLore = lore.filter((x, i) => kinds.every((k, j) => !hit(x, j) || (i === keepAt[j] && !(off && j === 1))));
     }
     async function acSyncOff(a, ci, chaId) {
         const char = await api.getCharacterFromIndex(ci);
@@ -7085,23 +7306,31 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         let to = base, n = 2;
         while (busy(to)) to = base.slice(0, 10) + n++;
         const oldPre = `c_${from}_`, newPre = `c_${to}_`;
+        if (!assets.some(x => typeof x?.[0] === 'string' && x[0].startsWith(oldPre))) throw new Error('이미 바꿨습니다. 목록을 다시 확인해 주세요.');
         const ren = x => typeof x === 'string' && x.startsWith(oldPre) ? newPre + x.slice(oldPre.length) : x;
         let cnt = 0;
         for (const x of assets) if (Array.isArray(x) && typeof x[0] === 'string' && x[0].startsWith(oldPre)) { x[0] = ren(x[0]); cnt++; }
         const made = a.made.map(ren);
-        a.slugs[e.id] = to;
-        delete a.slugBy[from];
-        a.slugBy[to] = e.name;
-        for (const [k, nm] of Object.entries(a.refName)) a.refName[k] = ren(nm);
-        for (const k of Object.keys(a.prompts)) if (k.startsWith(oldPre)) { a.prompts[ren(k)] = a.prompts[k]; delete a.prompts[k]; }
-        a.refOf = Object.fromEntries(Object.entries(a.refOf).map(([k, n]) => [ren(k), ren(n)]));
-        if (a.gnEdited) {
-            const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-            a.gn = a.gn.split(oldPre).join(newPre).split(`${cap(from)} (`).join(`${acEnName(a, e, to)} (`);
+        const snap = JSON.stringify({ slugs: a.slugs, slugBy: a.slugBy, refName: a.refName, prompts: a.prompts, refOf: a.refOf, gn: a.gn });
+        let note;
+        try {
+            a.slugs[e.id] = to;
+            delete a.slugBy[from];
+            a.slugBy[to] = e.name;
+            for (const [k, nm] of Object.entries(a.refName)) a.refName[k] = ren(nm);
+            for (const k of Object.keys(a.prompts)) if (k.startsWith(oldPre)) { a.prompts[ren(k)] = a.prompts[k]; delete a.prompts[k]; }
+            a.refOf = Object.fromEntries(Object.entries(a.refOf).map(([k, n]) => [ren(k), ren(n)]));
+            if (a.gnEdited) {
+                const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+                a.gn = a.gn.split(oldPre).join(newPre).split(`${cap(from)} (`).join(`${acEnName(a, e, to)} (`);
+            }
+            acLore(char, a, e, to, made, [from]);
+            note = acNoteInto(char, a);
+            await api.setCharacterToIndex(ci, char);
+        } catch (error) {
+            Object.assign(a, JSON.parse(snap));
+            throw error;
         }
-        acLore(char, a, e, to, made);
-        const note = acNoteInto(char, a);
-        await api.setCharacterToIndex(ci, char);
         acReadHave(char);
         a.made = made;
         for (const [k, msg] of [...acs.fail]) if (k.startsWith(oldPre)) { acs.fail.delete(k); acs.fail.set(ren(k), msg); }
@@ -7156,6 +7385,13 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return L.join('\n');
     }
     const acNoteNow = a => a.gnEdited ? a.gn : acNoteText(a);
+    function acNoteSplice(cur, block = '') {
+        let first = !!block;
+        let out = cur.replace(AC_NOTE_RE, () => { if (first) { first = false; return '\u0001'; } return '\u0000'; }).replace(AC_ORPHAN_RE, '\u0000');
+        out = out.replace(/\s*\u0000[\s\u0000]*/g, (m, at, all) => at === 0 || at + m.length === all.length ? '' : '\n\n');
+        return out.replace('\u0001', () => block);
+    }
+    const acNoteHas = cur => cur.search(AC_NOTE_RE) >= 0;
     function acNoteInto(char, a) {
         if (!char || st.view?.chaId !== char.chaId) return '';
         if (st.set.ptOff.includes(char.chaId)) return acCutNote(char) ? 'cut' : '';
@@ -7164,8 +7400,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (plan.length && plan.every(t => have.has(t.name)) && tidy(text)) {
             const block = `${AC_NOTE_OPEN}\n${text}\n${AC_NOTE_CLOSE}`;
             const cur = String(char.replaceGlobalNote ?? '');
-            const next = AC_NOTE_RE.test(cur) ? cur.replace(AC_NOTE_RE, () => block)
-                : (cur.trim() ? cur.replace(/\s*$/, '\n') : '{{original}}\n') + block;
+            let next;
+            if (acNoteHas(cur)) next = acNoteSplice(cur, block);
+            else {
+                const rest = acNoteSplice(cur);
+                next = (rest.trim() ? rest.replace(/\s*$/, '\n') : '{{original}}\n') + block;
+            }
             if (next === cur) return 'same';
             char.replaceGlobalNote = next;
             return 'put';
@@ -7181,9 +7421,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
     function acCutNote(char) {
         const cur = String(char.replaceGlobalNote ?? '');
-        if (!AC_NOTE_RE.test(cur)) return false;
-        const rest = cur.replace(AC_NOTE_RE, '').replace(/\n{3,}/g, '\n\n').trim();
-        char.replaceGlobalNote = rest === '{{original}}' ? '' : rest;
+        if (!acNoteHas(cur) && cur.search(AC_ORPHAN_RE) < 0) return false;
+        const rest = acNoteSplice(cur);
+        char.replaceGlobalNote = rest.trim() === '{{original}}' ? '' : rest;
         return true;
     }
 
@@ -7263,10 +7503,12 @@ Rules:
             if (!isObj(res)) throw new Error('모델 답에서 JSON 을 찾지 못했습니다.');
             const ascii = s => /^[\x20-\x7e]+$/.test(s);
             const usedO = new Set(['base', ...AC_OUTFIT_PRE.map(o => o[0]), ...a.extra.map(o => o.key)]);
-            a.botOutfits = (Array.isArray(res.outfits) ? res.outfits : []).slice(0, 4)
+            const oldKey = new Map((a.botOutfits ?? []).filter(o => isObj(o) && AC_OKEY_RE.test(o.key ?? '')).map(o => [o.en, o.key]));
+            const outs = (Array.isArray(res.outfits) ? res.outfits : []).slice(0, 4)
                 .map(o => ({ ko: tidy(o?.ko).slice(0, 20), en: tidy(o?.en).toLowerCase().slice(0, 300), src: tidy(o?.src).slice(0, 30) }))
-                .filter(o => o.ko && o.en && ascii(o.en))
-                .map(o => ({ ...o, key: acOutfitKey(o.en, usedO) }));
+                .filter(o => o.ko && o.en && ascii(o.en));
+            for (const o of outs) { const k = oldKey.get(o.en); if (k && !usedO.has(k)) { o.key = k; usedO.add(k); } }
+            a.botOutfits = outs.map(o => o.key ? o : { ...o, key: acOutfitKey(o.en, usedO) });
             const usedS = new Set(AC_EMO.map(r => r[0]));
             const sps = (Array.isArray(res.specials) ? res.specials : [])
                 .map(s => ({ ko: tidy(s?.ko).slice(0, 20), icon: [...tidy(s?.icon)].slice(0, 2).join(''), en: tidy(s?.en).toLowerCase().slice(0, 200), scene: tidy(s?.scene).toLowerCase().slice(0, 40), src: tidy(s?.src).slice(0, 30) }))
@@ -7404,16 +7646,23 @@ Rules:
     }
     async function acAnlas(force = false) {
         if (acs.anBusy || (!force && acs.anAt && Date.now() - acs.anAt < 30000)) return;
-        const key = await naiKey();
-        if (!key) return;
         acs.anBusy = true;
+        let key = '';
+        try { key = await naiKey(); } catch (error) { console.warn(LOG, 'anlas key', error); }
+        if (!key) { acs.anBusy = false; return; }
         acs.anShow = force;
         if (force) acs.anT0 = Date.now();
         const slow = force ? new Promise(r => setTimeout(r, 700)) : null;
         if (force) render();
         try {
-            const res = await api.nativeFetch('https://image.novelai.net/user/data', { method: 'GET', headers: { Authorization: 'Bearer ' + key, Accept: 'application/json' } });
-            const buf = new Uint8Array(await res.arrayBuffer());
+            const read = (async () => {
+                const res = await api.nativeFetch('https://image.novelai.net/user/data', { method: 'GET', headers: { Authorization: 'Bearer ' + key, Accept: 'application/json' } });
+                return [res, new Uint8Array(await res.arrayBuffer())];
+            })();
+            read.catch(() => {});
+            let tm = 0;
+            const late = new Promise((_, no) => { tm = setTimeout(() => no(new Error('시간 초과')), 15000); });
+            const [res, buf] = await Promise.race([read, late]).finally(() => clearTimeout(tm));
             await slow;
             if (res.status === 401 || res.status === 403) { acs.an = null; acs.quota = null; acs.anErr = 'NAI 키가 맞지 않습니다'; }
             else if (!res.ok) acs.anErr = `읽지 못함 (${res.status})`;
@@ -8129,10 +8378,13 @@ Rules:
             const hash = g.e && g.slug === acHashSlug(g.e);
             const fix = hash ? h('div', { class: 'al-fix' },
                 h('span', null, '이름 키 ', h('code', null, g.slug), '는 영어 이름이 아닙니다. ', h('b', null, acSlugBase(a, g.e)), '(으)로 바꾸면 그림 이름 · 로어북 · 글로벌노트가 함께 바뀝니다. 지난 채팅에 이미 나온 옛 이름 그림은 다시 뜨지 않습니다.'),
-                busy ? h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, '그리는 중') : armButton('영어 이름으로 바꾸기', '한 번 더 누르면 바꿉니다', () => {
+                busy || acs.ren ? h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, busy ? '그리는 중' : '바꾸는 중') : armButton('영어 이름으로 바꾸기', '한 번 더 누르면 바꿉니다', () => {
+                    acs.ren = true;
+                    renderNow();
                     void acEnqueue(() => acRename(a, g.e, g.slug, v.ci, v.chaId))
                         .then(r => { if (acs.lw === g.slug) acs.lw = r.to; say(`${g.name} 그림 ${r.n}장의 이름을 c_${r.to}_… 로 바꿨습니다.` + (r.note === 'put' ? ' 글로벌노트의 이매진 에셋 칸도 새 이름으로 바꿨습니다.' : r.note === 'cut' ? ' 글로벌노트의 이매진 에셋 칸은 뺐습니다(고른 에셋을 다 그리면 다시 넣습니다).' : ''), true); })
-                        .catch(error => say(`바꾸지 못했습니다: ${error?.message ?? error}`, false));
+                        .catch(error => say(`바꾸지 못했습니다: ${error?.message ?? error}`, false))
+                        .finally(() => { acs.ren = false; renderNow(); });
                 }, 'ix-btn sm main')) : null;
             return h('section', { class: 'al-grp' },
                 h('div', { class: 'al-hd' },
@@ -8326,6 +8578,7 @@ Rules:
     } catch (error) {
         console.warn(LOG, 'hamburger button', error);
     }
+    await api.pluginStorage.setItem('nc:inst', INST).catch(error => console.warn(LOG, 'inst', error));
     let displayOn = false;
     try {
         await api.addRisuScriptHandler('display', ncDisplay);
@@ -8353,6 +8606,7 @@ Rules:
     await api.addRisuReplacer('beforeRequest', stripRequest);
     if (sizeMoved) void sizeChanged();
     await api.onUnload(async () => {
+        const rootStop = rootQueue(stopRoot);
         try {
             ui.root?.remove();
             doc.getElementById('nai-comic-style')?.remove();
@@ -8369,7 +8623,7 @@ Rules:
         clearTimeout(settleTimer);
         clearInterval(acs.timer);
         if (acs.run) { acs.run.stop = true; acs.run.onStop(); }
-        await rootQueue(stopRoot);
+        await rootStop;
     });
     if (globalThis.__NC_TEST__ === true) {
         globalThis.__NC_TEST__ = { st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete };
