@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.106.7
+//@display-name 🎨 이매진 v3.107.0
 //@api 3.0
-//@version 3.106.7
+//@version 3.107.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.106.7';
+    const VERSION = '3.107.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -4192,9 +4192,65 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             }
             return {};
         }
+        async function pngStealth(b) {
+            const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+            const W = dv.getUint32(16), H = dv.getUint32(20);
+            if (b[24] !== 8 || b[25] !== 6 || b[28] !== 0 || !W || !H) return {};
+            const parts = [];
+            for (let p = 8; p + 12 <= b.length;) {
+                const len = dv.getUint32(p), type = String.fromCharCode(b[p + 4], b[p + 5], b[p + 6], b[p + 7]);
+                if (type === 'IDAT') parts.push(b.subarray(p + 8, p + 8 + len));
+                if (type === 'IEND') break;
+                p += 12 + len;
+            }
+            const s = new Blob(parts).stream().pipeThrough(new DecompressionStream('deflate'));
+            const raw = new Uint8Array(await new Response(s).arrayBuffer());
+            const stride = W * 4;
+            if (raw.length < H * (stride + 1)) return {};
+            const px = new Uint8Array(H * stride);
+            for (let y = 0; y < H; y++) {
+                const ft = raw[y * (stride + 1)], src = y * (stride + 1) + 1, dst = y * stride, up = dst - stride;
+                for (let i = 0; i < stride; i++) {
+                    const x = raw[src + i], a = i >= 4 ? px[dst + i - 4] : 0, u = y ? px[up + i] : 0, c = y && i >= 4 ? px[up + i - 4] : 0;
+                    let v = x;
+                    if (ft === 1) v = x + a;
+                    else if (ft === 2) v = x + u;
+                    else if (ft === 3) v = x + ((a + u) >> 1);
+                    else if (ft === 4) { const p = a + u - c, pa = Math.abs(p - a), pb = Math.abs(p - u), pc = Math.abs(p - c); v = x + (pa <= pb && pa <= pc ? a : pb <= pc ? u : c); }
+                    px[dst + i] = v & 255;
+                }
+            }
+            const total = W * H;
+            const bytesAt = (from, n) => {
+                const out = new Uint8Array(n);
+                for (let k = 0; k < n * 8; k++) {
+                    const bit = from + k, x = Math.floor(bit / H), y = bit % H;
+                    out[k >> 3] |= (px[y * stride + x * 4 + 3] & 1) << (7 - (k & 7));
+                }
+                return out;
+            };
+            if (total < 152) return {};
+            const sig = String.fromCharCode(...bytesAt(0, 15));
+            if (sig !== 'stealth_pngcomp' && sig !== 'stealth_pnginfo') return {};
+            const lb = bytesAt(120, 4), bits = ((lb[0] << 24) | (lb[1] << 16) | (lb[2] << 8) | lb[3]) >>> 0;
+            if (!bits || 152 + bits > total) return {};
+            let data = bytesAt(152, Math.ceil(bits / 8));
+            if (sig === 'stealth_pngcomp') data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+            const text = new TextDecoder().decode(data);
+            let j;
+            try { j = JSON.parse(text); } catch { return { parameters: text }; }
+            if (!j || typeof j !== 'object') return {};
+            const out = {};
+            for (const k of ['Description', 'Software', 'Source']) if (typeof j[k] === 'string') out[k] = j[k];
+            if (j.Comment != null) out.Comment = typeof j.Comment === 'string' ? j.Comment : JSON.stringify(j.Comment);
+            return out;
+        }
         async function readImageInfo(b) {
             const t = isPng(b) ? await pngTexts(b) : isWebp(b) ? webpTexts(b) : isJpeg(b) ? jpegTexts(b) : null;
             if (!t) return { kind: 'broken', why: 'PNG · WebP · JPEG 로 읽을 수 없습니다' };
+            if (isPng(b) && !t.Comment && !t.parameters) {
+                try { Object.assign(t, await pngStealth(b)); } catch (error) { console.warn(LOG, 'stealth read', error); }
+            }
             if (t.Comment) {
                 try {
                     const meta = JSON.parse(t.Comment);
@@ -5348,7 +5404,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('button', { class: 'ix-btn sm', type: 'button', onclick: toAsset }, '애드 에셋 그림체 변경')),
             h('h2', { class: 'sub', style: 'margin-top:0' }, '그림체 목록', h('small', null, '누른 그림체를 아래에서 고칩니다 · 카드 그림은 그 그림체로 마지막에 그린 것 (내장 그림체 셋은 고정)')),
             presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }, false, tail.head), tail.tray,
-            h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림 정보를 지운 그림(트위터 · 디스코드에 올렸다 받은 그림 등)과 투명도 속에 숨긴 정보(stealth)는 읽지 못합니다. 그림은 이 기기 안에서만 읽습니다.'),
+            h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림 정보를 지운 그림(트위터 · 디스코드에 올렸다 받은 그림 등)은 읽지 못합니다. 투명도 속에 숨긴 정보(stealth)는 읽습니다. 그림은 이 기기 안에서만 읽습니다.'),
             h('div', { class: 'ix-acts' },
                 saveBtn,
                 h('button', {
