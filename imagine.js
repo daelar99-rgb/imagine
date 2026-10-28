@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.117.1
+//@display-name 🎨 이매진 v3.118.0
 //@api 3.0
-//@version 3.117.1
+//@version 3.118.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.117.1';
+    const VERSION = '3.118.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1063,8 +1063,8 @@ ${TAG_STYLE}`;
     const genreTags = img => genreNow() ? GENRE_TAGS[genreKey(img?.genre)] ?? '' : '';
 
     const USER_LINE_RULE = {
-        illust: '- Exception: in image 1 (the moment USER ACTION describes) a line spoken in USER ACTION may be copied VERBATIM from USER ACTION; its by is the CAST key of whoever speaks it there (the [user persona] key when it is the user).',
-        comic: '- Exception: in panel 1 of image 1 (the moment USER ACTION describes) a line spoken in USER ACTION may be copied VERBATIM from USER ACTION; its by is the CAST key of whoever speaks it there (the [user persona] key when it is the user), who must be in that panel\'s who.',
+        illust: '- Exception: in image 1 (the moment USER PRIORITY STAGING describes) a line spoken in USER PRIORITY STAGING may be copied VERBATIM from USER PRIORITY STAGING; its by is the CAST key of whoever speaks it there (the [user persona] key when it is the user).',
+        comic: '- Exception: in panel 1 of image 1 (the moment USER PRIORITY STAGING describes) a line spoken in USER PRIORITY STAGING may be copied VERBATIM from USER PRIORITY STAGING; its by is the CAST key of whoever speaks it there (the [user persona] key when it is the user), who must be in that panel\'s who.',
     };
 
     function bubbleRules(maxB, withInput = false) {
@@ -1099,8 +1099,8 @@ ${TAG_STYLE}`;
         const shape = w > h ? 'landscape' : w < h ? 'portrait' : 'square';
         const role = withInput
             ? (isIllust()
-                ? 'You are an illustration director. You turn what the user just wrote in a roleplay (USER ACTION: their own character\'s action or line, or what they direct or narrate other characters doing) and how the reply answers it (TARGET MESSAGE) into NovelAI prompts for standalone illustrations: one moment per image, no panels, no speech bubbles, no text.'
-                : 'You are a comic director. You turn what the user just wrote in a roleplay (USER ACTION: their own character\'s action or line, or what they direct or narrate other characters doing) and how the reply answers it (TARGET MESSAGE) into NovelAI image prompts.')
+                ? 'You are an illustration director. You turn what the user just wrote in a roleplay (USER PRIORITY STAGING: their own character\'s action or line, or what they direct or narrate other characters doing) and how the reply answers it (TARGET MESSAGE) into NovelAI prompts for standalone illustrations: one moment per image, no panels, no speech bubbles, no text.'
+                : 'You are a comic director. You turn what the user just wrote in a roleplay (USER PRIORITY STAGING: their own character\'s action or line, or what they direct or narrate other characters doing) and how the reply answers it (TARGET MESSAGE) into NovelAI image prompts.')
             : isIllust()
             ? 'You are an illustration director. You turn the TARGET MESSAGE of a roleplay into NovelAI prompts for standalone illustrations: one moment per image, no panels, no speech bubbles, no text.'
             : 'You are a comic director. You turn the TARGET MESSAGE of a roleplay into NovelAI image prompts.';
@@ -1109,16 +1109,16 @@ ${TAG_STYLE}`;
             : !withInput
             ? `- Output exactly ${n} image${n > 1 ? 's' : ''}: the ${n === 1 ? 'single most important key moment' : `${n} most important key moments`} of the TARGET MESSAGE${n > 1 ? ', in story order, each a different moment (fewer only when the message truly has fewer distinct moments)' : ''}.`
             : n > 1
-            ? `- Output exactly ${n} images, in story order, each a different moment. Image 1 is the moment what USER ACTION describes happens or lands, whoever does it: pick the part of the TARGET MESSAGE that narrates or answers it. The other images are mainly the reactions to it. Do not pick parts of the reply that have nothing to do with USER ACTION.`
+            ? `- Output exactly ${n} images, in story order, each a different moment. Image 1 is the moment what USER PRIORITY STAGING describes happens or lands, whoever does it: pick the part of the TARGET MESSAGE that narrates or answers it. The other images are mainly the reactions to it. Do not pick parts of the reply that have nothing to do with USER PRIORITY STAGING.`
             : isIllust()
-            ? '- Output exactly 1 image: the moment what USER ACTION describes happens or lands, whoever does it, as the TARGET MESSAGE narrates or answers it.'
-            : '- Output exactly 1 image. Inside it, panel 1 is the moment what USER ACTION describes happens or lands, whoever does it, and the next panels are the reaction to it from the TARGET MESSAGE.';
+            ? '- Output exactly 1 image: the moment what USER PRIORITY STAGING describes happens or lands, whoever does it, as the TARGET MESSAGE narrates or answers it.'
+            : '- Output exactly 1 image. Inside it, panel 1 is the moment what USER PRIORITY STAGING describes happens or lands, whoever does it, and the next panels are the reaction to it from the TARGET MESSAGE.';
         const userRules = withInput ? `
-- focus: before choosing images, restate in one English sentence who does what in USER ACTION. Image 1 draws exactly that.
-- USER ACTION is not always the user's own character acting. It may also direct or narrate what other characters do (e.g. "A hugs B", "B starts crying"). Read who the actor is from USER ACTION itself.
-- If the TARGET MESSAGE never narrates what USER ACTION describes, put image 1 under the first paragraph: its after is the end of the first sentence. after is always copied from the TARGET MESSAGE, never from USER ACTION.
-- When USER ACTION and the TARGET MESSAGE disagree, follow the TARGET MESSAGE (e.g. the user tried to open the door but the reply says it is locked: draw the user at the locked door).
-- When USER ACTION is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER ACTION directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
+- focus: before choosing images, restate in one English sentence who does what in USER PRIORITY STAGING. Image 1 draws exactly that.
+- USER PRIORITY STAGING is not always the user's own character acting. It may also direct or narrate what other characters do (e.g. "A hugs B", "B starts crying"). Read who the actor is from USER PRIORITY STAGING itself.
+- If the TARGET MESSAGE never narrates what USER PRIORITY STAGING describes, put image 1 under the first paragraph: its after is the end of the first sentence. after is always copied from the TARGET MESSAGE, never from USER PRIORITY STAGING.
+- When USER PRIORITY STAGING and the TARGET MESSAGE disagree, follow the TARGET MESSAGE (e.g. the user tried to open the door but the reply says it is locked: draw the user at the locked door).
+- When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
             : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
@@ -1167,7 +1167,7 @@ STATE
 - PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${prevPrompt ? `
 - PREVIOUS PROMPT: the exact NovelAI prompt the app sent for the last drawn reply in this chat (base is the main prompt, then one line per character / panel / bubble slot). Reference only, never a template. The app itself added the quality and artist tags, count tags (1girl, solo...), panel layout tags, genre tags and the background at the end of base, and the CAST identity tags (hair, eyes, body, clothes) at the start of each character or panel slot: never copy those into your fields. Use it to keep continuity: the same place and props, items still held, and the same tag wording for things that did not change. Do not repeat its pose, camera or composition unless the moment really continues. Colors may be missing there (some images drop them on purpose): take colors from CAST, never from here.` : ''}${plainInput ? `
 - USER INPUT: what the user wrote just before the TARGET MESSAGE; the TARGET MESSAGE is the reply to it. Context only: use it to understand what the reply answers (who acts, what was said or done), but draw the moments the TARGET MESSAGE narrates, and never copy after or spoken lines from USER INPUT.` : ''}${withInput ? `
-- USER ACTION: what the user just wrote: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
+- USER PRIORITY STAGING: what the user just wrote, the staging the user cares about most: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
 
 GENERAL
 - LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.background, state.cast slots / look) and state.location and state.time are English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
@@ -1248,7 +1248,35 @@ ${TAG_STYLE}`;
         const botName = char.name || 'Bot';
         const label = m => m.role === 'user' ? `[${userName}]` : `[${m.name || botName}]`;
         sc ??= sceneCast(cast.list, sceneText(chat, idx, input));
+        const story = [];
+        if (!state.seeded) {
+            const past = [];
+            let total = 0;
+            for (let i = idx - (input ? 2 : 1); i >= 0 && total < HISTORY_MAX; i--) {
+                const t = plainText(msgs[i]?.data, HISTORY_MSG);
+                if (!t) continue;
+                const line = `${label(msgs[i])}: ${t}`;
+                past.push(line);
+                total += line.length;
+            }
+            if (past.length) story.push(`# CHAT HISTORY (oldest → newest, ${past.length} earlier message${past.length > 1 ? 's' : ''}; context only, do not draw)`, past.reverse().join('\n\n'), '');
+        } else {
+            for (let i = idx - 1; i >= 0; i--) {
+                if (msgs[i]?.role !== 'char') continue;
+                const t = plainText(msgs[i].data, PREV_MSG);
+                if (t) story.push('# PREVIOUS MESSAGE (the reply before the target; context only, do not draw)', `${label(msgs[i])}: ${t}`, '');
+                break;
+            }
+        }
+        if (input && emphasize) {
+            story.push(`# USER PRIORITY STAGING (what ${userName} just wrote: the staging the user cares about most, their own action or line, or what they direct other characters to do; the reply below answers it; image 1 draws this)`, `${label(input)}: ${plainText(input.data)}`, '');
+            story.push('# TARGET MESSAGE (the reply to USER PRIORITY STAGING above; copy after and spoken lines from here)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`, '');
+        } else {
+            if (input) story.push(`# USER INPUT (what ${userName} wrote just before the target; context only, do not copy after or spoken lines from it)`, `${label(input)}: ${plainText(input.data)}`, '');
+            story.push('# TARGET MESSAGE (draw this)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`, '');
+        }
         const lines = [
+            ...story,
             '# CAST',
             'Each line starts with the character\'s key. Use only that key for this character in every name field (who, by, chars[].name, state.cast[].name, accent, @). name and aliases are only for reading the story.',
             sc.scene.map(e => castLine(e, state)).join('\n') || '(empty — invent consistent looks and report them in state.cast)',
@@ -1263,35 +1291,8 @@ ${TAG_STYLE}`;
             `location: ${enOr(state.location)}`,
             `time: ${enOr(state.time)}`,
             ...bgLines(state),
-            '',
         ];
-        if (!state.seeded) {
-            const past = [];
-            let total = 0;
-            for (let i = idx - (input ? 2 : 1); i >= 0 && total < HISTORY_MAX; i--) {
-                const t = plainText(msgs[i]?.data, HISTORY_MSG);
-                if (!t) continue;
-                const line = `${label(msgs[i])}: ${t}`;
-                past.push(line);
-                total += line.length;
-            }
-            if (past.length) lines.push(`# CHAT HISTORY (oldest → newest, ${past.length} earlier message${past.length > 1 ? 's' : ''}; context only, do not draw)`, past.reverse().join('\n\n'), '');
-        } else {
-            for (let i = idx - 1; i >= 0; i--) {
-                if (msgs[i]?.role !== 'char') continue;
-                const t = plainText(msgs[i].data, PREV_MSG);
-                if (t) lines.push('# PREVIOUS MESSAGE (the reply before the target; context only, do not draw)', `${label(msgs[i])}: ${t}`, '');
-                break;
-            }
-        }
-        if (prev) lines.push('# PREVIOUS PROMPT (the NovelAI prompt the app sent for the last drawn reply in this chat; reference only, do not copy the app-added tags)', prev, '');
-        if (input && emphasize) {
-            lines.push(`# USER ACTION (what ${userName} just wrote: their own action or line, or what they direct other characters to do; the reply below answers it; image 1 draws this)`, `${label(input)}: ${plainText(input.data)}`, '');
-            lines.push('# TARGET MESSAGE (the reply to the action above; copy after and spoken lines from here)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`);
-        } else {
-            if (input) lines.push(`# USER INPUT (what ${userName} wrote just before the target; context only, do not copy after or spoken lines from it)`, `${label(input)}: ${plainText(input.data)}`, '');
-            lines.push('# TARGET MESSAGE (draw this)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`);
-        }
+        if (prev) lines.push('', '# PREVIOUS PROMPT (the NovelAI prompt the app sent for the last drawn reply in this chat; reference only, do not copy the app-added tags)', prev);
         if (redo) {
             const moment = r => `title: ${tidy(r?.title) || '?'} | after: ${tidy(r?.after) || '?'}`;
             lines.push('', '# REDO ONE IMAGE (draw only this moment again, as 1 image)', moment(redo.target));
