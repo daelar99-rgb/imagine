@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.115.1
+//@display-name 🎨 이매진 v3.116.0
 //@api 3.0
-//@version 3.115.1
+//@version 3.116.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.115.1';
+    const VERSION = '3.116.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -489,9 +489,9 @@
     }
 
     const WEAR = [
-        ['hairstyle', '헤어 스타일', '머리'], ['bangs', '앞머리', '머리'], ['haircolor', '머리색', '머리'],
-        ['eyes', '눈색', '몸'], ['height', '키', '몸'], ['body', '몸 사이즈', '몸'],
-        ['top', '상의', '옷'], ['bottom', '하의', '옷'], ['shoes', '신발', '옷'],
+        ['hairstyle', '헤어 스타일', '머리'], ['bangs', '앞머리', '머리'], ['haircolor', '머리색', '머리'], ['hair_extra', '머리 기타', '머리'],
+        ['eyes', '눈색', '몸'], ['height', '키', '몸'], ['body', '몸 사이즈', '몸'], ['body_extra', '몸 기타', '몸'],
+        ['top', '상의', '옷'], ['bottom', '하의', '옷'], ['shoes', '신발', '옷'], ['outfit_extra', '옷 기타', '옷'],
     ];
     const WEAR_KEYS = WEAR.map(w => w[0]);
     const LOOK_AT = WEAR_KEYS.indexOf('top');
@@ -502,7 +502,7 @@
     const COVERS_BOTTOM = /\b(?:dress|one-piece|gown|robe|kimono|yukata|leotard|bodysuit|swimsuit|jumpsuit|overalls|bikini|cheongsam|qipao)\b/i;
     function absentTags(val, none) {
         const out = [];
-        if (!HEADWEAR.test(joinTags(val('hairstyle'), val('top')))) out.push('no headwear');
+        if (!HEADWEAR.test(joinTags(['hairstyle', 'hair_extra', 'top', 'outfit_extra'].map(val)))) out.push('no headwear');
         if (none('top')) out.push('topless');
         if (none('bottom') && !COVERS_BOTTOM.test(val('top'))) out.push('bottomless');
         if (none('shoes')) out.push('no shoes');
@@ -510,7 +510,7 @@
     }
     const BODY_AT = WEAR_KEYS.indexOf('height');
     let wearBrief = false;
-    const OUTFIT_KEYS = ['top', 'bottom', 'shoes'];
+    const OUTFIT_KEYS = ['top', 'bottom', 'shoes', 'outfit_extra'];
     const briefWear = v => tidy(String(v ?? '').split(',').map(tidy).find(Boolean)?.replace(/\s+with\s+.*$/i, ''));
     const identTags = (type, look, val, none = () => false) => {
         const v = WEAR_KEYS.map(k => !wearBrief ? val(k) : k === 'bangs' ? '' : OUTFIT_KEYS.includes(k) ? briefWear(val(k)) : val(k));
@@ -643,8 +643,8 @@
             const n = varName(e.name);
             ss[`$nc_${n}_look`] = e.look ?? '';
             for (const k of WEAR_KEYS) ss[`$nc_${n}_${k}`] = wearOf(e, state, k);
-            ss[`$nc_${n}_outfit`] = joinTags(wearOf(e, state, 'top'), wearOf(e, state, 'bottom'));
-            ss[`$nc_${n}_hair`] = joinTags(['hairstyle', 'bangs', 'haircolor'].map(k => wearOf(e, state, k)));
+            ss[`$nc_${n}_outfit`] = joinTags(['top', 'bottom', 'outfit_extra'].map(k => wearOf(e, state, k)));
+            ss[`$nc_${n}_hair`] = joinTags(['hairstyle', 'bangs', 'haircolor', 'hair_extra'].map(k => wearOf(e, state, k)));
         }
     }
     const sameJson = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
@@ -945,28 +945,32 @@
 - Every clothing item, headwear, hair accessory, accessory and footwear tag MUST carry its color: tops, dresses, jackets, skirts, pants, socks / stockings, shoes, hats, hair ribbons / clips / bands, necklaces, chokers, earrings, gloves, scarves, ties, belts, bags, glasses. E.g. "white sailor shirt, red neckerchief, navy pleated skirt, black thighhighs, brown loafers, red hair ribbon, black beret, gold earrings, black-framed eyewear".
 - Put the color in front of the item ("navy pleated skirt"). For patterns or two-tone items name the colors ("blue and white striped shirt", "red plaid skirt").
 - When the source gives no color, choose a plausible one that fits the character and the setting, and keep it from then on. Never write a worn item without a color.
-- Accessories worn on the body (necklace, choker, earrings, gloves, scarf, tie, belt, bag) go in top; socks / stockings go in bottom; headwear and hair accessories go in hairstyle; glasses stay in look.
+- Headwear and hair accessories go in hair_extra; socks / stockings go in bottom; accessories and anything else worn that is not a top, bottom or footwear (necklace, choker, earrings, gloves, scarf, belt, bag, cape, weapon on the belt) go in outfit_extra; glasses stay in look.
 - Only items take a color. Hair length / hairstyle tags, "barefoot" and "none" have none.`;
 
     const castSystem = () => `You convert a roleplay bot's character sheet, first message, lorebook and the user's persona into NovelAI (NAI Diffusion V4.5) danbooru tags, so the same character is drawn identically in every image.
 Output ONE JSON object only:
-{"cast":[{"key":"short unique English id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"","body":"...","look":"","top":"...","bottom":"...","shoes":"...","persona":false}]}
+{"cast":[{"key":"short unique English id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","hair_extra":"","eyes":"...","height":"","body":"...","body_extra":"","look":"","top":"...","bottom":"...","shoes":"...","outfit_extra":"","persona":false}]}
 Rules
 - One entry per recurring character who has (or clearly implies) a visual appearance. A character who appears only in the first message (the story's opening scene) counts too. ${castMaxNow() ? `At most ${castMaxNow()} entries, most important first.` : 'Most important first.'} Include the user's persona as an entry with "persona": true when a persona is given.
 - canon: judge whether this character comes from an existing published work (anime, manga, game, novel, film). If so, its Danbooru character tag followed by the series in parentheses, lowercase, e.g. "uchiha sasuke (naruto)", "gojou satoru (jujutsu kaisen)". "" for an original character, the user's persona, or when unsure.
 - key: one unique key per entry, lowercase English letters a-z, 0-9 and _ only, never Korean, Japanese, Chinese or other non-Latin letters. Write the name in Latin letters when it is not (e.g. "seoyeon_jung", "gojo_satoru"), or use an English word for a title (e.g. "demon_king"). Never give two entries the same key. The image prompts name this character only by this key.
 - type: girl for female, boy for male, other for non-human / ambiguous.
 - Every slot follows TAG STYLE below: Danbooru tags first, a short phrase only for a design no tag covers. Colors go into the tags (e.g. "red eyes", "white sailor shirt").
-- hairstyle: hair length, hairstyle, hair texture, hair accessories and default headwear, each accessory / headwear with its color (e.g. "long hair, high ponytail, straight hair, red hair ribbon, white beret"). No hair color, no bangs.
+- hairstyle: hair length, hairstyle and hair texture only (e.g. "long hair, high ponytail, straight hair"). No hair color, no bangs, no accessories.
 - bangs: the bangs shape (e.g. "blunt bangs", "swept bangs, hair between eyes").
 - haircolor: hair color only (e.g. "black hair", "silver hair, streaked hair").
+- hair_extra: hair accessories and default headwear, each with its color (e.g. "red hair ribbon, white beret"), "" when none.
 - eyes: eye color (e.g. "red eyes", "heterochromia, blue eyes, yellow eyes").
 - height: one height tag when the source implies it ("tall female", "petite", "short"), "" when average.
 - body: build and chest size (e.g. "slim, large breasts", "muscular", "flat chest").
+- body_extra: body marks or states that can change, not permanent features: tattoo, body paint, makeup, bandages, wounds, sweat, wet body, blush stickers (e.g. "bandaged arm, tattoo on shoulder"). "" when none (the usual case).
 - look: other permanent features only, 0-8 tags: skin, age-appearance, animal ears, horns, tail, glasses (with frame color, e.g. "black-framed eyewear"), scars, mole. "" when none. No hair, eye, body or clothing tags here.
-- top: the default upper-body clothing with colors and design, plus accessories worn on the body, 2-6 tags. A dress / one-piece goes here (e.g. "white sailor shirt, red neckerchief, silver necklace").
+- top: the default upper-body clothing with colors and design, 2-6 tags. A dress / one-piece goes here (e.g. "white sailor shirt, red neckerchief").
 - bottom: the default lower-body clothing with colors and design, plus socks / stockings (e.g. "navy pleated skirt, black thighhighs"). "" when the top is a dress that covers it.
 - shoes: default footwear with its color (e.g. "brown loafers"), "" when unknown and not implied.
+- outfit_extra: anything else worn that is not a top, bottom or footwear: accessories, gloves, scarf, belt, bag, cape, carried weapon, each with its color (e.g. "silver necklace, black gloves, brown leather belt"), "" when none.
+- Each item goes in exactly one slot; never repeat an item that is already in another slot.
 - If the source does not describe something, choose plausible tags that fit the setting; never leave hairstyle, haircolor, eyes or top empty.
 - The first message is one scene: when it describes clothing or a look that differs from the character sheet or lorebook, the sheet and lorebook win for the default slots; use the first message only for what they leave out.
 - Tags in English even when the source is Korean / Japanese.
@@ -1088,7 +1092,7 @@ ${TAG_STYLE}`;
         return m?.role === 'user' && tidy(plainText(m.data)) ? m : null;
     }
 
-    function comicSystem(withInput = false, plainInput = false, redo = false) {
+    function comicSystem(withInput = false, plainInput = false, redo = false, prevPrompt = false) {
         const n = redo ? 1 : countNow();
         const size = sizeNow();
         const [w, h] = SIZES[size];
@@ -1127,7 +1131,7 @@ ${TAG_STYLE}`;
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
 Output ONE JSON object only, no prose:
-{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","background":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","eyes":"...","height":"...","body":"...","top":"... or none","bottom":"... or none","shoes":"... or none","type":"girl|boy|other","look":"..."}]},
+{${withInput ? '"focus":"...",' : ''}"state":{"location":"...","moved":false,"time":"...","background":"...","cast":[{"name":"CAST key","label":"","hairstyle":"...","bangs":"...","haircolor":"...","hair_extra":"... or none","eyes":"...","height":"...","body":"...","body_extra":"... or none","top":"... or none","bottom":"... or none","shoes":"... or none","outfit_extra":"... or none","type":"girl|boy|other","look":"..."}]},
  "images":[${imageOut}]}
 
 CANVAS: ${shape}, ${w}x${h}. Every image uses this canvas; frame each moment for it.
@@ -1143,11 +1147,14 @@ ${panelRules()}
 ${bubbleRules(4, withInput)}
 
 STATE
-- state.cast is the update of the tracked character variables (the NOW slots in CAST), not a fresh description of the scene. Start from each character's NOW slots and carry them forward; list every character visible in this scene, as danbooru tags with colors, in nine slots:
-  hairstyle (length, hairstyle, hair accessories, headwear), bangs, haircolor, eyes (eye color), height, body (build, chest size), top (upper-body clothing; a dress goes here), bottom (lower-body clothing incl. socks / stockings), shoes (footwear).
-- Update a slot when the story changes it (undressing, getting wet, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
-- Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). Write the new outfit only once the story says it is actually on.
-- Colors follow the COLOR RULE: every item in top, bottom, shoes and the headwear / hair accessories in hairstyle has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
+- state.cast is the update of the tracked character variables (the NOW slots in CAST), not a fresh description of the scene. Start from each character's NOW slots and carry them forward; list every character visible in this scene, as danbooru tags with colors, in twelve slots:
+  hair: hairstyle (length, hairstyle, texture), bangs, haircolor, hair_extra (headwear and hair accessories);
+  body: eyes (eye color), height, body (build, chest size), body_extra (body marks or states that can change: wet body, sweat, bandages, wounds, tattoos, makeup);
+  outfit: top (upper-body clothing; a dress goes here), bottom (lower-body clothing incl. socks / stockings), shoes (footwear), outfit_extra (anything else worn that is not a top, bottom or footwear: accessories, gloves, scarf, belt, bag, cape, carried weapon).
+  Each item goes in exactly one slot; never repeat an item that is already in another slot. Permanent features (animal ears, horns, tail, glasses, scars) stay in look.
+- Update a slot when the story changes it (undressing, getting wet, getting hurt, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
+- Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes, outfit_extra), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). Write the new outfit only once the story says it is actually on.
+- Colors follow the COLOR RULE: every item in top, bottom, shoes, outfit_extra and hair_extra has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is not in CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
 - location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. NEVER use proper nouns: no person names, family names, school, shop, station, city or country names; describe the place by its kind and features instead ("a teenage boy's bedroom", not "Rito's bedroom"). Too vague: "his room", "school", "a cafe". Specific enough: "a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window", "the third-floor library of a high school, a seat by the window", "a small cafe on a back street near a train station, a two-seat table by the counter". While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague, not in English or contains a proper noun (then rewrite the same place specifically in English without names).
 - moved: true only when the characters went to another location since CURRENT STATE (location is then the new one); otherwise false. Walking around inside the same room is not moving.
@@ -1157,7 +1164,8 @@ STATE
   The same room with the camera facing the door instead: "dim room lit by a warm orange desk lamp off to the side, light blue wallpaper, a closed white wooden door with a jacket on a hook, a low bookshelf beside it"
 - Past backgrounds: CURRENT STATE lists the last 3 backgrounds the app kept (background[0] is the newest), each with the location where it was seen. Read all 3 before writing. They are references, not slots to fill or copy: always write a new background for the TARGET MESSAGE. When the characters are at a location that appears there (still in the same room, or back at an earlier place), keep what the place has and where it is (furniture, materials, colors, layout) the same, and change only what the chat or the camera changed (the camera now faces another side: show the furniture on that side of the same place, not a different room; a window opened, a table was knocked over, the lights went on or off, the sun went down: then the brightness and light color change too). At a new location, write it fresh. Do not rewrite the past backgrounds; the app keeps them.
 - CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time / background (the room's furniture, doors and windows, the view outside) and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
-- PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${plainInput ? `
+- PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${prevPrompt ? `
+- PREVIOUS PROMPT: the exact NovelAI prompt the app sent for the last drawn reply in this chat (base is the main prompt, then one line per character / panel / bubble slot). Reference only, never a template. The app itself added the quality and artist tags, count tags (1girl, solo...), panel layout tags, genre tags and the background at the end of base, and the CAST identity tags (hair, eyes, body, clothes) at the start of each character or panel slot: never copy those into your fields. Use it to keep continuity: the same place and props, items still held, and the same tag wording for things that did not change. Do not repeat its pose, camera or composition unless the moment really continues. Colors may be missing there (some images drop them on purpose): take colors from CAST, never from here.` : ''}${plainInput ? `
 - USER INPUT: what the user wrote just before the TARGET MESSAGE; the TARGET MESSAGE is the reply to it. Context only: use it to understand what the reply answers (who acts, what was said or done), but draw the moments the TARGET MESSAGE narrates, and never copy after or spoken lines from USER INPUT.` : ''}${withInput ? `
 - USER ACTION: what the user just wrote: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
 
@@ -1176,6 +1184,26 @@ ${TAG_STYLE}`;
     const HISTORY_MSG = 2000;
     const HISTORY_MAX = 40000;
     const PREV_MSG = 4000;
+    const PREV_PROMPT = 6000;
+    function prevPromptOf(recs, chat, chatKey, key, idx) {
+        let best = null, at = -1;
+        for (const r of Object.values(recs ?? {})) {
+            if (!r?.images?.length || r.key === key || r.chat !== chatKey) continue;
+            const i = findMsg(chat, r.key, r.idx);
+            if (i >= 0 && i < idx && i > at) { best = r; at = i; }
+        }
+        if (!best) return '';
+        const out = [];
+        best.images.forEach((x, n) => {
+            const q = x?.req;
+            if (!q) return;
+            const title = tidy(x.title || q.title);
+            out.push(`## image ${n + 1}${title ? ` (${title})` : ''}`, `base: ${tidy(q.base)}`);
+            for (const sl of q.slots ?? []) if (tidy(sl?.prompt)) out.push(`${sl.kind || 'slot'}${tidy(sl.name) ? ` (${tidy(sl.name)})` : ''}: ${String(sl.prompt).trim()}`);
+        });
+        const text = out.join('\n');
+        return text.length > PREV_PROMPT ? text.slice(0, PREV_PROMPT) + ' …' : text;
+    }
 
     const enOr = t => t && !CJK_RE.test(t) ? t : '?';
     function bgLines(state) {
@@ -1191,7 +1219,7 @@ ${TAG_STYLE}`;
         return `- ${e.key} (name: ${e.name}${alias})${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${e.look || '?'} | NOW ${now}`;
     }
 
-    function comicUser(char, chat, idx, cast, state, personaName, input = null, emphasize = false, redo = null) {
+    function comicUser(char, chat, idx, cast, state, personaName, input = null, emphasize = false, redo = null, prev = '') {
         const msgs = chat.message ?? [];
         const userName = personaName || 'User';
         const botName = char.name || 'Bot';
@@ -1226,6 +1254,7 @@ ${TAG_STYLE}`;
                 break;
             }
         }
+        if (prev) lines.push('# PREVIOUS PROMPT (the NovelAI prompt the app sent for the last drawn reply in this chat; reference only, do not copy the app-added tags)', prev, '');
         if (input && emphasize) {
             lines.push(`# USER ACTION (what ${userName} just wrote: their own action or line, or what they direct other characters to do; the reply below answers it; image 1 draws this)`, `${label(input)}: ${plainText(input.data)}`, '');
             lines.push('# TARGET MESSAGE (the reply to the action above; copy after and spoken lines from here)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`);
@@ -2497,7 +2526,9 @@ Rules
                 if (job.only && !target) throw new Error('다시 그릴 그림을 기록에서 찾지 못했습니다.');
                 const redo = target ? { target: target.req, kept: old.images.filter(x => x !== target).map(x => x.req) } : null;
                 const emphasize = !!input && !!st.set.userFirst && !redo;
-                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo), 'images',
+                const prev = prevPromptOf(recs, chat, busy.chat, key, idx);
+                console.log(LOG, 'prev', prev ? `${prev.length}자` : '(none)');
+                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo, !!prev), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo, prev), 'images',
                     v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.');
                 if (busy.stop) throw stopError();
                 if (emphasize) console.log(LOG, 'focus', plan.focus ?? '(none)');
@@ -5528,7 +5559,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                         oninput: ev => { (e.wear ??= emptyWear())[k] = ev.target.value; castChanged(e); },
                     }),
                     h('input', {
-                        class: 'cf-in now' + (now[k] ? ' on' : ''), value: now[k] ?? '', placeholder: baseWear(e, k) || (group === '옷' ? '모름 (벗었으면 none)' : '모름'), 'aria-label': `지금 ${label}`,
+                        class: 'cf-in now' + (now[k] ? ' on' : ''), value: now[k] ?? '', placeholder: baseWear(e, k) || (k.endsWith('_extra') ? '없음' : group === '옷' ? '모름 (벗었으면 none)' : '모름'), 'aria-label': `지금 ${label}`,
                         oninput: ev => {
                             const t = ev.target.value.trim();
                             const w = (liveState(v).wear[e.id] ??= {});
@@ -5869,7 +5900,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                     h('textarea', { class: 'cf-ta', style: 'min-height:64px', 'aria-label': '프롬프트 맨 아래', oninput: textSet('extra') }, s.extra))),
             grp('저장',
                 row('sw', 'WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다.', null, toggle(s.webp, () => setVal('webp', !s.webp))),
-                row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 아홉 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
+                row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 열두 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
                     null,
                     toggle(s.vars, () => setVal('vars', !s.vars)))),
             devRow(),
@@ -7525,7 +7556,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const acTotal = a => acPicked(a).length * acOutfits(a).length * acEmos(a).length;
     const acDoneOf = (a, e) => { const have = acHas(); return acPlan(a, e.id).filter(t => have.has(t.name)).length; };
 
-    const acWear = (e, o) => k => o.key === 'base' ? baseWear(e, k) : k === 'top' ? (e.type === 'boy' && o.enBoy || o.en) : (k === 'bottom' || k === 'shoes') ? '' : baseWear(e, k);
+    const acWear = (e, o) => k => o.key === 'base' ? baseWear(e, k) : k === 'top' ? (e.type === 'boy' && o.enBoy || o.en) : (k === 'bottom' || k === 'shoes' || k === 'outfit_extra') ? '' : baseWear(e, k);
     function acReq(a, e, o, emo, ref, p = acPreset()) {
         const val = acWear(e, o);
         return {
