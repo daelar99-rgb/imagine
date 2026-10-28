@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.117.0
+//@display-name 🎨 이매진 v3.117.1
 //@api 3.0
-//@version 3.117.0
+//@version 3.117.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.117.0';
+    const VERSION = '3.117.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1231,9 +1231,7 @@ ${TAG_STYLE}`;
         }
         return [...out].filter(t => t.length >= 2);
     }
-    const hasTerm = (low, t) => LATIN_RE.test(t)
-        ? new RegExp(`(^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(low)
-        : low.includes(t);
+    const hasTerm = (low, t) => low.includes(t);
     function sceneCast(list, text) {
         const on = (list ?? []).filter(e => e && e.on !== false);
         const low = String(text ?? '').toLowerCase();
