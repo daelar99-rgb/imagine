@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.119.0
+//@display-name 🎨 이매진 v3.119.1
 //@api 3.0
-//@version 3.119.0
+//@version 3.119.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.119.0';
+    const VERSION = '3.119.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1023,7 +1023,7 @@ ${TAG_STYLE}`;
         sad: 'melancholy, dim lighting',
         suspense: 'suspense, dramatic lighting, shadow',
         daily: 'slice of life, warm lighting',
-        nsfw: 'nsfw',
+        nsfw: '2::nsfw::',
     };
     const GENRE_RULE = `- genre: the mood of this image (for a comic page: the page as a whole), one of: action (combat, an attack, a chase, a fast dash), romance (flirting, a confession, a kiss, a tender moment), comedy (a gag, a silly reaction), horror (fear, gore, something creepy), sad (grief, tears, loneliness), suspense (tension, a mystery, a threat before it strikes), daily (calm everyday life), nsfw (sexual content, nudity, an explicit or erotic scene; pick it over romance when the image shows any of these), none (unclear or mixed). The app adds that genre's tags itself, so do not write genre or motion tags into scene or tags.`;
     const monoNow = () => st.set.dynamic !== false && [ARTIST3.id, ARTIST4.id].includes(preset()?.id);
