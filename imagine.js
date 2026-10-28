@@ -1257,7 +1257,7 @@ ${TAG_STYLE}`;
             '',
             ...(sc.rest.length ? [
                 '# OTHER CAST (known characters the app did not find in this scene; key and name only)',
-                'If one of them does appear after all, name them by this key (never make a new key for them) and leave them out of state.cast; the app keeps their looks.',
+                'If one of them does appear after all, name them by this key (never make a new key for them), write only their pose, expression and action in their tags (no hair, eye, body or clothing tags) and leave them out of state.cast; the app keeps their looks.',
                 sc.rest.map(castBrief).join('\n'),
                 '',
             ] : []),
