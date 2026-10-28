@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.118.0
+//@display-name 🎨 이매진 v3.119.0
 //@api 3.0
-//@version 3.118.0
+//@version 3.119.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.118.0';
+    const VERSION = '3.119.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1345,10 +1345,10 @@ ${TAG_STYLE}`;
         if (first) parts.push('## First message', first);
         parts.push('## Lorebook', lore.trim() || '(none)');
         if (persona) parts.push(`# USER PERSONA: ${persona.name}`, plainText(fill(persona.prompt), 4000) || '(no description)');
-        return { text: parts.join('\n\n'), persona, loreN };
+        return { text: parts.join('\n\n'), persona, loreN, entries };
     }
     async function readLore(char, b, chi = char?.chatPage) {
-        const { text, persona, loreN } = await botContext(char, Number.isInteger(chi) ? chi : 0);
+        const { text, persona, loreN, entries } = await botContext(char, Number.isInteger(chi) ? chi : 0);
         if (b) {
             Object.assign(b, { ls: 1, lsAt: Date.now(), loreN, chars: text.length, label: '모델이 인물을 찾는 중' });
             render();
@@ -1361,6 +1361,7 @@ ${TAG_STYLE}`;
             if (!name || list.some(e => e.name === name)) continue;
             list.push(castEntry(raw, name, persona));
         }
+        loreAliases(list, entries);
         uniqKeys(list);
         const out = castMaxNow() ? list.slice(0, castMaxNow()) : list;
         if (b) {
@@ -1368,6 +1369,23 @@ ${TAG_STYLE}`;
             render();
         }
         return out;
+    }
+    function loreKeysOf(e) {
+        if (!e || e.useRegex || String(e.comment ?? '').startsWith('이매진 · ')) return [];
+        return [e.key, e.secondkey].flatMap(k => String(k ?? '').split(',')).map(tidy).filter(Boolean);
+    }
+    function loreAliases(list, entries) {
+        for (const c of list) {
+            const own = new Set([c.name, ...(c.aliases ?? [])].map(n => tidy(n).toLowerCase()).filter(Boolean));
+            const add = [];
+            for (const e of entries ?? []) {
+                const keys = loreKeysOf(e);
+                if (![...keys, tidy(e?.comment)].some(k => k && own.has(k.toLowerCase()))) continue;
+                for (const k of keys) if (!own.has(k.toLowerCase())) { own.add(k.toLowerCase()); add.push(k); }
+            }
+            if (add.length) c.aliases = [...(c.aliases ?? []), ...add].slice(0, 16);
+        }
+        return list;
     }
     const canonTag = t => tidy(t).toLowerCase().replace(/\s*\(\s*/g, ' (').replace(/\s*\)/g, ')').replace(/[,+]/g, ' ').replace(/\s+/g, ' ').trim();
     function castEntry(raw, name, persona, key) {
@@ -1390,7 +1408,7 @@ ${TAG_STYLE}`;
     }
 
     async function lookupCast(char, items, cast) {
-        const { text, persona } = await botContext(char);
+        const { text, persona, entries } = await botContext(char);
         const known = (cast?.list ?? []).filter(e => e.src !== 'chat');
         const ask = `${text}
 
@@ -1409,6 +1427,7 @@ Return entries only for the characters in this list that the character sheet, lo
             if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
             out.set(want, castEntry(raw, tidy(raw.name) || want.label || want.key, persona, want.key || undefined));
         }
+        loreAliases([...out.values()].filter(x => !x.same), entries);
         return out;
     }
     function renamePlan(node, from, to) {
