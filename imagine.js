@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.116.0
+//@display-name 🎨 이매진 v3.117.0
 //@api 3.0
-//@version 3.116.0
+//@version 3.117.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.116.0';
+    const VERSION = '3.117.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1005,7 +1005,7 @@ ${TAG_STYLE}`;
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color. No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
-  - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis); name anything not in CAST by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
+  - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
   - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: pose, action, gesture, expression and gaze. Use Danbooru tags, and words or short plain-English phrases, that show the exact moment, comma separated, about 10-30 words. E.g. "standing pose, arms crossed confidently, arrogant smug smile, looking down, one hand brushing her hair back". A character who speaks here gets "open mouth" or a speaking expression. No hair, eye, body or clothing tags: the app adds the looks from CAST.
   - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
@@ -1155,7 +1155,7 @@ STATE
 - Update a slot when the story changes it (undressing, getting wet, getting hurt, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
 - Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes, outfit_extra), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). Write the new outfit only once the story says it is actually on.
 - Colors follow the COLOR RULE: every item in top, bottom, shoes, outfit_extra and hair_extra has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
-- For a character who is not in CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
+- For a character who is neither in CAST nor in OTHER CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST or OTHER CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
 - location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. NEVER use proper nouns: no person names, family names, school, shop, station, city or country names; describe the place by its kind and features instead ("a teenage boy's bedroom", not "Rito's bedroom"). Too vague: "his room", "school", "a cafe". Specific enough: "a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window", "the third-floor library of a high school, a seat by the window", "a small cafe on a back street near a train station, a two-seat table by the counter". While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague, not in English or contains a proper noun (then rewrite the same place specifically in English without names).
 - moved: true only when the characters went to another location since CURRENT STATE (location is then the new one); otherwise false. Walking around inside the same room is not moving.
 - time: the time of day in English, as a clock time when the story states or implies one (e.g. "1:00 PM", "8:30 PM", "11:30 PM"), otherwise a part of the day (e.g. "early morning", "dusk", "late night"). Move it forward when the story moves time forward; otherwise copy it (rewrite it in English if CURRENT STATE's time is not English).
@@ -1171,7 +1171,7 @@ STATE
 
 GENERAL
 - LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.background, state.cast slots / look) and state.location and state.time are English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
-- ${nameFields} the CAST key exactly as written at the start of its CAST line, never the name or an alias. A character not in CAST uses its new key from state.cast; a monster or creature uses a short English noun.
+- ${nameFields} the CAST key exactly as written at the start of its CAST line, never the name or an alias. A character listed in OTHER CAST uses its key there; a character in neither uses its new key from state.cast; a monster or creature uses a short English noun.
 - uc (optional): extra negative tags only for this image / character.
 - title: a short Korean caption of the image (max 20 characters).
 - Never write "solo" or count tags (1girl, 2girls...) — the app adds them.
@@ -1218,17 +1218,49 @@ ${TAG_STYLE}`;
         const now = WEAR_KEYS.map(k => `${k}: ${wearOf(e, state, k) || 'none'}`).join(' | ');
         return `- ${e.key} (name: ${e.name}${alias})${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${e.look || '?'} | NOW ${now}`;
     }
+    const castBrief = e => `- ${e.key} (name: ${e.name}${e.aliases?.length ? `; aliases: ${e.aliases.join(', ')}` : ''})`;
+    const LATIN_RE = /^[\x20-\x7e]+$/;
+    function nameTerms(e) {
+        const out = new Set();
+        for (const n of [e.name, ...(e.aliases ?? []), e.key, ...(e.keys ?? [])].map(tidy).filter(Boolean)) {
+            const s = n.replace(/_/g, ' ').toLowerCase();
+            out.add(s);
+            if (/^[가-힣]{3}$/.test(s)) out.add(s.slice(1));
+            if (/^[가-힣]{4}$/.test(s)) out.add(s.slice(1)).add(s.slice(2));
+            for (const w of s.split(/[\s\-·.]+/)) if (w.length >= (LATIN_RE.test(w) ? 3 : 2)) out.add(w);
+        }
+        return [...out].filter(t => t.length >= 2);
+    }
+    const hasTerm = (low, t) => LATIN_RE.test(t)
+        ? new RegExp(`(^|[^a-z0-9])${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(low)
+        : low.includes(t);
+    function sceneCast(list, text) {
+        const on = (list ?? []).filter(e => e && e.on !== false);
+        const low = String(text ?? '').toLowerCase();
+        const seen = new Set(on.filter(e => !e.persona && nameTerms(e).some(t => hasTerm(low, t))));
+        if (!seen.size) return { scene: on, rest: [], all: true };
+        const scene = on.filter(e => e.persona || seen.has(e));
+        return { scene, rest: on.filter(e => !scene.includes(e)), all: false };
+    }
+    const sceneText = (chat, idx, input) => plainText(chat.message?.[idx]?.data, 8000) + (input ? '\n' + plainText(input.data) : '');
 
-    function comicUser(char, chat, idx, cast, state, personaName, input = null, emphasize = false, redo = null, prev = '') {
+    function comicUser(char, chat, idx, cast, state, personaName, input = null, emphasize = false, redo = null, prev = '', sc = null) {
         const msgs = chat.message ?? [];
         const userName = personaName || 'User';
         const botName = char.name || 'Bot';
         const label = m => m.role === 'user' ? `[${userName}]` : `[${m.name || botName}]`;
+        sc ??= sceneCast(cast.list, sceneText(chat, idx, input));
         const lines = [
             '# CAST',
             'Each line starts with the character\'s key. Use only that key for this character in every name field (who, by, chars[].name, state.cast[].name, accent, @). name and aliases are only for reading the story.',
-            cast.list.filter(e => e.on !== false).map(e => castLine(e, state)).join('\n') || '(empty — invent consistent looks and report them in state.cast)',
+            sc.scene.map(e => castLine(e, state)).join('\n') || '(empty — invent consistent looks and report them in state.cast)',
             '',
+            ...(sc.rest.length ? [
+                '# OTHER CAST (known characters the app did not find in this scene; key and name only)',
+                'If one of them does appear after all, name them by this key (never make a new key for them) and leave them out of state.cast; the app keeps their looks.',
+                sc.rest.map(castBrief).join('\n'),
+                '',
+            ] : []),
             '# CURRENT STATE',
             `location: ${enOr(state.location)}`,
             `time: ${enOr(state.time)}`,
@@ -2528,10 +2560,13 @@ Rules
                 const emphasize = !!input && !!st.set.userFirst && !redo;
                 const prev = prevPromptOf(recs, chat, busy.chat, key, idx);
                 console.log(LOG, 'prev', prev ? `${prev.length}자` : '(none)');
-                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo, !!prev), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo, prev), 'images',
+                const sc = sceneCast(cast.list, sceneText(chat, idx, input));
+                console.log(LOG, 'scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
+                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo, !!prev), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo, prev, sc), 'images',
                     v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.');
                 if (busy.stop) throw stopError();
                 if (emphasize) console.log(LOG, 'focus', plan.focus ?? '(none)');
+                if (sc.rest.length && Array.isArray(plan?.state?.cast)) plan.state.cast = plan.state.cast.filter(raw => !sc.rest.includes(findCast(cast, raw?.name)));
                 state.wear ??= {};
                 const fresh = await resolveUnknown(char, plan, cast, state, job.ci === await api.getCurrentCharacterIndex());
                 if (busy.stop) throw stopError();
