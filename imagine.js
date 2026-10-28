@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.119.1
+//@display-name 🎨 이매진 v3.120.0
 //@api 3.0
-//@version 3.119.1
+//@version 3.120.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.119.1';
+    const VERSION = '3.120.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1149,11 +1149,12 @@ ${bubbleRules(4, withInput)}
 STATE
 - state.cast is the update of the tracked character variables (the NOW slots in CAST), not a fresh description of the scene. Start from each character's NOW slots and carry them forward; list every character visible in this scene, as danbooru tags with colors, in twelve slots:
   hair: hairstyle (length, hairstyle, texture), bangs, haircolor, hair_extra (headwear and hair accessories);
-  body: eyes (eye color), height, body (build, chest size), body_extra (body marks or states that can change: wet body, sweat, bandages, wounds, tattoos, makeup);
+  body: eyes (eye color), height, body (build, chest size), body_extra (body marks or states that can change: wet body, sweat, bandages, wounds, tattoos, makeup, and the bare body parts uncovered while top or bottom is none);
   outfit: top (upper-body clothing; a dress goes here), bottom (lower-body clothing incl. socks / stockings), shoes (footwear), outfit_extra (anything else worn that is not a top, bottom or footwear: accessories, gloves, scarf, belt, bag, cape, carried weapon).
   Each item goes in exactly one slot; never repeat an item that is already in another slot. Permanent features (animal ears, horns, tail, glasses, scars) stay in look.
 - Update a slot when the story changes it (undressing, getting wet, getting hurt, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged. bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
 - Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes, outfit_extra), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). Write the new outfit only once the story says it is actually on.
+- Bare body: while top or bottom is "none", also write in body_extra the NAI tags of the body parts it leaves uncovered, matching the character's sex: top "none" → "breasts, nipples" (a boy: "nipples"); bottom "none" → "pussy" for a girl, "penis" for a boy, plus "anus" only when the pose shows it (e.g. from behind, bent over, legs up). Underwear still worn covers its part: write no tag for it. Keep the other body_extra items. Remove these tags again once the slot is dressed.
 - Colors follow the COLOR RULE: every item in top, bottom, shoes, outfit_extra and hair_extra has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is neither in CAST nor in OTHER CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST or OTHER CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
 - location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. NEVER use proper nouns: no person names, family names, school, shop, station, city or country names; describe the place by its kind and features instead ("a teenage boy's bedroom", not "Rito's bedroom"). Too vague: "his room", "school", "a cafe". Specific enough: "a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window", "the third-floor library of a high school, a seat by the window", "a small cafe on a back street near a train station, a two-seat table by the counter". While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague, not in English or contains a proper noun (then rewrite the same place specifically in English without names).
