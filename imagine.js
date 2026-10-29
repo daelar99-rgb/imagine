@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.120.0
+//@display-name 🎨 이매진 v3.121.0
 //@api 3.0
-//@version 3.120.0
+//@version 3.121.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.120.0';
+    const VERSION = '3.121.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1001,16 +1001,15 @@ ${TAG_STYLE}`;
 - scene: the background and details only, in this order: "indoors" or "outdoors", then a simple place tag (e.g. "indoors, classroom"), then detail tags (lighting, time, weather, mood, background objects). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color; add only what this moment shows besides it. Danbooru tags plus up to 3 short sentences when tags alone cannot show the moment. No character appearance, no camera / framing (it goes in chars[].tags), no count tags (the app adds 1girl / 1boy counts itself), no names.
 - chars[].tags: Danbooru tags (a short phrase is fine for an action no tag covers), in this order: first expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then composition and pose (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — camera angle, pose, action; the gaze goes in chars[].gaze, not here). For interactions prefix tags with source#, target# or mutual# (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
-- cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 1 character write "C3": the app sends no position for a single character.`,
+- cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 3 or more, give each one a different cell (e.g. B3, C3 and D3 side by side; B3 and D3 on both sides of one at C4 in the middle; B4, D4 and C2 for one behind; A3, B3, D3 and E3 for four in a row). With 1 character write "C3": the app sends no position for a single character.`,
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color. No characters, no panels, no camera, no sentences.
-- panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 characters in one panel only when they physically interact (hug, handing something over, face to face). Never more than 2.
-  - who: every character in this panel (1, at most 2). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
+- panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 or more characters in one panel only when they physically interact (hug, handing something over, face to face) or the moment shows them together.
+  - who: every character in this panel (1 or more, no upper limit). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
   - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: pose, action, gesture, expression and gaze. Use Danbooru tags, and words or short plain-English phrases, that show the exact moment, comma separated, about 10-30 words. E.g. "standing pose, arms crossed confidently, arrogant smug smile, looking down, one hand brushing her hair back". A character who speaks here gets "open mouth" or a speaking expression. No hair, eye, body or clothing tags: the app adds the looks from CAST.
   - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
   - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @key" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
-  - A third character may appear only as "out of frame, hand" inside one tags entry and is not listed in who.
 - Never use number words for panels (first, second, top panel...): the order of the panels array is the reading order.`,
     };
 
@@ -1140,7 +1139,7 @@ IMAGES
 ${pick}
 - after: copy 8-30 characters VERBATIM from the TARGET MESSAGE: the end of the sentence where this moment happens. The app puts the image right below that paragraph. Same language and punctuation as the message; never translate or paraphrase. Leave out quotation marks: never put a " character inside this value.${userRules}
 ${panelChoice}
-${isIllust() ? '- At most 2 characters fully in frame; a third may appear only as "out of frame, hand" inside scene and is NOT listed in chars.\n- A monster or creature that is a main subject of the moment (dragon, slime, golem, beast, a summoned or holographic monster) is listed in chars too, as one more entry with "type":"monster" (at most 1 monster). Its name is a short English name (e.g. "dragon"), its tags start with the creature tag and describe its looks, size and action (e.g. "dragon, giant, holographic, breathing fire, wings spread"), and its cell is where it is. Do not describe it in scene then, and never list it in state.cast.\n- DIRECTION: when two entries interact (talking, kissing, hugging, handing something over, holding hands, arguing, fighting, a spell or beam aimed at the other, ...), the direction must read clearly. Use the ACTUAL action of this moment, never a different one: never add attacking or fighting tags to a scene that is not a fight. One-way action: the actor gets source#<action>, the other gets target#<action> (e.g. "source#talking" / "target#talking", "source#headpat" / "target#headpat", "source#punching" / "target#punching"). Both do it together: both get mutual#<action> (e.g. "mutual#kiss", "mutual#hug", "mutual#holding hands"). Give both "facing another" in tags and "looking at another, looking at the <role of the other>" in gaze when they face each other (skip "facing another" for a hug from behind or similar). Put their cells on opposite sides so they face each other across the canvas (e.g. B3 and D3; B4 and D2 for a big monster behind), and when one aims something at the other, write it toward the other one (e.g. "reaching toward the dragon", "beam toward the dragon").' : '- At most 2 characters in one panel; different panels may show different characters.'}
+${isIllust() ? '- List every character who is in frame in this moment in chars, however many there are: when the TARGET MESSAGE shows three or more people together (e.g. two hugging one from both sides), list them all. A character who is only partly seen (e.g. a hand reaching in) is listed too. NovelAI draws at most 6 entries (a monster counts as one), so with more than 6 list the 6 most important.\n- A monster or creature that is a main subject of the moment (dragon, slime, golem, beast, a summoned or holographic monster) is listed in chars too, as one more entry with "type":"monster" (at most 1 monster). Its name is a short English name (e.g. "dragon"), its tags start with the creature tag and describe its looks, size and action (e.g. "dragon, giant, holographic, breathing fire, wings spread"), and its cell is where it is. Do not describe it in scene then, and never list it in state.cast.\n- DIRECTION: when two entries interact (talking, kissing, hugging, handing something over, holding hands, arguing, fighting, a spell or beam aimed at the other, ...), the direction must read clearly. Use the ACTUAL action of this moment, never a different one: never add attacking or fighting tags to a scene that is not a fight. One-way action: the actor gets source#<action>, the other gets target#<action> (e.g. "source#talking" / "target#talking", "source#headpat" / "target#headpat", "source#punching" / "target#punching"). Both do it together: both get mutual#<action> (e.g. "mutual#kiss", "mutual#hug", "mutual#holding hands"). Give both "facing another" in tags and "looking at another, looking at the <role of the other>" in gaze when they face each other (skip "facing another" for a hug from behind or similar). Put their cells on opposite sides so they face each other across the canvas (e.g. B3 and D3; B4 and D2 for a big monster behind), and when one aims something at the other, write it toward the other one (e.g. "reaching toward the dragon", "beam toward the dragon"). With 3 or more entries, each one-way action still pairs actors with a target: two who hug or kiss one person from both sides both get source#<action> and the one in the middle gets target#<action>; each gaze names the role of the one it looks at ("looking at another, looking at the boy between them").' : '- Different panels may show different characters.'}
 
 ${panelRules()}
 
@@ -1782,7 +1781,6 @@ Rules
                 const key = e?.id ?? name.toLowerCase();
                 if (who.some(x => x.key === key)) continue;
                 who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
-                if (who.length >= 2) break;
             }
             for (const x of who) labelOf(x);
             const types = who.map(x => x.type);
@@ -1937,7 +1935,7 @@ Rules
             if (tidy(c?.type).toLowerCase() === 'monster') {
                 if (!tidy(c.tags) || monsters++) continue;
                 chars.push({ c, e: null, monster: true });
-                if (chars.length >= 3) break;
+                if (chars.length >= MAX_SLOTS) break;
                 continue;
             }
             const e = findCast(cast, c?.name);
@@ -1945,7 +1943,7 @@ Rules
             if (!key || seen.has(key)) continue;
             seen.add(key);
             chars.push({ c, e });
-            if (chars.length >= 3) break;
+            if (chars.length >= MAX_SLOTS) break;
         }
         const withGaze = (c, tags) => {
             if (!one) return tags;
