@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.122.2
+//@display-name 🎨 이매진 v3.123.0
 //@api 3.0
-//@version 3.122.2
+//@version 3.123.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.122.2';
+    const VERSION = '3.123.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -126,6 +126,7 @@
         promptOpen: new Set(),
         drafts: {},
         persona: null,
+        personaFail: '',
         jobs: 0,
     };
     const castCache = new Map();
@@ -1244,8 +1245,9 @@ ${TAG_STYLE}`;
         return [...out].filter(t => t.length >= 2);
     }
     const hasTerm = (low, t) => low.includes(t);
+    const personaOn = (e, p = st.persona) => !e?.persona || !p?.pid || e.personaId === p.pid || (!e.personaId && e.name === p.name);
     function sceneCast(list, text) {
-        const on = (list ?? []).filter(e => e && e.on !== false);
+        const on = (list ?? []).filter(e => e && e.on !== false && personaOn(e));
         const low = String(text ?? '').toLowerCase();
         const seen = new Set(on.filter(e => !e.persona && nameTerms(e).some(t => hasTerm(low, t))));
         if (!seen.size) return { scene: on, rest: [], all: true };
@@ -1314,11 +1316,22 @@ ${TAG_STYLE}`;
         return lines.join('\n');
     }
 
-    async function loadPersona() {
+    async function loadPersona(chat = null, live = false) {
         try {
             const db = await api.getDatabase(['personas', 'selectedPersona']);
-            const p = db?.personas?.[db.selectedPersona ?? 0];
-            st.persona = p ? { name: String(p.name ?? ''), prompt: String(p.personaPrompt ?? '') } : null;
+            const list = Array.isArray(db?.personas) ? db.personas : [];
+            const bound = chat?.bindedPersona ? list.findIndex(p => p && p.id === chat.bindedPersona) : -1;
+            const i = bound >= 0 ? bound : Number(db?.selectedPersona ?? 0) || 0;
+            const p = list[i];
+            let name = String(p?.name ?? ''), prompt = String(p?.personaPrompt ?? '');
+            if (p && live && typeof api.parseRisuChat === 'function') {
+                try {
+                    const [n, now, saved] = await Promise.all([api.parseRisuChat('{{user}}'), api.parseRisuChat('{{persona}}'), api.parseRisuChat(prompt)]);
+                    if (typeof n === 'string' && tidy(n)) name = n;
+                    if (typeof now === 'string' && typeof saved === 'string' && now !== saved) prompt = now;
+                } catch (error) { console.warn(LOG, 'persona live', error); }
+            }
+            st.persona = p ? { name, prompt, pid: String(p.id || 'i' + i), sig: fnv(name + '\n' + prompt) } : null;
         } catch (error) {
             console.warn(LOG, 'persona', error);
             st.persona = null;
@@ -1333,7 +1346,8 @@ ${TAG_STYLE}`;
         return String(tidy(alt) ? alt : char.firstMessage ?? '');
     }
     async function botContext(char, chi) {
-        const persona = await loadPersona();
+        const chatAt = Number.isInteger(chi) ? chi : char?.chatPage;
+        const persona = await loadPersona(char?.chats?.[chatAt], !Number.isInteger(chi) || chi === await api.getCurrentChatIndex());
         let entries = [];
         try { entries = await api.getCurrentLorebookEntries() ?? []; } catch (error) { console.warn(LOG, 'lorebook', error); }
         const fill = s => String(s ?? '').replace(/\{\{char\}\}/gi, char.name || 'char').replace(/\{\{user\}\}/gi, persona?.name || 'user');
@@ -1416,7 +1430,48 @@ ${TAG_STYLE}`;
             on: true,
         });
         e.key = keyFrom(e);
+        if (isPersona && persona?.pid) { e.personaId = persona.pid; e.personaSig = persona.sig; }
         return e;
+    }
+
+    async function ensurePersona(char, cast, p, busy) {
+        if (!p?.pid) return false;
+        const ps = cast.list.filter(e => e?.persona);
+        const cur = ps.find(e => e.personaId === p.pid);
+        if (cur && cur.personaSig === p.sig) return false;
+        if (!cur) {
+            const moved = ps.find(e => e.personaSig === p.sig) ?? ps.find(e => !e.personaId && e.name === p.name);
+            if (moved) { moved.personaId = p.pid; moved.personaSig = p.sig; return true; }
+        }
+        if (st.personaFail === p.sig) return false;
+        const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char.name || 'char').replace(/\{\{user\}\}/gi, p.name || 'user');
+        const text = [
+            `# BOT: ${char.name || ''}`,
+            `# USER PERSONA: ${p.name}`, plainText(fill(p.prompt), 4000) || '(no description)',
+            '# ONLY THE USER PERSONA',
+            `Return exactly one entry in "cast": the user persona "${p.name}" above, with "persona": true. Do not list any other character.`,
+        ].join('\n\n');
+        busy.label = '페르소나 다시 분석 중';
+        render();
+        try {
+            const ask = askJson(castSystem(), text, 'cast', undefined, busy);
+            ask.catch(() => {});
+            const res = await Promise.race([ask, busy.halt]);
+            if (busy.stop) throw stopError();
+            const got = Array.isArray(res?.cast) ? res.cast.filter(x => x && typeof x === 'object') : [];
+            const raw = got.find(x => x.persona === true) ?? got[0];
+            if (!raw) throw new Error('모델이 페르소나를 돌려주지 않았습니다.');
+            const e = castEntry({ ...raw, persona: true }, tidy(p.name) || tidy(raw.name) || 'User', p);
+            if (cur) Object.assign(cur, e, { id: cur.id, key: TMP_KEY.test(cur.key) && !TMP_KEY.test(e.key) ? e.key : cur.key, keys: cur.keys, on: cur.on });
+            else { cast.list.push(e); uniqKeys(cast.list, new Set(cast.list.filter(x => x !== e))); }
+            console.log(LOG, 'persona', cur ? 'reread' : 'new', p.name);
+            return true;
+        } catch (error) {
+            if (error.isStop) throw error;
+            console.warn(LOG, 'persona', error);
+            st.personaFail = p.sig;
+            return false;
+        }
     }
 
     async function lookupCast(char, items, cast) {
@@ -1502,8 +1557,10 @@ Return entries only for the characters in this list that the character sheet, lo
         const left = new Set(cast.list);
         const take = f => { const o = [...left].find(f); if (o) left.delete(o); return o ?? null; };
         const out = [], kept = new Set();
+        const mine = e => o => !(o.persona && o.personaId && o.personaId !== e.personaId);
         for (const e of fresh) {
-            const old = (TMP_KEY.test(e.key) ? null : take(o => o.key === e.key)) ?? take(o => o.name.toLowerCase() === e.name.toLowerCase());
+            const old = (e.personaId ? take(o => o.persona && o.personaId === e.personaId) : null)
+                ?? (TMP_KEY.test(e.key) ? null : take(o => o.key === e.key && mine(e)(o))) ?? take(o => o.name.toLowerCase() === e.name.toLowerCase() && mine(e)(o));
             if (old) {
                 const m = old.src === 'edit' ? old : { ...e, id: old.id, key: TMP_KEY.test(old.key) && !TMP_KEY.test(e.key) ? e.key : old.key, keys: old.keys, on: old.on };
                 out.push(m);
@@ -1513,7 +1570,8 @@ Return entries only for the characters in this list that the character sheet, lo
         const freshKeys = new Set(fresh.flatMap(e => [e.name, ...(e.aliases ?? [])].map(nameKey)));
         const freshIds = new Set(fresh.map(e => e.key).filter(k => !TMP_KEY.test(k)));
         const same = e => freshIds.has(e.key) || [e.name, ...(e.aliases ?? [])].some(n => freshKeys.has(nameKey(n)));
-        for (const old of left) if (old.src === 'edit' || (old.src === 'chat' && !same(old))) { out.push(old); kept.add(old); }
+        const otherPersona = o => o.persona && o.personaId && !fresh.some(e => e.personaId === o.personaId);
+        for (const old of left) if (old.src === 'edit' || (old.src === 'chat' && !same(old)) || otherPersona(old)) { out.push(old); kept.add(old); }
         uniqKeys(out, kept);
         cast.list = out;
         cast.at = Date.now();
@@ -2568,7 +2626,15 @@ Rules
                     busy.at = Date.now();
                     render();
                 }
-                if (!st.persona) await loadPersona();
+                const live = job.ci === await api.getCurrentCharacterIndex() && job.chi === await api.getCurrentChatIndex();
+                const persona = await loadPersona(chat, live);
+                if ((cast.list.length || cast.tried) && await ensurePersona(char, cast, persona, busy)) await saveCast(chaId, cast);
+                if (busy.stop) throw stopError();
+                if (busy.label === '페르소나 다시 분석 중') {
+                    busy.label = job.label ?? `${kindName()} 그리는 중`;
+                    busy.at = Date.now();
+                    render();
+                }
                 if (cast.list.some(needKey)) {
                     busy.label = '영어 인물 키 정하는 중';
                     render();
