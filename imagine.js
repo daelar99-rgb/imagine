@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.125.0
+//@display-name 🎨 이매진 v3.126.0
 //@api 3.0
-//@version 3.125.0
+//@version 3.126.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.125.0';
+    const VERSION = '3.126.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -502,8 +502,11 @@
     const emptyWear = () => Object.fromEntries(WEAR_KEYS.map(k => [k, '']));
     const NONE_WORDS = /^(?:none(?: now)?|nothing|nude|naked|nudity|topless|bottomless|shirtless|pantsless|undressed|removed|taken off|no (?:top|bottom|shirt|pants|clothes|clothing|shoes|footwear)|없음|벗음|알몸|안 입음)$/i;
     const isNone = v => NONE_WORDS.test(tidy(tidy(String(v ?? '').split(',')[0]).replace(/^\((.*)\)$/, '$1').replace(/\([^)]*\)/g, ' ').replace(/[.!]+$/, '')));
+    const bodyExtraOf = v => { const t = String(v ?? '').split(',').map(tidy).filter(x => x && !isNone(x)); return t.length ? t.join(', ') : tidy(v) ? 'none' : ''; };
+    const slotVal = (k, v) => k === 'body_extra' ? bodyExtraOf(v) : tidy(v);
+    const dropNone = t => String(t ?? '').split(',').map(tidy).filter(x => x && !/^(?:none(?: now)?|nothing)$/i.test(x)).join(', ');
     const HEADWEAR = /\b(?:hat|cap|beret|beanie|hood|helmet|crown|tiara|visor|bonnet|headdress|headscarf|turban|headwear|veil|circlet)\b/i;
-    const COVERS_BOTTOM = /\b(?:dress|one-piece|gown|robe|kimono|yukata|leotard|bodysuit|swimsuit|jumpsuit|overalls|bikini|cheongsam|qipao)\b/i;
+    const COVERS_BOTTOM = /\b(?:dress|one-piece|gown|robe|kimono|yukata|leotard|bodysuit|swimsuit|jumpsuit|overalls|bikini|cheongsam|qipao|towel)\b/i;
     function absentTags(val, none) {
         const out = [];
         if (!HEADWEAR.test(joinTags(['hairstyle', 'hair_extra', 'top', 'outfit_extra'].map(val)))) out.push('no headwear');
@@ -516,6 +519,22 @@
     let wearBrief = false;
     const OUTFIT_KEYS = ['top', 'bottom', 'shoes', 'outfit_extra'];
     const briefWear = v => tidy(String(v ?? '').split(',').map(tidy).find(Boolean)?.replace(/\s+with\s+.*$/i, ''));
+    const SAME_TAG = { 'bare torso': 'topless', shirtless: 'topless' };
+    const WRAPPED = /\b(?:towel|sheet|blanket)\b[^,]*\b(?:wrapped|around|covering)\b|\b(?:wrapped|covered) (?:in|with) (?:an? )?(?:[a-z]+ )*(?:towel|sheet|blanket)\b|\bnaked (?:towel|sheet)\b/i;
+    function mergeTags(...parts) {
+        const list = parts.flat().flatMap(x => String(x ?? '').split(',')).map(tidy).filter(Boolean);
+        const wrapped = list.some(t => WRAPPED.test(t) && !/\b(?:head|hair)\b/i.test(t));
+        const sized = list.some(t => /\S\s+breasts$/i.test(t));
+        const seen = new Set();
+        return list.filter(t => {
+            const k = SAME_TAG[t.toLowerCase()] ?? t.toLowerCase();
+            if (seen.has(k)) return false;
+            seen.add(k);
+            if (sized && k === 'breasts') return false;
+            if (wrapped && (k === 'topless' || k === 'bottomless')) return false;
+            return true;
+        });
+    }
     const identTags = (type, look, val, none = () => false) => {
         const v = WEAR_KEYS.map(k => !wearBrief ? val(k) : k === 'bangs' ? '' : OUTFIT_KEYS.includes(k) ? briefWear(val(k)) : val(k));
         return [type, ...v.slice(0, BODY_AT), look, ...v.slice(BODY_AT), ...absentTags(val, none)];
@@ -1166,15 +1185,16 @@ STATE
   Each item goes in exactly one slot; never repeat an item that is already in another slot. Permanent features (animal ears, horns, tail, glasses, scars) stay in look.
 - Update a slot when the story changes it (undressing, getting wet, getting hurt, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged (except body_extra: see below). bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
 - body_extra follows the TARGET MESSAGE's moment, not CAST: write it anew every time from what is on the character's body right now. CAST body_extra and PREVIOUS PROMPT only show what was there before; keep an item only while this scene still has it (e.g. a tattoo, bandages on a wound that has not healed), and drop every state that is over (dried off → no wet body / wet skin / wet hair, cooled down → no sweat, makeup washed off, dressed again → no bare-part tags). Always fill body_extra; write "none" when nothing is on the body now (a blank slot keeps the old CAST value).
-- Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes, outfit_extra), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). Write the new outfit only once the story says it is actually on.
+- Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes, outfit_extra), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). A towel, sheet or blanket wrapped around the body counts as clothing: write it in top with its color (e.g. "white bath towel wrapped around body"), not "none". Write the new outfit only once the story says it is actually on.
 - Bare body: while top or bottom is "none", also write in body_extra the NAI tags of the body parts it leaves uncovered, matching the character's sex. Write each part's base tag followed by danbooru tags that describe how it looks, never the base tag alone:
   top "none", a girl → "nipples" plus the nipple color and shape or size (e.g. "nipples, pink nipples, puffy nipples", "nipples, dark nipples, small nipples", "nipples, large areolae"); add a breast shape tag only when it fits the chest size already in body (e.g. "sagging breasts", "pointy breasts"). Never write a plain "breasts": the chest size is in body (if body has no chest size, add one there, e.g. "medium breasts").
   top "none", a boy → "nipples" (his chest build stays in body).
   bottom "none", a girl → "pussy" plus the pubic hair (e.g. "pussy, female pubic hair", "pussy, cleft of venus" when shaved); a boy → "penis" plus its size and state (e.g. "penis, large penis, erection, testicles", "penis, flaccid, testicles"); plus "anus" only when the pose shows it (e.g. from behind, bent over, legs up).
-  Underwear still worn covers its part: write no tag for it. The other body_extra items follow the scene as well (see body_extra above). Once the slot is dressed again, remove every bare-part tag of it, its describing tags included (nipple, areola, breast shape, pussy, pubic hair, penis, erection, flaccid, testicles, anus).
+  type "other": use the girl lines when look, body or body_extra shows a female body (breasts, female), the boy lines when it shows a male body; otherwise write no bare-part tags.
+  Underwear, or a towel, sheet or blanket wrapped around the body, covers its part: write no tag for it. The other body_extra items follow the scene as well (see body_extra above). Once the slot is dressed again, remove every bare-part tag of it, its describing tags included (nipple, areola, breast shape, pussy, pubic hair, penis, erection, flaccid, testicles, anus).
 - Colors follow the COLOR RULE: every item in top, bottom, shoes, outfit_extra and hair_extra has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is neither in CAST nor in OTHER CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST or OTHER CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
-- location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. NEVER use proper nouns: no person names, family names, school, shop, station, city or country names; describe the place by its kind and features instead ("a teenage boy's bedroom", not "Rito's bedroom"). Too vague: "his room", "school", "a cafe". Specific enough: "a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window", "the third-floor library of a high school, a seat by the window", "a small cafe on a back street near a train station, a two-seat table by the counter". While they stay there, copy CURRENT STATE's location word for word; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague, not in English or contains a proper noun (then rewrite the same place specifically in English without names).
+- location: where the characters are now, as one specific English phrase: whose place or which building, the floor, the room and the exact spot in it. NEVER use proper nouns: no person names, family names, school, shop, station, city or country names; describe the place by its kind and features instead ("a teenage boy's bedroom", not "Rito's bedroom"). Too vague: "his room", "school", "a cafe". Specific enough: "a teenage boy's bedroom on the second floor of a two-story family house, at the desk by the window", "the third-floor library of a high school, a seat by the window", "a small cafe on a back street near a train station, a two-seat table by the counter". While they stay there, keep CURRENT STATE's location unchanged; write a new one only when they actually go somewhere else, or when CURRENT STATE's location is vague, not in English or contains a proper noun (then rewrite the same place specifically in English without names).
 - moved: true only when the characters went to another location since CURRENT STATE (location is then the new one); otherwise false. Walking around inside the same room is not moving.
 - time: the time of day in English, as a clock time when the story states or implies one (e.g. "1:00 PM", "8:30 PM", "11:30 PM"), otherwise a part of the day (e.g. "early morning", "dusk", "late night"). Move it forward when the story moves time forward; otherwise copy it (rewrite it in English if CURRENT STATE's time is not English).
 - background: write ONE NEW background in English for this draw, every time, from the chat: what the camera sees BEHIND the characters in the TARGET MESSAGE's moment (the wall, corner or view behind them). It follows the camera direction inside the current location: decide where the camera stands in this shot and which way it faces (toward the window, the door, the bed, the counter…), and describe only that side of the location, not the whole place. When the camera turns, the background shows another wall or view of the same place; when the camera is behind the characters ("from behind"), the background is what they are facing. That direction must agree with the camera / view tags you write in chars[].tags or panels[].camera (for a comic page, use the direction most panels face). Write no camera or framing words in the background itself (no "from behind", "from above", "close-up"): the app adds it to the image prompt. Write it in 1 to 3 short sentences: how bright it is and the color of the light, furniture and objects with material and color, whether doors, windows and curtains are open or closed, what is visible outside. It always starts with the brightness and light color, indoors and outdoors alike: indoors say whether the room is bright or dim and what lights it (e.g. "a bright room under white ceiling lights", "a dim room lit only by a warm orange desk lamp", "a dark room lit by pale blue moonlight through the window"); outdoors say the light of the sky or the lamps (e.g. "bright midday sunlight", "orange sunset light", "a dark street under yellow street lamps"). No proper nouns (no person, school, shop or place names), no characters and no weather (those stay in scene). Example for a teenage boy's bedroom at night, seen behind someone sitting at the desk:
@@ -1651,6 +1671,33 @@ Rules
         return out;
     }
 
+    const CHEST_RE = /^(?:flat chest|(?:flat|small|medium|large|big|huge|gigantic|very large)\s+breasts)$/i;
+    function chestFromPlan(plan, cast, e) {
+        const tags = [];
+        for (const img of Array.isArray(plan?.images) ? plan.images : []) {
+            for (const c of Array.isArray(img?.chars) ? img.chars : []) if (findCast(cast, c?.name)?.id === e.id) tags.push(c.tags);
+            for (const pn of Array.isArray(img?.panels) ? img.panels : []) {
+                const who = (Array.isArray(pn?.who) ? pn.who : [pn?.who]).map(tidy);
+                const at = who.findIndex(n => n && findCast(cast, n)?.id === e.id);
+                if (at < 0) continue;
+                if (Array.isArray(pn.tags)) tags.push(pn.tags[at]);
+                else if (who.length === 1) tags.push(pn.tags);
+            }
+        }
+        return tags.flatMap(t => String(t ?? '').split(',')).map(tidy).find(t => CHEST_RE.test(t)) ?? '';
+    }
+    function fixChest(plan, cast, state, e) {
+        if (e.type === 'boy') return;
+        const body = wearOf(e, state, 'body').split(',').map(tidy).filter(Boolean);
+        if (body.some(t => CHEST_RE.test(t))) return;
+        const extra = wearOf(e, state, 'body_extra').split(',').map(tidy).filter(Boolean);
+        const inExtra = extra.find(t => CHEST_RE.test(t));
+        const size = inExtra ?? chestFromPlan(plan, cast, e);
+        if (!size) return;
+        const w = state.wear[e.id] ??= {};
+        w.body = [...body.filter(t => t.toLowerCase() !== 'breasts'), size].join(', ');
+        if (inExtra) w.body_extra = extra.filter(t => t !== inExtra).join(', ') || 'none';
+    }
     function applyState(plan, cast, state, fresh = new Set(), re = null) {
         let castChanged = false;
         const s = plan?.state ?? {};
@@ -1701,17 +1748,18 @@ Rules
                 e = normCast({
                     id: uid(), key: freshKey(cast.list, name), name: tidy(raw.label) || name, aliases: [], canon: canonTag(raw.canon),
                     type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
-                    look: tidy(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, isNone(raw[k]) ? '' : tidy(raw[k])])),
+                    look: tidy(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, isNone(slotVal(k, raw[k])) ? '' : slotVal(k, raw[k])])),
                     src: 'chat', on: true,
                 });
                 cast.list.push(e);
                 castChanged = true;
                 for (const k of ['top', 'bottom']) if (isNone(raw[k])) (state.wear[e.id] ??= {})[k] = 'none';
                 if (e.key !== name) renamePlan(plan, name, e.key);
+                fixChest(plan, cast, state, e);
                 continue;
             }
             for (const k of WEAR_KEYS) {
-                const v = tidy(raw[k]);
+                const v = slotVal(k, raw[k]);
                 if (!v) continue;
                 const base = baseWear(e, k);
                 const w = state.wear[e.id] ??= {};
@@ -1720,6 +1768,7 @@ Rules
                 else w[k] = v;
                 if (!Object.keys(w).length) delete state.wear[e.id];
             }
+            fixChest(plan, cast, state, e);
         }
         return castChanged;
     }
@@ -1862,15 +1911,15 @@ Rules
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const cam = joinTags(noText(pn.camera)), say = line ? `speech bubble with Text: ${line} ` : '';
-            const rawActs = Array.isArray(pn.tags) ? pn.tags : [pn.tags];
+            const cam = joinTags(noText(dropNone(pn.camera))), say = line ? `speech bubble with Text: ${line} ` : '';
+            const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
             const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
             const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
             const acts = (who.length ? who : [null]).map((x, k) => refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-            const personLine = k => `${labelOf(who[k])}: ${[withTags(kindOf(who[k]), idents[k], acts[k]), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+            const personLine = k => `${labelOf(who[k])}: ${[mergeTags(kindOf(who[k]), idents[k], acts[k]).join(TAG_JOIN), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             const lines = [who.length ? `${head},` : '', cam ? `${cam},` : ''].filter(Boolean);
             if (who.length) {
                 for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
@@ -1891,7 +1940,7 @@ Rules
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const single = slots.length === 1;
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, img.scene),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(slots.length, 2, 4, 2),
             useCoords: false,
@@ -2034,11 +2083,11 @@ Rules
             }
             const type = e?.type ?? (['girl', 'boy', 'other'].includes(c.type) ? c.type : 'girl');
             const ident = e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k))
-                : identTags(type, c.look, k => isNone(c[k]) ? '' : c[k], k => isNone(c[k]));
+                : identTags(type, c.look, k => isNone(slotVal(k, c[k])) ? '' : slotVal(k, c[k]), k => isNone(slotVal(k, c[k])));
             if (tidy(e?.canon)) ident.splice(1, 0, tidy(e.canon));
-            const tags = one ? withGaze(c, dropViewer(c.tags)) : '';
+            const tags = one ? withGaze(c, dropViewer(dropNone(c.tags))) : '';
             const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
-            return { prompt: joinTags(ident, tags), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type, name: e?.name ?? tidy(c.name) };
+            return { prompt: mergeTags(ident, tags).join(', '), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type, name: e?.name ?? tidy(c.name) };
         });
         if (bubblesNow()) {
             const room = Math.min(4, MAX_SLOTS - slots.length);
@@ -2046,7 +2095,7 @@ Rules
             for (const b of bubbles) slots.push(bubbleSlot(b));
         }
         const types = slots.filter(s => s.kind === 'char').map(s => s.type);
-        const base = joinTags(countTags(types), p.pos, img.scene);
+        const base = joinTags(countTags(types), p.pos, dropNone(img.scene));
         let neg = p.neg;
         if (!one) neg = removeTokens(neg, ['4koma', '2koma', 'multiple views']);
         const negParts = [neg, img.uc];
@@ -2759,6 +2808,7 @@ Rules
         }
     }
 
+    const thoughtRanges = src => [...String(src).matchAll(/<(Thoughts|think|thinking)\b[^>]*>[\s\S]*?(?:<\/\1>|$)/gi)].map(m => [m.index, m.index + m[0].length]);
     function blockedRanges(src) {
         const out = [];
         const scan = re => { for (const m of src.matchAll(re)) out.push([m.index, m.index + m[0].length]); };
@@ -2769,6 +2819,7 @@ Rules
         scan(/\{\{[\s\S]*?\}\}/g);
         scan(MARK_RE);
         scan(/<(table|details)\b[\s\S]*?(?:<\/\1>|$)/gi);
+        out.push(...thoughtRanges(src));
         const opens = [];
         for (const m of src.matchAll(/\{\{(#|\/)[^{}]*\}\}/g)) {
             if (m[1] === '#') opens.push(m.index);
@@ -2797,7 +2848,7 @@ Rules
         }
     }
     const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    function findQuote(src, quote) {
+    function findQuote(src, quote, skip = []) {
         const q = tidy(quote).replace(/["“”「」『』]/g, '').replace(/^['‘’]+|['‘’]+$/g, '').trim();
         if (q.length < 4) return -1;
         const tries = [q];
@@ -2805,9 +2856,8 @@ Rules
         if (q.length > 8) tries.push(q.slice(-8));
         const QM = '["“”「」『』]*';
         for (const t of tries) {
-            const re = new RegExp(t.trim().split(/\s+/).map(w => [...w].map(escapeRe).join(QM)).join(QM + '\\s+' + QM));
-            const m = re.exec(src);
-            if (m) return m.index + m[0].length;
+            const re = new RegExp(t.trim().split(/\s+/).map(w => [...w].map(escapeRe).join(QM)).join(QM + '\\s+' + QM), 'g');
+            for (const m of src.matchAll(re)) if (!skip.some(([a, b]) => a <= m.index && m.index < b)) return m.index + m[0].length;
         }
         return -1;
     }
@@ -2824,10 +2874,10 @@ Rules
     }
     function placeTags(text, items, keep) {
         const src = keep ? String(text ?? '') : stripOurs(text);
-        const blocked = blockedRanges(src);
+        const blocked = blockedRanges(src), thoughts = thoughtRanges(src);
         const tail = tailStart(src);
         const spots = items.map((it, order) => {
-            const hit = it.after ? findQuote(src, it.after) : -1;
+            const hit = it.after ? findQuote(src, it.after, thoughts) : -1;
             return { tag: figTag(it.name), at: Math.min(tail, hit < 0 ? src.length : lineEndAfter(src, hit, blocked)), order };
         });
         spots.sort((a, b) => a.at - b.at || a.order - b.order);
