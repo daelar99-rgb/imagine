@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.122.0
+//@display-name 🎨 이매진 v3.122.2
 //@api 3.0
-//@version 3.122.0
+//@version 3.122.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.122.0';
+    const VERSION = '3.122.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5095,7 +5095,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 
     function renderCountStep(su) {
         const rnd = randomCount();
-        const pick = patch => { st.set = { ...st.set, ...patch }; setStep('count'); ui.reopen = 0; renderNow(); };
+        const pick = (patch, keep = false) => { st.set = { ...st.set, ...patch }; setStep('count'); ui.reopen = keep ? 6 : 0; renderNow(); };
         const own = !rnd && ![1, 2, 3, 4].includes(countNow());
         const numIn = (value, label, sel, onSet) => h('input', {
             class: 'cf-num' + (sel ? ' sel' : ''), type: 'text', inputmode: 'numeric', value: value == null ? '' : String(value), placeholder: '직접 입력', 'aria-label': label,
@@ -5115,16 +5115,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('div', { class: 'cf-tx' }, h('b', null, '한 번에 몇 장을 그릴까요?'),
                     h('p', null, `장마다 답변 속 다른 장면을 고릅니다. 장마다 NAI 요청이 하나씩 갑니다. 직접 입력은 ${COUNT_MAX}장까지 됩니다.`)),
                 h('div', { class: 'cf-pickbox' },
-                    seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장'], ['random', '랜덤']], !su.count ? null : rnd ? 'random' : countNow(),
-                        v => v === 'random' ? pick({ countMode: 'random' }) : pick({ countMode: 'fixed', count: v })),
+                    seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장'], ['random', '범위']], !su.count ? null : rnd ? 'random' : countNow(),
+                        v => v === 'random' ? pick({ countMode: 'random' }, true) : pick({ countMode: 'fixed', count: v })),
                     h('label', { class: 'cf-ownbox' }, numIn(own ? countNow() : null, '장 수 직접 입력', own && !!su.count, v => pick({ countMode: 'fixed', count: v })), h('span', null, '장')))),
             rnd ? h('div', { class: 'cf-row' },
-                h('div', { class: 'cf-tx' }, h('b', null, '랜덤 범위'),
-                    h('p', null, '답변을 그릴 때마다 최소와 최대 사이에서 장 수를 하나 고릅니다. 최소가 최대보다 크면 두 값을 바꿔 씁니다.')),
+                h('div', { class: 'cf-tx' }, h('b', null, '범위'),
+                    h('p', null, '답변을 그릴 때마다 최소와 최대 사이에서 장 수를 무작위로 하나 고릅니다. 최소가 최대보다 크면 두 값을 바꿔 씁니다.')),
                 h('div', { class: 'cf-pickbox' },
-                    h('label', { class: 'cf-ownbox' }, h('span', null, '최소'), numIn(lo, '랜덤 최소 장 수', true, v => pick({ countMin: v })), h('span', null, '장')),
+                    h('label', { class: 'cf-ownbox' }, h('span', null, '최소'), numIn(lo, '범위 최소 장 수', true, v => pick({ countMin: v }, true)), h('span', null, '장')),
                     h('span', { 'aria-hidden': 'true' }, '~'),
-                    h('label', { class: 'cf-ownbox' }, h('span', null, '최대'), numIn(hi, '랜덤 최대 장 수', true, v => pick({ countMax: v })), h('span', null, '장')))) : null);
+                    h('label', { class: 'cf-ownbox' }, h('span', null, '최대'), numIn(hi, '범위 최대 장 수', true, v => pick({ countMax: v }, true)), h('span', null, '장')))) : null);
     }
 
     function renderReadyEnd() {
