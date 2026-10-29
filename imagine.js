@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.124.0
+//@display-name 🎨 이매진 v3.124.1
 //@api 3.0
-//@version 3.124.0
+//@version 3.124.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.124.0';
+    const VERSION = '3.124.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1170,7 +1170,6 @@ STATE
   top "none", a girl → "nipples" plus the nipple color and shape or size (e.g. "nipples, pink nipples, puffy nipples", "nipples, dark nipples, small nipples", "nipples, large areolae"); add a breast shape tag only when it fits the chest size already in body (e.g. "sagging breasts", "pointy breasts"). Never write a plain "breasts": the chest size is in body (if body has no chest size, add one there, e.g. "medium breasts").
   top "none", a boy → "nipples" (his chest build stays in body).
   bottom "none", a girl → "pussy" plus the pubic hair (e.g. "pussy, female pubic hair", "pussy, cleft of venus" when shaved); a boy → "penis" plus its size and state (e.g. "penis, large penis, erection, testicles", "penis, flaccid, testicles"); plus "anus" only when the pose shows it (e.g. from behind, bent over, legs up).
-  These looks are fixed traits of the character: when CAST body_extra or PREVIOUS PROMPT already describes a part for this character, copy those tags word for word; only erection / flaccid follows the scene.
   Underwear still worn covers its part: write no tag for it. Keep the other body_extra items. Once the slot is dressed again, remove every bare-part tag of it, its describing tags included (nipple, areola, breast shape, pussy, pubic hair, penis, erection, flaccid, testicles, anus).
 - Colors follow the COLOR RULE: every item in top, bottom, shoes, outfit_extra and hair_extra has a color. A new item the story mentions without a color gets a plausible one. When a slot you carry over from CAST has an item without a color, add one; keep the colors already there unchanged.
 - For a character who is neither in CAST nor in OTHER CAST make a new key for name (lowercase a-z, 0-9 and _, romanized, e.g. "yoo_jinhyuk"; never one already in CAST or OTHER CAST), put the name as the story writes it in "label", and also give "type" and "look" (other permanent features: skin, animal ears, horns, glasses, scars; may be ""). Use that same key for this character everywhere else.
@@ -1183,7 +1182,7 @@ STATE
 - Past backgrounds: CURRENT STATE lists the last 3 backgrounds the app kept (background[0] is the newest), each with the location where it was seen. Read all 3 before writing. They are references, not slots to fill or copy: always write a new background for the TARGET MESSAGE. When the characters are at a location that appears there (still in the same room, or back at an earlier place), keep what the place has and where it is (furniture, materials, colors, layout) the same, and change only what the chat or the camera changed (the camera now faces another side: show the furniture on that side of the same place, not a different room; a window opened, a table was knocked over, the lights went on or off, the sun went down: then the brightness and light color change too). At a new location, write it fresh. Do not rewrite the past backgrounds; the app keeps them.
 - CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time / background (the room's furniture, doors and windows, the view outside) and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
 - PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${prevPrompt ? `
-- PREVIOUS PROMPT: the exact NovelAI prompt the app sent for the last drawn reply in this chat (base is the main prompt, then one line per character / panel / bubble slot). Reference only, never a template. The app itself added the quality and artist tags, count tags (1girl, solo...), panel layout tags, genre tags and the background at the end of base, and the CAST identity tags (hair, eyes, body, clothes) at the start of each character or panel slot: never copy those into your fields. Use it to keep continuity: the same place and props, items still held, and the same tag wording for things that did not change. Do not repeat its pose, camera or composition unless the moment really continues. Colors may be missing there (some images drop them on purpose): take colors from CAST, never from here.` : ''}${plainInput ? `
+- PREVIOUS PROMPT: the exact NovelAI prompt the app sent for the last drawn reply in this chat (base is the main prompt, then one line per character / panel / bubble slot). Reference only, never a template. The app itself added the quality and artist tags, count tags (1girl, solo...), panel layout tags, genre tags and the background at the end of base, and the CAST identity tags (hair, eyes, body, clothes) at the start of each character or panel slot: never copy those into your fields. Use it to keep continuity: the same place and props, items still held. Do not repeat its pose, camera or composition unless the moment really continues. Colors may be missing there (some images drop them on purpose): take colors from CAST, never from here.` : ''}${plainInput ? `
 - USER INPUT: what the user wrote just before the TARGET MESSAGE; the TARGET MESSAGE is the reply to it. Context only: use it to understand what the reply answers (who acts, what was said or done), but draw the moments the TARGET MESSAGE narrates, and never copy after or spoken lines from USER INPUT.` : ''}${withInput ? `
 - USER PRIORITY STAGING: what the user just wrote, the staging the user cares about most: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
 
