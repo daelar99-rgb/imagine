@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.121.1
+//@display-name 🎨 이매진 v3.122.0
 //@api 3.0
-//@version 3.121.1
+//@version 3.122.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -11,7 +11,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.121.1';
+    const VERSION = '3.122.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -84,6 +84,9 @@
         acPresetId: '',
         kind: 'comic',
         count: 1,
+        countMode: 'fixed',
+        countMin: 2,
+        countMax: 4,
         size: 'tall',
         sv: 31,
         bubbles: true,
@@ -983,11 +986,20 @@ ${TAG_STYLE}`;
     const bubblesNow = () => !isIllust() && !!st.set.bubbles;
     const kindName = () => isIllust() ? '삽화' : '만화';
     const sizeNow = () => SIZES[st.set.size] ? st.set.size : 'tall';
-    const countNow = () => clampInt(st.set.count, 1, 4, 1);
+    const COUNT_MAX = 10;
+    const countNow = () => clampInt(st.set.count, 1, COUNT_MAX, 1);
+    const randomCount = () => st.set.countMode === 'random';
+    const countRange = () => {
+        const a = clampInt(st.set.countMin, 1, COUNT_MAX, 2), b = clampInt(st.set.countMax, 1, COUNT_MAX, 4);
+        return a <= b ? [a, b] : [b, a];
+    };
+    const countLabel = () => { if (!randomCount()) return `${countNow()}장`; const [a, b] = countRange(); return a === b ? `${a}장` : `${a}~${b}장`; };
+    const countTop = () => randomCount() ? countRange()[1] : countNow();
+    const rollCount = () => { if (!randomCount()) return countNow(); const [a, b] = countRange(); return a + Math.floor(Math.random() * (b - a + 1)); };
     const loreMaxNow = () => Math.max(0, parseInt(st.set.loreMax, 10) || 0);
     const castMaxNow = () => Math.max(0, parseInt(st.set.castMax, 10) || 0);
     const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count);
-    const recipe = () => `${kindName()} ${countNow()}장 · ${preset().name || '이름 없음'}`;
+    const recipe = () => `${kindName()} ${countLabel()} · ${preset().name || '이름 없음'}`;
     function setStep(k) {
         const was = setupDone();
         st.set = { ...st.set, setup: { ...st.set.setup, [k]: true } };
@@ -1091,8 +1103,8 @@ ${TAG_STYLE}`;
         return m?.role === 'user' && tidy(plainText(m.data)) ? m : null;
     }
 
-    function comicSystem(withInput = false, plainInput = false, redo = false, prevPrompt = false) {
-        const n = redo ? 1 : countNow();
+    function comicSystem(withInput = false, plainInput = false, redo = false, prevPrompt = false, n = 1) {
+        if (redo) n = 1;
         const size = sizeNow();
         const [w, h] = SIZES[size];
         const shape = w > h ? 'landscape' : w < h ? 'portrait' : 'square';
@@ -2448,7 +2460,7 @@ Rules
             I,
             L: 0.65 * I,
             S: ilAvg('save', 2),
-            n: job.only ? 1 : job.mode === 'edit' ? Math.max(1, job.reqs?.length ?? 1) : countNow(),
+            n: job.only ? 1 : job.mode === 'edit' ? Math.max(1, job.reqs?.length ?? 1) : job.n ?? countNow(),
         };
     };
     function ilImgPart(b, e, sec) {
@@ -2480,6 +2492,7 @@ Rules
 
     async function runJob(job) {
         if (job.gen !== gen) throw stopError();
+        if (job.mode !== 'draw' && job.mode !== 'edit') job.n ??= job.only ? 1 : rollCount();
         const busy = { label: job.label ?? `${kindName()} 그리는 중`, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, llm: st.set.llm, auto: !!job.auto, key: job.key ?? '', ci: job.ci, chi: job.chi, idx: job.idx, job, est: ilEst(job) };
         busy.halt = new Promise(resolve => { busy.onStop = resolve; });
         st.busy = busy;
@@ -2579,7 +2592,7 @@ Rules
                 console.log(LOG, 'prev', prev ? `${prev.length}자` : '(none)');
                 const sc = sceneCast(cast.list, sceneText(chat, idx, input));
                 console.log(LOG, 'scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
-                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo, !!prev), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo, prev, sc), 'images',
+                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo, !!prev, job.n), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo, prev, sc), 'images',
                     v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.');
                 if (busy.stop) throw stopError();
                 if (emphasize) console.log(LOG, 'focus', plan.focus ?? '(none)');
@@ -2592,7 +2605,7 @@ Rules
                 stateChanged = true;
                 let images = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object');
                 if (!images.length) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
-                images = images.slice(0, job.only ? 1 : countNow());
+                images = images.slice(0, job.only ? 1 : job.n);
                 checkLang(images, plainText(msg.data, 8000) + (emphasize ? '\n' + plainText(input.data) : ''));
                 if (tidy(plan.genre)) images = images.map(img => tidy(img.genre) ? img : { ...img, genre: plan.genre });
                 if (askGenre()) console.log(LOG, 'genre', images.map(img => `${img.genre ?? '(none)'} → ${genreKey(img.genre) || '-'}${monoNow() ? ` · severity ${severityOf(img) || '-'}${isDynamic(img) ? ' · dynamic' : ''}` : ''}`).join(' | '));
@@ -4154,7 +4167,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 h('span', null, '그림은 봇의 추가 에셋에 c_인물_복장_감정 이름으로 저장됩니다'));
         }
         return h('footer', { class: 'ix-foot' },
-            h('span', null, `이매진 v${VERSION} · ${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} · ${kindName()} · ${countNow()}장 · ${sizeName(sizeNow())}`),
+            h('span', null, `이매진 v${VERSION} · ${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} · ${kindName()} · ${countLabel()} · ${sizeName(sizeNow())}`),
             h('span', null, '그림은 봇의 추가 에셋에 nc_… 이름으로 저장됩니다'));
     }
 
@@ -5072,15 +5085,47 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
                 presetGrid(() => { ui.reopen = 0; }, null, false, t.head), t.tray,
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 누르면 그 그림체로 다음 단계로 넘어갑니다. 그림체를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '그림체 탭'), '을 여세요.'),
                 ui.reopen === 5 && su.preset ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 그림체로 다음'))]; }),
-            step(6, '장 수 고르기', `${countNow()}장`, () => h('div', { class: 'cf-card' }, h('div', { class: 'cf-row' },
-                h('div', { class: 'cf-tx' }, h('b', null, '한 번에 몇 장을 그릴까요?'), h('p', null, '장마다 답변 속 다른 장면을 고릅니다. 장마다 NAI 요청이 하나씩 갑니다.')),
-                seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장']], su.count ? countNow() : null, n => { st.set = { ...st.set, count: n }; setStep('count'); ui.reopen = 0; renderNow(); })))),
+            step(6, '장 수 고르기', countLabel(), () => renderCountStep(su)),
             step(END, '완료', recipe(), () => renderReadyEnd()));
         add(pane, renderReadyBar());
         return pane;
     }
 
     const rawBox = f => f?.raw ? h('details', { class: 'raw-box' }, h('summary', null, '모델 응답 원문 보기'), h('pre', null, f.raw)) : null;
+
+    function renderCountStep(su) {
+        const rnd = randomCount();
+        const pick = patch => { st.set = { ...st.set, ...patch }; setStep('count'); ui.reopen = 0; renderNow(); };
+        const own = !rnd && ![1, 2, 3, 4].includes(countNow());
+        const numIn = (value, label, sel, onSet) => h('input', {
+            class: 'cf-num' + (sel ? ' sel' : ''), type: 'text', inputmode: 'numeric', value: value == null ? '' : String(value), placeholder: '직접 입력', 'aria-label': label,
+            oninput: e => { const v = e.target.value.replace(/\D/g, ''); if (v !== e.target.value) e.target.value = v; },
+            onkeydown: e => { if (e.key === 'Enter') e.target.blur(); },
+            onchange: e => {
+                const raw = e.target.value;
+                if (!raw) { e.target.value = value == null ? '' : String(value); return; }
+                const v = clampInt(raw, 1, COUNT_MAX, 1);
+                e.target.value = String(v);
+                onSet(v);
+            },
+        });
+        const [lo, hi] = countRange();
+        return h('div', { class: 'cf-card' },
+            h('div', { class: 'cf-row' },
+                h('div', { class: 'cf-tx' }, h('b', null, '한 번에 몇 장을 그릴까요?'),
+                    h('p', null, `장마다 답변 속 다른 장면을 고릅니다. 장마다 NAI 요청이 하나씩 갑니다. 직접 입력은 ${COUNT_MAX}장까지 됩니다.`)),
+                h('div', { class: 'cf-pickbox' },
+                    seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장'], ['random', '랜덤']], !su.count ? null : rnd ? 'random' : countNow(),
+                        v => v === 'random' ? pick({ countMode: 'random' }) : pick({ countMode: 'fixed', count: v })),
+                    h('label', { class: 'cf-ownbox' }, numIn(own ? countNow() : null, '장 수 직접 입력', own && !!su.count, v => pick({ countMode: 'fixed', count: v })), h('span', null, '장')))),
+            rnd ? h('div', { class: 'cf-row' },
+                h('div', { class: 'cf-tx' }, h('b', null, '랜덤 범위'),
+                    h('p', null, '답변을 그릴 때마다 최소와 최대 사이에서 장 수를 하나 고릅니다. 최소가 최대보다 크면 두 값을 바꿔 씁니다.')),
+                h('div', { class: 'cf-pickbox' },
+                    h('label', { class: 'cf-ownbox' }, h('span', null, '최소'), numIn(lo, '랜덤 최소 장 수', true, v => pick({ countMin: v })), h('span', null, '장')),
+                    h('span', { 'aria-hidden': 'true' }, '~'),
+                    h('label', { class: 'cf-ownbox' }, h('span', null, '최대'), numIn(hi, '랜덤 최대 장 수', true, v => pick({ countMax: v })), h('span', null, '장')))) : null);
+    }
 
     function renderReadyEnd() {
         const v = st.view;
@@ -5097,14 +5142,14 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const ok = h('span', { class: 'fn-ok' + (fresh ? '' : ' still'), 'aria-hidden': 'true' });
         ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
         const li = (tx, small) => h('li', null, h('span', null, tx, small ? h('small', null, small) : null));
-        const n = countNow();
+        const n = countTop();
         return [h('div', { class: 'fn-card' + (fresh ? ' fn-rise' : ''), style: fresh ? `--fe:${el}ms` : null },
             h('div', { class: 'fn-top' }, ok,
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
                     h('span', null, st.set.auto ? '채팅을 진행하면 자동으로 이미지가 생성됩니다.' : '자동 그리기가 꺼져 있으니, 봇 답변 아래의 「이미지 생성」 버튼을 눌러 그 답변을 그리세요.'))),
             h('ul', { class: 'fn-ck' },
                 li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `그림체 ${preset().name || '이름 없음'}`),
-                li(`봇 답변마다 ${n}장을 그립니다`, n > 1 ? '장마다 다른 장면' : ''),
+                li(`봇 답변마다 ${countLabel()}을 그립니다`, randomCount() && n > 1 ? '답변마다 장 수를 새로 고르고, 장마다 다른 장면' : n > 1 ? '장마다 다른 장면' : ''),
                 li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`)),
             h('div', { class: 'cf-row sw' },
                 h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 그리기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 이 설정대로 그립니다 (다시 굴리기 포함).')),
@@ -9268,7 +9313,7 @@ Rules:
         await rootStop;
     });
     if (globalThis.__NC_TEST__ === true) {
-        globalThis.__NC_TEST__ = { st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete };
+        globalThis.__NC_TEST__ = { st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, countLabel, countRange, rollCount, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete };
     }
     console.log(LOG, `v${VERSION} ready`);
 })().catch(error => {
