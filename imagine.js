@@ -1,17 +1,18 @@
 //@name imagine
-//@display-name 🎨 이매진 v3.126.0
+//@display-name 🎨 이매진 v4.0.0
 //@api 3.0
-//@version 3.126.0
+//@version 4.0.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
+//@arg vertex_json string 구글 서비스 계정 JSON 키 (음성 모드). 이매진 › 음성 › 준비의 「JSON 파일 선택」으로 등록하면 이 칸이 채워집니다 (내용 전체를 직접 붙여 넣어도 됩니다)
 
 
 (async () => {
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '3.126.0';
+    const VERSION = '4.0.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3475,31 +3476,68 @@ Output a single JSON object only:
 body.ix-on{margin:0;min-height:100vh;overflow-x:clip;color:#2b2f36;font:15px/1.55 ${FONT};padding:30px 16px 48px;box-sizing:border-box;background:rgba(0,0,0,.62)}
 html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix{--paper:#fff;--paper2:#f6f7f9;--paper3:#eceef2;--line:#d5d9e0;--line2:#bfc5cf;--ink:#2b2f36;--muted:#6f7682;--accent:#3d5afe;--accent2:#2a3fc4;--soft:#eef1ff;--bad:#d0453b;--good:#1f8a4c;--ease-out:cubic-bezier(.2,.8,.2,1);
-  position:relative;box-sizing:border-box;max-width:780px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;color:var(--ink);font-family:${FONT};word-break:keep-all;overflow-wrap:anywhere;background:var(--paper);border:1px solid var(--line2);box-shadow:0 0 0 5px #fff,0 0 0 6px #ccc,0 34px 60px -34px rgba(0,0,0,.35)}
+  position:relative;box-sizing:border-box;max-width:960px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;color:var(--ink);font-family:${FONT};word-break:keep-all;overflow-wrap:anywhere;background:var(--paper);border:1px solid var(--line2);box-shadow:0 0 0 5px #fff,0 0 0 6px #ccc,0 34px 60px -34px rgba(0,0,0,.35)}
 .ix *{box-sizing:border-box}
 .ix [hidden]{display:none!important}
 .ix button{font:inherit;color:inherit;cursor:pointer}
 .ix h2,.ix h3,.ix p{margin:0}
 .ix button:focus-visible,.ix input:focus-visible,.ix select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.ix-head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-height:52px;padding:6px 8px 6px 16px;font-size:.78rem;color:#fff;background:#23262d}
-.ix-brand{display:flex;align-items:center;gap:4px 10px;flex:1 1 0;min-width:0}
-.ix-logo{flex:none;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:1rem;letter-spacing:.02em}
 .hi{display:inline-flex;flex:none;width:16px;height:16px}
 .hi svg{display:block;width:100%;height:100%}
-.ix-logo .hi{width:18px;height:18px}
-.ix-crumb{min-width:0;overflow:hidden;opacity:.75;font-size:.84rem;white-space:nowrap;text-overflow:ellipsis}
 .ix-chip{flex:0 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:1px 7px;font-size:.72rem;font-weight:700;color:#d6d9df;background:#3a3e47}
 .ix-chip.run{color:#fff;background:var(--accent)}
 .ix-chip.ok{color:#fff;background:var(--good)}
 .ix-chip.bad{color:#fff;background:var(--bad)}
 .ix .ix-x{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;font-size:1.1rem;line-height:1;color:#fff;background:#d0453b;border:1px solid #e0675e}
 .ix .ix-x:hover{background:#b3362d}
-.ix-nav{display:flex;align-items:stretch;gap:0;min-width:0;padding:0 8px;overflow-x:auto;background:var(--paper2);border-bottom:1px solid var(--line);scrollbar-width:none}
-.ix-tabs{display:flex;align-items:stretch;flex:none}
-.ix-nav>.an-c{flex:none;align-self:center;margin:0 0 0 auto}
-.ix .ix-tab{flex:none;display:inline-flex;align-items:center;min-width:0;height:40px;padding:0 14px;white-space:nowrap;font-size:.88rem;color:var(--muted);background:transparent;border:0;border-bottom:3px solid transparent;margin-bottom:-1px}
-.ix .ix-tab:hover{color:var(--ink);background:var(--paper3)}
-.ix .ix-tab.on{font-weight:700;color:var(--accent2);border-bottom-color:var(--accent);background:transparent}
+.ix-band{display:flex;flex-direction:column;gap:12px;min-width:0;padding:14px 16px 0 22px;color:#fff;background:linear-gradient(115deg,#1d5bc4,#2b95f0 58%,#62bdff)}
+.ix-band.m-imagine{--mc:#7a6cff}
+.ix-band.m-asset{--mc:#17b897}
+.ix-band.m-voice{--mc:#2b95f0}
+.ix-top{display:flex;align-items:center;gap:10px 18px;min-width:0}
+.ix-word{flex:none;font:italic 900 25px/1 "Segoe UI","Arial Black",Arial,sans-serif;letter-spacing:.6px;color:#fff}
+.ix-mos{display:flex;gap:12px;flex:1 1 auto;min-width:0}
+.ix .ix-mo{flex:0 1 230px;display:flex;align-items:center;gap:12px;min-width:0;height:56px;padding:0 14px;text-align:left;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-radius:12px;transition:background .15s,box-shadow .2s var(--ease-out),transform .2s var(--ease-out)}
+.ix .ix-mo:hover:not(:disabled){background:rgba(255,255,255,.24);transform:translateY(-1px)}
+.ix .ix-mo:disabled{opacity:.5;cursor:not-allowed}
+.ix-mo .bx{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.2)}
+.ix-mo .bx .hi{width:20px;height:20px}
+.ix-mo .t{display:flex;flex-direction:column;min-width:0}
+.ix-mo b{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:900;line-height:1.25;white-space:nowrap}
+.ix-mo small{margin-top:1px;overflow:hidden;font-size:11.5px;line-height:1.3;opacity:.8;white-space:nowrap;text-overflow:ellipsis}
+.ix .ix-mo.m-imagine{--mc:#7a6cff}
+.ix .ix-mo.m-asset{--mc:#17b897}
+.ix .ix-mo.m-voice{--mc:#2b95f0}
+.ix .ix-mo.on{color:#1f2d45;background:#fff;border-color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.15)}
+.ix-mo.on .bx{color:#fff;background:var(--mc)}
+.ix-mo.on small{color:var(--mc);opacity:1;font-weight:800}
+.ix-led{flex:none;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35)}
+.ix-led.lit{background:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,.25),0 0 6px rgba(74,222,128,.8)}
+.ix-mo.on .ix-led:not(.lit){background:#c3d1e2}
+.ix-tr{flex:none;display:flex;align-items:center;gap:8px;margin-left:auto}
+.ix-band .ix-chip{flex:0 1 auto;min-width:0;max-width:180px;overflow:hidden;height:30px;padding:0 12px;line-height:30px;white-space:nowrap;text-overflow:ellipsis;font-size:13px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);border-radius:15px}
+.ix .ix-band .ix-chip.run{color:#1d5bc4;background:#fff}
+.ix .ix-band .ix-chip.ok{color:#fff;background:#14b386}
+.ix .ix-band .ix-chip.bad{color:#fff;background:#ff6b5e}
+.ix .ix-band .an-c{--an:#fff;--an-f:rgba(255,255,255,.28);height:30px;margin:0;padding:0 12px;font-size:13px;font-weight:800;color:rgba(255,255,255,.8);background-color:rgba(255,255,255,.16);border:0;border-radius:15px}
+.ix .ix-band .an-c b{color:#fff}
+.ix .ix-band .an-c b.lo{color:#ffd0cc}
+.ix .ix-band .an-c .an-sep{background:rgba(255,255,255,.35)}
+.ix .ix-band .an-c .lnk{color:#fff}
+.ix .ix-up{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;font-size:13px;font-weight:800;white-space:nowrap;color:#fff;background:rgba(255,255,255,.16);border:0;border-radius:15px}
+.ix .ix-up:hover,.ix .ix-up.on{color:#b45309;background:#fff}
+.md-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#ffc93c;box-shadow:0 0 0 2px rgba(255,201,60,.3),0 0 6px rgba(255,201,60,.85)}
+.ix .ix-band .ix-x{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;font-size:1.2rem;line-height:1;color:#1f2d45;background:#fff;border:0;border-radius:50%}
+.ix .ix-band .ix-x:hover{background:#e9f5ff}
+.ix-fts{display:flex;align-items:flex-end;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.ix .ix-ftab{flex:none;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 22px;white-space:nowrap;font-size:14px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);border:0;border-radius:12px 12px 0 0;transition:background .15s}
+.ix .ix-ftab:hover{background:rgba(255,255,255,.26)}
+.ix .ix-ftab.on{color:#1f2d45;background:var(--paper)}
+.ix .ix-ftab.sd{padding:0 16px;font-weight:700}
+.ix-ftab.sd0{margin-left:auto}
+.ix-ftab .hi{width:15px;height:15px}
+.ix-ftab .cnt{padding:0 6px;font-style:normal;font-size:.7rem;font-weight:800;color:#fff;background:rgba(255,255,255,.24);border-radius:9px}
+.ix-ftab.on .cnt{color:#fff;background:var(--mc)}
 .ix-pane{min-width:0;padding:16px}
 .ix-pane.anim>*{animation:ix-rise .5s var(--ease-out) backwards}
 .ix-pane.anim>:nth-child(2){animation-delay:.05s}
@@ -3914,10 +3952,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix code{font:.72rem ui-monospace,Consolas,monospace;background:var(--paper3);padding:0 3px}
 .no{flex:none;padding:1px 7px;font-size:.72rem;font-weight:700;color:#fff;background:#3a3e47}
 .no.new{background:var(--accent)}
-.ix-tab .cnt{margin-left:5px;padding:0 5px;font-style:normal;font-size:.7rem;font-weight:700;color:var(--muted);background:var(--paper3)}
-.ix-tab.on .cnt{color:var(--accent2);background:var(--soft)}
-.ix .ix-nav.as .ix-tab.on{color:#0b766c;border-bottom-color:#0d9488}
-.ix-nav.as .ix-tab.on .cnt{color:#0b766c;background:#e6f6f4}
 .gal-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px}
 .gal-top .ix-hint{flex:1 1 200px}
 .ans{background:#fff;border:1px solid var(--line)}
@@ -3980,8 +4014,10 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
   .cc-sec{padding:10px}
   .ix-pane{padding:12px}
   .sz-bar{margin:16px -12px -12px;padding:10px 12px}
-  .ix-nav{padding:0 4px}
-  .ix .ix-tab{flex:1 1 0;justify-content:center;padding:0 6px}
+  .ix-band{padding:10px 10px 0 12px}
+  .ix .ix-ftab{padding:0 14px}
+  .ix .ix-ftab.sd{padding:0 10px}
+  .ix-ftab.sd .hi{display:none}
   .gc-imgs img{height:180px}
   .cf-row.sw{flex-wrap:wrap}
   .sp{padding-left:34px}
@@ -3993,9 +4029,9 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
   .ix-btn{padding:5px 10px;font-size:.8rem}
   .ix-btn.big{font-size:.95rem}
   .cf-seg button{padding:0 9px}
-  .ix .ix-tab{padding:0 2px;font-size:.82rem}
-  .ix-tab .lg{display:none}
-  .ix-tab .cnt{margin-left:2px;padding:0 4px}
+  .ix .ix-ftab{padding:0 10px;font-size:13px}
+  .ix .ix-ftab.sd{padding:0 8px}
+  .ix-ftab .cnt{padding:0 4px}
   .dz{grid-template-columns:1fr}
   .dz-op{flex-direction:row}
   .dz-th{flex:none;width:96px;height:auto;min-height:96px;border-bottom:0;border-right:1px solid var(--line)}
@@ -4031,13 +4067,16 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return el;
     }
 
-    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
+    let voice = null;
+    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', vtab: 'ready', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
     const galCount = () => { const v = st.view; return v ? Object.values(v.recs).filter(r => r.chat === v.chatKey).reduce((n, r) => n + (r.images?.length ?? 0), 0) : 0; };
     const TABS = [
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
         ['gallery', () => ['삽화 목록', galCount() ? h('em', { class: 'cnt' }, galCount()) : null]],
     ];
     const SIDE_TABS = [['cast', '등장인물'], ['style', '그림체'], ['set', '설정']];
+    const VTABS = [['ready', () => '준비'], ['talk', () => '대화'], ['cast', () => '등장인물'], ['voices', () => '목소리'], ['set', () => '설정']];
+    const MODES = [['imagine', '삽화'], ['asset', '애드 에셋'], ['voice', '음성']];
 
     function render() {
         if (!ui.root?.isConnected) return;
@@ -4049,14 +4088,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         render.pending = false;
         const scroller = doc.scrollingElement ?? doc.documentElement;
         const keep = scroller.scrollTop;
-        const now = ui.side ? 'side' + ui.side : ui.mode === 'asset' ? 'asset' + ui.atab : 'imagine' + ui.tab;
+        if (ui.mode === 'voice' && !voice) ui.mode = 'imagine';
+        const now = ui.side ? 'side' + ui.side : ui.mode === 'voice' ? 'voice' + ui.vtab : ui.mode === 'asset' ? 'asset' + ui.atab : 'imagine' + ui.tab;
         const anim = ui.lastTab !== now;
         ui.lastTab = now;
         if (ui.side === 'upd' && !updOn()) ui.side = '';
-        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : renderAsset()) : ui.tab === 'gallery' ? renderGallery() : renderReady();
+        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : renderAsset()) : ui.tab === 'gallery' ? renderGallery() : renderReady();
         if (anim) pane.classList.add('anim');
         const lb = ui.root.querySelector(':scope > .lb');
-        ui.root.replaceChildren(...[renderHead(), renderNav(), pane, renderFoot(), lb].filter(Boolean));
+        ui.root.replaceChildren(...[renderHead(), pane, renderFoot(), lb].filter(Boolean));
         scroller.scrollTop = keep;
         flipAssetMenu();
         loadThumbs();
@@ -4090,6 +4130,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         set: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/>',
         asset: '<circle cx="12" cy="7.5" r="3.5"/><path d="M5 21v-2.5A4.5 4.5 0 0 1 9.5 14h5a4.5 4.5 0 0 1 4.5 4.5V21"/><path d="M19 3v4M17 5h4"/>',
         upd: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>',
+        voice: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
     };
     function headIcon(k) {
         const el = h('span', { class: 'hi', 'aria-hidden': 'true' });
@@ -4097,31 +4138,37 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         return el;
     }
     function renderHead() {
-        const chip = chipOf();
-        return h('header', { class: 'ix-head fd' + (updOn() ? ' up' : '') },
-            h('div', { class: 'ix-brand' },
-                h('span', { class: 'ix-logo' }, headIcon('logo'), '이매진'),
-                acModeToggle(),
-                chip ? h('span', { class: 'ix-chip ' + chip[1], title: chip[0] }, chip[0]) : null,
-                h('span', { class: 'sd', role: 'tablist', 'aria-label': '공통 화면' }, SIDE_TABS.map(([id, label]) => h('button', {
-                    type: 'button', role: 'tab', class: ui.side === id ? 'on' : null, 'aria-selected': ui.side === id ? 'true' : 'false',
-                    onclick: () => { ui.side = id; ui.menu = ''; acs.menu = ''; renderNow(); },
-                }, headIcon(id), label)))),
-            h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'));
+        const voiceOn = ui.mode === 'voice';
+        const chip = voiceOn ? voice.chipText() : chipOf();
+        const v = st.view, asset = ui.mode === 'asset';
+        const an = !voiceOn && !ui.side && v?.hasKey && (asset ? ui.atab === 'make' && !v.group && !!acAst() : ui.tab === 'ready') ? nlChip(asset) : null;
+        return h('header', { class: 'ix-band m-' + ui.mode },
+            h('div', { class: 'ix-top' },
+                h('span', { class: 'ix-word' }, 'IMAGINE'),
+                modeCards(),
+                h('span', { class: 'ix-tr' },
+                    chip?.[0] ? h('span', { class: 'ix-chip ' + chip[1], title: chip[0] }, chip[0]) : null,
+                    an,
+                    updOn() ? h('button', {
+                        type: 'button', class: 'ix-up' + (ui.side === 'upd' ? ' on' : ''), title: `새 버전 v${upd.latest}`, 'aria-label': `업데이트 · 새 버전 v${upd.latest}`,
+                        onclick: () => { ui.side = 'upd'; ui.menu = ''; acs.menu = ''; renderNow(); },
+                    }, headIcon('upd'), '업데이트', h('i', { class: 'md-dot', 'aria-hidden': 'true' })) : null,
+                    h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))),
+            renderNav());
     }
     function renderNav() {
-        const asset = ui.mode === 'asset';
-        const tabs = asset ? AC_TABS : TABS, cur = asset ? ui.atab : ui.tab;
-        const v = st.view;
-        const chip = !ui.side && v?.hasKey && (asset ? cur === 'make' && !v.group && !!acAst() : cur === 'ready') ? nlChip(asset) : null;
-        return h('nav', { class: 'ix-nav' + (asset ? ' as' : '') },
-            h('div', { class: 'ix-tabs', role: 'tablist', 'aria-label': asset ? '애드 에셋 화면' : '삽화 화면' }, tabs.map(([id, label]) => h('button', {
-                class: 'ix-tab' + (!ui.side && cur === id ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': !ui.side && cur === id ? 'true' : 'false',
-                onclick: () => { if (asset) ui.atab = id; else ui.tab = id; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); },
-            }, label()))),
-            chip);
+        const voiceOn = ui.mode === 'voice', asset = ui.mode === 'asset';
+        const tabs = voiceOn ? VTABS : asset ? AC_TABS : TABS, cur = voiceOn ? ui.vtab : asset ? ui.atab : ui.tab;
+        const tab = (on, kids, onclick, cls = '') => h('button', { class: 'ix-ftab' + cls + (on ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': on ? 'true' : 'false', onclick }, kids);
+        return h('nav', { class: 'ix-fts', role: 'tablist', 'aria-label': voiceOn ? '음성 화면' : asset ? '애드 에셋 화면' : '삽화 화면' },
+            tabs.map(([id, label]) => tab(!ui.side && cur === id, label(), () => {
+                if (voiceOn) ui.vtab = id; else if (asset) ui.atab = id; else ui.tab = id;
+                ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
+            })),
+            voiceOn ? null : SIDE_TABS.map(([id, label], i) => tab(ui.side === id, [headIcon(id), label], () => {
+                ui.side = id; ui.menu = ''; acs.menu = ''; renderNow();
+            }, i ? ' sd' : ' sd sd0')));
     }
-
     async function copyText(text) {
         try { await navigator.clipboard.writeText(text); return true; } catch { }
         const ta = doc.createElement('textarea');
@@ -4282,6 +4329,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     function renderFoot() {
+        if (ui.mode === 'voice') {
+            return h('footer', { class: 'ix-foot' },
+                h('span', null, `이매진 v${VERSION} · 음성`),
+                h('span', null, '키는 리수 플러그인 설정(vertex_json)에만 저장합니다'));
+        }
         if (ui.mode === 'asset') {
             return h('footer', { class: 'ix-foot' },
                 h('span', null, `이매진 v${VERSION} · 애드 에셋 · ${modelName(st.set.model)}`),
@@ -6150,6 +6202,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         listen(doc, 'focusout', () => { if (!ptrDown) flush(); });
     }
     function closePanel() {
+        if (ui.mode === 'voice') voice?.onClose();
         acs.edit = null;
         acs.pe = null;
         ui.root?.remove();
@@ -6218,13 +6271,13 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             h('div', { class: 'ix-tip-box' }, TIPS.map((tip, i) => h('span', { style: `animation-delay:${((i - start + TIPS.length) % TIPS.length) * TIP_MS}ms` }, tip))));
     };
 
-    async function openPanel() {
+    async function openPanel(opts) {
         ensureStyle();
         ui.root ??= h('div', { class: 'ix', role: 'dialog', 'aria-label': '이매진' });
         if (!ui.root.isConnected) doc.body.append(ui.root);
         ui.root.replaceChildren(
-            h('header', { class: 'ix-head' }, h('div', { class: 'ix-brand' }, h('span', { class: 'ix-logo' }, headIcon('logo'), '이매진')),
-                h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×')),
+            h('header', { class: 'ix-band' }, h('div', { class: 'ix-top' }, h('span', { class: 'ix-word' }, 'IMAGINE'),
+                h('span', { class: 'ix-tr' }, h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))), h('nav', { class: 'ix-fts' })),
             h('section', { class: 'ix-pane' }, h('div', { class: 'ix-empty' }, h('b', null, '여는 중입니다'), '잠시만 기다려 주세요.',
                 h('div', { class: 'ix-open-bar', role: 'progressbar', 'aria-label': '여는 중' }, h('div', { class: 'fi' })), tipRow())));
         if (!root.asked && needRoot()) await rootDoc();
@@ -6243,6 +6296,8 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         ui.side = '';
         ui.menu = '';
         ui.reopen = 0;
+        if (opts?.mode) ui.mode = opts.mode;
+        if (ui.mode === 'voice') await voice?.onOpen().catch(error => console.warn(LOG, 'voice open', error));
         renderNow();
         void checkUpdate();
     }
@@ -6357,13 +6412,15 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         if (typeof content !== 'string') return null;
         if (await retired()) return content;
         const gen = genHtml();
+        const bar = voice?.bar() ?? '';
         const hasFig = content.includes('nc-fig'), hasPt = content.includes('nc-pt');
         const needId = (st.set.assetOff.length > 0 && /risu-inlay-image|<img src="|<video /.test(content)) || (st.set.ptOff.length > 0 && hasPt);
         const chaId = needId ? await curChaId().catch(() => '') : '';
         const assetHide = !!chaId && st.set.assetOff.includes(chaId);
         if (!hasFig && !hasPt) {
             const rest = dropAssets(content, assetHide);
-            return gen ? rest + '\n\n' + gen : rest === content ? null : rest;
+            const tail = [gen, bar].filter(Boolean).join('\n\n');
+            return tail ? rest + '\n\n' + tail : rest === content ? null : rest;
         }
         const acts = st.set.tap && !rootDenied();
         const fs = figStyle();
@@ -6374,7 +6431,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
             .replace(PT_RE, (m, name) => `<div class="nc-pt nc-pt-${name}" style="${ptHide ? PT_HIDE : fs}">`)
             .replace(PT_INLAY_RE, (m, head, sp) => `${head}<div class="risu-inlay-image" style="${WRAP_STYLE}">${sp}<img style="${IMG_STYLE}"`)
             .replace(PT_IMG_RE, (m, head) => `${head}<img style="${IMG_STYLE}"`);
-        return dropAssets(body, assetHide) + '\n\n' + gen + figCss(ptHide);
+        return dropAssets(body, assetHide) + '\n\n' + gen + (bar ? '\n\n' + bar : '') + figCss(ptHide);
     }
 
     const varValues = () => ({ nc_pc: st.set.pc, nc_mo: st.set.mo });
@@ -7279,38 +7336,27 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     const AC_OKEY_RE = /^[a-z][a-z0-9]*$/;
     const acOutfitKey = (en, used) => acKeyFrom(tidy(String(en ?? '').split(',')[0]), used);
     const AC_CSS = `
-.ix-head.fd{align-items:flex-end;padding-bottom:0}
-.ix-head.fd .ix-logo,.ix-head.fd .ix-chip,.ix-head.fd .sd,.ix-head.fd .ix-x{margin-bottom:8px}
-.md{display:inline-flex;align-self:flex-end;gap:4px;margin-left:8px}
-.md button{position:relative;display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 16px;white-space:nowrap;font-size:.88rem;font-weight:700;line-height:1.2;color:#9aa1ad;background:#30343c;border:0;cursor:pointer}
-.md button::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:transparent}
-.md button:hover{color:#fff;background:#3a3e47}
-.md button.on{color:var(--accent2);background:var(--paper2)}
-.md button.on::before{background:var(--accent)}
-.md button.m-asset.on{color:#0b766c}
-.md button.m-asset.on::before{background:#0d9488}
-.md button.m-upd{color:#ffd27a}
-.md button.m-upd:hover{color:#ffe3a3}
-.md button.m-upd.on{color:#b45309;background:var(--paper2)}
-.md button.m-upd.on::before{background:#f59e0b}
-.md-dot{flex:none;width:8px;height:8px;margin-left:2px;border-radius:50%;background:#f59e0b;box-shadow:0 0 0 2px rgba(245,158,11,.25),0 0 6px rgba(245,158,11,.8)}
-.md-led{flex:none;width:8px;height:8px;margin-left:2px;border-radius:50%;background:#7c828d;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
-.md-led.lit{background:#22c55e;box-shadow:0 0 0 2px rgba(34,197,94,.22),0 0 6px rgba(34,197,94,.75)}
-.md button.on .md-led:not(.lit){background:#b4bac4}
-.sd{flex:none;display:inline-flex;gap:2px;margin-left:auto}
-.md{flex:none}
-.sd button{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:2px 9px;white-space:nowrap;font-size:.84rem;font-weight:700;line-height:1.2;color:#c3c8d2;background:transparent;border:1px solid transparent;cursor:pointer}
-.sd button:hover{color:#fff;background:rgba(255,255,255,.1)}
-.sd button.on{color:#23262d;background:#fff;border-color:#fff}
-@media (max-width:980px){.ix-head.up .sd .hi{display:none}.ix-head.up .sd button{padding:2px 7px}}
-@media (max-width:720px){
-  .ix-head.up .ix-brand{flex-wrap:wrap}
-  .ix-head.up.fd .md{order:3;width:100%;margin-left:0}
-  .ix-head.up.fd .ix-logo,.ix-head.up.fd .ix-chip,.ix-head.up.fd .sd{margin-top:6px}
-  .ix-head.up.fd .ix-x{align-self:flex-start;margin-top:6px;margin-bottom:0}
+@media (max-width:860px){
+  .ix-top{flex-wrap:wrap}
+  .ix-mos{order:3;flex:1 1 100%}
+  .ix .ix-mo{flex:1 1 0;height:50px;gap:10px;padding:0 10px}
 }
-.md small{font-size:.64rem;font-weight:400;opacity:.75}
-.ix-head{min-height:44px;padding-top:4px;padding-bottom:4px}
+@media (max-width:600px){
+  .ix-word{font-size:21px}
+  .ix-mos{gap:6px}
+  .ix .ix-mo{gap:8px;padding:0 8px}
+  .ix-mo .bx{width:28px;height:28px}
+  .ix-mo .bx .hi{width:17px;height:17px}
+  .ix-mo b{font-size:14px}
+  .ix-mo small{display:none}
+  .ix-band .ix-chip{max-width:110px}
+}
+@media (max-width:420px){
+  .ix-mo .bx{display:none}
+  .ix .ix-mo{justify-content:center}
+  .ix .ix-up{padding:0 9px;font-size:0;gap:0}
+  .ix .ix-up .hi{width:16px;height:16px}
+}
 .as-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .as-t{position:relative;display:grid;min-width:0;background:#fff;border:1px solid var(--line2)}
 .as-t.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);z-index:5}
@@ -7498,15 +7544,6 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
   .as-menu{min-width:230px}
   .er-r{grid-template-columns:24px minmax(0,1fr) auto}
   .er-p{grid-column:2/-1;grid-row:2}
-  .ix-brand{flex-wrap:wrap}
-  .ix-head.fd .md{order:3;width:100%;margin-left:0}
-  .ix-head.fd .ix-logo,.ix-head.fd .ix-chip,.ix-head.fd .sd{margin-top:6px}
-  .ix-head.fd .ix-x{align-self:flex-start;margin-top:6px;margin-bottom:0}
-  .sd button{padding:3px 7px}
-  .sd .hi{display:none}
-  .md~.ix-crumb{display:none}
-  .md small{display:none}
-  .md button{padding:0 11px}
   .vw.gg{grid-auto-flow:row;grid-template-columns:1fr}
   .acnt{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
@@ -8537,24 +8574,32 @@ Rules:
         const r = Number(st.loreRate?.[b.llm ?? st.set.llm]);
         return Math.round(Math.min(180, Math.max(8, r > 0 ? r * Math.max(1, (b.chars || 0) / 10000) : 30)));
     };
-    function acModeToggle() {
+    function modeCards() {
         const nAst = acListNames(acAst()).length;
         const ptOff = !!st.view?.chaId && st.set.ptOff.includes(st.view.chaId);
-        const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff };
+        const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice && voice.chipText()[1] === 'ok' };
         const tip = {
             imagine: lit.imagine ? '자동 그리기 켜짐' : setupDone() ? '자동 그리기 꺼짐' : '준비 전',
             asset: lit.asset ? `에셋 ${nAst}장 있음` : nAst ? `에셋 ${nAst}장 · 채팅에 보이기 꺼짐` : '아직 만든 에셋 없음',
+            voice: voice ? voice.status() : '쓸 수 없음',
         };
-        return h('span', { class: 'md', role: 'tablist', 'aria-label': '모드' }, [['imagine', '삽화'], ['asset', '애드 에셋']].map(([m, label]) => h('button', {
-            type: 'button', role: 'tab', class: (!ui.side && ui.mode === m ? 'on ' : '') + 'm-' + m, 'aria-selected': !ui.side && ui.mode === m ? 'true' : 'false',
-            title: tip[m], 'aria-label': `${label} · ${tip[m]}`,
-            onclick: () => { ui.mode = m; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); if (m === 'asset') void acAnlas(); },
-        }, headIcon(m), label, h('i', { class: 'md-led' + (lit[m] ? ' lit' : ''), 'aria-hidden': 'true' }))),
-            updOn() ? h('button', {
-                type: 'button', role: 'tab', class: (ui.side === 'upd' ? 'on ' : '') + 'm-upd', 'aria-selected': ui.side === 'upd' ? 'true' : 'false',
-                title: `새 버전 v${upd.latest}`, 'aria-label': `업데이트 · 새 버전 v${upd.latest}`,
-                onclick: () => { ui.side = 'upd'; ui.menu = ''; acs.menu = ''; renderNow(); },
-            }, headIcon('upd'), '업데이트', h('i', { class: 'md-dot', 'aria-hidden': 'true' })) : null);
+        return h('span', { class: 'ix-mos', role: 'tablist', 'aria-label': '모드' }, MODES.map(([m, label]) => {
+            const on = !ui.side && ui.mode === m;
+            return h('button', {
+                type: 'button', role: 'tab', class: 'ix-mo m-' + m + (on ? ' on' : ''), 'aria-selected': on ? 'true' : 'false',
+                disabled: m === 'voice' && !voice, title: tip[m], 'aria-label': `${label} · ${tip[m]}`,
+                onclick: () => goMode(m),
+            }, h('span', { class: 'bx' }, headIcon(m)), h('span', { class: 't' }, h('b', null, label, h('i', { class: 'ix-led' + (lit[m] ? ' lit' : ''), 'aria-hidden': 'true' })), h('small', null, tip[m])));
+        }));
+    }
+    function goMode(m) {
+        const was = ui.mode;
+        if (was === 'voice' && m !== 'voice') voice?.onClose();
+        ui.mode = m;
+        ui.side = ''; ui.menu = ''; acs.menu = '';
+        renderNow();
+        if (m === 'asset') void acAnlas();
+        if (m === 'voice' && was !== 'voice') voice.onOpen().catch(error => console.warn(LOG, 'voice open', error)).finally(renderNow);
     }
     const acListNames = a => { const have = acHas(); return a ? a.made.filter(n => have.has(n)) : []; };
     const AC_TABS = [
@@ -9368,7 +9413,2562 @@ Rules:
                         h('button', { class: ed.busy ? 'ix-btn run' : 'ix-btn', type: 'button', disabled: !!ed.busy, onclick: () => void acRegenTags(a, ed) }, ed.busy ? [h('span', { class: 'gf' }), '태그 만드는 중', loadDots()] : '태그 재생성')))));
     }
 
+    async function startVoice(host) {
+    const LOG = '[이매진 음성]';
+
+    const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+    const SCOPE = 'https://www.googleapis.com/auth/cloud-platform';
+    const TTS_URL = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+    const VERTEX_URL = (project, model) => `https://aiplatform.googleapis.com/v1/projects/${encodeURIComponent(project)}/locations/global/publishers/google/models/${model}:generateContent`;
+    const isVertex = model => /^gemini-3\.8/.test(model);
+    const VOICES_URL = (project, page) => `https://aiplatform.googleapis.com/v1beta1/projects/${encodeURIComponent(project)}/locations/global/voices?pageSize=50${page ? '&pageToken=' + encodeURIComponent(page) : ''}`;
+    const isLib = v => /^[a-z]{2}-[a-z]{2}-/.test(String(v ?? ''));
+    const LIB_LANGS = ['ko-kr-', 'ja-jp-'];
+    const LIB_TTL = 24 * 3600 * 1000;
+    const LIB_PAGES = 42;
+    const LIB_MODEL = 'gemini-3.8-flash-tts';
+    const RATE = 24000;
+    const TEXT_BYTES = 3800;
+    const PROMPT_BYTES = 3800;
+    const ALIAS_NARR = 'Narrator';
+    const NARR = '__narrator';
+    const FEMALE = ['Achernar', 'Aoede', 'Autonoe', 'Callirrhoe', 'Despina', 'Erinome', 'Gacrux', 'Kore', 'Laomedeia', 'Leda', 'Pulcherrima', 'Sulafat', 'Vindemiatrix', 'Zephyr'];
+    const BASE_DESC = {
+        Achernar: 'soft', Aoede: 'breezy', Autonoe: 'bright', Callirrhoe: 'easy-going', Despina: 'smooth', Erinome: 'clear', Gacrux: 'mature',
+        Kore: 'firm', Laomedeia: 'upbeat', Leda: 'youthful', Pulcherrima: 'forward', Sulafat: 'warm', Vindemiatrix: 'gentle', Zephyr: 'bright',
+        Achird: 'friendly', Algenib: 'gravelly', Algieba: 'smooth', Alnilam: 'firm', Charon: 'informative', Enceladus: 'breathy', Fenrir: 'excitable',
+        Iapetus: 'clear', Orus: 'firm', Puck: 'upbeat', Rasalgethi: 'informative', Sadachbia: 'lively', Sadaltager: 'knowledgeable', Schedar: 'even',
+        Umbriel: 'easy-going', Zubenelgenubi: 'casual',
+    };
+    const MALE = ['Achird', 'Algenib', 'Algieba', 'Alnilam', 'Charon', 'Enceladus', 'Fenrir', 'Iapetus', 'Orus', 'Puck', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar', 'Umbriel', 'Zubenelgenubi'];
+    const MODELS = [
+        ['gemini-3.8-flash-tts', '3.8 Flash (최신)'],
+        ['gemini-3.8-flash-lite-tts', '3.8 Flash Lite'],
+        ['gemini-2.5-flash-tts', '2.5 Flash'],
+        ['gemini-2.5-pro-tts', '2.5 Pro'],
+        ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
+    ];
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 30, gap: 250, castAuto: true, auto: true, talkModel: 'model', talkSpeak: true, talkLink: false, setup: 0 };
+    const OLD_MODEL = 'gemini-2.5-flash-tts';
+    const STYLE_MAX = 300;
+    const DEF_BOT = { narrator: 'Aoede', narrStyle: '라디오 아나운서처럼 또렷하고 안정된 목소리로, 알맞은 속도로 읽어 주세요.', talkStyle: '장면의 감정에 맞게, 연기하듯 자연스럽게 말해 주세요.', voices: {} };
+    const OLD_DEF = { narrator: 'Charon', narrStyle: '차분하고 또렷하게, 소설을 낭독하듯 읽어 주세요.' };
+
+    const enc = new TextEncoder();
+    const bytesOf = s => enc.encode(s).length;
+    const clone = o => JSON.parse(JSON.stringify(o));
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    function hash(str) {
+        let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+        for (let i = 0; i < str.length; i++) {
+            const c = str.charCodeAt(i);
+            h1 = Math.imul(h1 ^ c, 2654435761);
+            h2 = Math.imul(h2 ^ c, 1597334677);
+        }
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+    }
+    function b64(bytes) {
+        let s = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        return btoa(s);
+    }
+    function unb64(s) {
+        const bin = atob(s);
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+    }
+    const b64url = bytes => b64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const imp = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v + ' !important').join(';');
+    const st = { set: { ...DEF_SET }, bots: new Map() };
+    const saveSet = () => api.pluginStorage.setItem('gt:set', st.set).catch(error => console.warn(LOG, 'save set', error));
+    async function loadSet() {
+        const v = await api.pluginStorage.getItem('gt:set').catch(() => null);
+        if (v && typeof v === 'object') st.set = { ...DEF_SET, ...v };
+        if (!st.set.m38 && st.set.model === OLD_MODEL) st.set.model = DEF_SET.model;
+        st.set.m38 = true;
+    }
+    async function botOf(chaId) {
+        if (st.bots.has(chaId)) return st.bots.get(chaId);
+        const v = await api.pluginStorage.getItem('gt:bot:' + chaId).catch(() => null);
+        const b = { ...clone(DEF_BOT), ...(v && typeof v === 'object' ? v : {}) };
+        b.voices = { ...(b.voices ?? {}) };
+        for (const k of Object.keys(OLD_DEF)) if (b[k] === OLD_DEF[k]) b[k] = DEF_BOT[k];
+        st.bots.set(chaId, b);
+        return b;
+    }
+    const saveBot = (chaId, b) => api.pluginStorage.setItem('gt:bot:' + chaId, b).catch(error => console.warn(LOG, 'save bot', error));
+
+    function parseKey(raw) {
+        let j;
+        try { j = JSON.parse(raw); } catch {
+            try { j = JSON.parse(raw.replace(/[\r\n]+/g, ' ')); } catch { throw new Error('키를 JSON 으로 읽지 못했습니다. 구글 콘솔에서 내려받은 .json 파일을 고치지 말고 그대로 골라 주세요.'); }
+        }
+        if (!j?.client_email || !j?.private_key) throw new Error('JSON 에 client_email · private_key 가 없습니다. 「서비스 계정 키」 JSON 인지 확인해 주세요.');
+        return { email: j.client_email, key: j.private_key, project: j.project_id ?? '', id: hash(j.client_email + '|' + j.private_key) };
+    }
+    async function account() {
+        const raw = String(await api.getArgument('vertex_json') ?? '').trim();
+        return raw ? parseKey(raw) : null;
+    }
+    function pickKeyFile() {
+        const input = doc.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0];
+            if (!file) return;
+            try {
+                if (file.size > 65536) throw new Error('파일이 너무 큽니다. 서비스 계정 키 .json 파일을 골라 주세요.');
+                const raw = (await file.text()).trim();
+                const sa = parseKey(raw);
+                await api.setArgument('vertex_json', raw);
+                tok.value = '';
+                ui.conn = null;
+                host.ui.vtab = 'ready';
+                ui.msg = `키를 등록했습니다. 프로젝트 ${sa.project || '(없음)'} · ${sa.email.replace(/^(.{3}).*(@.*)$/, '$1…$2')}\n「연결 확인」으로 구글에 접속되는지 확인해 주세요.`;
+                ui.ok = true;
+            } catch (error) {
+                ui.msg = String(error?.message ?? error);
+                ui.ok = false;
+            }
+            await checkKey();
+            wantRoot();
+            render();
+            paintSoon(true);
+        }, { once: true });
+        input.click();
+    }
+    let keyKnown = null;
+    const tok = { id: '', value: '', exp: 0 };
+    async function accessToken() {
+        const sa = await account();
+        if (!sa) throw new Error('키가 없습니다. 이매진 › 음성 › 준비 › 「JSON 파일 선택」으로 서비스 계정 키를 등록해 주세요.');
+        const now = Math.floor(Date.now() / 1000);
+        if (tok.value && tok.id === sa.id && tok.exp - 300 > now) return { token: tok.value, project: sa.project };
+        if (!globalThis.crypto?.subtle?.sign) throw new Error('이 환경에서는 서명 기능(crypto.subtle)을 쓸 수 없습니다. 리수를 https 또는 localhost 주소로 열어 주세요.');
+        const head = b64url(enc.encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })));
+        const claim = b64url(enc.encode(JSON.stringify({ iss: sa.email, scope: SCOPE, aud: TOKEN_URL, iat: now, exp: now + 3600 })));
+        const pem = sa.key.replace(/\\n/g, '').replace(/-----BEGIN [^-]+-----|-----END [^-]+-----|\s+/g, '');
+        let key;
+        try {
+            key = await crypto.subtle.importKey('pkcs8', unb64(pem), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
+        } catch {
+            throw new Error('private_key 를 읽지 못했습니다. 내려받은 .json 파일을 고치지 말고 다시 골라 주세요.');
+        }
+        const sig = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(head + '.' + claim)));
+        const res = await api.nativeFetch(TOKEN_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + head + '.' + claim + '.' + b64url(sig),
+        });
+        const j = await res.json().catch(() => null);
+        if (!res.ok || !j?.access_token) throw new Error('구글 인증에 실패했습니다: ' + (j?.error_description || j?.error || 'HTTP ' + res.status));
+        Object.assign(tok, { id: sa.id, value: j.access_token, exp: now + Number(j.expires_in || 3600) });
+        return { token: tok.value, project: sa.project };
+    }
+    async function checkKey() {
+        try { keyKnown = !!(await account()); } catch { keyKnown = true; }
+        return keyKnown;
+    }
+
+    function voiceBody(voice) {
+        const base = { languageCode: st.set.lang || 'ko-KR', modelName: st.set.model };
+        return Array.isArray(voice) ? { ...base, multiSpeakerVoiceConfig: { speakerVoiceConfigs: voice } } : { ...base, name: voice };
+    }
+    const WAITS = [5000, 15000, 30000, 60000];
+    async function nap(ms, job) {
+        for (const end = Date.now() + ms; Date.now() < end;) {
+            if (job?.stop) throw stopError();
+            if (job) { job.note = `요청 한도 · ${Math.ceil((end - Date.now()) / 1000)}초 뒤 다시 시도`; paintSoon(true); }
+            await sleep(Math.min(500, end - Date.now()));
+        }
+        if (job) { job.note = ''; paintSoon(true); }
+    }
+    const voicesOf = r => Array.isArray(r.voice) ? r.voice.map(v => v.speakerId) : [r.voice];
+    const modelFor = r => voicesOf(r).some(isLib) && !isVertex(st.set.model) ? LIB_MODEL : st.set.model;
+    function requestFor(r, project, model = modelFor(r)) {
+        if (!isVertex(model)) {
+            return {
+                url: TTS_URL,
+                body: {
+                    input: r.prompt ? { text: r.text, prompt: r.prompt } : { text: r.text },
+                    voice: voiceBody(r.voice),
+                    audioConfig: { audioEncoding: 'LINEAR16', sampleRateHertz: RATE },
+                },
+            };
+        }
+        if (!project) throw new Error('키 JSON 에 project_id 가 없습니다. 3.8 모델은 주소에 프로젝트 ID 가 필요하니, 구글 콘솔에서 내려받은 서비스 계정 .json 파일을 그대로 골라 주세요.');
+        const multi = Array.isArray(r.voice);
+        const aliasOf = new Map(multi ? r.voice.map(v => [v.speakerId, v.speakerAlias]) : []);
+        const turns = r.turns?.length ? r.turns : [{ voice: r.voice, text: r.text, prompt: r.prompt }];
+        const parts = turns.map(t => {
+            const meta = {};
+            if (multi) meta.speaker = aliasOf.get(t.voice);
+            if (String(t.prompt ?? '').trim()) meta.style = t.prompt;
+            return Object.keys(meta).length ? { text: t.text, speechMetadata: meta } : { text: t.text };
+        });
+        const speechConfig = {};
+        if (multi) speechConfig.multiSpeakerVoiceConfig = { speakerVoiceConfigs: r.voice.map(v => ({ speaker: v.speakerAlias, voiceConfig: { voice: v.speakerId } })) };
+        else speechConfig.voiceConfig = { voice: r.voice };
+        return {
+            url: VERTEX_URL(project, model),
+            body: { contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['AUDIO'], speechConfig } },
+        };
+    }
+    function audioOf(j) {
+        if (j?.audioContent) return pcmOf(unb64(j.audioContent));
+        const datas = (j?.candidates?.[0]?.content?.parts ?? []).map(p => p?.inlineData?.data).filter(Boolean);
+        if (!datas.length) return null;
+        return joinPcm(datas.map(d => {
+            const bytes = unb64(d);
+            return resample(pcmOf(bytes), rateOf(bytes));
+        }));
+    }
+    async function synth(r, job, quota = false) {
+        const { token, project } = await accessToken();
+        const model = modelFor(r);
+        const { url, body } = requestFor(r, project, model);
+        const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+        if (quota && project) headers['x-goog-user-project'] = project;
+        const vertex = isVertex(model);
+        const useLib = voicesOf(r).some(isLib);
+        for (let attempt = 0; ; attempt++) {
+            if (job?.stop) throw stopError();
+            const res = await api.nativeFetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+            const j = await res.json().catch(() => null);
+            const pcm = res.ok ? audioOf(j) : null;
+            if (pcm) return pcm;
+            const msg = String(j?.error?.message ?? (res.ok ? '응답에 소리가 없습니다' : 'HTTP ' + res.status));
+            if ((res.status === 429 || res.status >= 500) && attempt < WAITS.length) {
+                const after = Number(res.headers?.get?.('retry-after'));
+                await nap(after > 0 ? Math.min(120, after) * 1000 : WAITS[attempt], job);
+                continue;
+            }
+            if (!quota && project && /quota project|user project|x-goog-user-project/i.test(msg)) return synth(r, job, true);
+            if (res.status === 401) tok.value = '';
+            const hint = res.status === 403 ? (vertex
+                    ? ' (구글 클라우드 콘솔에서 Vertex AI API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자 · Vertex AI 사용자)을 가졌는지 확인해 주세요. 급하면 설정 탭에서 모델을 2.5 Flash 로 바꿔도 됩니다.)'
+                    : ' (구글 클라우드 콘솔에서 Cloud Text-to-Speech API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자)을 가졌는지 확인해 주세요.)')
+                : res.status === 400 && useLib && /lite/.test(model) ? ' (라이브러리 목소리는 3.8 Flash 에서만 시험했습니다. 설정 탭에서 모델을 3.8 Flash 로 바꿔 보세요.)'
+                : res.status === 429 ? (/pro/i.test(model) ? ' (Pro 모델은 분당 요청 한도가 낮습니다. 설정 탭에서 모델을 Flash 로 바꾸거나, 1분쯤 뒤에 다시 눌러 주세요.)' : ' (분당 요청 한도에 걸렸습니다. 1분쯤 뒤에 다시 눌러 주세요.)')
+                : '';
+            throw Object.assign(new Error(`Gemini-TTS 오류 ${res.status}: ${msg}${hint}`), { status: res.status });
+        }
+    }
+
+    const lib = { voices: null, at: 0, busy: false, page: 0, pages: LIB_PAGES, err: '', tried: false };
+    function trimVoice(v) {
+        const persona = String(v.persona ?? '');
+        return {
+            id: v.id, name: v.display_name ?? v.displayName ?? v.id,
+            lang: v.id.slice(0, 2), gender: String(v.gender ?? '').toLowerCase(),
+            accent: v.accent ?? '', cat: persona.split(' / ')[0].trim(), role: (persona.match(/\(([^)]*)\)\s*$/) ?? [])[1] ?? '',
+            pitch: String(v.pitch ?? '').replace(/^PITCH_/, '').toLowerCase(), desc: v.description ?? '',
+        };
+    }
+    async function loadLib() {
+        if (lib.voices) return lib.voices;
+        const v = await api.pluginStorage.getItem('gt:lib').catch(() => null);
+        if (v?.voices?.length) Object.assign(lib, { voices: v.voices, at: Number(v.at) || 0, pages: Number(v.pages) || LIB_PAGES });
+        return lib.voices;
+    }
+    async function fetchLib(force = false, onPage = () => {}) {
+        await loadLib();
+        if (lib.busy || (!force && lib.voices && Date.now() - lib.at < LIB_TTL)) return lib.voices;
+        Object.assign(lib, { busy: true, page: 0, err: '' });
+        onPage(0);
+        try {
+            const { token, project } = await accessToken();
+            if (!project) throw new Error('키 JSON 에 project_id 가 없어 목소리 목록을 받을 수 없습니다.');
+            const out = [];
+            let page = '';
+            do {
+                const res = await api.nativeFetch(VOICES_URL(project, page), { method: 'GET', headers: { Authorization: 'Bearer ' + token } });
+                const j = await res.json().catch(() => null);
+                if (!res.ok) throw new Error(`목소리 목록을 받지 못했습니다 (${res.status}): ${j?.error?.message ?? ''}` + (res.status === 403 ? ' (구글 클라우드 콘솔에서 Vertex AI API 를 켜 주세요.)' : ''));
+                for (const v of j?.voices ?? []) if (LIB_LANGS.some(p => String(v?.id ?? '').startsWith(p))) out.push(trimVoice(v));
+                page = j?.next_page_token ?? j?.nextPageToken ?? '';
+                lib.page++;
+                onPage(lib.page);
+            } while (page && lib.page < 200);
+            Object.assign(lib, { voices: out, at: Date.now(), pages: lib.page });
+            await api.pluginStorage.setItem('gt:lib', { at: lib.at, pages: lib.pages, voices: out }).catch(error => console.warn(LOG, 'save lib', error));
+        } catch (error) {
+            lib.err = String(error?.message ?? error);
+        } finally {
+            lib.busy = false;
+        }
+        return lib.voices;
+    }
+    const ACCENT_KO = { 'Seoul Korean': '서울', 'Busan Korean': '부산', 'Tokyo Japanese': '도쿄', 'Osaka Japanese': '오사카', 'Fukuoka Japanese': '후쿠오카' };
+    const accentKo = a => ACCENT_KO[a] ?? a;
+    function voiceLabel(id) {
+        if (!isLib(id)) return id;
+        const v = lib.voices?.find(x => x.id === id);
+        return v ? `${v.name} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}` : id;
+    }
+
+    const tag = (b, p) => String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]);
+    function pcmOf(bytes) {
+        if (bytes.length < 12 || tag(bytes, 0) !== 'RIFF' || tag(bytes, 8) !== 'WAVE') return bytes;
+        const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        for (let p = 12; p + 8 <= bytes.length;) {
+            const size = dv.getUint32(p + 4, true);
+            if (tag(bytes, p) === 'data') return bytes.subarray(p + 8, Math.min(bytes.length, p + 8 + size));
+            p += 8 + size + (size & 1);
+        }
+        return bytes.subarray(44);
+    }
+    function rateOf(bytes) {
+        if (bytes.length < 28 || tag(bytes, 0) !== 'RIFF' || tag(bytes, 12) !== 'fmt ') return RATE;
+        return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(24, true) || RATE;
+    }
+    function resample(pcm, from) {
+        if (!from || from === RATE) return pcm;
+        const src = new Int16Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + (pcm.length & ~1)));
+        const n = Math.floor(src.length * RATE / from);
+        const out = new Int16Array(n);
+        for (let i = 0; i < n; i++) {
+            const x = i * from / RATE, k = Math.floor(x), f = x - k;
+            out[i] = Math.round((src[k] ?? 0) * (1 - f) + (src[k + 1] ?? src[k] ?? 0) * f);
+        }
+        return new Uint8Array(out.buffer);
+    }
+    function joinPcm(parts) {
+        const out = new Uint8Array(parts.reduce((n, p) => n + (p.length & ~1), 0));
+        let p = 0;
+        for (const part of parts) { out.set(part.subarray(0, part.length & ~1), p); p += part.length & ~1; }
+        return out;
+    }
+    const silence = ms => new Uint8Array(Math.round(RATE * ms / 1000) * 2);
+    function wavOf(parts) {
+        const len = parts.reduce((n, p) => n + (p.length & ~1), 0);
+        const out = new Uint8Array(44 + len);
+        const dv = new DataView(out.buffer);
+        const put = (p, s) => { for (let i = 0; i < 4; i++) out[p + i] = s.charCodeAt(i); };
+        put(0, 'RIFF'); dv.setUint32(4, 36 + len, true); put(8, 'WAVE');
+        put(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+        dv.setUint32(24, RATE, true); dv.setUint32(28, RATE * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+        put(36, 'data'); dv.setUint32(40, len, true);
+        let p = 44;
+        for (const part of parts) { out.set(part.subarray(0, part.length & ~1), p); p += part.length & ~1; }
+        return out;
+    }
+
+    const THINK_TAG = 'thoughts|think|thinking';
+    function noThink(text) {
+        let s = String(text ?? '').replace(new RegExp(`<(${THINK_TAG})\\b[^>]*>[\\s\\S]*?<\\/\\1\\s*>`, 'gi'), '');
+        const tail = [...s.matchAll(new RegExp(`<\\/(?:${THINK_TAG})\\s*>`, 'gi'))].pop();
+        if (tail) s = s.slice(tail.index + tail[0].length);
+        return s.replace(new RegExp(`<(?:${THINK_TAG})\\b[^>]*>[\\s\\S]*$`, 'i'), '').trim();
+    }
+    function plain(text) {
+        let s = noThink(text);
+        s = s.replace(/```[\s\S]*?```/g, ' ').replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ');
+        s = s.replace(/\{\{[\s\S]*?\}\}/g, '');
+        s = s.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d|tr)>/gi, '\n').replace(/<[^>]*>/g, '');
+        s = s.replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+        s = s.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/^\s*#{1,6}\s+/gm, '').replace(/^\s*[-*_]{3,}\s*$/gm, '');
+        s = s.replace(/\*\*|__|~~|`|\*/g, '');
+        return s.replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+    const QUOTE_RE = /“[^”]{1,2000}”|"[^"\n]{1,2000}"|「[^」]{1,2000}」|『[^』]{1,2000}』|‘[^’]{1,1000}’/g;
+    const spoken = s => /[\p{L}\p{N}]/u.test(s);
+    function splitQuotes(text) {
+        const parts = [];
+        let last = 0, n = 0;
+        for (const m of text.matchAll(QUOTE_RE)) {
+            if (m.index > last) parts.push({ q: 0, text: text.slice(last, m.index) });
+            parts.push({ q: ++n, text: m[0] });
+            last = m.index + m[0].length;
+        }
+        if (last < text.length) parts.push({ q: 0, text: text.slice(last) });
+        return { parts, count: n };
+    }
+
+    const LABEL_SYSTEM = `You label who speaks each numbered quote in a roleplay reply, for a text-to-speech reader.
+Each quote in TEXT is preceded by a tag like [Q3]. Reply with JSON only, no prose:
+{"quotes":[{"n":1,"speaker":"Name","gender":"female"}],"styles":{"Name":"voice direction"}}
+Rules:
+- One entry per quote number, every number included.
+- speaker is the character who says (or thinks) the quote, written as the story names them. Use the same name every time for the same person. If the person is in KNOWN SPEAKERS (by name or by an "also called" name), use that exact main name.
+- If a quote is not spoken by anyone (a quoted word, a title, a sign, a sound effect, emphasis), use "narrator".
+- gender is "female", "male", or "unknown".
+- styles: for every speaker in your answer who is NOT listed in KNOWN SPEAKERS as "has voice", write a voice direction for a voice actor.
+  Write it in Korean, 2-3 sentences, under 200 characters. Be concrete about: apparent age, pitch and timbre, speaking pace, baseline emotion and attitude, and speech habits (polite or casual, sharp, drawling, hesitant, etc.).
+  Base it on the character's personality and role shown in TEXT and CHARACTER NOTES, not on this single scene's mood. Do not quote lines or name other characters.
+  Example: "20대 초반 여성. 맑고 약간 높은 음색에 말이 빠르다. 밝고 장난스럽지만 말끝을 살짝 끄는 버릇이 있다."
+  Leave out "narrator" and speakers marked "has voice".`;
+    function parseLabels(s) {
+        const out = new Map();
+        const styles = new Map();
+        const a = s.indexOf('{'), b = s.lastIndexOf('}');
+        let list = null, j = null;
+        if (a >= 0 && b > a) try { j = JSON.parse(s.slice(a, b + 1)); list = j?.quotes; } catch {}
+        if (j?.styles && typeof j.styles === 'object') {
+            for (const [name, v] of Object.entries(j.styles)) {
+                const key = String(name).replace(/["“”「」『』]/g, '').trim().slice(0, 40);
+                const text = String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, STYLE_MAX);
+                if (key && text && !/^narrator$|^내레이션$|^나레이션$/i.test(key)) styles.set(key, text);
+            }
+        }
+        if (!Array.isArray(list)) {
+            list = [];
+            for (const m of s.matchAll(/"n"\s*:\s*(\d+)[^{}]*?"speaker"\s*:\s*"([^"]*)"(?:[^{}]*?"gender"\s*:\s*"(\w+)")?/g)) list.push({ n: +m[1], speaker: m[2], gender: m[3] });
+        }
+        for (const x of list) {
+            const n = Number(x?.n), name = String(x?.speaker ?? '').replace(/["“”「」『』]/g, '').trim();
+            if (Number.isInteger(n) && name) out.set(n, { speaker: /^narrator$|^내레이션$|^나레이션$/i.test(name) ? NARR : name.slice(0, 40), gender: /^(fe)?male$/i.test(x?.gender) ? x.gender.toLowerCase() : 'unknown' });
+        }
+        return { labels: out, styles };
+    }
+    async function readStream(stream) {
+        const reader = stream.getReader();
+        let last = '';
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (typeof value === 'string') last += value;
+            else if (value && typeof value === 'object') last = Object.values(value).join('');
+        }
+        return last;
+    }
+    async function askModel(messages, mode = st.set.split === 'model' ? 'model' : 'submodel') {
+        const res = await api.runLLMModel({ mode, messages, allowPlugins: true });
+        if (!res || res.type === 'fail') throw new Error(String(res?.result || '모델 요청이 실패했습니다.'));
+        return noThink(res.type === 'streaming' ? await readStream(res.result) : res.type === 'multiline' ? res.result.map(x => x[1]).join('\n') : String(res.result ?? ''));
+    }
+    function castPool(bot, want = null) {
+        const lang = /^ja/i.test(st.set.lang) ? 'ja' : 'ko';
+        const used = new Set([bot.narrator, ...Object.values(bot.voices).map(v => v.voice)]);
+        const fits = g => !want?.size || want.has('unknown') || want.has(g);
+        return [
+            ...(lib.voices ?? []).filter(v => v.lang === lang).map(v => ({ id: v.id, gender: v.gender, desc: String(v.desc ?? '').replace(/\s*Speaks [^.]*\.\s*/, ' ').trim().slice(0, 140) })),
+            ...FEMALE.map(id => ({ id, gender: 'female', desc: BASE_DESC[id] ?? '' })),
+            ...MALE.map(id => ({ id, gender: 'male', desc: BASE_DESC[id] ?? '' })),
+        ].filter(v => !used.has(v.id) && fits(v.gender));
+    }
+    function canonName(bot, name) {
+        if (name === NARR || bot.voices[name]) return name;
+        const k = String(name).toLowerCase();
+        for (const [n, v] of Object.entries(bot.voices)) if (n.toLowerCase() === k || (v.aliases ?? []).some(a => String(a).toLowerCase() === k)) return n;
+        return name;
+    }
+    const knownOf = bot => Object.entries(bot.voices).map(([n, v]) => `${n} (${v.gender ?? 'unknown'}${String(v.style ?? '').trim() ? ', has voice' : ''}${v.persona ? ', the user' : ''}${v.aliases?.length ? ', also called: ' + v.aliases.join(' / ') : ''})`).join(', ') || '(none)';
+    async function askLabels(parts, count, bot, botName, botNote) {
+        const text = parts.map(p => p.q ? `[Q${p.q}]${p.text}` : p.text).join('');
+        const out = await askModel([
+            { role: 'system', content: LABEL_SYSTEM },
+            { role: 'user', content: `MAIN CHARACTER (the bot): ${botName}\nCHARACTER NOTES:\n${botNote || '(none)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\nQUOTES: ${count}\n\nTEXT:\n${text}` },
+        ]);
+        return parseLabels(out);
+    }
+    const PICK_SYSTEM = `You cast text-to-speech voices for new characters in a roleplay story.
+Reply with JSON only, no prose: {"voices":{"Name":"voice id"}}
+Rules:
+- Give every name in NEW CHARACTERS exactly one id from CANDIDATES. Copy the id exactly.
+- The candidate's gender must match the character's gender. For "unknown", choose by the brief and the story.
+- Match apparent age, personality and role from the brief and CHARACTER NOTES.
+- Candidates are listed with detailed library voices (ids like ko-kr-...) first. Prefer a library voice whose age and role fit; use a short-described base voice only when no library voice fits.
+- Never give the same id to two characters.`;
+    async function askVoices(fresh, styles, bot, botName, botNote, job) {
+        if (!await loadLib() && !lib.tried && !lib.busy) {
+            lib.tried = true;
+            job.note = '목소리 목록 받는 중';
+            paintSoon(true);
+            await fetchLib().catch(() => null);
+            job.note = '목소리 고르는 중';
+            paintSoon(true);
+        }
+        const used = new Set([bot.narrator, ...Object.values(bot.voices).map(v => v.voice)]);
+        const pool = castPool(bot, new Set(fresh.values()));
+        if (!pool.length) return;
+        const who = [...fresh].map(([n, g]) => `- ${n} (${g}): ${styles.get(n) || '(no brief)'}`).join('\n');
+        const out = await askModel([
+            { role: 'system', content: PICK_SYSTEM },
+            { role: 'user', content: `MAIN CHARACTER (the bot): ${botName}\nCHARACTER NOTES:\n${botNote || '(none)'}\n\nNEW CHARACTERS:\n${who}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n')}` },
+        ]);
+        const a = out.indexOf('{'), b = out.lastIndexOf('}');
+        let j = null;
+        if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
+        const picks = j?.voices && typeof j.voices === 'object' ? j.voices : {};
+        const byId = new Map(pool.map(v => [v.id.toLowerCase(), v]));
+        for (const [name, id] of Object.entries(picks)) {
+            const key = String(name).replace(/["“”「」『』]/g, '').trim();
+            const v = byId.get(String(id ?? '').trim().toLowerCase());
+            if (!fresh.has(key) || bot.voices[key]?.voice || !v || used.has(v.id)) continue;
+            const g = fresh.get(key);
+            if (g !== 'unknown' && v.gender !== g) continue;
+            bot.voices[key] = { voice: v.id, gender: g, style: '' };
+            used.add(v.id);
+            bot.dirty = true;
+        }
+    }
+    async function segmentsOf(text, bot, botName, job) {
+        const { parts, count } = splitQuotes(text);
+        let labels = new Map(), styles = new Map();
+        if (count && st.set.split !== 'off') {
+            job.note = '화자 나누는 중';
+            paintSoon(true);
+            try { ({ labels, styles } = await askLabels(parts, count, bot, botName, job.botNote)); } catch (error) { console.warn(LOG, 'label', error); }
+            for (const x of labels.values()) x.speaker = canonName(bot, x.speaker);
+            for (const [n, text] of [...styles]) {
+                const c = canonName(bot, n);
+                if (c === n) continue;
+                styles.delete(n);
+                if (!styles.has(c)) styles.set(c, text);
+            }
+            const fresh = new Map();
+            for (const x of labels.values()) if (x.speaker !== NARR && !bot.voices[x.speaker]?.voice && fresh.get(x.speaker) !== 'female' && fresh.get(x.speaker) !== 'male') fresh.set(x.speaker, x.gender);
+            if (fresh.size && st.set.pick !== 'hash') {
+                job.note = '목소리 고르는 중';
+                paintSoon(true);
+                try { await askVoices(fresh, styles, bot, botName, job.botNote, job); } catch (error) { console.warn(LOG, 'pick', error); }
+            }
+        }
+        const segs = [];
+        for (const p of parts) {
+            const who = !p.q ? { speaker: NARR, gender: 'unknown' } : labels.get(p.q) ?? { speaker: botName || '캐릭터', gender: 'unknown' };
+            const prev = segs[segs.length - 1];
+            if (prev && prev.speaker === who.speaker) prev.text += p.text;
+            else segs.push({ ...who, style: styles.get(who.speaker) ?? '', text: p.text });
+        }
+        const talkOnly = st.set.read !== 'all';
+        return segs.map(s => ({ ...s, text: s.text.trim() })).filter(s => spoken(s.text) && !(talkOnly && s.speaker === NARR));
+    }
+    function voiceFor(bot, speaker, gender) {
+        if (speaker === NARR) return bot.narrator;
+        const had = bot.voices[speaker];
+        if (had?.voice) return had.voice;
+        const pool = gender === 'male' ? MALE : gender === 'female' ? FEMALE : [...FEMALE, ...MALE];
+        const used = new Set([bot.narrator, ...Object.values(bot.voices).map(v => v.voice)]);
+        const free = pool.filter(v => !used.has(v));
+        const list = free.length ? free : pool;
+        const voice = list[parseInt(hash(speaker).slice(0, 8), 16) % list.length];
+        bot.voices[speaker] = { voice, gender, style: '' };
+        bot.dirty = true;
+        return voice;
+    }
+    function chunks(text, limit) {
+        if (bytesOf(text) <= limit) return [text];
+        const out = [];
+        let cur = '';
+        for (const sent of text.split(/(?<=[.!?。！？…\n])\s*/)) {
+            if (bytesOf(cur + sent) <= limit) { cur += (cur && !/\s$/.test(cur) ? ' ' : '') + sent; continue; }
+            if (cur) out.push(cur);
+            cur = sent;
+            while (bytesOf(cur) > limit) {
+                let n = Math.floor(limit / 3);
+                out.push(cur.slice(0, n));
+                cur = cur.slice(n);
+            }
+        }
+        if (cur.trim()) out.push(cur);
+        return out;
+    }
+    function cutBytes(s, limit) {
+        while (bytesOf(s) > limit) s = s.slice(0, Math.max(0, s.length - Math.ceil((bytesOf(s) - limit) / 3)));
+        return s;
+    }
+    function buildRequests(segs, bot) {
+        const turns = [];
+        for (const s of segs) {
+            const voice = voiceFor(bot, s.speaker, s.gender);
+            const narr = s.speaker === NARR;
+            const rec = narr ? null : bot.voices[s.speaker];
+            if (rec && s.style && !String(rec.style ?? '').trim()) { rec.style = s.style; bot.dirty = true; }
+            const own = narr ? '' : bot.voices[s.speaker]?.style ?? '';
+            const prompt = cutBytes([narr ? bot.narrStyle : bot.talkStyle, own].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
+            const text = s.text.replace(/\s*\n\s*/g, ' ');
+            for (const t of chunks(text, TEXT_BYTES - 12)) turns.push({ voice, speaker: s.speaker, narr, prompt, text: t });
+        }
+        const reqs = [];
+        let cur = null;
+        const flush = () => { if (cur) reqs.push(finish(cur)); cur = null; };
+        for (const t of turns) {
+            const line = (t.narr ? ALIAS_NARR : 'Speaker2') + ': ' + t.text;
+            const fits = cur && cur.lib === isLib(t.voice) && (cur.voices.includes(t.voice) || cur.voices.length < 2) && cur.bytes + 1 + bytesOf(line) <= TEXT_BYTES;
+            if (!fits) { flush(); cur = { voices: [], turns: [], bytes: 0, lib: isLib(t.voice) }; }
+            if (!cur.voices.includes(t.voice)) cur.voices.push(t.voice);
+            cur.turns.push(t);
+            cur.bytes += (cur.turns.length > 1 ? 1 : 0) + bytesOf(line);
+        }
+        flush();
+        return reqs;
+    }
+    function finish(r) {
+        if (r.voices.length === 1) {
+            const prompts = [...new Set(r.turns.map(t => t.prompt).filter(Boolean))];
+            return { voice: r.voices[0], text: r.turns.map(t => t.text).join('\n'), prompt: cutBytes(prompts.join(' '), PROMPT_BYTES), turns: r.turns };
+        }
+        const aliasOf = new Map();
+        const narrVoice = r.turns.find(t => t.narr)?.voice;
+        let n = 0;
+        for (const v of r.voices) aliasOf.set(v, v === narrVoice ? ALIAS_NARR : 'Speaker' + (++n));
+        const text = r.turns.map(t => aliasOf.get(t.voice) + ': ' + t.text).join('\n');
+        const notes = r.voices.map(v => {
+            const ts = r.turns.filter(t => t.voice === v);
+            const who = [...new Set(ts.filter(t => !t.narr).map(t => t.speaker))];
+            const style = [...new Set(ts.map(t => t.prompt).filter(Boolean))].join(' ');
+            return `${aliasOf.get(v)}${who.length ? ` (${who.join(', ')})` : ''}: ${style || '자연스럽게 읽어 주세요.'}`;
+        });
+        const prompt = cutBytes('대본의 화자별로 아래 말투를 따라 읽어 주세요.\n' + notes.join('\n'), PROMPT_BYTES);
+        return { voice: r.voices.map(v => ({ speakerAlias: aliasOf.get(v), speakerId: v })), text, prompt, turns: r.turns };
+    }
+
+    const LORE_MAX = 60000;
+    const CAST_MAX = 30;
+    async function userName() {
+        try {
+            const v = String((await api.parseRisuChat?.('{{user}}')) ?? '').trim();
+            return v && v !== '{{user}}' ? v : '';
+        } catch {
+            return '';
+        }
+    }
+    const PERSONA_MAX = 3000;
+    async function personaOf() {
+        const name = await userName();
+        let prompt = '';
+        try {
+            const v = String((await api.parseRisuChat?.('{{persona}}')) ?? '').trim();
+            if (v !== '{{persona}}') prompt = plain(v.replace(/\{\{user\}\}/gi, name || 'User')).slice(0, PERSONA_MAX);
+        } catch {}
+        return { name, prompt, sig: name ? hash(name + '\n' + prompt) : '' };
+    }
+    function botContextOf(char, chat, entries, user) {
+        const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char?.name ?? '').replace(/\{\{user\}\}/gi, user || 'User');
+        const clean = t => plain(fill(t));
+        const fm = Number(chat?.fmIndex ?? -1);
+        const first = fm >= 0 ? char?.alternateGreetings?.[fm] ?? char?.firstMessage : char?.firstMessage;
+        let lore = '';
+        for (const e of entries ?? []) {
+            if (!e || e.mode === 'folder' || /^(이매진|제미니 대화) · /.test(String(e.comment ?? ''))) continue;
+            const body = clean(e.content);
+            if (!body) continue;
+            const keys = String(e.key ?? '').trim();
+            lore +=`### ${String(e.comment ?? '').trim() || '(untitled)'}${keys ? ` (keys: ${keys})` : ''}\n${body}\n\n`;
+            if (lore.length > LORE_MAX) { lore = lore.slice(0, LORE_MAX) + '\n…(truncated)'; break; }
+        }
+        const part = (title, t, max) => { const x = clean(t); return x ? `## ${title}\n${x.slice(0, max)}` : ''; };
+        return [`# BOT: ${char?.name ?? ''}`, part('Description', char?.desc, 12000), part('Personality', char?.personality, 3000), part('Scenario', char?.scenario, 3000),
+            part('First message', first, 8000), lore.trim() ? `## Lorebook\n${lore.trim()}` : ''].filter(Boolean).join('\n\n');
+    }
+    const CAST_SYSTEM = `You prepare the cast list for a text-to-speech reader of a roleplay story.
+Read STORY (the bot's description, first message and lorebook) and list every character who may speak in it.
+Reply with JSON only, no prose:
+{"cast":[{"name":"Name","aliases":["other name"],"gender":"female","voice":"voice id","style":"voice direction"}]}
+Rules:
+- Include the main character and every other person who could speak. Leave out USER NAME (the player) and the narrator.
+- name is how the story usually writes the person. If the person is in KNOWN SPEAKERS (by name or by an "also called" name), use that exact main name.
+- aliases: up to 5 other names the story uses for the same person (full name, surname, nickname, title). Leave out names that several people share.
+- gender is "female", "male", or "unknown".
+- voice: one id from CANDIDATES, copied exactly, whose gender matches the person. Prefer a library voice (ids like ko-kr-...) whose age and role fit; use a short-described base voice only when no library voice fits. Never give the same id to two people. Use "" for everyone in KNOWN SPEAKERS (they already have a voice).
+- style: a voice direction for a voice actor. Write it in Korean, 2-3 sentences, under 200 characters. Be concrete about: apparent age, pitch and timbre, speaking pace, baseline emotion and attitude, and speech habits (polite or casual, sharp, drawling, hesitant, etc.).
+  Base it on the character's personality and role, not on one scene's mood. Do not quote lines or name other characters.
+  Example: "20대 초반 여성. 맑고 약간 높은 음색에 말이 빠르다. 밝고 장난스럽지만 말끝을 살짝 끄는 버릇이 있다."
+  Use "" for KNOWN SPEAKERS marked "has voice".
+- At most 30 people, the most important first.`;
+    function parseCast(out, user) {
+        let j = null, list = null;
+        const a = out.indexOf('{'), b = out.lastIndexOf('}');
+        if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
+        if (Array.isArray(j?.cast)) list = j.cast;
+        if (!list) {
+            const c = out.indexOf('['), d = out.lastIndexOf(']');
+            if (c >= 0 && d > c) try { list = JSON.parse(out.slice(c, d + 1)); } catch {}
+        }
+        const clean = x => String(x ?? '').replace(/["“”「」『』]/g, '').trim().slice(0, 40);
+        const lower = x => x.toLowerCase();
+        const skip = n => !n || /^narrator$|^내레이션$|^나레이션$|^user$|^\{\{user\}\}$/i.test(n) || (user && lower(n) === lower(user));
+        const cast = [], seen = new Set();
+        for (const x of Array.isArray(list) ? list : []) {
+            const name = clean(x?.name);
+            if (skip(name) || seen.has(lower(name))) continue;
+            seen.add(lower(name));
+            const aliases = [];
+            for (const y of Array.isArray(x?.aliases) ? x.aliases : []) {
+                const t = clean(y);
+                if (!skip(t) && lower(t) !== lower(name) && !aliases.some(z => lower(z) === lower(t))) aliases.push(t);
+            }
+            cast.push({
+                name, aliases: aliases.slice(0, 5),
+                gender: /^(fe)?male$/i.test(x?.gender) ? x.gender.toLowerCase() : 'unknown',
+                voice: String(x?.voice ?? '').trim(),
+                style: String(x?.style ?? '').replace(/\s+/g, ' ').trim().slice(0, STYLE_MAX),
+            });
+            if (cast.length >= CAST_MAX) break;
+        }
+        return cast;
+    }
+    function mergeCast(bot, list, pool) {
+        const byId = new Map(pool.map(v => [v.id.toLowerCase(), v]));
+        const used = new Set([bot.narrator, ...Object.values(bot.voices).map(v => v.voice)]);
+        for (const c of list) {
+            const key = [c.name, ...c.aliases].map(n => canonName(bot, n)).find(n => bot.voices[n]) ?? c.name;
+            const rec = bot.voices[key] ?? { voice: '', gender: c.gender, style: '' };
+            if ((rec.gender ?? 'unknown') === 'unknown') rec.gender = c.gender;
+            if (!String(rec.style ?? '').trim() && c.style) rec.style = c.style;
+            const al = [...(rec.aliases ?? [])];
+            for (const n of [c.name, ...c.aliases]) if (n !== key && !al.some(y => y.toLowerCase() === n.toLowerCase())) al.push(n);
+            if (al.length) rec.aliases = al.slice(0, 8);
+            if (!rec.voice) {
+                const v = byId.get(c.voice.toLowerCase());
+                if (v && !used.has(v.id) && (rec.gender === 'unknown' || v.gender === rec.gender)) rec.voice = v.id;
+                else { delete bot.voices[key]; rec.voice = voiceFor(bot, key, rec.gender); }
+                used.add(rec.voice);
+            }
+            bot.voices[key] = rec;
+            bot.dirty = true;
+        }
+    }
+    const PERSONA_SYSTEM = `You set up the text-to-speech voice for the user's own character (the persona) in a roleplay story.
+Read only PERSONA. Do not describe or list any other character.
+Reply with JSON only, no prose: {"gender":"female","voice":"voice id","style":"voice direction"}
+Rules:
+- gender is "female", "male", or "unknown".
+- voice is one id from CANDIDATES whose gender matches. Copy the id exactly. Prefer a library voice (ids like ko-kr-...) whose age and role fit.
+- style is a voice direction for a voice actor, written in Korean, 2-3 sentences, under 200 characters. Be concrete about: apparent age, pitch and timbre, speaking pace, baseline emotion and attitude, and speech habits. Do not quote lines.`;
+    const genderOf = id => FEMALE.includes(id) ? 'female' : MALE.includes(id) ? 'male' : lib.voices?.find(v => v.id === id)?.gender ?? 'unknown';
+    const personaFail = new Set();
+    const personaRun = new Map();
+    function ensurePersona(chaId, bot, p) {
+        if (!p?.name || !p.prompt || !p.sig) return Promise.resolve(false);
+        if (bot.voices[canonName(bot, p.name)]?.persona === p.sig) return Promise.resolve(false);
+        const tag = chaId + '|' + p.sig;
+        if (personaFail.has(tag)) return Promise.resolve(false);
+        if (personaRun.has(tag)) return personaRun.get(tag);
+        const run = (async () => {
+            try {
+                await loadLib();
+                const pool = castPool(bot);
+                const out = await askModel([
+                    { role: 'system', content: PERSONA_SYSTEM },
+                    { role: 'user', content: `PERSONA NAME: ${p.name}\nPERSONA:\n${p.prompt}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}` },
+                ]);
+                const a = out.indexOf('{'), b = out.lastIndexOf('}');
+                let j = null;
+                if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
+                const style = String(j?.style ?? '').replace(/\s+/g, ' ').trim().slice(0, STYLE_MAX);
+                if (!j || !style) throw new Error('모델이 페르소나 지시문을 돌려주지 않았습니다.');
+                const g = /^(fe)?male$/i.test(j.gender) ? j.gender.toLowerCase() : 'unknown';
+                const key = canonName(bot, p.name);
+                const rec = bot.voices[key] ?? { voice: '', gender: 'unknown', style: '' };
+                let voice = rec.voice;
+                const had = voice ? genderOf(voice) : '';
+                if (!voice || (g !== 'unknown' && had !== 'unknown' && had !== g)) {
+                    const v = pool.find(x => x.id.toLowerCase() === String(j.voice ?? '').trim().toLowerCase());
+                    const used = new Set([bot.narrator, ...Object.entries(bot.voices).filter(([n]) => n !== key).map(([, x]) => x.voice)]);
+                    if (v && !used.has(v.id) && (g === 'unknown' || v.gender === g)) voice = v.id;
+                    else { delete bot.voices[key]; voice = voiceFor(bot, key, g); }
+                }
+                bot.voices[key] = { ...rec, voice, gender: g, style, persona: p.sig };
+                delete bot.dirty;
+                await saveBot(chaId, bot);
+                return true;
+            } catch (error) {
+                personaFail.add(tag);
+                console.warn(LOG, 'persona', error);
+                return false;
+            } finally {
+                personaRun.delete(tag);
+            }
+        })();
+        personaRun.set(tag, run);
+        return run;
+    }
+    let cast = null;
+    let castChanged = () => {};
+    const castTried = new Set();
+    const CAST_STAGE = ['로어북 읽는 중', '목소리 목록 받는 중', '등장인물 분석 중', '인물 정리 중'];
+    async function analyzeCast(w, onStage = () => {}, job = null) {
+        const chaId = w?.char?.chaId;
+        if (cast) throw new Error('이미 등장인물을 분석하고 있습니다.');
+        if (!chaId) throw new Error('열린 봇 채팅이 없습니다.');
+        let halt;
+        const wait = new Promise(r => { halt = r; });
+        const run = cast = { chaId, job, stage: 0, at: Date.now(), stop: false, cancel: () => { run.stop = true; halt(); } };
+        const guard = q => Promise.race([q, wait.then(() => { throw stopError(); })]);
+        const step = n => { run.stage = n; run.at = Date.now(); onStage(n); };
+        castChanged();
+        try {
+            step(0);
+            let entries = [];
+            try { entries = (await guard(Promise.resolve(api.getCurrentLorebookEntries()))) ?? []; } catch (error) { if (run.stop) throw error; console.warn(LOG, 'lore', error); }
+            const user = await guard(userName());
+            if (!(await loadLib()) && !lib.tried && !lib.busy) {
+                lib.tried = true;
+                step(1);
+                await guard(fetchLib(false, () => onStage(1)).catch(() => null));
+            }
+            const bot = await botOf(chaId);
+            const pool = castPool(bot);
+            step(2);
+            const out = await guard(askModel([
+                { role: 'system', content: CAST_SYSTEM },
+                { role: 'user', content: `MAIN CHARACTER (the bot): ${w.char.name ?? ''}\nUSER NAME (the player, leave out): ${user || '(unknown)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}\n\nSTORY:\n${botContextOf(w.char, w.chat, entries, user)}` },
+            ]));
+            if (run.stop) throw stopError();
+            step(3);
+            const list = parseCast(out, user);
+            if (!list.length) throw new Error('모델이 인물을 하나도 돌려주지 않았습니다.');
+            mergeCast(bot, list, pool);
+            bot.castAt = Date.now();
+            delete bot.dirty;
+            await saveBot(chaId, bot);
+            const p = await guard(personaOf());
+            personaFail.delete(chaId + '|' + p.sig);
+            await guard(ensurePersona(chaId, bot, p));
+            return list.length;
+        } catch (error) {
+            throw run.stop ? stopError() : error;
+        } finally {
+            if (cast === run) cast = null;
+            castChanged();
+        }
+    }
+
+    let local = null;
+    const cached = new Set();
+    let cacheList = [];
+    async function loadCache() {
+        try {
+            local = await api.getLocalPluginStorage();
+            const v = await local.getItem('gt_audio_list');
+            cacheList = Array.isArray(v) ? v : [];
+            for (const x of cacheList) cached.add(x.k);
+        } catch (error) {
+            console.warn(LOG, 'local storage', error);
+        }
+    }
+    const saveList = () => local?.setItem('gt_audio_list', cacheList).catch(error => console.warn(LOG, 'save list', error));
+    async function putAudio(k, chaId, wav) {
+        if (!local) return;
+        await local.setItem('gt_audio_' + k, b64(wav));
+        cacheList = cacheList.filter(x => x.k !== k).concat({ k, c: chaId, t: Date.now(), n: wav.length });
+        cached.add(k);
+        const keep = Math.max(1, Number(st.set.keep) || DEF_SET.keep);
+        while (cacheList.length > keep) await dropAudio(cacheList[0].k, false);
+        await saveList();
+    }
+    async function dropAudio(k, save = true) {
+        cached.delete(k);
+        cacheList = cacheList.filter(x => x.k !== k);
+        try { await local?.removeItem('gt_audio_' + k); } catch {}
+        if (save) await saveList();
+    }
+    const getAudio = k => local ? local.getItem('gt_audio_' + k).catch(() => null) : null;
+
+    const TALK_MAX = 200, TALK_TURNS = 30, TALK_CTX = 9000;
+    const TALK_FOLDER = '제미니 TTS 대화', TALK_TAG = '제미니 대화 · ';
+    const talks = new Map();
+    function talkOf(chaId) {
+        if (!talks.has(chaId)) talks.set(chaId, api.pluginStorage.getItem('gt:talk:' + chaId).catch(() => null).then(v => v && typeof v === 'object' && !Array.isArray(v) ? v : {}));
+        return talks.get(chaId);
+    }
+    const saveTalk = (chaId, t) => api.pluginStorage.setItem('gt:talk:' + chaId, t).catch(error => console.warn(LOG, 'save talk', error));
+    function talkPush(t, name, r, text) {
+        const log = t[name] ??= [];
+        log.push({ r, t: text, at: Date.now() });
+        if (log.length > TALK_MAX) log.splice(0, log.length - TALK_MAX);
+    }
+    const reEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    function talkCast(v) {
+        const main = canonName(v.bot, v.name || '봇');
+        const user = String(v.user ?? '').toLowerCase();
+        const last = n => v.talk?.[n]?.at(-1)?.at ?? 0;
+        const rest = [];
+        for (const n of [...Object.keys(v.bot.voices), ...Object.keys(v.talk ?? {}).filter(n => v.talk[n]?.length)]) {
+            if (n === NARR || n === main || rest.includes(n) || (user && n.toLowerCase() === user) || v.bot.voices[n]?.persona) continue;
+            rest.push(n);
+        }
+        return [main, ...rest.map((n, i) => [n, i]).sort((a, b) => last(b[0]) - last(a[0]) || a[1] - b[1]).map(x => x[0])];
+    }
+    function talkContext(char, name, rec, entries, user, main, persona = '') {
+        const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char?.name ?? '').replace(/\{\{user\}\}/gi, user || 'User');
+        const clean = t => plain(fill(t));
+        const names = [name, ...(rec?.aliases ?? [])].map(n => String(n).toLowerCase()).filter(n => n.length > 1);
+        const hits = [];
+        for (const e of entries ?? []) {
+            if (!e || e.mode === 'folder' || /^(이매진|제미니 대화) · /.test(String(e.comment ?? ''))) continue;
+            const body = clean(e.content);
+            if (!body) continue;
+            const item = `### ${String(e.comment ?? '').trim() || '(untitled)'}\n${body}`;
+            const hay = [e.key, e.secondkey, e.comment].map(x => String(x ?? '').toLowerCase()).join('\n');
+            if (names.some(n => hay.includes(n))) hits.push(item);
+        }
+        const part = (title, t, max) => { const x = clean(t); return x ? `## ${title}\n${x.slice(0, max)}` : ''; };
+        const bot = [part(`${char?.name ?? ''} (bot description)`, char?.desc, 6000), part('Personality', char?.personality, 1500), part('Scenario', char?.scenario, 1500)];
+        const mine = hits.length ? `## About ${name} (lorebook)\n${hits.join('\n\n')}` : '';
+        let s = (main ? [...bot, mine] : [mine, ...bot]).filter(Boolean).join('\n\n');
+        if (s.length > TALK_CTX) s = s.slice(0, TALK_CTX) + '\n…(truncated)';
+        const me = String(persona ?? '').trim();
+        return me ? `${s}${s ? '\n\n' : ''}## ${user || 'User'} (user persona)\n${me.slice(0, PERSONA_MAX)}` : s;
+    }
+    function talkSystem(name, user, style, ctx) {
+        return `You are ${name}, in a private one-on-one conversation with ${user}, outside the main story.
+Stay fully in character: your personality, way of speaking and what you know come from PROFILE. Who ${user} is comes from the user persona in PROFILE, and your relationship with ${user} comes from both.
+Rules:
+- Reply with only the words ${name} says next.
+- No narration, no actions in asterisks or brackets, no name prefix, no quotation marks around the reply.
+- Never write ${user}'s lines. Never mention being an AI, a model or a roleplay.
+- Reply in the language ${user} writes in.${style ? `\n- Your voice and manner: ${style}` : ''}
+
+PROFILE:
+${ctx || '(none)'}`;
+    }
+    function talkClean(out, name, rec) {
+        let s = noThink(out).replace(/\*[^*\n]{1,200}\*/g, ' ');
+        s = plain(s);
+        for (const n of [name, ...(rec?.aliases ?? [])]) s = s.replace(new RegExp('^\\s*' + reEsc(n) + '\\s*[:：]\\s*', 'i'), '');
+        s = s.replace(/^\s*[(（][^)）\n]{0,200}[)）]\s*/, '').trim();
+        const m = s.match(/^["“「『]([\s\S]*)["”」』]$/);
+        if (m && !/["“”「」『』]/.test(m[1])) s = m[1].trim();
+        return s;
+    }
+    async function talkAsk(system, log, name, rec) {
+        const msgs = [];
+        for (const m of log.slice(-TALK_TURNS)) {
+            const role = m.r === 'u' ? 'user' : 'assistant';
+            if (!msgs.length && role === 'assistant') continue;
+            const last = msgs[msgs.length - 1];
+            if (last?.role === role) last.content += '\n' + m.t;
+            else msgs.push({ role, content: m.t });
+        }
+        const out = await askModel([{ role: 'system', content: system }, ...msgs], st.set.talkModel === 'submodel' ? 'submodel' : 'model');
+        const text = talkClean(out, name, rec);
+        if (!spoken(text)) throw new Error('모델이 빈 답을 돌려주었습니다. 한 번 더 보내 보세요.');
+        return text;
+    }
+    const loreWait = new Map();
+    let loreJob = Promise.resolve(), loreShut = false;
+    function talkLoreSoon(chaId, ci, name, tries = 0) {
+        if (loreShut) return;
+        const w = loreWait.get(chaId) ?? { ci, names: new Set(), timer: 0, tries: 0 };
+        w.ci = ci;
+        w.tries = tries;
+        w.names.add(name);
+        clearTimeout(w.timer);
+        w.timer = setTimeout(() => void talkLoreFlush(chaId), 2000);
+        loreWait.set(chaId, w);
+    }
+    function talkLoreFlush(chaId = null) {
+        for (const [id, w] of [...loreWait]) {
+            if (chaId != null && id !== chaId) continue;
+            clearTimeout(w.timer);
+            loreWait.delete(id);
+            loreJob = loreJob.then(() => talkLore(id, w.ci, [...w.names], w.tries)).catch(error => console.warn(LOG, 'talk lore', error));
+        }
+        return loreJob;
+    }
+    async function talkLore(chaId, ci, names, tries = 0) {
+        const t = await talkOf(chaId);
+        const bot = await botOf(chaId);
+        const user = (await userName()) || 'User';
+        const char = await api.getCharacterFromIndex(ci);
+        if (!char || char.chaId !== chaId) return;
+        if (tries < 30 && char.chats?.some(c => c?.isStreaming)) { for (const name of names) talkLoreSoon(chaId, ci, name, tries + 1); return; }
+        const lore = Array.isArray(char.globalLore) ? char.globalLore : [];
+        let folder = lore.find(e => e?.mode === 'folder' && e.comment === TALK_FOLDER);
+        for (const name of names) {
+            const log = t[name] ?? [];
+            const at = lore.findIndex(e => e?.comment === TALK_TAG + name && e.mode !== 'folder');
+            if (!log.length) { if (at >= 0) lore.splice(at, 1); continue; }
+            if (!folder) {
+                folder = { key: '\uf000folder:' + (globalThis.crypto?.randomUUID?.() ?? hash(chaId + Date.now())), secondkey: '', insertorder: 100, comment: TALK_FOLDER, content: '', mode: 'folder', alwaysActive: false, selective: false };
+                lore.push(folder);
+            }
+            const rec = bot.voices[name];
+            const ent = {
+                key: st.set.talkLink ? [name, ...(rec?.aliases ?? [])].join(', ') : '', secondkey: '', insertorder: 100, comment: TALK_TAG + name,
+                content: `[${name} · ${user} 대화 기록]\n` + log.map(m => `${m.r === 'u' ? user : name}: ${m.t}`).join('\n'),
+                mode: 'normal', alwaysActive: false, selective: false, useRegex: false, folder: folder.key,
+            };
+            if (at >= 0) lore[at] = { ...lore[at], ...ent };
+            else lore.push(ent);
+        }
+        if (folder && !lore.some(e => e !== folder && e?.folder === folder.key)) lore.splice(lore.indexOf(folder), 1);
+        char.globalLore = lore;
+        await api.setCharacterToIndex(ci, char);
+    }
+    let talkAudio = null, talkUrl = '', talkOpen = false;
+    function talkUnlock() {
+        talkAudio ??= new Audio();
+        if (talkOpen) return;
+        talkAudio.src = 'data:audio/wav;base64,' + b64(wavOf([silence(60)]));
+        talkAudio.play().then(() => { talkOpen = true; }, () => {});
+    }
+    async function talkVoice(chaId, name, text, job) {
+        const k = hash('talk|' + chaId + '|' + name + '|' + text);
+        if (cached.has(k)) {
+            const v = await getAudio(k);
+            if (v) return v;
+        }
+        const bot = await botOf(chaId);
+        const voice = voiceFor(bot, name, bot.voices[name]?.gender ?? 'unknown');
+        if (bot.dirty) { delete bot.dirty; void saveBot(chaId, bot); }
+        const prompt = cutBytes([bot.talkStyle, bot.voices[name]?.style].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
+        const parts = [];
+        for (const c of chunks(plain(text), TEXT_BYTES)) {
+            if (parts.length) parts.push(silence(Number(st.set.gap) || 0));
+            parts.push(await synth({ voice, text: c, prompt, turns: [] }, job));
+        }
+        const wav = wavOf(parts);
+        await putAudio(k, chaId, wav).catch(error => console.warn(LOG, 'talk cache', error));
+        return b64(wav);
+    }
+    function talkPlay(data, k) {
+        talkStop();
+        talkAudio ??= new Audio();
+        talkUrl = URL.createObjectURL(new Blob([unb64(data)], { type: 'audio/wav' }));
+        talkAudio.src = talkUrl;
+        ui.talk.playing = k;
+        talkMark();
+        const off = () => { ui.talk.playing = ''; talkMark(); };
+        talkAudio.onended = off;
+        talkAudio.onpause = off;
+        return talkAudio.play().then(() => { talkOpen = true; return true; }, () => { off(); return false; });
+    }
+    function talkStop() {
+        if (!talkAudio) return;
+        talkAudio.onended = talkAudio.onpause = null;
+        talkAudio.pause();
+        ui.talk.playing = '';
+        talkMark();
+        if (talkUrl) { URL.revokeObjectURL(talkUrl); talkUrl = ''; }
+    }
+    function talkMark() {
+        ui.root?.querySelectorAll('.tk-bub[data-k]').forEach(x => {
+            x.classList.toggle('on', x.dataset.k === ui.talk.playing);
+            x.classList.toggle('wait', x.dataset.k === ui.talk.voicing);
+        });
+    }
+
+    async function where() {
+        const ci = await api.getCurrentCharacterIndex();
+        const chi = await api.getCurrentChatIndex();
+        const char = await api.getCharacterFromIndex(ci);
+        const chat = await api.getChatFromIndex(ci, chi);
+        return { ci, chi, char, chat };
+    }
+    function msgOf(w, idx) {
+        if (!w.char || !w.chat) return null;
+        if (idx === -1) {
+            const fm = Number(w.chat.fmIndex ?? -1);
+            const data = fm >= 0 ? w.char.alternateGreetings?.[fm] : w.char.firstMessage;
+            return data ? { role: 'char', data, chatId: 'first:' + fm } : null;
+        }
+        const m = w.chat.message?.[idx];
+        return m?.role === 'char' ? m : null;
+    }
+    const keyOf = (chaId, msg) => hash(chaId + '|' + (st.set.read === 'all' ? '' : 'talk|') + plain(msg.data));
+
+    const jobs = [];
+    let busy = null;
+    const failed = new Map();
+    const stopError = () => Object.assign(new Error('멈췄습니다.'), { stop: true });
+    const jobAt = (ci, chi, idx) => [busy, ...jobs].find(j => j && j.ci === ci && j.chi === chi && j.idx === idx);
+    function enqueue(job) {
+        jobs.push(job);
+        paintSoon(true);
+        void runNext();
+    }
+    async function runNext() {
+        if (busy || !jobs.length) return;
+        busy = jobs.shift();
+        const job = busy;
+        try {
+            await makeAudio(job);
+            failed.delete(job.k);
+            const w = await where();
+            if (w.ci !== job.ci || w.chi !== job.chi) return;
+            await play(job.idx, job.k);
+        } catch (error) {
+            if (!error?.stop) {
+                console.error(LOG, error);
+                failed.set(job.k, String(error?.message ?? error));
+                await rootQueue(() => showSlot(job.idx, `<div style="${imp({ color: '#fca5a5', fontSize: '.75rem', lineHeight: '1.4', margin: '2px 0 4px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' })}">⚠ ${esc(failed.get(job.k))}</div>`));
+            }
+        } finally {
+            busy = null;
+            paintSoon(true);
+            void runNext();
+        }
+    }
+    async function makeAudio(job) {
+        await accessToken();
+        const bot = await botOf(job.chaId);
+        if (st.set.castAuto && !bot.castAt && st.set.split !== 'off' && st.set.pick !== 'hash' && !castTried.has(job.chaId) && !cast) {
+            castTried.add(job.chaId);
+            try {
+                const char = await api.getCharacterFromIndex(job.ci);
+                const chat = await api.getChatFromIndex(job.ci, job.chi);
+                if (char?.chaId === job.chaId) await analyzeCast({ char, chat }, n => { job.note = CAST_STAGE[n]; paintSoon(true); }, job);
+            } catch (error) {
+                if (!error?.stop) console.warn(LOG, 'cast', error);
+            }
+            if (job.stop) throw stopError();
+        }
+        if (st.set.castAuto && st.set.split !== 'off') {
+            const p = await personaOf();
+            if (p.sig && bot.voices[canonName(bot, p.name)]?.persona !== p.sig) {
+                job.note = '페르소나 분석 중';
+                paintSoon(true);
+                await ensurePersona(job.chaId, bot, p);
+                if (job.stop) throw stopError();
+            }
+        }
+        const segs = await segmentsOf(plain(job.msg.data), bot, job.botName, job);
+        if (!segs.length) throw new Error(st.set.read === 'all' ? '읽을 글이 없습니다.' : '읽을 대사가 없습니다. 이 답변에는 따옴표(“ ” 「 」 등) 안의 대사가 없습니다. 내레이션도 들으려면 읽기 설정의 「읽을 범위」를 「내레이션까지」로 바꿔 주세요.');
+        const reqs = buildRequests(segs, bot);
+        if (bot.dirty) { delete bot.dirty; void saveBot(job.chaId, bot); }
+        job.total = reqs.length;
+        job.done = 0;
+        job.note = '';
+        paintSoon(true);
+        const pcm = [];
+        for (const r of reqs) {
+            pcm.push(await synthReq(r, job));
+            job.done++;
+            paintSoon(true);
+        }
+        if (job.stop) throw stopError();
+        const parts = [];
+        pcm.forEach((p, i) => {
+            if (i) parts.push(silence(Number(st.set.gap) || 0));
+            parts.push(p);
+        });
+        await putAudio(job.k, job.chaId, wavOf(parts));
+    }
+    async function synthReq(r, job) {
+        try {
+            return await synth(r, job);
+        } catch (error) {
+            if (!Array.isArray(r.voice) || error?.status !== 400) throw error;
+            console.warn(LOG, 'multi-speaker 400, single-speaker fallback', error);
+            const runs = [];
+            for (const t of r.turns) {
+                const last = runs[runs.length - 1];
+                if (last && last.voices[0] === t.voice) last.turns.push(t);
+                else runs.push({ voices: [t.voice], turns: [t] });
+            }
+            const parts = [];
+            for (const run of runs) {
+                const one = finish(run);
+                if (parts.length) parts.push(silence(Number(st.set.gap) || 0));
+                parts.push(await synth(one, job));
+            }
+            return joinPcm(parts);
+        }
+    }
+
+    const root = { doc: null, asked: false, asking: null, done: false, on: false, observer: null, clickId: '', timer: 0, job: Promise.resolve(), force: false };
+    const rootQueue = fn => (root.job = root.job.then(fn).catch(error => console.warn(LOG, 'root', error)));
+    const rootDenied = () => root.done && !root.doc;
+    const inRect = (r, e) => !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    const idxOf = cls => { const m = /(?:^|\s)x-risu-nc-tts-at-(-?\d+)(?:\s|$)/.exec(cls); return m ? Number(m[1]) : NaN; };
+    async function rootDoc() {
+        if (!root.asked) {
+            root.asked = true;
+            root.asking = (async () => {
+                try { root.doc = await host.rootDoc(); } catch (error) { console.warn(LOG, 'rootDoc', error); }
+                root.done = true;
+            })();
+        }
+        await root.asking;
+        return root.doc;
+    }
+
+    const BTN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '4px', boxSizing: 'border-box', width: 'max-content', minHeight: '28px', padding: '2px 10px',
+        fontSize: '.78rem', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c7cdd6', background: '#141c2e', color: '#fff', userSelect: 'none', cursor: 'pointer' };
+    const LOOKS = {
+        idle: { fontWeight: '700', opacity: '1', background: '#141c2e' },
+        have: { fontWeight: '700', opacity: '1', background: '#1f3a2e' },
+        run: { fontWeight: '400', opacity: '1', background: '#2f4a8a' },
+        wait: { fontWeight: '400', opacity: '.75', background: '#141c2e' },
+        need: { fontWeight: '400', opacity: '.55', background: '#141c2e' },
+        bad: { fontWeight: '700', opacity: '1', background: '#b3261e' },
+    };
+    const BAR_STYLE = imp({ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', margin: '8px 0 2px' });
+    const RE_LOOK = { ...BTN_BASE, minWidth: '28px', padding: '2px 6px' };
+    function btnHtml() {
+        if (rootDenied() || keyKnown !== true) return '';
+        return '{{#if {{equal::{{role}}::char}}}}'
+            + `<div class="nc-tts-bar" style="${BAR_STYLE}">`
+            + `<span class="nc-tts-btn nc-tts-at-{{chat_index}}" style="${imp({ ...BTN_BASE, display: 'flex', ...LOOKS.idle })}">🔊 읽기</span>`
+            + `<span class="nc-tts-re nc-tts-at-{{chat_index}}" title="새로 만들기" style="${imp({ ...RE_LOOK, display: 'none' })}">↻</span>`
+            + '</div>'
+            + `<div class="nc-tts-slot nc-tts-at-{{chat_index}}" style="${imp({ display: 'block', margin: '4px 0 2px', maxWidth: '100%' })}"></div>`
+            + '{{/if}}';
+    }
+    function stateOf(w, idx, chaId) {
+        const j = jobAt(w.ci, w.chi, idx);
+        if (j && j === busy) {
+            if (j.stop) return { sign: 'run', text: '⏳ 멈추는 중', look: 'run' };
+            return { sign: 'run', text: j.note ? `⏳ ${j.note}` : j.total ? `⏳ 만드는 중 ${j.done}/${j.total}` : '⏳ 준비 중', look: 'run' };
+        }
+        if (j) return { sign: 'wait', text: '⏳ 기다리는 중', look: 'wait' };
+        if (keyKnown === false) return { sign: 'need', text: '🔊 키 필요', look: 'need' };
+        const msg = msgOf(w, idx);
+        if (!msg) return { sign: 'hide' };
+        const k = keyOf(chaId, msg);
+        if (failed.has(k)) return { sign: 'bad', text: '⚠ 다시 시도', look: 'bad', k };
+        if (cached.has(k)) return { sign: 'have', text: '▶ 다시 듣기', look: 'have', k, re: true };
+        return { sign: 'idle', text: '🔊 읽기', look: 'idle', k };
+    }
+    async function paint(force = false) {
+        const d = root.doc;
+        if (!root.on || !d) return;
+        const els = await d.querySelectorAll('.x-risu-nc-tts-btn');
+        const n = await els.length();
+        if (!n) return;
+        const list = [];
+        for (let i = 0; i < n; i++) {
+            const el = await els.at(i);
+            const cls = String(await el.getClassName() ?? '');
+            list.push({ el, cls, idx: idxOf(cls), fresh: !/(?:^|\s)(?:x-risu-)?nc-tts-s-/.test(cls) });
+        }
+        if (!force && !list.some(x => x.fresh)) return;
+        const w = await where();
+        const chaId = w.char?.chaId ?? '';
+        for (const { el, cls, idx } of list) {
+            const g = Number.isInteger(idx) ? stateOf(w, idx, chaId) : { sign: 'hide' };
+            const mark = 'nc-tts-s-' + g.sign + (g.text ? '-' + hash(g.text).slice(0, 6) : '');
+            if (!force && cls.split(/\s+/).includes(mark)) continue;
+            if (g.sign === 'hide') await el.setStyleAttribute(imp({ ...BTN_BASE, display: 'none' }));
+            else {
+                await el.setStyleAttribute(imp({ ...BTN_BASE, display: 'flex', ...LOOKS[g.look] }));
+                await el.setInnerHTML(esc(g.text));
+            }
+            await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-tts-s-/.test(c)).concat(mark).join(' '));
+            const re = await (await el.getParent())?.querySelector('.x-risu-nc-tts-re');
+            await re?.setStyleAttribute(imp({ ...RE_LOOK, display: g.re ? 'flex' : 'none' }));
+        }
+    }
+    function paintSoon(force = false) {
+        root.force ||= force;
+        if (root.timer) return;
+        root.timer = setTimeout(() => {
+            root.timer = 0;
+            const f = root.force;
+            root.force = false;
+            void rootQueue(() => paint(f));
+        }, 300);
+    }
+
+    async function slotAt(idx) {
+        const d = root.doc;
+        if (!d) return null;
+        const slots = await d.querySelectorAll('.x-risu-nc-tts-slot');
+        for (let i = 0, n = await slots.length(); i < n; i++) {
+            const el = await slots.at(i);
+            if (idxOf(String(await el.getClassName() ?? '')) === idx) return el;
+        }
+        return null;
+    }
+    async function showSlot(idx, html) {
+        const el = await slotAt(idx);
+        await el?.setInnerHTML(html);
+    }
+    async function play(idx, k) {
+        const data = await getAudio(k);
+        if (!data) { await dropAudio(k); throw new Error('보관한 소리를 찾지 못했습니다. 다시 눌러 새로 만들어 주세요.'); }
+        await rootQueue(async () => {
+            const d = root.doc;
+            if (!d) return;
+            const slots = await d.querySelectorAll('.x-risu-nc-tts-slot');
+            for (let i = 0, n = await slots.length(); i < n; i++) {
+                const el = await slots.at(i);
+                if (idxOf(String(await el.getClassName() ?? '')) !== idx && await el.querySelector('audio')) await el.setInnerHTML('');
+            }
+            await showSlot(idx, `<audio controls autoplay preload="auto" src="data:audio/wav;base64,${data}" style="${imp({ display: 'block', width: '100%', maxWidth: '440px', height: '36px' })}"></audio>`);
+        });
+    }
+
+    const taps = new Map();
+    function doubleTap(id) {
+        const now = Date.now(), last = taps.get(id) ?? 0;
+        taps.set(id, now);
+        if (taps.size > 50) taps.delete(taps.keys().next().value);
+        return now - last < 700;
+    }
+    async function onRootClick(event) {
+        const d = root.doc;
+        if (event.button !== 0 || !root.on || !d) return;
+        for (const [sel, act] of [['.x-risu-nc-tts-btn', 'go'], ['.x-risu-nc-tts-re', 're']]) {
+            const els = await d.querySelectorAll(sel);
+            for (let i = 0, n = await els.length(); i < n; i++) {
+                const el = await els.at(i);
+                const r = await el.getBoundingClientRect();
+                if (!(r?.width > 0) || !inRect(r, event)) continue;
+                const idx = idxOf(String(await el.getClassName() ?? ''));
+                if (Number.isInteger(idx)) await btnClick(idx, act);
+                return;
+            }
+        }
+    }
+    async function btnClick(idx, act) {
+        if (doubleTap(act + ':' + idx)) return;
+        try {
+            const w = await where();
+            const j = jobAt(w.ci, w.chi, idx);
+            if (j) {
+                if (j === busy) j.stop = true;
+                if (cast?.job === j) cast.cancel();
+                else jobs.splice(jobs.indexOf(j), 1);
+                paintSoon(true);
+                return;
+            }
+            if (!(await checkKey())) { paintSoon(true); host.ui.vtab = 'ready'; await host.openPanel({ mode: 'voice' }); return; }
+            await readAt(w, idx, act === 're');
+        } catch (error) {
+            console.error(LOG, 'click', error);
+        }
+    }
+    async function readAt(w, idx, re) {
+        const msg = msgOf(w, idx);
+        if (!msg) return;
+        const chaId = w.char?.chaId ?? '';
+        const k = keyOf(chaId, msg);
+        if (re) await dropAudio(k);
+        else if (cached.has(k)) {
+            try { await play(idx, k); return; } catch (error) { console.warn(LOG, 'play', error); }
+        }
+        failed.delete(k);
+        await rootQueue(() => showSlot(idx, ''));
+        const botNote = plain(w.char?.desc ?? '').slice(0, 1500);
+        enqueue({ ci: w.ci, chi: w.chi, idx, k, chaId, msg, botName: w.char?.name ?? '', botNote, stop: false, total: 0, done: 0, note: '' });
+    }
+
+    let listenOn = false;
+    async function onChatOutput(arg) {
+        try {
+            const idx = Number(arg?.messageIndex);
+            if (!st.set.auto || !root.on || !Number.isInteger(idx) || idx < 0) return;
+            const w = { ci: arg.characterIndex, chi: arg.chatIndex, char: arg.char, chat: arg.chat };
+            if (jobAt(w.ci, w.chi, idx) || keyKnown === false) return;
+            await readAt(w, idx, false);
+        } catch (error) {
+            console.error(LOG, 'auto', error);
+        }
+    }
+    async function syncListen() {
+        if (st.set.auto === listenOn) return;
+        try {
+            if (st.set.auto) await api.addRisuChatListener('output', onChatOutput);
+            else await api.removeRisuChatListener?.('output', onChatOutput);
+            listenOn = !!st.set.auto;
+        } catch (error) {
+            console.warn(LOG, 'chat listener', error);
+        }
+    }
+
+    async function startRoot() {
+        if (root.on) return;
+        const d = await rootDoc();
+        if (!d || root.on) return;
+        root.on = true;
+        root.clickId = await d.addEventListener('click', event => void onRootClick(event));
+        root.observer = await api.createMutationObserver(() => paintSoon(false));
+        const body = await d.querySelector('body');
+        if (body) await root.observer.observe(body, { childList: true, subtree: true });
+        await paint(true);
+    }
+    async function stopRoot() {
+        root.on = false;
+        clearTimeout(root.timer);
+        root.timer = 0;
+        try { await root.observer?.disconnect(); } catch {}
+        root.observer = null;
+        const d = root.doc;
+        if (d && root.clickId) {
+            try { await d.removeEventListener('click', root.clickId); } catch {}
+            root.clickId = '';
+        }
+        try {
+            const slots = await d?.querySelectorAll('.x-risu-nc-tts-slot');
+            for (let i = 0, n = await slots?.length() ?? 0; i < n; i++) await (await slots.at(i)).setInnerHTML('');
+        } catch {}
+    }
+
+    const FONT = '"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif';
+    const CSS = `
+.gt{--paper:#fff;--paper2:#f6f7f9;--paper3:#eceef2;--card:#fff;--hover:#f6f7f9;--line:#d5d9e0;--line2:#bfc5cf;--line3:#9aa1ad;--ink:#2b2f36;--muted:#6f7682;--accent:#1d74d0;--accent2:#1d5bc4;--accent-t:#1d5bc4;--soft:#e8f3ff;--bad:#d0453b;--bad-t:#d0453b;--good:#1f8a4c;--bad-soft:#fff7f6;--bad-ink:#8d2a22;--good-soft:#f3faf5;--good-ink:#17603a;--warn-line:#e6b4b0;--head:#23262d;--chip:#3a3e47;--chip-ink:#d6d9df;--me:#3d5afe;--me-ink:#fff;--log:#eef1f6;--veil:rgba(255,255,255,.75);--shim:#e8edff;--glow:rgba(61,90,254,.4);--ring:rgba(61,90,254,.18);--sh1:rgba(20,30,60,.06);--sh2:rgba(20,30,60,.45);--frame:#fff;--frame2:#ccc;--ease-out:cubic-bezier(.2,.8,.2,1);color-scheme:light;
+  position:relative;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;color:var(--ink);font-family:${FONT};word-break:keep-all;overflow-wrap:anywhere;background:var(--paper)}
+.gt *{box-sizing:border-box}
+.gt button{font:inherit;color:inherit;cursor:pointer}
+.gt h2,.gt h3,.gt p{margin:0}
+.gt button:focus-visible,.gt input:focus-visible,.gt select:focus-visible,.gt textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gt .gt-x{flex:none;display:grid;place-items:center;width:30px;height:30px;padding:0;font-size:1.15rem;line-height:1;color:#fff;background:#d0453b;border:1px solid #e0675e;transition:background .15s}
+.gt .gt-x:hover{background:#b3362d}
+.gt .gt-x.sm{width:22px;height:22px;font-size:.9rem}
+.gt-pane{min-width:0;padding:18px}
+.gt-pane.talk{padding:0}
+.gt-pane.anim>*{animation:gt-rise .5s var(--ease-out) backwards}
+.gt-pane.anim>:nth-child(2){animation-delay:.05s}
+.gt-pane.anim>:nth-child(3){animation-delay:.1s}
+.gt-pane.anim>:nth-child(4){animation-delay:.15s}
+.gt-pane.anim>:nth-child(n+5){animation-delay:.2s}
+@keyframes gt-rise{from{opacity:0;transform:translateY(10px)}}
+.gt-hint{font-size:.76rem;color:var(--muted)}
+.gt .gt-intro{margin:0 0 22px;padding:8px 13px;font-size:.8rem;line-height:1.55;color:var(--ink);background:var(--paper2);border-left:3px solid var(--line2)}
+.gt-intro b{margin-right:6px}
+.gt-acts{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}
+.gt-b{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:5px 14px;font-size:.84rem;line-height:1.4;color:var(--ink);background:var(--card);border:1px solid var(--line2);white-space:nowrap;transition:background .15s,border-color .15s,box-shadow .15s}
+.gt-b:hover:not(:disabled){background:var(--hover);border-color:var(--line3)}
+.gt-b:disabled{opacity:.45;cursor:not-allowed}
+.gt-b.main{color:#fff;font-weight:700;background:var(--accent);border-color:var(--accent2)}
+.gt-b.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
+.gt-b.sm{min-height:28px;padding:3px 10px;font-size:.78rem}
+.gt-b.warn{color:var(--bad-t);border-color:var(--warn-line)}
+.gt-b.warn:hover:not(:disabled){background:var(--bad-soft);border-color:var(--bad)}
+.gt-b.ghost{color:var(--muted);background:transparent;border-color:transparent}
+.gt-b.ghost:hover:not(:disabled){color:var(--ink);background:var(--paper2);border-color:var(--line)}
+.gt-msg{margin:10px 0 0;padding:8px 12px;font-size:.8rem;white-space:pre-wrap;word-break:break-word;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent)}
+.gt-msg.err{color:var(--bad-ink);border-left-color:var(--bad);background:var(--bad-soft)}
+.gt-msg.ok{color:var(--good-ink);border-left-color:var(--good);background:var(--good-soft)}
+.gt-msg audio{display:block;width:100%;margin-top:6px}
+.gt.gt-pvon{margin-bottom:110px}
+.gt-pv{position:fixed;z-index:5;left:50%;bottom:12px;transform:translateX(-50%);box-sizing:border-box;width:min(748px,calc(100vw - 32px));padding:8px 12px 10px;font-size:.8rem;background:var(--card);border:1px solid var(--line2);border-left:4px solid var(--accent);box-shadow:0 10px 30px -10px var(--sh2)}
+.gt-pv-t{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.gt-pv-t b{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.gt-pv audio{display:block;width:100%;margin-top:6px}
+.gt-pv .gt-hint{margin-top:6px;min-height:54px;display:flex;align-items:center}
+.gt-empty{padding:28px 16px;text-align:center;font-size:.86rem;color:var(--muted);background:var(--paper2);border:1px dashed var(--line2)}
+.gt-empty b{display:block;margin-bottom:6px;font-size:1.05rem;color:var(--ink)}
+.vf-grp{margin-top:22px}
+.vf-grp:first-child{margin-top:0}
+.vf-grp>h2{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding-left:2px;font-size:1rem;font-weight:700;color:var(--ink)}
+.vf-grp>h2 small{font-weight:400;font-size:.74rem;color:var(--muted)}
+.vf-grp>h2::before{content:"";flex:none;width:7px;height:7px;background:var(--accent);transform:rotate(45deg)}
+.vf-card{background:var(--card);border:1px solid var(--line)}
+.vf-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:13px 14px;border-top:1px solid var(--line)}
+.vf-row:first-child{border-top:0}
+.vf-row.col{flex-direction:column;align-items:stretch}
+.vf-tx{display:block;flex:1 1 250px;min-width:0}
+.vf-row.col .vf-tx{flex:none}
+.vf-tx>b{display:block;font-size:.9rem;line-height:1.4}
+.vf-tx p{margin:3px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)}
+.vf-ta{width:100%;min-height:60px;padding:8px 10px;font:inherit;font-size:.82rem;line-height:1.6;color:var(--ink);background:var(--card);border:1px solid var(--line2);resize:vertical}
+.vf-ta:focus,.vf-num:focus,.vf-in:focus{outline:none;border-color:var(--accent)}
+.vf-num{width:90px;min-height:34px;padding:5px 8px;font:inherit;font-size:.82rem;text-align:right;color:var(--ink);background:var(--card);border:1px solid var(--line2)}
+.vf-in{flex:1 1 220px;min-width:0;min-height:36px;padding:5px 9px;font:inherit;font-size:.84rem;color:var(--ink);background:var(--card);border:1px solid var(--line2)}
+.vf-unit{display:inline-flex;align-items:center;gap:6px;font-size:.8rem;color:var(--muted)}
+.vf-seg{flex:none;display:inline-flex;flex-wrap:wrap;max-width:100%;border:1px solid var(--line2)}
+.vf-row.col>.vf-seg{align-self:flex-start}
+.vf-seg button{flex:1 1 auto;min-height:36px;padding:0 13px;font-size:.82rem;color:var(--ink);background:var(--card);border:0;border-left:1px solid var(--line2);white-space:nowrap}
+.vf-seg button:first-child{border-left:0}
+.vf-seg button:hover:not(:disabled):not(.sel){color:var(--accent-t);background:var(--soft)}
+.vf-seg button.sel{font-weight:700;color:#fff;background:var(--accent)}
+.vf-seg.sm button{min-height:32px;padding:0 10px}
+.gt-who{flex:0 0 7em;min-width:0;font-size:.9rem;font-weight:700}
+.gt-who small{display:block;margin-top:2px;font-size:.72rem;font-weight:400;color:var(--muted);overflow-wrap:anywhere}
+.gt-vs{flex:0 1 150px}
+.vf-row .gt-st{flex:1 1 100%}
+.gt-pk{flex:1 1 100%;display:flex;flex-direction:column;gap:8px;padding:10px;background:var(--paper2);border:1px solid var(--line)}
+.gt-pk-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.gt-pk-list{max-height:340px;overflow-y:auto;background:var(--card);border:1px solid var(--line)}
+.gt-pk-cat>b{position:sticky;top:0;display:block;padding:5px 10px;font-size:.76rem;color:var(--accent-t);background:var(--soft);border-bottom:1px solid var(--line)}
+.gt-pk-it{display:flex;align-items:center;gap:8px;padding:4px 8px 4px 0;border-bottom:1px solid var(--paper3)}
+.gt .gt-pk-pick{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;align-items:flex-start;padding:4px 10px;text-align:left;background:transparent;border:0}
+.gt .gt-pk-pick:hover{background:var(--soft)}
+.gt-pk-nm{font-size:.84rem;font-weight:700}
+.gt-pk-nm small{font-weight:400;font-size:.72rem;color:var(--muted)}
+.gt-pk-ds{font-size:.72rem;line-height:1.45;color:var(--muted)}
+.gt-pk-none{padding:14px}
+.gt-pk-load{display:flex;flex-direction:column;gap:5px}
+.gt-pk-load-t{display:flex;justify-content:space-between;gap:8px;font-size:.76rem;color:var(--muted)}
+.gt-pk-load-t b{color:var(--accent-t);font-variant-numeric:tabular-nums}
+.gt-pk-load-tr{position:relative;height:6px;overflow:hidden;background:var(--paper3)}
+.gt-pk-load-tr i{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);transition:width .3s var(--ease-out)}
+.gt-pk-load-tr.wait i{width:30%;animation:gt-wait 1.1s ease-in-out infinite alternate}
+@keyframes gt-wait{from{left:0}to{left:70%}}
+@media (prefers-reduced-motion:reduce){.gt-pk-load-tr i{transition:none}.gt-pk-load-tr.wait i{animation:none;width:100%;opacity:.35}}
+.tk{display:grid;grid-template-columns:232px minmax(0,1fr);height:min(calc(100vh - 220px),660px);min-height:400px;background:var(--paper)}
+.tk-list{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--paper2);border-right:1px solid var(--line)}
+.tk-list-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:15px 14px 8px;font-size:.92rem}
+.tk-list-h small{font-size:.72rem;color:var(--muted)}
+.tk-people{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 6px 8px;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.gt .tk-who{display:flex;align-items:center;gap:10px;width:100%;padding:9px 8px;text-align:left;background:transparent;border:0;border-left:3px solid transparent;transition:background .15s,box-shadow .15s}
+.gt .tk-who:hover{background:var(--paper3)}
+.gt .tk-who.on{background:var(--card);border-left-color:var(--accent);box-shadow:0 8px 18px -14px var(--sh2)}
+.tk-who-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+.tk-who-t b{display:block;overflow:hidden;font-size:.86rem;white-space:nowrap;text-overflow:ellipsis}
+.tk-who-t em{display:inline-block;margin-left:5px;padding:0 5px;vertical-align:1px;font-style:normal;font-size:.62rem;font-weight:700;color:#fff;background:var(--accent)}
+.tk-who-t small{overflow:hidden;font-size:.72rem;color:var(--muted);white-space:nowrap;text-overflow:ellipsis}
+.tk-who time{flex:none;align-self:flex-start;margin-top:3px;font-size:.64rem;color:var(--muted)}
+.tk-list-f{display:flex;flex-direction:column;gap:6px;padding:10px;border-top:1px solid var(--line)}
+.tk-list-f>*{min-width:0}
+.tk-list-f .vf-in{flex:none;min-height:32px;font-size:.78rem;background:var(--card)}
+.tk-list-f>.gt-b{width:100%}
+.tk-list-f .gt-msg{margin:0;font-size:.72rem}
+.tk-av{flex:none;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;font-size:.86rem;font-weight:700;line-height:1;color:#fff;background:linear-gradient(140deg,hsl(var(--h) 52% 62%),hsl(calc(var(--h) + 36) 48% 46%));box-shadow:0 0 0 2px var(--card),0 5px 12px -6px hsl(var(--h) 45% 35% / .7);text-shadow:0 1px 1px rgba(0,0,0,.18)}
+.tk-av.lg{width:42px;height:42px;font-size:1.02rem}
+.tk-av.xl{width:76px;height:76px;font-size:1.8rem;box-shadow:0 0 0 4px var(--card),0 14px 30px -14px hsl(var(--h) 45% 35% / .8)}
+.tk-av.gap{visibility:hidden}
+.tk-room{display:flex;flex-direction:column;min-width:0;min-height:0}
+.tk-top{flex:none;display:flex;align-items:center;gap:11px;padding:10px 14px;background:var(--paper);border-bottom:1px solid var(--line)}
+.tk-top-t{flex:1 1 auto;min-width:0;display:flex;flex-direction:column}
+.tk-top-t b{overflow:hidden;font-size:1rem;white-space:nowrap;text-overflow:ellipsis}
+.tk-top-t small{overflow:hidden;font-size:.72rem;color:var(--muted);white-space:nowrap;text-overflow:ellipsis}
+.gt .tk-ic{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;font-size:1rem;background:var(--card);border:1px solid var(--line2);transition:background .15s,border-color .15s}
+.gt .tk-ic.on{background:var(--soft);border-color:var(--accent)}
+.gt .tk-ic:hover{border-color:var(--accent)}
+.tk-log{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:3px;padding:16px 16px 12px;background:var(--log);scrollbar-width:thin;scrollbar-color:var(--line2) transparent}
+.tk-hello{margin:auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 16px;text-align:center}
+.tk-hello b{margin-top:8px;font-size:1.12rem}
+.tk-hello p{font-size:.88rem}
+.tk-hello small{max-width:300px;font-size:.72rem;line-height:1.55;color:var(--muted)}
+.tk-day{display:flex;align-items:center;gap:10px;margin:14px 0 4px;font-size:.7rem;color:var(--muted)}
+.tk-day::before,.tk-day::after{content:"";flex:1 1 0;height:1px;background:linear-gradient(90deg,transparent,var(--line2),transparent)}
+.tk-day span{padding:2px 10px;background:var(--veil)}
+.tk-line{display:flex;align-items:flex-start;gap:8px;min-width:0}
+.tk-line.first{margin-top:10px}
+.tk-line.me{justify-content:flex-end}
+.tk-log>.tk-line:last-child{animation:tk-in .34s var(--ease-out) backwards}
+@keyframes tk-in{from{opacity:0;transform:translateY(8px)}}
+.tk-col{display:flex;flex-direction:column;align-items:flex-start;min-width:0;max-width:min(78%,520px)}
+.tk-line.me .tk-row{max-width:min(78%,520px)}
+.tk-from{margin:0 0 3px 2px;font-size:.74rem;font-weight:600;color:var(--muted)}
+.tk-row{display:flex;align-items:flex-end;gap:6px;min-width:0}
+.tk-bub{position:relative;min-width:0;padding:9px 13px;font-size:.9rem;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.tk-bub.them{background:var(--card);box-shadow:0 1px 0 var(--sh1),0 10px 20px -16px var(--sh2);transition:box-shadow .2s}
+.tk-bub.me{color:var(--me-ink);background:var(--me);box-shadow:0 10px 20px -16px var(--glow)}
+.tk-line.first .tk-bub::before{content:"";position:absolute;top:0;width:9px;height:11px}
+.tk-line.them.first .tk-bub::before{left:-8px;background:var(--card);clip-path:polygon(0 0,100% 0,100% 100%)}
+.tk-line.me.first .tk-bub::before{right:-8px;background:var(--me);clip-path:polygon(0 0,100% 0,0 100%)}
+.tk-bub.them.on{box-shadow:0 0 0 2px var(--accent),0 0 18px -2px var(--glow);animation:tk-glow 1.8s ease-in-out infinite}
+@keyframes tk-glow{50%{box-shadow:0 0 0 2px var(--accent),0 0 26px 2px var(--glow)}}
+.tk-bub.them.wait{background:linear-gradient(100deg,var(--card) 30%,var(--shim) 50%,var(--card) 70%) 0 0/250% 100%;animation:tk-shim 1.3s linear infinite}
+@keyframes tk-shim{to{background-position:-250% 0}}
+.tk-bub.dots{display:inline-flex;align-items:center;gap:5px;padding:14px 15px}
+.tk-bub.dots i{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:tk-dot 1.2s ease-in-out infinite}
+.tk-bub.dots i:nth-child(2){animation-delay:.16s}
+.tk-bub.dots i:nth-child(3){animation-delay:.32s}
+@keyframes tk-dot{0%,80%,100%{opacity:.3;transform:none}40%{opacity:1;transform:translateY(-3px)}}
+.tk-meta{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:4px;font-size:.64rem;color:var(--muted);white-space:nowrap}
+.tk-line.me .tk-meta{align-items:flex-end}
+.gt .tk-play{display:grid;place-items:center;width:24px;height:24px;padding:0;color:var(--accent-t);background:var(--card);border:1px solid var(--line2);border-radius:50%;transition:border-color .15s,color .15s}
+.gt .tk-play:hover{color:var(--accent-t);border-color:var(--accent)}
+.tk-play::before{content:"";width:8px;height:9px;margin-left:2px;background:currentColor;clip-path:polygon(0 0,100% 50%,0 100%)}
+.tk-bub.on+.tk-meta .tk-play{color:#fff;background:var(--accent);border-color:var(--accent)}
+.tk-bub.on+.tk-meta .tk-play::before{width:8px;height:8px;margin:0;clip-path:none}
+.tk-bub.wait+.tk-meta .tk-play::before{width:11px;height:11px;margin:0;background:none;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;clip-path:none;animation:tk-spin .8s linear infinite}
+@keyframes tk-spin{to{transform:rotate(360deg)}}
+.tk-retry{display:flex;justify-content:flex-end;margin-top:6px}
+.tk-note{align-self:center;max-width:90%;margin-top:10px;padding:7px 12px;font-size:.76rem;line-height:1.5;color:var(--bad-ink);background:var(--bad-soft);border-left:3px solid var(--bad)}
+.tk-in{flex:none;display:flex;align-items:flex-end;gap:8px;padding:10px 12px;background:var(--paper);border-top:1px solid var(--line)}
+.gt .tk-ta{flex:1 1 auto;min-width:0;min-height:42px;max-height:132px;padding:10px 12px;font:inherit;font-size:.9rem;line-height:1.5;color:var(--ink);background:var(--card);border:1px solid var(--line2);resize:none;overflow-y:auto;transition:border-color .15s,box-shadow .15s}
+.gt .tk-ta:focus,.gt .tk-ta:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.gt .tk-send{flex:none;display:grid;place-items:center;width:42px;height:42px;padding:0;font-size:1.15rem;font-weight:700;color:#fff;background:var(--accent);border:0;border-radius:50%;box-shadow:0 10px 18px -10px var(--glow);transition:transform .15s,opacity .15s}
+.gt .tk-send:hover:not(:disabled){transform:translateY(-2px)}
+.gt .tk-send:disabled{opacity:.4;cursor:not-allowed}
+.vu-steps{display:flex;flex-direction:column;gap:12px}
+.vu-step{display:flex;flex-direction:column;min-width:0;background:var(--card);border:1px solid var(--line)}
+.vu-cap{display:flex;align-items:flex-start;gap:9px;min-height:54px;padding:10px 11px;font-size:.8rem;line-height:1.45}
+.vu-cap b{color:var(--ink)}
+.vu-cap small{display:block;margin-top:2px;font-size:.7rem;color:var(--muted)}
+.vu-n{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;font-size:.78rem;font-weight:800;color:#1b1b1b;background:#fbbf24}
+.vu-fig{position:relative;flex:1 1 auto;display:flex;min-height:190px;overflow:hidden;color:#e6e7ee;background:#1f2029;font-size:.72rem;line-height:1.3}
+.vu-hit{position:relative;display:inline-flex;outline:2px solid #fbbf24;outline-offset:3px;animation:vu-ring 1.4s ease-in-out infinite}
+@keyframes vu-ring{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.55)}50%{box-shadow:0 0 0 9px rgba(251,191,36,0)}}
+.vu-cur{position:absolute;right:-15px;bottom:-19px;z-index:2;width:20px;height:20px;pointer-events:none}
+.vu-cur svg{width:100%;height:100%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.vu-after{margin-top:14px;padding:11px 14px;font-size:.78rem;line-height:1.55;background:var(--paper2);border-left:3px solid #fbbf24}
+.vu-after ul{margin:5px 0 0;padding-left:18px}
+.vu-after li+li{margin-top:3px}
+.vu-link{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0}
+.vu-link .vf-in{font-size:.76rem;color:var(--muted)}
+.vg{position:relative;flex:1 1 auto;display:flex;flex-direction:column;min-width:0;color:#202124;background:#fff;font-size:.72rem;line-height:1.4}
+.vg-top{flex:none;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;background:#fff;border-bottom:1px solid #dadce0}
+.vg-ham{display:inline-flex;flex-direction:column;justify-content:center;gap:2px;width:14px;height:14px}
+.vg-ham i{display:block;height:2px;background:#5f6368}
+.vg-brand{font-size:.8rem;font-weight:700;color:#5f6368;white-space:nowrap}
+.vg-pill{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;white-space:nowrap;color:#3c4043;border:1px solid #dadce0}
+.vg-srch{flex:1 1 auto;height:20px;min-width:30px;background:#f1f3f4}
+.vg-main{flex:1 1 auto;display:flex;min-height:0}
+.vg-nav{flex:none;display:flex;flex-direction:column;gap:2px;width:118px;padding:8px 0;background:#fff;border-right:1px solid #dadce0}
+.vg-nav span{padding:3px 10px;color:#5f6368;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vg-nav span.on{font-weight:700;color:#1967d2;background:#e8f0fe}
+.vg-body{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;min-width:0;padding:10px 14px}
+.vg-h{font-size:.92rem;font-weight:700;color:#202124}
+.vg-sub{color:#5f6368}
+.vg-crumb{color:#1a73e8;font-weight:600}
+.vg-blue,.vg-line,.vg-txt{display:inline-flex;align-items:center;justify-content:center;gap:4px;min-height:22px;padding:2px 10px;font-weight:600;white-space:nowrap}
+.vg-blue{color:#fff;background:#1a73e8}
+.vg-line{color:#1a73e8;background:#fff;border:1px solid #dadce0}
+.vg-txt{color:#1a73e8}
+.vg-acts{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.vg-tabs{display:flex;gap:14px;border-bottom:1px solid #dadce0}
+.vg-tabs span{padding:3px 0;color:#5f6368}
+.vg-tabs span.on{font-weight:700;color:#1a73e8;box-shadow:inset 0 -2px 0 #1a73e8}
+.vg-fld{display:flex;flex-direction:column;gap:2px}
+.vg-fld>small{font-size:.64rem;color:#5f6368}
+.vg-box{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:22px;padding:2px 8px;color:#202124;border:1px solid #80868b}
+.vg-note{font-size:.64rem;color:#5f6368}
+.vg-note em{font-style:normal;font-weight:700;color:#1a73e8}
+.vg-warn{padding:5px 8px;color:#3c4043;background:#fef7e0;border-left:3px solid #f9ab00}
+.vg-dim{flex:1 1 auto;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(32,33,36,.5)}
+.vg-dlg{display:flex;flex-direction:column;gap:7px;width:100%;max-width:420px;padding:10px 12px;color:#202124;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.vg-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.vg-tbl{display:grid;grid-template-columns:2fr 1fr 1.4fr;border-top:1px solid #dadce0}
+.vg-tbl span{padding:3px 4px;border-bottom:1px solid #dadce0}
+.vg-tbl .th{font-weight:700;color:#5f6368}
+.vg-tbl i{display:block;height:7px;margin:2px 0;background:#e8eaed}
+.vg-hex{flex:none;width:30px;height:30px;background:#1a73e8;clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.vg-api{display:flex;align-items:center;gap:10px}
+.vg-menu{display:flex;flex-direction:column;align-self:flex-start;min-width:120px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.vg-menu span{padding:4px 10px}
+.vg-rad{display:flex;gap:14px}
+.vg-rad b{font-weight:600}
+.vg-tag{position:absolute;right:0;bottom:0;z-index:3;padding:1px 7px;font-size:.62rem;font-weight:700;color:#5f6368;background:#f1f3f4;border-top:1px solid #dadce0;border-left:1px solid #dadce0}
+.rs{flex:1 1 auto;display:flex;flex-direction:column;justify-content:flex-end;gap:9px;padding:14px 12px;background:#1f2029}
+.rs-msg{display:block;height:9px;background:#34364a}
+.rs-msg.me{align-self:flex-end;width:55%;background:#2d3c63}
+.rs-pop{display:flex;flex-direction:column;align-self:flex-start;gap:1px;min-width:150px;padding:4px;background:#282a36;border:1px solid #44475a}
+.rs-pop span{padding:4px 8px;color:#b7b9c8}
+.rs-pop .vu-hit{color:#fff;font-weight:700}
+.rs-bar{display:flex;align-items:center;gap:8px}
+.rs-ham{display:inline-flex;align-items:center;justify-content:center;width:30px;height:26px;font-size:1rem;color:#fff;background:#44475a}
+.rs-in{flex:1 1 auto;height:26px;background:#2a2c3a;border:1px solid #44475a}
+.rs-pane{flex:1 1 auto;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(0,0,0,.62)}
+.rs-card{width:100%;max-width:400px;color:#2b2f36;background:#fff;border:1px solid #bfc5cf}
+.rs-hd{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;font-weight:700;color:#fff;background:#23262d}
+.rs-hd i{display:inline-block;width:14px;height:14px;background:#d0453b}
+.rs-tabs{display:flex;gap:12px;padding:0 10px;overflow:hidden;background:#f6f7f9;border-bottom:1px solid #d5d9e0}
+.rs-tabs span{flex:none;padding:4px 0;color:#6f7682;white-space:nowrap}
+.rs-tabs span.on{font-weight:700;color:#2a3fc4;box-shadow:inset 0 -2px 0 #3d5afe}
+.rs-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px}
+.rs-row b{font-size:.78rem}
+.rs-btn{display:inline-flex;align-items:center;padding:3px 10px;font-weight:700;color:#fff;background:#3d5afe}
+.rs-btn.l{color:#2b2f36;font-weight:400;background:#fff;border:1px solid #bfc5cf}
+@media (max-width:600px){
+  .gt-pane{padding:12px}
+  .vg-nav{width:84px}
+  .gt-who{flex:1 1 100%}
+  .tk{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);height:calc(100vh - 190px);min-height:440px}
+  .tk-list{border-right:0;border-bottom:1px solid var(--line)}
+  .tk-list-h{display:none}
+  .tk-people{display:flex;gap:2px;overflow-x:auto;overflow-y:hidden;padding:8px 6px 4px}
+  .gt .tk-who{flex:none;flex-direction:column;gap:4px;width:66px;padding:6px 2px 5px;text-align:center;border-left:0;border-bottom:3px solid transparent}
+  .gt .tk-who.on{border-bottom-color:var(--accent)}
+  .tk-who-t b{font-size:.72rem}
+  .tk-who-t em,.tk-who-t small,.tk-who time{display:none}
+  .tk-list-f{flex-direction:row;flex-wrap:wrap;padding:6px 8px 8px;border-top:0}
+  .tk-list-f .vf-in{flex:1 1 140px}
+  .tk-list-f>.gt-b{width:auto}
+  .tk-list-f .gt-msg,.tk-list-f .gt-pk-load{flex:1 1 100%}
+  .tk-log{padding:12px 10px 10px}
+  .tk-col,.tk-line.me .tk-row{max-width:86%}
+}
+@media (prefers-reduced-motion:reduce){
+  .gt *,.gt *::before{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition:none !important}
+}
+`;
+    function h(tagName, props, ...children) {
+        const el = doc.createElement(tagName);
+        for (const [key, value] of Object.entries(props ?? {})) {
+            if (value == null || value === false) continue;
+            if (key === 'class') el.className = value;
+            else if (key === 'style') el.style.cssText = value;
+            else if (key.startsWith('on')) el.addEventListener(key.slice(2), value);
+            else if (key === 'disabled' || key === 'checked' || key === 'selected' || key === 'readOnly') el[key] = true;
+            else if (key === 'value') el.value = String(value);
+            else el.setAttribute(key, String(value));
+        }
+        for (const child of children.flat(Infinity)) {
+            if (child == null || child === false || child === '') continue;
+            el.append(typeof child === 'object' ? child : String(child));
+        }
+        return el;
+    }
+    const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, dup: false,
+        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voice: null, voicing: '', playing: '', confirm: null, add: '' } };
+    castChanged = () => render();
+    const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
+    const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
+    function voiceSelect(value, onchange) {
+        return h('select', { class: 'vf-in gt-vs', onchange: e => onchange(e.target.value) },
+            isLib(value) ? h('optgroup', { label: '라이브러리 (3.8)' }, h('option', { value, selected: true }, voiceLabel(value))) : null,
+            h('optgroup', { label: '여성' }, FEMALE.map(v => h('option', { value: v, selected: v === value }, v))),
+            h('optgroup', { label: '남성' }, MALE.map(v => h('option', { value: v, selected: v === value }, v))));
+    }
+    function voiceField(key, value, onchange) {
+        const open = ui.pick?.key === key;
+        return [voiceSelect(value, onchange),
+            h('button', { class: open ? 'gt-b sm main' : 'gt-b sm', type: 'button', 'aria-expanded': String(open), onclick: () => openPick(key, value, onchange) }, '라이브러리')];
+    }
+    function openPick(key, value, onchange) {
+        if (ui.pick?.key === key) { ui.pick = null; render(); return; }
+        const lang = isLib(value) ? value.slice(0, 2) : /^ja/i.test(st.set.lang) ? 'ja' : 'ko';
+        ui.pick = { key, onchange, lang, gender: '', accent: '', q: '' };
+        render();
+        if (!lib.busy && (!lib.voices || Date.now() - lib.at >= LIB_TTL)) void reloadLib(false);
+    }
+    async function reloadLib(force) {
+        const p = fetchLib(force, () => { const el = doc.querySelector('.gt-pk-load:not(.gt-cast-load)'); if (el) paintLoad(el); else render(); });
+        render();
+        await p;
+        render();
+    }
+    function pickItems() {
+        const p = ui.pick;
+        const q = p.q.trim().toLowerCase();
+        const hits = (lib.voices ?? []).filter(v => v.lang === p.lang && (!p.gender || v.gender === p.gender) && (!p.accent || v.accent === p.accent)
+            && (!q || [v.name, v.cat, v.role, v.desc, v.id, accentKo(v.accent)].join(' ').toLowerCase().includes(q)));
+        if (!hits.length) return [h('div', { class: 'gt-hint gt-pk-none' }, lib.voices ? '맞는 목소리가 없습니다.'
+            : lib.busy ? '목록을 받으면 여기에 보입니다. 처음 한 번만 기다리면 되고, 그 뒤 하루 동안은 바로 열립니다.' : '목록이 아직 없습니다.')];
+        const cats = [...new Set(hits.map(v => v.cat))].sort();
+        const sex = { male: '남', female: '여', neutral: '중성' };
+        return cats.map(c => h('div', { class: 'gt-pk-cat' }, h('b', null, `${c || '기타'} · ${hits.filter(v => v.cat === c).length}`),
+            hits.filter(v => v.cat === c).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(v => h('div', { class: 'gt-pk-it' },
+                h('button', { class: 'gt-pk-pick', type: 'button', title: v.id, onclick: () => { const fn = p.onchange; ui.pick = null; fn(v.id); render(); } },
+                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
+                    h('span', { class: 'gt-pk-ds' }, v.desc)),
+                h('button', { class: 'gt-b sm', type: 'button', title: '미리 듣기', disabled: ui.preview?.busy, onclick: () => void preview(v.id, '') }, '▶')))));
+    }
+    function libLoad() {
+        const el = h('div', { class: 'gt-pk-load', role: 'progressbar', 'aria-label': '목소리 목록 받기', 'aria-valuemin': '0', 'aria-valuemax': '100' },
+            h('div', { class: 'gt-pk-load-t' }, h('span'), h('b')),
+            h('div', { class: 'gt-pk-load-tr' }, h('i')));
+        paintLoad(el);
+        return el;
+    }
+    function paintLoad(el) {
+        const pct = lib.page ? Math.min(95, Math.round(lib.page / Math.max(lib.pages, 1) * 100)) : 0;
+        const [text, num] = el.firstChild.children;
+        text.textContent = lib.page ? `목소리 목록을 받는 중입니다 · ${lib.page} / 약 ${lib.pages}쪽` : '구글에 연결하는 중입니다';
+        num.textContent = lib.page ? pct + '%' : '';
+        el.lastChild.classList.toggle('wait', !lib.page);
+        el.lastChild.firstChild.style.width = lib.page ? pct + '%' : '';
+        if (lib.page) el.setAttribute('aria-valuenow', String(pct)); else el.removeAttribute('aria-valuenow');
+    }
+    function castLoad(run) {
+        const el = h('div', { class: 'gt-pk-load gt-cast-load', role: 'progressbar', 'aria-label': '등장인물 분석', 'aria-valuemin': '0', 'aria-valuemax': '100' },
+            h('div', { class: 'gt-pk-load-t' }, h('span'), h('b')),
+            h('div', { class: 'gt-pk-load-tr' }, h('i')));
+        paintCast(el, run);
+        const id = setInterval(() => { if (!el.isConnected || cast !== run) clearInterval(id); else paintCast(el, run); }, 500);
+        return el;
+    }
+    function paintCast(el, run) {
+        if (!run) return;
+        const t = Date.now() - run.at;
+        const pct = [5, 5 + Math.round(25 * Math.min(1, lib.page / Math.max(lib.pages, 1))), Math.min(90, 30 + Math.round(60 * t / 30000)), 95][run.stage];
+        const text = ['로어북을 읽는 중입니다', `목소리 목록을 받는 중입니다 · ${lib.page} / 약 ${lib.pages}쪽`, `모델이 인물을 정리하는 중입니다 · ${Math.floor(t / 1000)}초`, '목소리 표에 적는 중입니다'][run.stage];
+        const [a, b] = el.firstChild.children;
+        a.textContent = text;
+        b.textContent = pct + '%';
+        el.lastChild.firstChild.style.width = pct + '%';
+        el.setAttribute('aria-valuenow', String(pct));
+    }
+    async function castClick() {
+        if (cast) {
+            cast.cancel();
+            cast = null;
+            ui.msg = '등장인물 분석을 멈췄습니다.';
+            ui.ok = true;
+            render();
+            return;
+        }
+        try {
+            const w = await where();
+            if (!w.char?.chaId || w.char.chaId !== ui.view?.chaId) throw new Error('창을 연 뒤 다른 봇으로 바뀌었습니다. 창을 닫고 다시 열어 주세요.');
+            ui.msg = '';
+            const n = await analyzeCast(w, () => { const el = doc.querySelector('.gt-cast-load'); if (el) paintCast(el, cast); else render(); });
+            ui.msg = `인물 ${n}명을 읽었습니다. 목소리 · 지시문을 확인해 보세요.`;
+            ui.ok = true;
+        } catch (error) {
+            if (!error?.stop) { ui.msg = String(error?.message ?? error); ui.ok = false; }
+        }
+        render();
+    }
+    function pickPanel() {
+        const p = ui.pick;
+        const list = h('div', { class: 'gt-pk-list' }, pickItems());
+        const set = (k, val) => { p[k] = val; if (k === 'lang') p.accent = ''; render(); };
+        const accents = [...new Set((lib.voices ?? []).filter(v => v.lang === p.lang).map(v => v.accent))].sort();
+        const stat = lib.busy ? '' : lib.voices ? `한국어 · 일본어 ${lib.voices.length}개 · ${new Date(lib.at).toLocaleString()}에 받음` : '';
+        return h('div', { class: 'gt-pk' },
+            h('div', { class: 'gt-pk-bar' },
+                seg([['ko', '한국어'], ['ja', '일본어']], p.lang, id => set('lang', id), 'sm'),
+                seg([['', '전체'], ['female', '여'], ['male', '남']], p.gender, id => set('gender', id), 'sm'),
+                accents.length ? seg([['', '모든 억양'], ...accents.map(a => [a, accentKo(a)])], p.accent, id => set('accent', id), 'sm') : null),
+            h('div', { class: 'gt-pk-bar' },
+                h('input', { class: 'vf-in', type: 'search', placeholder: '이름 · 용도 · 설명으로 찾기 (예: Narrator, Support, 20-year-old)', value: p.q,
+                    oninput: e => { p.q = e.target.value; list.replaceChildren(...pickItems()); } }),
+                h('button', { class: 'gt-b sm', type: 'button', disabled: lib.busy, onclick: () => void reloadLib(true) }, '목록 새로 고침')),
+            lib.err ? h('p', { class: 'gt-msg err' }, lib.err) : null,
+            lib.busy ? libLoad() : null,
+            stat ? h('div', { class: 'gt-hint' }, stat + '. 라이브러리 목소리는 3.8 Flash 로 만들고, 기존 목소리와 한 요청에 섞지 않습니다.') : null,
+            list);
+    }
+    function seg(items, value, onpick, extra) {
+        return h('div', { class: 'vf-seg' + (extra ? ' ' + extra : ''), role: 'group' },
+            items.map(([id, label]) => h('button', { type: 'button', class: id === value ? 'sel' : null, 'aria-pressed': String(id === value), onclick: () => onpick(id) }, label)));
+    }
+    function row(title, desc, ...controls) {
+        return h('div', { class: 'vf-row' }, h('div', { class: 'vf-tx' }, h('b', null, title), desc ? h('p', null, desc) : null), controls);
+    }
+    function group(title, sub, ...rows) {
+        return h('section', { class: 'vf-grp' }, h('h2', null, title, sub ? h('small', null, sub) : null), h('div', { class: 'vf-card' }, rows));
+    }
+    async function preview(voice, prompt) {
+        ui.preview = { voice, busy: true, src: '' };
+        render();
+        try {
+            const text = /^ja-/.test(voice) ? 'こんにちは。この声で物語を読み上げますね。' : '안녕하세요. 이 목소리로 이야기를 읽어 드릴게요.';
+            const pcm = await synth({ voice, text, prompt, turns: [] });
+            ui.preview = { voice, busy: false, src: 'data:audio/wav;base64,' + b64(wavOf([pcm])) };
+            ui.msg = '';
+        } catch (error) {
+            ui.preview = null;
+            ui.msg = String(error?.message ?? error);
+            ui.ok = false;
+        }
+        render();
+    }
+    async function refreshView() {
+        try {
+            const w = await where();
+            const chaId = w.char?.chaId;
+            ui.view = chaId ? { chaId, ci: w.ci, name: w.char.name ?? '', bot: await botOf(chaId), talk: await talkOf(chaId), user: await userName() } : null;
+        } catch {
+            ui.view = null;
+        }
+    }
+    async function copyLink(e) {
+        const btn = e.currentTarget;
+        const input = btn.previousElementSibling;
+        if (!await host.copyText(input.value)) input.select();
+        btn.textContent = '복사했습니다';
+        setTimeout(() => { btn.textContent = '주소 복사'; }, 1600);
+    }
+    function msgBox() {
+        return ui.msg ? h('p', { class: ui.ok ? 'gt-msg ok' : 'gt-msg err' }, ui.msg) : null;
+    }
+    function keyButtons() {
+        return h('div', { class: 'gt-acts' },
+            h('button', { class: keyKnown === false ? 'gt-b main' : 'gt-b', type: 'button', disabled: ui.testing, onclick: pickKeyFile }, keyKnown === false ? 'JSON 파일 선택' : 'JSON 파일 다시 선택'),
+            h('button', { class: keyKnown === false ? 'gt-b' : 'gt-b main', type: 'button', disabled: ui.testing || keyKnown === false, onclick: () => void testKey() }, ui.testing ? '확인하는 중…' : '연결 확인'));
+    }
+    function paneSet() {
+        const set = (k, val) => { st.set[k] = val; void saveSet(); render(); paintSoon(true); };
+        const splitDesc = { submodel: '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', model: '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', off: '화자를 나누지 않습니다. 대사는 모두 봇 목소리로 읽고, 인물 지시문도 자동으로 쓰지 않습니다.' };
+        const used = cacheList.reduce((n, x) => n + (x.n || 0), 0) / 1048576;
+        return [
+            msgBox(),
+            group('읽기 설정', '모든 봇 공통',
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 읽기'), h('p', null, st.set.auto
+                        ? '봇 답변이 다 만들어지면 「🔊 읽기」를 누르지 않아도 바로 만들어 틉니다. 처음 켤 때 리수가 권한을 묻습니다. 거절하면 자동 읽기가 되지 않으니, 그때는 플러그인을 다시 켜고 허용해 주세요.'
+                        : '「🔊 읽기」를 누를 때만 읽습니다.')),
+                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.auto ? 'on' : 'off', id => { set('auto', id === 'on'); void syncListen(); })),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '모델'), h('p', null, '3.8 Flash(기본)는 가장 새 모델입니다. 2.5 Pro는 음질이 좋은 대신 분당 한도가 낮습니다.')),
+                    seg(MODELS, st.set.model, id => set('model', id))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '읽을 범위'), h('p', null, st.set.read === 'all'
+                    ? '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.'
+                    : '따옴표 안의 대사만 인물 목소리로 읽고, 내레이션은 읽지 않습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.')),
+                    seg([['talk', '대사만 (기본)'], ['all', '내레이션까지']], st.set.read, id => set('read', id))),
+                row('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 2.5 모델에 쓰입니다. 3.8 모델은 글을 보고 언어를 알아서 정합니다. 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, 그 밖에는 한국어)도 이 값으로 정합니다.',
+                    h('input', { class: 'vf-num', style: 'width:110px;text-align:left', value: st.set.lang, onchange: e => set('lang', e.target.value.trim() || 'ko-KR') })),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '화자 나누기'), h('p', null, splitDesc[st.set.split] ?? '')),
+                    seg([['submodel', '보조 모델 (추천)'], ['model', '메인 모델'], ['off', '나누지 않음']], st.set.split, id => set('split', id))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '새 인물 목소리'), h('p', null, st.set.split === 'off'
+                        ? '화자를 나누지 않으면 새 인물이 생기지 않아 쓰이지 않습니다.'
+                        : st.set.pick === 'hash'
+                            ? '처음 나온 인물에게 성별이 맞는 기본 목소리를 이름에 따라 정해 줍니다. 모델에게 따로 묻지 않습니다.'
+                            : '처음 나온 인물이 있으면 화자를 나눈 모델에게 한 번 더 물어, 나이 · 성격에 맞는 목소리를 고르게 합니다. 확장 라이브러리 목소리를 먼저 보고, 맞는 것이 없으면 기본 30개에서 고릅니다. 목록을 아직 받지 않았으면 처음 한 번 받아 옵니다. 이미 정한 목소리는 바꾸지 않습니다.')),
+                    seg([['model', '모델이 고름 (기본)'], ['hash', '이름으로 정함']], st.set.pick, id => set('pick', id))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 등장인물 분석'), h('p', null, st.set.split === 'off' || st.set.pick === 'hash'
+                        ? '화자를 나누지 않거나 새 인물 목소리를 이름으로 정하면 쓰이지 않습니다.'
+                        : st.set.castAuto
+                            ? '한 번도 분석하지 않은 봇의 답변을 처음 읽을 때, 읽기 전에 「📖 등장인물 분석」을 한 번 합니다. 그 답변만 모델 요청이 한 번 늘고 소리가 조금 늦게 나옵니다.'
+                            : '자동으로 분석하지 않습니다. 등장인물 탭의 「📖 등장인물 분석」 버튼을 누를 때만 분석합니다.')),
+                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.castAuto ? 'on' : 'off', id => set('castAuto', id === 'on'))),
+                row('요청 사이 쉼', '답변이 길거나 목소리가 셋 이상이라 요청이 나뉠 때, 그 사이에 넣는 쉼입니다. 0~2000ms',
+                    h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 50, value: st.set.gap, onchange: e => set('gap', Math.max(0, Math.min(2000, Number(e.target.value) || 0))) }), 'ms')),
+                row('보관 개수', `지금 ${cacheList.length}개 · ${used.toFixed(1)}MB를 보관하고 있습니다. 넘치면 오래된 것부터 지웁니다.`,
+                    h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 1, max: 500, value: st.set.keep, onchange: e => set('keep', Math.max(1, Math.min(500, Number(e.target.value) || DEF_SET.keep))) }), '개')),
+                row('보관한 소리', '이 기기에 저장한 소리를 모든 봇에서 지웁니다.',
+                    h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기'))),
+            group('대화', '모든 봇 공통',
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '대화 모델'), h('p', null, '「대화」 탭에서 답을 만들 모델입니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.')),
+                    seg([['model', '메인 모델 (기본)'], ['submodel', '보조 모델']], st.set.talkModel, id => set('talkModel', id))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '답 자동 듣기'), h('p', null, st.set.talkSpeak
+                        ? '답이 오면 그 인물의 목소리로 바로 읽어 줍니다. 대화 방 위쪽의 🔊 버튼으로도 바꿀 수 있습니다.'
+                        : '글로만 대화합니다. 말풍선 옆 ▶를 누르면 그 말만 들을 수 있습니다.')),
+                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '본편에 대화 알리기'), h('p', null, st.set.talkLink
+                        ? '대화 기록 항목에 인물 이름과 별명을 키로 넣습니다. 본편 이야기에 그 이름이 나오면 대화 기록이 함께 들어가, 봇이 대화 탭에서 나눈 말을 기억합니다. 그만큼 입력 토큰이 늘어납니다.'
+                        : '대화 기록은 봇 로어북의 「' + TALK_FOLDER + '」 폴더에 저장만 하고, 키를 비워 두어 본편 이야기에는 들어가지 않습니다.')),
+                    seg([['off', '끔 (기본)'], ['on', '켬']], st.set.talkLink ? 'on' : 'off', id => {
+                        set('talkLink', id === 'on');
+                        const v = ui.view;
+                        if (v) for (const [name, log] of Object.entries(v.talk)) if (log?.length) talkLoreSoon(v.chaId, v.ci, name);
+                    }))),
+        ];
+    }
+    function paneCast() {
+        const v = ui.view;
+        if (!v) return [h('div', { class: 'gt-empty' }, h('b', null, '열린 봇 채팅이 없습니다'), '봇 채팅을 연 뒤에 이 창을 다시 열면 그 봇의 목소리를 고를 수 있습니다.')];
+        const b = v.bot;
+        const pv = ui.preview;
+        const botSave = () => void saveBot(v.chaId, v.bot);
+        const people = Object.entries(b.voices).map(([name, x]) => h('div', { class: 'vf-row' },
+            h('span', { class: 'gt-who' }, name, x.persona || x.aliases?.length ? h('small', null, [x.persona ? '페르소나' : '', ...(x.aliases ?? [])].filter(Boolean).join(' · ')) : null),
+            seg([['female', '여'], ['male', '남'], ['unknown', '?']], x.gender ?? 'unknown', id => { x.gender = id; botSave(); render(); }, 'sm'),
+            voiceField('p:' + name, x.voice, val => { x.voice = val; botSave(); render(); }),
+            h('button', { class: 'gt-b sm', type: 'button', disabled: pv?.busy, onclick: () => void preview(x.voice, [b.talkStyle, x.style].filter(Boolean).join(' ')) }, '▶ 듣기'),
+            h('button', { class: 'gt-b sm warn', type: 'button', title: '지우기', onclick: () => { delete b.voices[name]; botSave(); render(); } }, '×'),
+            ui.pick?.key === 'p:' + name ? pickPanel() : null,
+            h('textarea', { class: 'vf-ta gt-st', rows: 2, placeholder: '이 인물의 목소리 지시문. 비워 두면 다음에 읽을 때 나이대 · 음색 · 속도 · 말버릇을 담아 자동으로 채웁니다.', onchange: e => { x.style = e.target.value; botSave(); } }, x.style ?? '')));
+        const mine = cast?.chaId === v.chaId;
+        const castRow = h('div', { class: 'vf-row col' },
+            h('div', { class: 'vf-tx' }, h('b', null, '📖 등장인물 분석'), h('p', null, (b.castAt
+                ? `${new Date(b.castAt).toLocaleString()}에 분석했습니다. 로어북을 고쳤으면 다시 누르세요. `
+                : '봇 설명 · 첫 메시지 · 로어북을 모델에게 읽혀, 나올 인물의 목소리 · 성별 · 지시문 · 별명을 미리 정합니다. ')
+                + '이미 정한 목소리와 직접 쓴 지시문은 바꾸지 않습니다.')),
+            h('div', { class: 'gt-acts' }, h('button', { class: 'gt-b main', type: 'button', disabled: !!cast && !mine, onclick: () => void castClick() }, mine ? '■ 멈추기' : '📖 등장인물 분석')),
+            mine ? castLoad(cast) : null);
+        return [
+            group('인물 목소리', `${people.length}명`,
+                castRow,
+                msgBox(),
+                people.length ? people : h('div', { class: 'vf-row' }, h('span', { class: 'gt-hint' }, '아직 없습니다. 위의 「📖 등장인물 분석」을 누르거나, 답변을 처음 읽으면 추가됩니다.')),
+                h('div', { class: 'vf-row' },
+                    h('input', { class: 'vf-in', placeholder: '인물 이름', value: ui.newName, oninput: e => { ui.newName = e.target.value; } }),
+                    h('button', { class: 'gt-b', type: 'button', onclick: () => {
+                        const name = ui.newName.trim();
+                        if (!name || b.voices[name]) return;
+                        voiceFor(b, name, 'unknown');
+                        delete b.dirty;
+                        ui.newName = '';
+                        botSave();
+                        render();
+                    } }, '인물 추가'))),
+            h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '인물은 성별에 맞는 목소리와 성격에 맞는 지시문을 자동으로 받습니다. 이름 아래 작은 글씨는 별명이며, 별명으로 불린 대사도 같은 목소리로 읽습니다. 지시문을 새로 받고 싶으면 칸을 비우세요. 목소리나 지시문을 바꾼 뒤에는 답변 아래 ↻ 로 새로 만들어야 바뀐 목소리로 들립니다.'),
+            h('div', { class: 'gt-acts', style: 'margin-top:12px' }, h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(v.chaId) }, '이 봇의 보관한 소리 지우기')),
+        ];
+    }
+
+    function paneVoices() {
+        const v = ui.view;
+        if (!v) return [h('div', { class: 'gt-empty' }, h('b', null, '열린 봇 채팅이 없습니다'), '봇 채팅을 연 뒤에 이 창을 다시 열면 그 봇의 내레이션 목소리를 고를 수 있습니다.')];
+        const b = v.bot;
+        const pv = ui.preview;
+        const botSave = () => void saveBot(v.chaId, v.bot);
+        return [
+            group('내레이션', v.name || '이름 없음',
+                row('내레이션 목소리', st.set.read === 'all' ? '따옴표 밖의 글을 읽는 목소리입니다.' : '따옴표 밖의 글을 읽는 목소리입니다. 지금은 읽을 범위가 「대사만」이라 쓰이지 않습니다.', voiceField('narr', b.narrator, val => { b.narrator = val; botSave(); render(); }),
+                    h('button', { class: 'gt-b sm', type: 'button', disabled: pv?.busy, onclick: () => void preview(b.narrator, b.narrStyle) }, '▶ 듣기'),
+                    ui.pick?.key === 'narr' ? pickPanel() : null),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '내레이션 말투')),
+                    h('textarea', { class: 'vf-ta', rows: 2, onchange: e => { b.narrStyle = e.target.value; botSave(); } }, b.narrStyle)),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '대사 말투'), h('p', null, '모든 인물의 대사에 붙는 말투입니다. 인물별 말투는 아래에서 덧붙입니다.')),
+                    h('textarea', { class: 'vf-ta', rows: 2, onchange: e => { b.talkStyle = e.target.value; botSave(); } }, b.talkStyle))),
+            h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '인물마다 다른 목소리는 등장인물 탭에서 고릅니다. 목소리나 말투를 바꾼 뒤에는 답변 아래 ↻ 로 새로 만들어야 바뀐 목소리로 들립니다.'),
+        ];
+    }
+
+    const talkHue = name => parseInt(hash(String(name)).slice(0, 4), 16) % 360;
+    const talkAvatar = (name, size) => h('span', { class: size ? 'tk-av ' + size : 'tk-av', style: `--h:${talkHue(name)}`, 'aria-hidden': 'true' }, [...String(name).trim()][0] ?? '?');
+    const talkTime = at => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const talkDay = at => new Date(at).toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+    function talkList(v) {
+        const T = ui.talk;
+        const mine = cast?.chaId === v.chaId;
+        const names = talkCast(v);
+        return h('aside', { class: 'tk-list', 'aria-label': '대화 상대' },
+            h('div', { class: 'tk-list-h' }, h('b', null, '대화 상대'), h('small', null, `${names.length}명`)),
+            h('div', { class: 'tk-people' }, names.map((n, i) => {
+                const last = v.talk[n]?.at(-1);
+                return h('button', { class: n === T.name ? 'tk-who on' : 'tk-who', type: 'button', 'aria-current': n === T.name ? 'true' : null, onclick: () => talkPick(n) },
+                    talkAvatar(n),
+                    h('span', { class: 'tk-who-t' }, h('b', null, n, i === 0 ? h('em', null, '봇') : null),
+                        h('small', null, last ? (last.r === 'u' ? '나: ' : '') + last.t : '아직 나눈 말이 없습니다')),
+                    last ? h('time', null, talkTime(last.at)) : null);
+            })),
+            h('div', { class: 'tk-list-f' },
+                h('input', { class: 'vf-in', placeholder: '+ 이름으로 인물 추가', 'aria-label': '인물 추가', value: T.add,
+                    oninput: e => { T.add = e.target.value; }, onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) talkAdd(v); } }),
+                h('button', { class: mine ? 'gt-b sm main' : 'gt-b sm', type: 'button', disabled: !!cast && !mine, onclick: () => void castClick() }, mine ? '■ 분석 멈추기' : '📖 등장인물 분석'),
+                mine ? castLoad(cast) : null,
+                msgBox()));
+    }
+    function talkTop(v, name) {
+        const T = ui.talk;
+        const rec = v.bot.voices[name];
+        const status = keyKnown === false ? '키가 없어 글로만 대화합니다'
+            : !st.set.talkSpeak ? '자동 음성 꺼짐 · 말풍선 옆 ▶ 로 들을 수 있습니다'
+            : rec?.voice ? '🎙 ' + voiceLabel(rec.voice) : '🎙 목소리는 첫 답에서 정합니다';
+        return h('header', { class: 'tk-top' }, talkAvatar(name, 'lg'),
+            h('div', { class: 'tk-top-t' }, h('b', null, name), h('small', null, status)),
+            h('button', { class: st.set.talkSpeak ? 'tk-ic on' : 'tk-ic', type: 'button', 'aria-pressed': String(!!st.set.talkSpeak),
+                title: st.set.talkSpeak ? '자동 음성 끄기' : '자동 음성 켜기', 'aria-label': '자동 음성',
+                onclick: () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) talkStop(); render(); } }, st.set.talkSpeak ? '🔊' : '🔇'),
+            v.talk[name]?.length ? h('button', { class: T.confirm === name ? 'gt-b sm warn' : 'gt-b sm ghost', type: 'button', onclick: () => void talkClear(v, name) },
+                T.confirm === name ? '한 번 더 누르면 지웁니다' : '대화 지우기') : null);
+    }
+    function talkLine(v, name, m, first) {
+        const time = h('time', null, talkTime(m.at));
+        if (m.r === 'u') return h('div', { class: first ? 'tk-line me first' : 'tk-line me' }, h('div', { class: 'tk-row' }, h('span', { class: 'tk-meta' }, time), h('div', { class: 'tk-bub me' }, m.t)));
+        const k = String(m.at);
+        const T = ui.talk;
+        const bub = h('div', { class: 'tk-bub them' + (T.playing === k ? ' on' : '') + (T.voicing === k ? ' wait' : ''), 'data-k': k }, m.t);
+        return h('div', { class: first ? 'tk-line them first' : 'tk-line them' },
+            first ? talkAvatar(name) : h('span', { class: 'tk-av gap', 'aria-hidden': 'true' }),
+            h('div', { class: 'tk-col' }, first ? h('b', { class: 'tk-from' }, name) : null,
+                h('div', { class: 'tk-row' }, bub,
+                    h('span', { class: 'tk-meta' }, h('button', { class: 'tk-play', type: 'button', 'aria-label': `${name}의 말 듣기`, title: '듣기 · 멈추기', onclick: () => void talkReplay(v.chaId, name, m.t, k) }), time))));
+    }
+    function talkLines(v, name) {
+        const T = ui.talk;
+        const log = v.talk[name] ?? [];
+        const out = [];
+        if (!log.length) out.push(h('div', { class: 'tk-hello' }, talkAvatar(name, 'xl'), h('b', null, name),
+            h('p', null, `${name}에게 먼저 말을 걸어 보세요.`), h('small', null, `리수 채팅에는 남지 않고, 봇 로어북의 「${TALK_FOLDER}」 폴더에 기록됩니다.`)));
+        let day = '', prev = null;
+        for (const m of log) {
+            const d = talkDay(m.at);
+            if (d !== day) { out.push(h('div', { class: 'tk-day' }, h('span', null, d))); day = d; prev = null; }
+            out.push(talkLine(v, name, m, prev?.r !== m.r));
+            prev = m;
+        }
+        if (T.busy === name) out.push(h('div', { class: 'tk-line them first' }, talkAvatar(name),
+            h('div', { class: 'tk-col' }, h('b', { class: 'tk-from' }, name), h('div', { class: 'tk-bub them dots', role: 'status', 'aria-label': `${name}이(가) 답을 쓰는 중` }, h('i'), h('i'), h('i')))));
+        if (!T.busy && log.at(-1)?.r === 'u') out.push(h('div', { class: 'tk-retry' }, h('button', { class: 'gt-b sm', type: 'button', onclick: () => void talkSend(true) }, '↻ 답 다시 받기')));
+        if (T.err?.name === name) out.push(h('p', { class: 'tk-note', role: 'alert' }, T.err.text));
+        return out;
+    }
+    function paneTalk() {
+        const v = ui.view;
+        if (!v) return [h('div', { class: 'gt-empty' }, h('b', null, '열린 봇 채팅이 없습니다'), '봇 채팅을 연 뒤에 이 창을 다시 열면 그 봇과 로어북 인물들에게 말을 걸 수 있습니다.')];
+        const T = ui.talk;
+        const names = talkCast(v);
+        if (!names.includes(T.name)) T.name = names[0];
+        const name = T.name;
+        return [h('div', { class: 'tk' }, talkList(v),
+            h('section', { class: 'tk-room', 'aria-label': `${name}와의 대화` },
+                talkTop(v, name),
+                h('div', { class: 'tk-log', role: 'log', 'aria-live': 'polite' }, talkLines(v, name)),
+                h('div', { class: 'tk-in' },
+                    h('textarea', { class: 'tk-ta', rows: 1, placeholder: `${name}에게 메시지 보내기`, 'aria-label': '메시지', value: T.draft,
+                        oninput: e => { T.draft = e.target.value; talkGrow(e.target); },
+                        onkeydown: e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); void talkSend(false); } } }),
+                    h('button', { class: 'tk-send', type: 'button', 'aria-label': '보내기', disabled: !!T.busy, onclick: () => void talkSend(false) }, '↑'))))];
+    }
+    function talkGrow(el) {
+        el.style.height = 'auto';
+        el.style.height = Math.min(el.scrollHeight, 132) + 'px';
+    }
+    function talkPaint() {
+        const v = ui.view;
+        const log = ui.root?.querySelector('.tk-log');
+        if (!v || !log || host.ui.mode !== 'voice' || host.ui.vtab !== 'talk') return;
+        ui.root.querySelector('.tk-top')?.replaceWith(talkTop(v, ui.talk.name));
+        log.replaceChildren(...talkLines(v, ui.talk.name));
+        log.scrollTop = log.scrollHeight;
+        if (!ui.root.querySelector('.tk-list')?.contains(doc.activeElement)) ui.root.querySelector('.tk-list')?.replaceWith(talkList(v));
+        const send = ui.root.querySelector('.tk-send');
+        if (send) send.disabled = !!ui.talk.busy;
+    }
+    function talkPick(name) {
+        const T = ui.talk;
+        if (T.name === name) return;
+        T.name = name;
+        T.err = null;
+        T.confirm = null;
+        talkStop();
+        render();
+    }
+    function talkAdd(v) {
+        const T = ui.talk;
+        const name = canonName(v.bot, T.add.trim());
+        if (!name) return;
+        if (!v.bot.voices[name] && !talkCast(v).includes(name)) {
+            voiceFor(v.bot, name, 'unknown');
+            delete v.bot.dirty;
+            void saveBot(v.chaId, v.bot);
+        }
+        T.add = '';
+        T.name = null;
+        talkPick(name);
+    }
+    async function talkClear(v, name) {
+        const T = ui.talk;
+        if (T.confirm !== name) {
+            T.confirm = name;
+            talkPaint();
+            setTimeout(() => { if (T.confirm === name) { T.confirm = null; talkPaint(); } }, 3000);
+            return;
+        }
+        T.confirm = null;
+        T.err = null;
+        talkStop();
+        delete v.talk[name];
+        void saveTalk(v.chaId, v.talk);
+        talkPaint();
+        talkLoreSoon(v.chaId, v.ci, name);
+    }
+    async function talkSend(retry) {
+        const T = ui.talk, v = ui.view;
+        const name = T.name;
+        const text = retry ? '' : T.draft.trim();
+        if (!v || !name || T.busy || (!retry && !text)) return;
+        const speak = st.set.talkSpeak && keyKnown !== false;
+        if (speak) talkUnlock();
+        talkStop();
+        if (T.voice) T.voice.stop = true;
+        T.busy = name;
+        T.err = null;
+        T.confirm = null;
+        if (!retry) {
+            T.draft = '';
+            const ta = ui.root?.querySelector('.tk-ta');
+            if (ta) { ta.value = ''; ta.style.height = ''; ta.focus(); }
+            talkPush(v.talk, name, 'u', text);
+            void saveTalk(v.chaId, v.talk);
+        }
+        talkPaint();
+        let reply = '';
+        try {
+            const w = await where();
+            if (w.char?.chaId !== v.chaId) throw new Error('창을 연 뒤 다른 봇으로 바뀌었습니다. 창을 닫고 다시 열어 주세요.');
+            v.ci = w.ci;
+            const p = await personaOf();
+            const user = p.name || 'User';
+            v.user = p.name;
+            const entries = await Promise.resolve(api.getCurrentLorebookEntries()).catch(() => []);
+            const rec = v.bot.voices[name];
+            const main = name === talkCast(v)[0];
+            const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt));
+            reply = await talkAsk(system, v.talk[name] ?? [], name, rec);
+            talkPush(v.talk, name, 'c', reply);
+            void saveTalk(v.chaId, v.talk);
+            talkLoreSoon(v.chaId, w.ci, name);
+        } catch (error) {
+            T.err = { name, text: '답을 받지 못했습니다. ' + String(error?.message ?? error) };
+        }
+        T.busy = '';
+        if (!reply || !speak || !st.set.talkSpeak || !ui.root?.isConnected) { talkPaint(); return; }
+        const k = String(v.talk[name].at(-1).at);
+        const job = T.voice = { stop: false, note: '' };
+        T.voicing = k;
+        talkPaint();
+        try {
+            const data = await talkVoice(v.chaId, name, reply, job);
+            if (job.stop) return;
+            T.voicing = '';
+            talkMark();
+            if (ui.root?.isConnected && host.ui.mode === 'voice' && host.ui.vtab === 'talk' && T.name === name && !await talkPlay(data, k)) {
+                T.err = { name, text: '브라우저가 소리를 막았습니다. 말풍선 옆 ▶ 를 눌러 들어 주세요.' };
+                talkPaint();
+            }
+        } catch (error) {
+            if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
+        } finally {
+            if (T.voicing === k) { T.voicing = ''; talkMark(); }
+            if (T.voice === job) T.voice = null;
+        }
+    }
+    async function talkReplay(chaId, name, text, k) {
+        const T = ui.talk;
+        if (T.playing === k) { talkStop(); return; }
+        if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. 음성 › 준비 탭에서 키를 등록해 주세요.' }; talkPaint(); return; }
+        talkUnlock();
+        talkStop();
+        if (T.voice) T.voice.stop = true;
+        const job = T.voice = { stop: false, note: '' };
+        T.voicing = k;
+        talkMark();
+        try {
+            const data = await talkVoice(chaId, name, text, job);
+            if (!job.stop) { T.voicing = ''; await talkPlay(data, k); }
+        } catch (error) {
+            if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
+        } finally {
+            if (T.voicing === k) { T.voicing = ''; talkMark(); }
+            if (T.voice === job) T.voice = null;
+        }
+    }
+
+    function upHit(...kids) {
+        const cur = h('span', { class: 'vu-cur', 'aria-hidden': 'true' });
+        cur.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 2l14 10-6.2 1.2L8.6 20z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+        return h('span', { class: 'vu-hit' }, ...kids, cur);
+    }
+    function upStep(n, cap, sub, fig, alt) {
+        return h('div', { class: 'vu-step' },
+            h('div', { class: 'vu-cap' }, h('span', { class: 'vu-n' }, String(n)), h('div', null, h('b', null, cap), sub ? h('small', null, sub) : null)),
+            h('div', { class: 'vu-fig', role: 'img', 'aria-label': alt }, fig));
+    }
+    function gcTop(project, hit) {
+        const pill = h('span', { class: 'vg-pill' }, project, ' ▾');
+        return h('div', { class: 'vg-top' }, h('span', { class: 'vg-ham' }, h('i'), h('i'), h('i')), h('span', { class: 'vg-brand' }, 'Google Cloud'), hit ? upHit(pill) : pill, h('span', { class: 'vg-srch' }));
+    }
+    function gcNav(items, on) {
+        return h('div', { class: 'vg-nav' }, items.map(x => h('span', { class: x === on ? 'on' : null }, x)));
+    }
+    const gcDraft = () => h('span', { class: 'vg-tag' }, '간략도 · 실제 배치와 다를 수 있습니다');
+    function figPicker(have) {
+        const first = [h('span', null, 'My Project 12345'), h('span', null, '프로젝트'), h('span', null, 'my-project-12345')];
+        return h('div', { class: 'vg' }, gcTop('프로젝트 선택', true),
+            h('div', { class: 'vg-dim' }, h('div', { class: 'vg-dlg' },
+                h('div', { class: 'vg-row' }, h('span', { class: 'vg-box', style: 'min-width:120px' }, '내 조직', h('span', null, '▾')), have ? h('span', { class: 'vg-line' }, '새 프로젝트') : upHit(h('span', { class: 'vg-line' }, '새 프로젝트'))),
+                h('span', { class: 'vg-box', style: 'color:#80868b' }, '프로젝트 및 폴더 검색'),
+                h('div', { class: 'vg-tabs' }, h('span', { class: 'on' }, '최근'), h('span', null, '별표표시됨'), h('span', null, '전체')),
+                h('div', { class: 'vg-tbl' }, h('span', { class: 'th' }, '이름'), h('span', { class: 'th' }, '유형'), h('span', { class: 'th' }, 'ID'),
+                    have ? [upHit(first[0]), first[1], first[2]] : [h('span', null, h('i')), h('span', null, h('i')), h('span', null, h('i'))]),
+                h('div', { class: 'vg-row', style: 'justify-content:flex-end' }, h('span', { class: 'vg-txt' }, '취소')))));
+    }
+    function figNewProject() {
+        return h('div', { class: 'vg' }, gcTop('프로젝트 선택'),
+            h('div', { class: 'vg-body' },
+                h('span', { class: 'vg-h' }, '새 프로젝트'),
+                h('span', { class: 'vg-warn' }, '만들 수 있는 프로젝트 수(할당량)가 함께 표시됩니다.'),
+                h('div', { class: 'vg-fld' }, h('small', null, '프로젝트 이름 *'), h('span', { class: 'vg-box' }, 'My Project 12345')),
+                h('span', { class: 'vg-note' }, '프로젝트 ID: my-project-12345. 나중에 변경할 수 없습니다. ', h('em', null, '수정')),
+                h('div', { class: 'vg-fld' }, h('small', null, '조직'), h('span', { class: 'vg-box' }, '내 조직', h('span', null, '▾'))),
+                h('div', { class: 'vg-fld' }, h('small', null, '위치 *'), h('span', { class: 'vg-box' }, '내 조직', h('span', { class: 'vg-txt', style: 'padding:0' }, '찾아보기'))),
+                h('div', { class: 'vg-acts' }, upHit(h('span', { class: 'vg-blue' }, '만들기')), h('span', { class: 'vg-txt' }, '취소'))));
+    }
+    function figApi() {
+        return h('div', { class: 'vg' }, gcTop('my-project-12345'),
+            h('div', { class: 'vg-body' },
+                h('span', { class: 'vg-crumb' }, '← 제품 세부정보'),
+                h('div', { class: 'vg-api' }, h('span', { class: 'vg-hex' }),
+                    h('div', null, h('span', { class: 'vg-h' }, 'Cloud Text-to-Speech API'), h('div', { class: 'vg-txt', style: 'padding:0;min-height:0' }, 'Google Enterprise API'))),
+                h('span', { class: 'vg-sub' }, 'Synthesizes natural-sounding speech by applying powerful neural network models.'),
+                h('div', { class: 'vg-acts' }, upHit(h('span', { class: 'vg-blue' }, '사용')), h('span', { class: 'vg-line' }, 'API 사용해 보기 ↗')),
+                h('div', { class: 'vg-tabs' }, h('span', { class: 'on' }, '개요'), h('span', null, '가격 책정'), h('span', null, '문서'), h('span', null, '관련 제품'))));
+    }
+    function figBilling() {
+        return h('div', { class: 'vg' }, gcTop('my-project-12345'),
+            h('div', { class: 'vg-main' }, gcNav(['API 및 서비스', 'IAM 및 관리자', '결제', 'Vertex AI'], '결제'),
+                h('div', { class: 'vg-body' },
+                    h('span', { class: 'vg-h' }, '결제'),
+                    h('span', { class: 'vg-sub' }, '이 프로젝트에는 결제 계정이 없습니다.'),
+                    h('div', { class: 'vg-acts' }, upHit(h('span', { class: 'vg-blue' }, '결제 계정 연결'))),
+                    h('span', { class: 'vg-note' }, '결제 계정이 없으면 새로 만들고 결제 수단을 등록합니다.'))),
+            gcDraft());
+    }
+    function figAccount() {
+        return h('div', { class: 'vg' }, gcTop('my-project-12345'),
+            h('div', { class: 'vg-main' }, gcNav(['IAM', '서비스 계정', '역할', '할당량'], '서비스 계정'),
+                h('div', { class: 'vg-body' },
+                    h('div', { class: 'vg-row' }, h('span', { class: 'vg-h' }, '서비스 계정'), upHit(h('span', { class: 'vg-line' }, '+ 서비스 계정 만들기'))),
+                    h('div', { class: 'vg-fld' }, h('small', null, '서비스 계정 이름'), h('span', { class: 'vg-box' }, 'risu-tts')),
+                    h('div', { class: 'vg-fld' }, h('small', null, '역할'), h('span', { class: 'vg-box' }, '편집자', h('span', null, '▾'))),
+                    h('div', { class: 'vg-acts' }, h('span', { class: 'vg-blue' }, '완료')))),
+            gcDraft());
+    }
+    function figKey() {
+        return h('div', { class: 'vg' }, gcTop('my-project-12345'),
+            h('div', { class: 'vg-main' }, gcNav(['IAM', '서비스 계정', '역할', '할당량'], '서비스 계정'),
+                h('div', { class: 'vg-body' },
+                    h('span', { class: 'vg-h' }, 'risu-tts'),
+                    h('div', { class: 'vg-tabs' }, h('span', null, '세부정보'), h('span', null, '권한'), h('span', { class: 'on' }, '키')),
+                    h('div', { class: 'vg-acts' }, upHit(h('span', { class: 'vg-line' }, '키 추가 ▾'))),
+                    h('div', { class: 'vg-menu' }, h('span', null, '새 키 만들기')),
+                    h('div', { class: 'vg-rad' }, h('b', null, '◉ JSON'), h('span', null, '○ P12')))),
+            gcDraft());
+    }
+    function figRisuPick() {
+        return h('div', { class: 'rs-pane' }, h('div', { class: 'rs-card' },
+            h('div', { class: 'rs-hd' }, '🎨 이매진 · 음성', h('i')),
+            h('div', { class: 'rs-tabs' }, h('span', { class: 'on' }, '준비'), h('span', null, '대화'), h('span', null, '등장인물'), h('span', null, '목소리'), h('span', null, '설정')),
+            h('div', { class: 'rs-row' }, h('b', null, '서비스 계정 키'),
+                h('span', { style: 'display:inline-flex;gap:8px' }, upHit(h('span', { class: 'rs-btn' }, 'JSON 파일 선택')), h('span', { class: 'rs-btn l' }, '연결 확인')))));
+    }
+    function apiLinks() {
+        const link = (label, url) => h('div', { class: 'vu-lk' }, h('small', null, label),
+            h('div', { class: 'vu-link' }, h('input', { class: 'vf-in', value: url, readOnly: true, onfocus: e => e.target.select() }),
+                h('button', { class: 'gt-b sm', type: 'button', onclick: copyLink }, '주소 복사')));
+        return h('div', { class: 'vu-after', style: 'margin:0 0 14px' }, h('b', null, 'API 두 개의 주소'),
+            h('p', { class: 'gt-hint', style: 'margin:4px 0 8px' }, '주소창에 붙여 넣고, 위쪽 띠에 쓸 프로젝트가 골라져 있는지 확인한 뒤 「사용」을 누릅니다.'),
+            link('Vertex AI API', VERTEX_PAGE), link('Cloud Text-to-Speech API', API_PAGE));
+    }
+    function paneGuide() {
+        const ask = h('div', { class: 'vz-q' }, h('b', null, '구글 클라우드 프로젝트가 이미 있나요?'),
+            h('div', { class: 'vz-cards' },
+                wizCard('have', '있습니다', '쓰던 프로젝트에 API를 켜고 키만 만듭니다.', ui.gproj, id => { ui.gproj = id; render(); }),
+                wizCard('none', '없습니다', '구글 클라우드 프로젝트부터 만듭니다. 처음이면 이쪽입니다.', ui.gproj, id => { ui.gproj = id; render(); })));
+        if (!ui.gproj) return [ask];
+        const api = '「Vertex AI API」와 「Cloud Text-to-Speech API」에서 각각 「사용」을 누릅니다. 위쪽 띠에 쓸 프로젝트가 골라져 있는지 먼저 확인합니다.';
+        const account = '이름은 아무것이나 정하고(예: risu-tts), 역할은 「편집자」처럼 API를 쓸 수 있는 역할을 줍니다.';
+        const key = '「만들기」를 누르면 .json 파일이 내려받아집니다. 이 파일은 비밀번호와 같으니 남에게 보내거나 올리지 마세요.';
+        const risu = '「연결되었습니다」가 나오면 끝입니다. 아래 「JSON 파일 선택」이 바로 그 버튼입니다.';
+        const steps = ui.gproj === 'have' ? [
+            ['위쪽 「프로젝트 선택」에서 쓸 프로젝트 고르기', '이미 서비스 계정 키(.json)가 있으면 그 키를 만든 프로젝트를 고릅니다.', figPicker(true), '구글 클라우드 프로젝트 선택 창에서 쓰던 프로젝트를 고르는 모습'],
+            ['API 두 개에서 「사용」', api + ' 결제 계정이 연결되지 않았다면 이때 연결하라는 안내가 나옵니다.', figApi(), 'Cloud Text-to-Speech API 제품 화면의 사용 버튼'],
+            ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account + ' 그 프로젝트의 키(.json)가 이미 있으면 이 단계와 다음 단계를 건너뜁니다.', figAccount(), '서비스 계정 만들기 화면 (간략도)'],
+            ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
+            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 준비 탭의 JSON 파일 선택 버튼'],
+        ] : [
+            ['위쪽 「프로젝트 선택」 → 「새 프로젝트」', '구글 클라우드 콘솔(console.cloud.google.com)에 구글 계정으로 들어가서 누릅니다.', figPicker(false), '구글 클라우드 프로젝트 선택 창의 새 프로젝트 버튼'],
+            ['프로젝트 이름을 정하고 「만들기」', '이름은 자유롭게 정합니다. 아래에 나온 프로젝트 ID는 나중에 바꿀 수 없습니다.', figNewProject(), '새 프로젝트 양식의 만들기 버튼'],
+            ['API 두 개에서 「사용」', api, figApi(), 'Cloud Text-to-Speech API 제품 화면의 사용 버튼'],
+            ['결제 계정 연결', '유료 API라서 결제 계정이 연결되어 있어야 소리가 만들어집니다. 「사용」을 누를 때 결제 연결을 요구하면 그 안내를 따라갑니다. 결제 수단 등록은 직접 하세요.', figBilling(), '결제 메뉴의 결제 계정 연결 버튼 (간략도)'],
+            ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account, figAccount(), '서비스 계정 만들기 화면 (간략도)'],
+            ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
+            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 준비 탭의 JSON 파일 선택 버튼'],
+        ];
+        return [ask, apiLinks(),
+            h('p', { class: 'gt-intro' }, h('b', null, ui.gproj === 'have' ? '있는 프로젝트로' : '처음부터'),
+                ui.gproj === 'have' ? 'API 사용 → 서비스 계정 → JSON 키 → 이매진 순서입니다. 노란 테두리가 누를 자리입니다.'
+                    : '구글 계정 하나와 결제 수단이 필요합니다. 프로젝트 → API 사용 → 결제 연결 → 서비스 계정 → JSON 키 → 이매진 순서입니다. 노란 테두리가 누를 자리입니다.'),
+            h('div', { class: 'vu-steps' }, steps.map(([cap, sub, fig, alt], i) => upStep(i + 1, cap, sub, fig, alt)))];
+    }
+    function previewBar() {
+        const pv = ui.preview;
+        if (!pv) return null;
+        return h('div', { class: 'gt-pv', role: 'status' },
+            h('div', { class: 'gt-pv-t' }, h('b', null, `미리 듣기 · ${voiceLabel(pv.voice)}`),
+                h('button', { class: 'gt-x sm', type: 'button', 'aria-label': '미리 듣기 닫기', onclick: () => { ui.preview = null; render(); } }, '×')),
+            pv.busy ? h('div', { class: 'gt-hint' }, '만드는 중입니다…') : h('audio', { controls: '', autoplay: '', src: pv.src }));
+    }
+    async function testKey() {
+        ui.testing = true;
+        ui.msg = '';
+        render();
+        try {
+            tok.value = '';
+            const sa = await account();
+            if (!sa) throw new Error('키가 없습니다. 「JSON 파일 선택」으로 서비스 계정 키를 등록해 주세요.');
+            await synth({ voice: 'Kore', text: '확인', prompt: '', turns: [] });
+            ui.msg = `연결되었습니다. 프로젝트 ${sa.project || '(없음)'} · ${sa.email.replace(/^(.{3}).*(@.*)$/, '$1…$2')}`;
+            ui.ok = true;
+            ui.conn = true;
+            wantRoot();
+        } catch (error) {
+            ui.msg = String(error?.message ?? error);
+            ui.ok = false;
+            ui.conn = false;
+        }
+        ui.testing = false;
+        await checkKey();
+        render();
+        paintSoon(true);
+    }
+    async function clearCache(chaId) {
+        for (const x of cacheList.filter(x => chaId == null || x.c === chaId)) await dropAudio(x.k, false);
+        await saveList();
+        render();
+        paintSoon(true);
+    }
+    function render() {
+        if (host.ui.mode !== 'voice' || host.ui.side || !host.ui.root?.isConnected) return;
+        const ae = doc.activeElement;
+        const typing = ae?.classList?.contains('tk-ta') ? [ae.selectionStart, ae.selectionEnd] : null;
+        host.render();
+        const log = ui.root?.querySelector('.tk-log');
+        if (log) log.scrollTop = log.scrollHeight;
+        const ta = ui.root?.querySelector('.tk-ta');
+        if (ta && ui.talk.draft) talkGrow(ta);
+        if (ta && typing) { ta.focus(); ta.setSelectionRange(typing[0], typing[1]); }
+    }
+    function wantRoot() {
+        if (keyKnown === true) void rootQueue(startRoot);
+    }
+    function pane(vtab) {
+        if (!doc.getElementById('nc-voice-style')) doc.head.append(h('style', { id: 'nc-voice-style' }, CSS + WIZ_CSS));
+        const body = vtab === 'talk' ? paneTalk() : vtab === 'cast' ? paneCast() : vtab === 'voices' ? paneVoices() : vtab === 'set' ? paneSet() : paneReady();
+        ui.root = h('div', { class: 'gt' + (ui.preview ? ' gt-pvon' : ''), role: 'tabpanel' },
+            h('div', { class: 'gt-pane' + (vtab === 'talk' ? ' talk' : '') }, body),
+            previewBar());
+        return ui.root;
+    }
+
+    const SETUP = [['키 넣기', '구글 서비스 계정 키'], ['모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기']];
+    const MODEL_DESC = {
+        'gemini-3.8-flash-tts': ['가장 새 모델입니다. 라이브러리 목소리를 함께 씁니다.', true],
+        'gemini-3.8-flash-lite-tts': ['3.8 의 가벼운 모델입니다.'],
+        'gemini-2.5-flash-tts': ['기본 목소리 30개로 읽습니다.'],
+        'gemini-2.5-pro-tts': ['음질이 좋은 대신 분당 한도가 낮습니다.'],
+        'gemini-2.5-flash-lite-preview-tts': ['미리보기 모델입니다.'],
+    };
+    function wizCard(id, title, desc, cur, onpick, rec) {
+        return h('button', { class: id === cur ? 'vz-mc sel' : 'vz-mc', type: 'button', 'aria-pressed': String(id === cur), onclick: () => onpick(id) },
+            h('span', { class: 'vz-rd', 'aria-hidden': 'true' }),
+            h('span', { class: 'vz-mt' }, h('b', null, title), h('span', { class: 'vz-dd' }, desc)),
+            rec ? h('span', { class: 'vz-rec' }, '추천') : null);
+    }
+    const setupOf = () => Math.max(0, Math.min(SETUP.length, Number(st.set.setup) || 0));
+    function setupNext(n) {
+        if (setupOf() < n + 1) { st.set.setup = n + 1; void saveSet(); }
+        ui.step = n + 1;
+        ui.msg = '';
+        render();
+    }
+    function readyStep(n) {
+        const set = (k, val) => { st.set[k] = val; void saveSet(); render(); paintSoon(true); };
+        if (n === 0) return [
+            keyKnown === true ? h('p', { class: 'gt-msg ok' }, ui.conn === false ? '키는 등록되어 있지만 연결 확인에 실패했습니다. 아래 안내로 API와 권한을 확인해 주세요.' : '키가 등록되어 있습니다. 「연결 확인」으로 소리가 만들어지는지 볼 수 있습니다.') : null,
+            h('div', { class: 'vz-key' }, h('b', null, '서비스 계정 키 (.json)'),
+                h('p', null, '고른 키는 리수의 플러그인 설정(vertex_json 칸)에만 저장됩니다. 플러그인 버전을 바꾸면 리수가 이 칸을 비우니 다시 골라 주세요.'),
+                keyButtons(), msgBox()),
+            h('div', { class: 'vz-guide' }, h('h3', null, '키가 없다면'), paneGuide()),
+        ];
+        if (n === 1) return [h('div', { class: 'vz-cards' }, MODELS.map(([id, label]) => wizCard(id, label, MODEL_DESC[id]?.[0] ?? '', st.set.model, val => set('model', val), MODEL_DESC[id]?.[1])))];
+        if (n === 2) return [h('div', { class: 'vz-cards' },
+            wizCard('talk', '대사만', '따옴표 안의 대사만 인물 목소리로 읽습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.', st.set.read, val => set('read', val), true),
+            wizCard('all', '내레이션까지', '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.', st.set.read, val => set('read', val)))];
+        return [h('div', { class: 'vz-cards' },
+            wizCard('submodel', '보조 모델', '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', st.set.split, val => set('split', val), true),
+            wizCard('model', '메인 모델', '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.split, val => set('split', val)),
+            wizCard('off', '나누지 않음', '대사를 모두 봇 목소리로 읽습니다. 인물 지시문도 자동으로 쓰지 않습니다.', st.set.split, val => set('split', val)))];
+    }
+    function paneReady() {
+        const done = setupOf();
+        const n = Math.max(0, Math.min(SETUP.length, ui.step));
+        const steps = h('aside', { class: 'vz-steps', 'aria-label': '준비 단계' },
+            h('h3', null, '준비 단계', h('span', null, `${done} / ${SETUP.length}`)),
+            SETUP.map(([title, sub], i) => {
+                const state = i === n ? 'cur' : i < done ? 'done' : i > done ? 'lock' : '';
+                return h('button', { class: 'vz-st ' + state, type: 'button', disabled: i > done, 'aria-current': i === n ? 'step' : null, onclick: () => { ui.step = i; ui.msg = ''; render(); } },
+                    h('i', null, i < done && i !== n ? '✓' : String(i + 1)),
+                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 단계' : i < done ? '끝남' : sub)));
+            }),
+            ui.dup ? h('p', { class: 'vz-dup' }, '따로 설치한 제미니 TTS 플러그인도 켜져 있습니다. 답변 아래 읽기 버튼이 두 벌 생기니 그쪽은 꺼 주세요.') : null);
+        if (n >= SETUP.length) return [h('div', { class: 'vz' }, steps,
+            h('section', { class: 'vz-pn' },
+                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, '준비 끝'), h('h2', null, '이제 들을 수 있습니다')),
+                h('p', { class: 'vz-desc' }, '봇 답변 아래 「🔊 읽기」를 누르면 읽어 줍니다. 자동 읽기가 켜져 있으면 답변이 끝날 때마다 바로 읽습니다.'),
+                h('div', { class: 'vz-cards' },
+                    wizCard('talk', '대화', '봇과 로어북 인물에게 따로 말을 걸고 목소리로 답을 듣습니다.', '', () => go('talk')),
+                    wizCard('cast', '등장인물', '인물마다 목소리 · 지시문을 고르고 「📖 등장인물 분석」을 돌립니다.', '', () => go('cast')),
+                    wizCard('voices', '목소리', '내레이션 목소리와 말투를 정합니다.', '', () => go('voices')),
+                    wizCard('set', '설정', '자동 읽기 · 모델 · 보관 개수를 바꿉니다.', '', () => go('set')))))];
+        const [title] = SETUP[n];
+        const desc = ['구글 클라우드에서 만든 서비스 계정 키를 고르면 음성을 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 설정 탭에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'][n];
+        const block = n === 0 && keyKnown !== true;
+        return [h('div', { class: 'vz' }, steps,
+            h('section', { class: 'vz-pn' },
+                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `${n + 1} / ${SETUP.length} 단계`), h('h2', null, title)),
+                h('p', { class: 'vz-desc' }, desc),
+                readyStep(n),
+                h('div', { class: 'vz-ft' },
+                    h('p', { class: 'vz-note' }, block ? '키를 고르면 다음 단계로 갈 수 있습니다.' : '고른 값은 바로 저장됩니다.'),
+                    n > 0 ? h('button', { class: 'vz-back', type: 'button', onclick: () => { ui.step = n - 1; ui.msg = ''; render(); } }, '이전') : null,
+                    h('button', { class: 'vz-cta', type: 'button', disabled: block, onclick: () => setupNext(n) }, n === SETUP.length - 1 ? '준비 끝내기' : '다음 단계로')))) ];
+    }
+    function go(vtab) {
+        host.ui.vtab = vtab;
+        render();
+    }
+    function status() {
+        const n = setupOf();
+        if (keyKnown === false) return '키를 넣어 주세요';
+        if (n < SETUP.length) return `준비 ${n}/${SETUP.length}`;
+        return chipText()[0];
+    }
+    function chipText() {
+        if (ui.testing) return ['확인하는 중', 'run'];
+        if (keyKnown === false) return ['키 없음', 'bad'];
+        if (ui.conn === true) return ['연결됨', 'ok'];
+        if (ui.conn === false) return ['연결 안 됨', 'bad'];
+        return ['키 등록됨', ''];
+    }
+    async function onOpen() {
+        ui.msg = '';
+        ui.preview = null;
+        ui.pick = null;
+        await checkKey();
+        await refreshView();
+        if (ui.talk.chaId !== ui.view?.chaId) Object.assign(ui.talk, { chaId: ui.view?.chaId, name: null, err: null, confirm: null });
+        ui.talk.voicing = '';
+        ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : 0;
+        try {
+            const d = root.asked ? await rootDoc() : null;
+            ui.dup = !!(d && await d.querySelector('[class*="x-risu-gt-at-"]'));
+        } catch { ui.dup = false; }
+    }
+    function onClose() {
+        talkStop();
+        if (ui.talk.voice) ui.talk.voice.stop = true;
+        void talkLoreFlush();
+        ui.preview = null;
+        ui.pick = null;
+    }
+    async function unload() {
+        for (const j of [busy, ...jobs, ui.talk.voice]) if (j) j.stop = true;
+        jobs.length = 0;
+        try { talkStop(); } catch {}
+        await Promise.race([talkLoreFlush(), sleep(3000)]).catch(() => {});
+        loreShut = true;
+        try { doc.getElementById('nc-voice-style')?.remove(); } catch {}
+        await rootQueue(stopRoot);
+    }
+    const WIZ_CSS = `
+.gt{--sky:#2b95f0;--skl:#e9f5ff;--ink2:#1f2d45;--mut:#6d7c95;--ln:#dbe5f0;--co:#ff6b5e;--ok:#14b386;--sun:#ffc93c}
+.gt .vz{display:flex;gap:18px;align-items:flex-start}
+.gt .vz-steps{flex:none;width:262px}
+.gt .vz-steps h3{display:flex;justify-content:space-between;margin:0 0 10px;font-size:13px;font-weight:800;color:var(--ink2)}
+.gt .vz-steps h3 span{color:var(--sky)}
+.gt .vz-st{display:flex;align-items:center;gap:12px;width:100%;height:64px;padding:0 14px;margin:0 0 8px;text-align:left;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s}
+.gt .vz-st:hover:not(:disabled){border-color:var(--sky)}
+.gt .vz-st i{flex:none;display:grid;place-items:center;width:30px;height:30px;font-style:normal;font-size:14px;font-weight:900;color:#9aa8bd;background:#eef3f9;border-radius:50%}
+.gt .vz-st span{display:flex;flex-direction:column;min-width:0}
+.gt .vz-st b{font-size:14px;color:var(--ink2)}
+.gt .vz-st small{font-size:11.5px;color:var(--mut)}
+.gt .vz-st.done i{color:#fff;background:var(--ok)}
+.gt .vz-st.done small{color:var(--ok);font-weight:700}
+.gt .vz-st.cur{background:var(--skl);border:2px solid var(--sky)}
+.gt .vz-st.cur i{color:#fff;background:var(--sky)}
+.gt .vz-st.cur small{color:var(--sky);font-weight:800}
+.gt .vz-st.lock{background:#f7f9fc;cursor:default}
+.gt .vz-st.lock b{color:#9aa8bd}
+.gt .vz-dup{margin:6px 0 0;padding:10px 12px;font-size:12px;line-height:1.5;color:#c05a00;background:#fff3e2;border-radius:10px}
+.gt .vz-pn{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:22px 26px;background:#fff;border:1px solid var(--ln);border-radius:16px}
+.gt .vz-hd{display:flex;align-items:center}
+.gt .vz-tg{display:inline-flex;align-items:center;height:26px;padding:0 10px;font-size:12px;font-weight:900;color:var(--sky);background:var(--skl);border-radius:13px}
+.gt .vz-pn h2{margin:0 0 0 10px;font-size:22px;font-weight:900;color:var(--ink2)}
+.gt .vz-desc{margin:8px 0 18px;font-size:13.5px;color:var(--mut)}
+.gt .vz-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gt .vz-mc{position:relative;display:flex;align-items:center;gap:14px;min-height:92px;padding:12px 18px;text-align:left;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s}
+.gt .vz-mc:hover{border-color:var(--sky)}
+.gt .vz-rd{flex:none;width:22px;height:22px;background:#fff;border:2px solid #c3d1e2;border-radius:50%}
+.gt .vz-mt{display:flex;flex-direction:column;gap:4px;min-width:0}
+.gt .vz-mc b{font-size:17px;font-weight:900;color:var(--ink2)}
+.gt .vz-dd{font-size:12.5px;line-height:1.45;color:var(--mut)}
+.gt .vz-rec{position:absolute;right:14px;top:12px;padding:2px 8px;font-size:11.5px;font-weight:900;color:var(--ink2);background:var(--sun);border-radius:6px}
+.gt .vz-mc.sel{background:var(--skl);border:2px solid var(--sky)}
+.gt .vz-mc.sel .vz-rd{border:6px solid var(--sky)}
+.gt .vz-ft{display:flex;align-items:center;gap:12px;margin-top:22px}
+.gt .vz-note{flex:1 1 auto;margin:0;font-size:12.5px;color:var(--mut)}
+.gt .vz-back{height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
+.gt .vz-cta{height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
+.gt .vz-cta:hover:not(:disabled){transform:translateY(-2px)}
+.gt .vz-cta:disabled{opacity:.45;cursor:not-allowed}
+.gt .vz-key{padding:14px 16px;margin:0 0 16px;background:var(--skl);border-radius:12px}
+.gt .vz-key b{font-size:14px;color:var(--ink2)}
+.gt .vz-key p{margin:4px 0 10px;font-size:12.5px;line-height:1.5;color:var(--mut)}
+.gt .vz-guide h3{margin:4px 0 10px;font-size:15px;font-weight:900;color:var(--ink2)}
+.gt .vz-q{margin:0 0 14px}
+.gt .vz-q>b{display:block;margin:0 0 8px;font-size:14px;color:var(--ink2)}
+.gt .vu-lk{margin:0 0 6px}
+.gt .vu-lk small{display:block;margin:0 0 3px;font-size:11.5px;font-weight:700;color:var(--mut)}
+@media (max-width:860px){
+  .gt .vz{flex-direction:column}
+  .gt .vz-steps{width:100%}
+  .gt .vz-cards{grid-template-columns:1fr}
+}
+`;
+    await loadSet();
+    await loadLib();
+    await loadCache();
+    await checkKey();
+    wantRoot();
+    await syncListen();
+    return { pane, chipText, status, bar: btnHtml, onOpen, onClose, unload };
+    }
+
     await loadPrefs();
+    voice = await startVoice({ ui, rootDoc, render: renderNow, openPanel, copyText }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
     const panelButtons = [];
@@ -9415,6 +12015,7 @@ Rules:
     if (sizeMoved) void sizeChanged();
     await api.onUnload(async () => {
         const rootStop = rootQueue(stopRoot);
+        const voiceStop = voice?.unload().catch(error => console.warn(LOG, 'voice unload', error));
         try {
             ui.root?.remove();
             doc.getElementById('nai-comic-style')?.remove();
@@ -9432,9 +12033,10 @@ Rules:
         clearInterval(acs.timer);
         if (acs.run) { acs.run.stop = true; acs.run.onStop(); }
         await rootStop;
+        await voiceStop;
     });
     if (globalThis.__NC_TEST__ === true) {
-        globalThis.__NC_TEST__ = { st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, countLabel, countRange, rollCount, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete };
+        globalThis.__NC_TEST__ = { voice: () => voice, st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, countLabel, countRange, rollCount, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete };
     }
     console.log(LOG, `v${VERSION} ready`);
 })().catch(error => {
