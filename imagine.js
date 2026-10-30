@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.1.0
+//@display-name 🎨 이매진 v4.2.0
 //@api 3.0
-//@version 4.1.0
+//@version 4.2.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.1.0';
+    const VERSION = '4.2.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -4058,25 +4058,30 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix-pane.rl-pane{display:flex;flex-direction:column}
 .ix .rl{--sky:#2b95f0;--skl:#e9f5ff;--mut:#6d7c95;--ln:#dbe5f0;--ok:#14b386;flex:1 1 auto;display:flex;gap:22px;align-items:stretch;min-width:0}
 .ix .rl .vz-steps{flex:none;align-self:flex-start;width:262px}
-.ix .rl .vz-steps h3{display:flex;justify-content:space-between;margin:0 0 10px;font-size:13px;font-weight:800;color:var(--ink)}
+/* 4.2.0: 준비 순서는 상자 없이 원과 세로선으로 잇는다 (옛 .sp 타임라인 · 견본 ui_ready_linear_sample_1) */
+.ix .rl .vz-steps h3{display:flex;justify-content:space-between;margin:0 0 14px;font-size:13px;font-weight:800;color:var(--ink)}
 .ix .rl .vz-steps h3 span{color:var(--sky)}
-.ix .rl .vz-st{display:flex;align-items:center;gap:12px;width:100%;height:64px;padding:0 14px;margin:0 0 8px;text-align:left;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s,box-shadow .15s}
-.ix .rl .vz-st:hover:not(:disabled){border-color:var(--sky)}
+.ix .rl .vz-st{position:relative;display:block;width:100%;height:auto;min-height:56px;padding:3px 0 0 44px;margin:0;text-align:left;background:none;border:0;border-radius:0;box-shadow:none}
+.ix .rl .vz-st::before{content:"";position:absolute;left:14px;top:32px;bottom:-2px;width:2px;border-radius:1px;background:var(--ln)}
+.ix .rl .vz-st:last-of-type::before{display:none}
+.ix .rl .vz-st.done::before{background:var(--ok)}
 .ix .rl .vz-st:disabled{cursor:default}
-.ix .rl .vz-st i{flex:none;display:grid;place-items:center;width:30px;height:30px;font-style:normal;font-size:14px;font-weight:900;color:#9aa8bd;background:#eef3f9;border-radius:50%}
-.ix .rl .vz-st i svg{width:16px;height:16px}
-.ix .rl .vz-st span{display:flex;flex-direction:column;min-width:0}
-.ix .rl .vz-st b{overflow:hidden;font-size:14px;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
-.ix .rl .vz-st small{overflow:hidden;font-size:11.5px;color:var(--mut);white-space:nowrap;text-overflow:ellipsis}
-.ix .rl .vz-st.done i{color:#fff;background:var(--ok)}
+.ix .rl .vz-st i{position:absolute;left:0;top:0;display:grid;place-items:center;width:30px;height:30px;font-style:normal;font-size:14px;font-weight:900;color:#9aa8bd;background:#fff;border:2px solid var(--ln);border-radius:50%;transition:box-shadow .15s}
+.ix .rl .vz-st i svg{width:15px;height:15px}
+.ix .rl .vz-st span{display:block;min-width:0}
+.ix .rl .vz-st b{display:block;overflow:hidden;font-size:14px;line-height:1.3;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
+.ix .rl .vz-st small{display:block;overflow:hidden;margin-top:2px;font-size:11.5px;color:var(--mut);white-space:nowrap;text-overflow:ellipsis}
+.ix .rl .vz-st:hover:not(:disabled) b{color:var(--sky);text-decoration:underline;text-underline-offset:3px}
+.ix .rl .vz-st.done i{color:#fff;background:var(--ok);border-color:var(--ok)}
 .ix .rl .vz-st.done small{color:var(--ok);font-weight:700}
-.ix .rl .vz-st.cur{background:var(--skl);border:2px solid var(--sky)}
-.ix .rl .vz-st.cur i{color:#fff;background:var(--sky)}
+.ix .rl .vz-st.cur i{color:#fff;background:var(--sky);border-color:var(--sky);box-shadow:0 0 0 5px var(--skl)}
+.ix .rl .vz-st.cur b{font-size:15px;font-weight:900;color:var(--sky)}
 .ix .rl .vz-st.cur small{color:var(--sky);font-weight:800}
-.ix .rl .vz-st.lock{background:#f7f9fc}
 .ix .rl .vz-st.lock b{color:#9aa8bd}
-.ix .rl .vz-st.on{box-shadow:0 0 0 3px rgba(43,149,240,.2)}
-.ix .rl .vz-intro{margin:12px 2px 0;font-size:12px;line-height:1.55;color:var(--mut)}
+.ix .rl .vz-st.lock small{color:#b3bfd0}
+.ix .rl .vz-st.on:not(.cur) i{box-shadow:0 0 0 5px rgba(43,149,240,.22)}
+.ix .rl .vz-st.on b{color:var(--sky)}
+.ix .rl .vz-intro{margin:4px 2px 0;font-size:12px;line-height:1.55;color:var(--mut)}
 .ix .rl .vz-pn{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:22px 26px;background:#fff;border:1px solid var(--ln);border-radius:16px}
 .ix .rl .vz-hd{display:flex;align-items:center;gap:10px}
 .ix .rl .vz-tg{flex:none;display:inline-flex;align-items:center;height:26px;padding:0 10px;font-size:12px;font-weight:900;color:var(--sky);background:var(--skl);border-radius:13px}
@@ -4100,11 +4105,12 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix .rl .ix-acts .ix-btn:not(.main){min-height:52px;padding:0 20px;font-weight:800;border:1.5px solid var(--ln);border-radius:12px;box-shadow:none}
 @media (max-width:860px){
   .ix .rl{flex-direction:column;gap:14px}
-  .ix .rl .vz-steps{align-self:stretch;width:100%}
-  .ix .rl .vz-steps>.vz-st{display:inline-flex;width:auto;max-width:100%;height:46px;margin:0 6px 6px 0;padding:0 12px 0 8px}
-  .ix .rl .vz-st i{width:26px;height:26px;font-size:12px}
-  .ix .rl .vz-st small{display:none}
-  .ix .rl .vz-st.on small{display:block}
+  .ix .rl .vz-steps{align-self:stretch;display:flex;flex-wrap:wrap;align-items:flex-start;width:100%}
+  .ix .rl .vz-steps h3{flex:0 0 100%;margin:0 0 10px}
+  .ix .rl .vz-steps>.vz-st{flex:1 1 30px;display:flex;justify-content:center;min-width:0;min-height:0;padding:0}
+  .ix .rl .vz-st::before{left:calc(50% + 15px);right:calc(15px - 50%);top:14px;bottom:auto;width:auto;height:2px}
+  .ix .rl .vz-st i{position:relative}
+  .ix .rl .vz-st span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .ix .rl .vz-intro{display:none}
   .ix .rl .vz-pn{padding:18px 18px}
   .ix .rl .dz{grid-template-columns:1fr}
@@ -4117,12 +4123,11 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
   .ix .rl .vz-pn h2{font-size:19px}
   .ix .rl .vz-hd{flex-wrap:wrap}
   .ix .rl .ix-acts .ix-btn.main{width:100%}
-  .ix .rl .vz-steps>.vz-st.done:not(.on){padding:0 9px}
-  .ix .rl .vz-st.done:not(.on) span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 }
 @media (max-width:420px){
-  .ix .rl .vz-steps>.vz-st{height:40px;padding:0 8px 0 6px}
-  .ix .rl .vz-st b{font-size:12.5px}
+  .ix .rl .vz-st i{width:26px;height:26px;font-size:12px}
+  .ix .rl .vz-st i svg{width:13px;height:13px}
+  .ix .rl .vz-st::before{left:calc(50% + 13px);right:calc(13px - 50%);top:12px}
   .ix .rl .dz-th{width:46px;height:46px;font-size:1.5rem}
 }
 `;
@@ -7688,7 +7693,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
   .cn-in{grid-column:1/-1;margin-top:6px}
 }
 /* 3.20.0: 완료 카드 (fn-) · 레퍼런스 확인 (rc-). 직각, 원만 쓴다 */
-.fn-card{background:#fff;border:1px solid var(--line);border-top:3px solid var(--good)}
+.fn-card{background:#fff;border:1px solid var(--line)}
 .fn-rise>*{animation:ix-rise .5s var(--ease-out) backwards;animation-delay:calc(var(--d,0s) - var(--fe,0ms))}
 .fn-rise>:nth-child(2){--d:.06s}
 .fn-rise>:nth-child(3){--d:.12s}
@@ -12039,22 +12044,28 @@ ${ctx || '(none)'}`;
 .gt{--sky:#2b95f0;--skl:#e9f5ff;--ink2:#1f2d45;--mut:#6d7c95;--ln:#dbe5f0;--co:#ff6b5e;--ok:#14b386;--sun:#ffc93c}
 .gt .vz{display:flex;gap:18px;align-items:flex-start}
 .gt .vz-steps{flex:none;width:262px}
-.gt .vz-steps h3{display:flex;justify-content:space-between;margin:0 0 10px;font-size:13px;font-weight:800;color:var(--ink2)}
+/* 4.2.0: 음성 준비 순서도 원과 세로선으로 잇는다 */
+.gt .vz-steps h3{display:flex;justify-content:space-between;margin:0 0 14px;font-size:13px;font-weight:800;color:var(--ink2)}
 .gt .vz-steps h3 span{color:var(--sky)}
-.gt .vz-st{display:flex;align-items:center;gap:12px;width:100%;height:64px;padding:0 14px;margin:0 0 8px;text-align:left;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s}
-.gt .vz-st:hover:not(:disabled){border-color:var(--sky)}
-.gt .vz-st i{flex:none;display:grid;place-items:center;width:30px;height:30px;font-style:normal;font-size:14px;font-weight:900;color:#9aa8bd;background:#eef3f9;border-radius:50%}
-.gt .vz-st span{display:flex;flex-direction:column;min-width:0}
-.gt .vz-st b{font-size:14px;color:var(--ink2)}
-.gt .vz-st small{font-size:11.5px;color:var(--mut)}
-.gt .vz-st.done i{color:#fff;background:var(--ok)}
+.gt .vz-st{position:relative;display:block;width:100%;height:auto;min-height:56px;padding:3px 0 0 44px;margin:0;text-align:left;background:none;border:0;border-radius:0;box-shadow:none}
+.gt .vz-st::before{content:"";position:absolute;left:14px;top:32px;bottom:-2px;width:2px;border-radius:1px;background:var(--ln)}
+.gt .vz-st:last-of-type::before{display:none}
+.gt .vz-st.done::before{background:var(--ok)}
+.gt .vz-st:disabled{cursor:default}
+.gt .vz-st i{position:absolute;left:0;top:0;display:grid;place-items:center;width:30px;height:30px;font-style:normal;font-size:14px;font-weight:900;color:#9aa8bd;background:#fff;border:2px solid var(--ln);border-radius:50%;transition:box-shadow .15s}
+.gt .vz-st i svg{width:15px;height:15px}
+.gt .vz-st span{display:block;min-width:0}
+.gt .vz-st b{display:block;overflow:hidden;font-size:14px;line-height:1.3;color:var(--ink2);white-space:nowrap;text-overflow:ellipsis}
+.gt .vz-st small{display:block;overflow:hidden;margin-top:2px;font-size:11.5px;color:var(--mut);white-space:nowrap;text-overflow:ellipsis}
+.gt .vz-st:hover:not(:disabled) b{color:var(--sky);text-decoration:underline;text-underline-offset:3px}
+.gt .vz-st.done i{color:#fff;background:var(--ok);border-color:var(--ok)}
 .gt .vz-st.done small{color:var(--ok);font-weight:700}
-.gt .vz-st.cur{background:var(--skl);border:2px solid var(--sky)}
-.gt .vz-st.cur i{color:#fff;background:var(--sky)}
+.gt .vz-st.cur i{color:#fff;background:var(--sky);border-color:var(--sky);box-shadow:0 0 0 5px var(--skl)}
+.gt .vz-st.cur b{font-size:15px;font-weight:900;color:var(--sky)}
 .gt .vz-st.cur small{color:var(--sky);font-weight:800}
-.gt .vz-st.lock{background:#f7f9fc;cursor:default}
 .gt .vz-st.lock b{color:#9aa8bd}
-.gt .vz-dup{margin:6px 0 0;padding:10px 12px;font-size:12px;line-height:1.5;color:#c05a00;background:#fff3e2;border-radius:10px}
+.gt .vz-st.lock small{color:#b3bfd0}
+.gt .vz-dup{flex:0 0 100%;margin:6px 0 0;padding:10px 12px;font-size:12px;line-height:1.5;color:#c05a00;background:#fff3e2;border-radius:10px}
 .gt .vz-pn{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:22px 26px;background:#fff;border:1px solid var(--ln);border-radius:16px}
 .gt .vz-hd{display:flex;align-items:center}
 .gt .vz-tg{display:inline-flex;align-items:center;height:26px;padding:0 10px;font-size:12px;font-weight:900;color:var(--sky);background:var(--skl);border-radius:13px}
@@ -12086,11 +12097,12 @@ ${ctx || '(none)'}`;
 .gt .vu-lk small{display:block;margin:0 0 3px;font-size:11.5px;font-weight:700;color:var(--mut)}
 @media (max-width:860px){
   .gt .vz{flex-direction:column}
-  .gt .vz-steps{width:100%}
-  .gt .vz-steps>.vz-st{display:inline-flex;width:auto;max-width:100%;height:46px;margin:0 6px 6px 0;padding:0 12px 0 8px}
-  .gt .vz-st i{width:26px;height:26px;font-size:12px}
-  .gt .vz-st small{display:none}
-  .gt .vz-st.cur small{display:block}
+  .gt .vz-steps{display:flex;flex-wrap:wrap;align-items:flex-start;width:100%}
+  .gt .vz-steps h3{flex:0 0 100%;margin:0 0 10px}
+  .gt .vz-steps>.vz-st{flex:1 1 30px;display:flex;justify-content:center;min-width:0;min-height:0;padding:0}
+  .gt .vz-st::before{left:calc(50% + 15px);right:calc(15px - 50%);top:14px;bottom:auto;width:auto;height:2px}
+  .gt .vz-st i{position:relative}
+  .gt .vz-st span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .gt .vz-cards{grid-template-columns:1fr}
 }
 /* 4.1.0: 음성 탭 나머지 화면도 견본 3의 색 · 둥근 모서리에 맞춘다 */
