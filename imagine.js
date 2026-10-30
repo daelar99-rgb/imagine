@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.0.0
+//@display-name 🎨 이매진 v4.1.0
 //@api 3.0
-//@version 4.0.0
+//@version 4.1.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.0.0';
+    const VERSION = '4.1.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3475,8 +3475,8 @@ Output a single JSON object only:
     const CSS = `
 body.ix-on{margin:0;min-height:100vh;overflow-x:clip;color:#2b2f36;font:15px/1.55 ${FONT};padding:30px 16px 48px;box-sizing:border-box;background:rgba(0,0,0,.62)}
 html:has(body.ix-on){background:transparent;overflow-y:scroll}
-.ix{--paper:#fff;--paper2:#f6f7f9;--paper3:#eceef2;--line:#d5d9e0;--line2:#bfc5cf;--ink:#2b2f36;--muted:#6f7682;--accent:#3d5afe;--accent2:#2a3fc4;--soft:#eef1ff;--bad:#d0453b;--good:#1f8a4c;--ease-out:cubic-bezier(.2,.8,.2,1);
-  position:relative;box-sizing:border-box;max-width:960px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);min-width:0;color:var(--ink);font-family:${FONT};word-break:keep-all;overflow-wrap:anywhere;background:var(--paper);border:1px solid var(--line2);box-shadow:0 0 0 5px #fff,0 0 0 6px #ccc,0 34px 60px -34px rgba(0,0,0,.35)}
+.ix{--paper:#fff;--paper2:#f6f7f9;--paper3:#eceef2;--line:#dbe5f0;--line2:#c3d1e2;--ink:#1f2d45;--muted:#6d7c95;--accent:#2b95f0;--accent2:#1d5bc4;--soft:#e9f5ff;--bad:#d0453b;--good:#14b386;--co:#ff6b5e;--ease-out:cubic-bezier(.2,.8,.2,1);
+  position:relative;box-sizing:border-box;max-width:1200px;min-height:720px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;min-width:0;color:var(--ink);font-family:${FONT};word-break:keep-all;overflow-wrap:anywhere;background:var(--paper);border-radius:14px;overflow:clip;box-shadow:0 30px 80px rgba(0,0,0,.5)}
 .ix *{box-sizing:border-box}
 .ix [hidden]{display:none!important}
 .ix button{font:inherit;color:inherit;cursor:pointer}
@@ -3490,7 +3490,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix-chip.bad{color:#fff;background:var(--bad)}
 .ix .ix-x{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;font-size:1.1rem;line-height:1;color:#fff;background:#d0453b;border:1px solid #e0675e}
 .ix .ix-x:hover{background:#b3362d}
-.ix-band{display:flex;flex-direction:column;gap:12px;min-width:0;padding:14px 16px 0 22px;color:#fff;background:linear-gradient(115deg,#1d5bc4,#2b95f0 58%,#62bdff)}
+.ix-band{display:flex;flex-direction:column;gap:16px;min-width:0;padding:14px 20px 0 28px;color:#fff;background:linear-gradient(115deg,#1d5bc4,#2b95f0 58%,#62bdff)}
 .ix-band.m-imagine{--mc:#7a6cff}
 .ix-band.m-asset{--mc:#17b897}
 .ix-band.m-voice{--mc:#2b95f0}
@@ -3538,7 +3538,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix-ftab .hi{width:15px;height:15px}
 .ix-ftab .cnt{padding:0 6px;font-style:normal;font-size:.7rem;font-weight:800;color:#fff;background:rgba(255,255,255,.24);border-radius:9px}
 .ix-ftab.on .cnt{color:#fff;background:var(--mc)}
-.ix-pane{min-width:0;padding:16px}
+.ix-pane{min-width:0;padding:22px 28px 24px}
 .ix-pane.anim>*{animation:ix-rise .5s var(--ease-out) backwards}
 .ix-pane.anim>:nth-child(2){animation-delay:.05s}
 .ix-pane.anim>:nth-child(3){animation-delay:.1s}
@@ -4039,6 +4039,92 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
   .wd{gap:5px 6px}
   .wd .cf-in{padding-left:6px;padding-right:6px;font-size:.78rem}
 }
+
+/* 4.1.0: 견본 3 꼴의 둥근 모서리 (패널 iframe 안에서만 쓰는 class) */
+.ix .ix-btn{border-radius:10px}
+.ix .ix-btn.main.big{background:var(--co);border-color:var(--co);border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8)}
+.ix .cf-ta,.ix .cf-num,.ix .cf-in,.ix .pick select{border-radius:10px}
+.ix .ix-msg,.ix .cf-warn,.ix .rz,.ix .cf-dev{border-radius:12px}
+.ix .cf-card,.ix .cf-grp,.ix .fn-card,.ix .ans,.ix .tile,.ix .cc,.ix .ps-it,.ix .gc,.ix .menu,.ix .wd{border-radius:14px}
+.ix .sp{border-radius:14px}
+.ix .sp-n{width:30px;height:30px;border-radius:50%}
+.ix .dz-op,.ix .as-t,.ix .acnt .cn{border-radius:12px}
+.ix .cf-seg{border-radius:20px;overflow:hidden}
+.ix .ab,.ix .sz-bar{border-radius:12px}
+.ix .dlg{border-radius:16px;overflow:clip}
+.ix .ab,.ix .sz-bar{margin:18px 0 0;border:1px solid var(--line);box-shadow:0 10px 24px -14px rgba(31,45,69,.45)}
+
+/* 4.1.0: 삽화 · 애드 에셋 준비 탭을 음성 준비 탭과 같은 「단계 레일 + 판」으로 그린다 (railSteps) */
+.ix-pane.rl-pane{display:flex;flex-direction:column}
+.ix .rl{--sky:#2b95f0;--skl:#e9f5ff;--mut:#6d7c95;--ln:#dbe5f0;--ok:#14b386;flex:1 1 auto;display:flex;gap:22px;align-items:stretch;min-width:0}
+.ix .rl .vz-steps{flex:none;align-self:flex-start;width:262px}
+.ix .rl .vz-steps h3{display:flex;justify-content:space-between;margin:0 0 10px;font-size:13px;font-weight:800;color:var(--ink)}
+.ix .rl .vz-steps h3 span{color:var(--sky)}
+.ix .rl .vz-st{display:flex;align-items:center;gap:12px;width:100%;height:64px;padding:0 14px;margin:0 0 8px;text-align:left;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s,box-shadow .15s}
+.ix .rl .vz-st:hover:not(:disabled){border-color:var(--sky)}
+.ix .rl .vz-st:disabled{cursor:default}
+.ix .rl .vz-st i{flex:none;display:grid;place-items:center;width:30px;height:30px;font-style:normal;font-size:14px;font-weight:900;color:#9aa8bd;background:#eef3f9;border-radius:50%}
+.ix .rl .vz-st i svg{width:16px;height:16px}
+.ix .rl .vz-st span{display:flex;flex-direction:column;min-width:0}
+.ix .rl .vz-st b{overflow:hidden;font-size:14px;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
+.ix .rl .vz-st small{overflow:hidden;font-size:11.5px;color:var(--mut);white-space:nowrap;text-overflow:ellipsis}
+.ix .rl .vz-st.done i{color:#fff;background:var(--ok)}
+.ix .rl .vz-st.done small{color:var(--ok);font-weight:700}
+.ix .rl .vz-st.cur{background:var(--skl);border:2px solid var(--sky)}
+.ix .rl .vz-st.cur i{color:#fff;background:var(--sky)}
+.ix .rl .vz-st.cur small{color:var(--sky);font-weight:800}
+.ix .rl .vz-st.lock{background:#f7f9fc}
+.ix .rl .vz-st.lock b{color:#9aa8bd}
+.ix .rl .vz-st.on{box-shadow:0 0 0 3px rgba(43,149,240,.2)}
+.ix .rl .vz-intro{margin:12px 2px 0;font-size:12px;line-height:1.55;color:var(--mut)}
+.ix .rl .vz-pn{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:22px 26px;background:#fff;border:1px solid var(--ln);border-radius:16px}
+.ix .rl .vz-hd{display:flex;align-items:center;gap:10px}
+.ix .rl .vz-tg{flex:none;display:inline-flex;align-items:center;height:26px;padding:0 10px;font-size:12px;font-weight:900;color:var(--sky);background:var(--skl);border-radius:13px}
+.ix .rl .vz-pn h2{min-width:0;font-size:22px;font-weight:900;color:var(--ink)}
+.ix .rl .vz-hd .lnk{margin-left:auto;font-size:12.5px}
+.ix .rl .vz-bd{flex:1 1 auto;min-width:0;margin-top:18px}
+.ix .rl .dz{gap:12px}
+.ix .rl .dz-op{flex-direction:row;align-items:center;gap:14px;min-height:92px;padding:12px 16px;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s}
+.ix .rl .dz-op:hover:not(:disabled){border-color:var(--sky)}
+.ix .rl .dz-op.sel{background:var(--skl);border:2px solid var(--sky);box-shadow:none}
+.ix .rl .dz-th{flex:none;width:56px;height:56px;min-height:0;font-size:1.9rem;background:#eef3f9;border:0;border-radius:12px}
+.ix .rl .dz-op.sel .dz-th{background:#fff}
+.ix .rl .dz-tx{padding:0;gap:4px}
+.ix .rl .dz-tx b{font-size:16px;font-weight:900;color:var(--ink)}
+.ix .rl .dz-tx b::before{width:22px;height:22px;border:2px solid #c3d1e2}
+.ix .rl .dz-op.sel .dz-tx b::before{background:#fff;border:6px solid var(--sky)}
+.ix .rl .dz-tx span{font-size:12.5px;line-height:1.45}
+.ix .rl .ix-acts{margin-top:20px}
+.ix .rl .ix-acts .ix-btn.main{min-height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
+.ix .rl .ix-acts .ix-btn.main:hover:not(:disabled){background:var(--co);transform:translateY(-2px)}
+.ix .rl .ix-acts .ix-btn:not(.main){min-height:52px;padding:0 20px;font-weight:800;border:1.5px solid var(--ln);border-radius:12px;box-shadow:none}
+@media (max-width:860px){
+  .ix .rl{flex-direction:column;gap:14px}
+  .ix .rl .vz-steps{align-self:stretch;width:100%}
+  .ix .rl .vz-steps>.vz-st{display:inline-flex;width:auto;max-width:100%;height:46px;margin:0 6px 6px 0;padding:0 12px 0 8px}
+  .ix .rl .vz-st i{width:26px;height:26px;font-size:12px}
+  .ix .rl .vz-st small{display:none}
+  .ix .rl .vz-st.on small{display:block}
+  .ix .rl .vz-intro{display:none}
+  .ix .rl .vz-pn{padding:18px 18px}
+  .ix .rl .dz{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .ix{min-height:0}
+  .ix-pane{padding:14px 12px 16px}
+  .ix-band{gap:12px;padding:10px 10px 0 12px}
+  .ix .rl .vz-pn{padding:16px 14px;border-radius:14px}
+  .ix .rl .vz-pn h2{font-size:19px}
+  .ix .rl .vz-hd{flex-wrap:wrap}
+  .ix .rl .ix-acts .ix-btn.main{width:100%}
+  .ix .rl .vz-steps>.vz-st.done:not(.on){padding:0 9px}
+  .ix .rl .vz-st.done:not(.on) span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+}
+@media (max-width:420px){
+  .ix .rl .vz-steps>.vz-st{height:40px;padding:0 8px 0 6px}
+  .ix .rl .vz-st b{font-size:12.5px}
+  .ix .rl .dz-th{width:46px;height:46px;font-size:1.5rem}
+}
 `;
 
     function h(tag, props, ...children) {
@@ -4093,7 +4179,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
         const anim = ui.lastTab !== now;
         ui.lastTab = now;
         if (ui.side === 'upd' && !updOn()) ui.side = '';
-        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : renderAsset()) : ui.tab === 'gallery' ? renderGallery() : renderReady();
+        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset())) : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady());
         if (anim) pane.classList.add('anim');
         const lb = ui.root.querySelector(':scope > .lb');
         ui.root.replaceChildren(...[renderHead(), pane, renderFoot(), lb].filter(Boolean));
@@ -5199,6 +5285,52 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
     }
 
     const intro = (name, text) => h('p', { class: 'ix-intro' }, h('b', null, name + ':'), text);
+
+    function railSteps(pane) {
+        const secs = [...pane.children].filter(el => el.matches('section.sp'));
+        if (!secs.length) return pane;
+        const state = el => el.classList.contains('cur') ? 'cur' : el.classList.contains('done') ? 'done' : 'lock';
+        const lnk = (el, word) => [...el.querySelectorAll('.sp-hd .lnk')].find(b => b.textContent === word) ?? null;
+        const filled = el => !!el.querySelector('.sp-bd')?.childNodes.length;
+        const shown = secs.find(el => state(el) === 'cur' && filled(el)) ?? secs.find(el => state(el) === 'cur') ?? [...secs].reverse().find(filled) ?? secs[secs.length - 1];
+        const at = secs.indexOf(shown);
+        const doneN = secs.filter(el => state(el) === 'done').length;
+        const check = () => { const i = h('i', null); i.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'; return i; };
+        const introEl = [...pane.children].find(el => el.classList.contains('ix-intro'));
+        const rail = h('aside', { class: 'vz-steps', 'aria-label': '준비 단계' },
+            h('h3', null, '준비 순서', h('span', null, `${doneN} / ${secs.length} 완료`)),
+            secs.map((el, i) => {
+                const s = state(el), ch = lnk(el, '변경');
+                const sum = el.querySelector('.sp-sum')?.textContent ?? '';
+                const name = el.querySelector('.sp-hd b')?.textContent ?? '';
+                const small = i === at && s !== 'done' ? '지금 여기' : s === 'done' ? sum || '완료' : s === 'cur' ? '진행 중' : '잠김';
+                return h('button', {
+                    class: `vz-st ${s}${i === at ? ' on' : ''}`, type: 'button', disabled: !ch && i !== at, 'aria-current': i === at ? 'step' : null,
+                    title: ch ? `${name} · 눌러서 다시 고칩니다` : null, onclick: () => ch?.click(),
+                }, s === 'done' ? check() : h('i', null, i + 1), h('span', null, h('b', null, name), h('small', null, small)));
+            }),
+            introEl ? h('p', { class: 'vz-intro' }, introEl.textContent) : null);
+        const title = shown.querySelector('.sp-hd b')?.textContent ?? '';
+        const fin = state(shown) === 'done' && doneN === secs.length;
+        const pn = h('section', { class: 'vz-pn' },
+            h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, fin ? '준비 끝' : `${at + 1} / ${secs.length} 단계`), h('h2', null, title), lnk(shown, '완료')));
+        const body = h('div', { class: 'vz-bd' });
+        const first = secs[0];
+        const vz = h('div', { class: 'vz rl' }, rail, pn);
+        const before = [], after = [];
+        let past = false;
+        for (const el of [...pane.children]) {
+            if (el === introEl) { el.remove(); continue; }
+            if (el.matches('section.sp')) { past = true; continue; }
+            (past ? after : before).push(el);
+        }
+        body.append(...before, ...shown.querySelector('.sp-bd').childNodes, ...after);
+        pn.append(body);
+        first.replaceWith(vz);
+        for (const el of secs) el.remove();
+        pane.classList.add('rl-pane');
+        return pane;
+    }
     const llmName = k => k === 'model' ? '메인' : '보조';
     const llmCards = (key, onpick) => h('div', { class: 'dz', role: 'radiogroup' },
         [['model', '🧠', '메인 모델', '리수 설정 › 메인 모델로 보냅니다'], ['submodel', '⚡', '보조 모델', '리수 설정 › 보조 모델로 보냅니다']].map(([k, em, name, desc]) => {
@@ -7531,7 +7663,7 @@ html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .al-fix span{flex:1 1 240px}
 .ac-ov{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.5)}
 .dlg{width:min(640px,100%);max-height:90vh;overflow:auto;background:#fff;border:1px solid var(--line2)}
-.dlg-h{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;color:#fff;background:#23262d}
+.dlg-h{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 18px;color:#fff;background:linear-gradient(115deg,#1d5bc4,#2b95f0 70%,#62bdff)}
 .dlg-h>span{flex:1;min-width:0;font-weight:700}
 .dlg-h>span{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .dlg-h code{color:#cfd3da;background:rgba(255,255,255,.1);font-weight:400}
@@ -11955,8 +12087,19 @@ ${ctx || '(none)'}`;
 @media (max-width:860px){
   .gt .vz{flex-direction:column}
   .gt .vz-steps{width:100%}
+  .gt .vz-steps>.vz-st{display:inline-flex;width:auto;max-width:100%;height:46px;margin:0 6px 6px 0;padding:0 12px 0 8px}
+  .gt .vz-st i{width:26px;height:26px;font-size:12px}
+  .gt .vz-st small{display:none}
+  .gt .vz-st.cur small{display:block}
   .gt .vz-cards{grid-template-columns:1fr}
 }
+/* 4.1.0: 음성 탭 나머지 화면도 견본 3의 색 · 둥근 모서리에 맞춘다 */
+.gt{--line:#dbe5f0;--line2:#c3d1e2;--line3:#9aa8bd;--ink:#1f2d45;--muted:#6d7c95;--accent:#2b95f0;--accent2:#1d5bc4;--accent-t:#1d5bc4;--soft:#e9f5ff;--good:#14b386;--head:#1d5bc4}
+.gt .gt-b,.gt .vf-ta,.gt .vf-num,.gt .vf-in,.gt .tk-ta,.gt .rs-in{border-radius:10px}
+.gt .gt-msg,.gt .gt-pv,.gt .gt-pk,.gt .gt-pk-list,.gt .vu-step,.gt .vg-box,.gt .rs-pop{border-radius:12px}
+.gt .vf-card,.gt .rs-card{border-radius:14px;overflow:clip}
+.gt .vf-seg{border-radius:20px;overflow:hidden}
+.gt .gt-x{border-radius:50%}
 `;
     await loadSet();
     await loadLib();
