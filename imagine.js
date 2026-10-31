@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.5.1
+//@display-name 🎨 이매진 v4.6.0
 //@api 3.0
-//@version 4.5.1
+//@version 4.6.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.5.1';
+    const VERSION = '4.6.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -9712,7 +9712,7 @@ Rules:
         ['gemini-2.5-pro-tts', '2.5 Pro'],
         ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
     ];
-    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 30, gap: 250, castAuto: true, auto: true, talkModel: 'model', talkSpeak: true, talkLink: false, setup: 0,
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 30, gap: 250, castAuto: true, auto: true, talkModel: 'submodel', talkSpeak: true, talkLink: false, setup: 0,
         talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkStage: 60 };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
     const STYLE_MAX = 300;
@@ -9755,6 +9755,8 @@ Rules:
         if (v && typeof v === 'object') st.set = { ...DEF_SET, ...v };
         if (!st.set.m38 && st.set.model === OLD_MODEL) st.set.model = DEF_SET.model;
         st.set.m38 = true;
+        if (!st.set.t46 && st.set.talkModel === 'model') st.set.talkModel = 'submodel';
+        st.set.t46 = true;
     }
     async function botOf(chaId) {
         if (st.bots.has(chaId)) return st.bots.get(chaId);
@@ -10401,7 +10403,7 @@ Rules:
     const genderOf = id => FEMALE.includes(id) ? 'female' : MALE.includes(id) ? 'male' : lib.voices?.find(v => v.id === id)?.gender ?? 'unknown';
     const personaFail = new Set();
     const personaRun = new Map();
-    function ensurePersona(chaId, bot, p) {
+    function ensurePersona(chaId, bot, p, mode) {
         if (!p?.name || !p.prompt || !p.sig) return Promise.resolve(false);
         if (bot.voices[canonName(bot, p.name)]?.persona === p.sig) return Promise.resolve(false);
         const tag = chaId + '|' + p.sig;
@@ -10414,7 +10416,7 @@ Rules:
                 const out = await askModel([
                     { role: 'system', content: PERSONA_SYSTEM },
                     { role: 'user', content: `PERSONA NAME: ${p.name}\nPERSONA:\n${p.prompt}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}` },
-                ]);
+                ], mode);
                 const a = out.indexOf('{'), b = out.lastIndexOf('}');
                 let j = null;
                 if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
@@ -10476,7 +10478,7 @@ Rules:
             const out = await guard(askModel([
                 { role: 'system', content: CAST_SYSTEM },
                 { role: 'user', content: `MAIN CHARACTER (the bot): ${w.char.name ?? ''}\nUSER NAME (the player, leave out): ${user || '(unknown)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}\n\nSTORY:\n${botContextOf(w.char, w.chat, entries, user)}` },
-            ]));
+            ], 'model'));
             if (run.stop) throw stopError();
             step(3);
             const list = parseCast(out, user);
@@ -10487,7 +10489,7 @@ Rules:
             await saveBot(chaId, bot);
             const p = await guard(personaOf());
             personaFail.delete(chaId + '|' + p.sig);
-            await guard(ensurePersona(chaId, bot, p));
+            await guard(ensurePersona(chaId, bot, p, 'model'));
             return list.length;
         } catch (error) {
             throw run.stop ? stopError() : error;
@@ -10604,7 +10606,7 @@ ${ctx || '(none)'}`;
             if (last?.role === role) last.content += '\n' + m.t;
             else msgs.push({ role, content: m.t });
         }
-        const out = await askModel([{ role: 'system', content: system }, ...msgs], st.set.talkModel === 'submodel' ? 'submodel' : 'model');
+        const out = await askModel([{ role: 'system', content: system }, ...msgs], st.set.talkModel === 'model' ? 'model' : 'submodel');
         const text = talkClean(out, name, rec);
         if (!spoken(text)) throw new Error('모델이 빈 답을 돌려주었습니다. 한 번 더 보내 보세요.');
         return text;
@@ -11621,7 +11623,7 @@ ${ctx || '(none)'}`;
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 등장인물 분석'), h('p', null, st.set.split === 'off' || st.set.pick === 'hash'
                         ? '화자를 나누지 않거나 새 인물 목소리를 이름으로 정하면 쓰이지 않습니다.'
                         : st.set.castAuto
-                            ? '한 번도 분석하지 않은 봇의 답변을 처음 읽을 때, 읽기 전에 「📖 등장인물 분석」을 한 번 합니다. 그 답변만 모델 요청이 한 번 늘고 소리가 조금 늦게 나옵니다.'
+                            ? '한 번도 분석하지 않은 봇의 답변을 처음 읽을 때, 읽기 전에 「📖 등장인물 분석」을 한 번 합니다. 그 답변만 메인 모델 요청이 한 번 늘고 소리가 조금 늦게 나옵니다.'
                             : '자동으로 분석하지 않습니다. 등장인물 탭의 「📖 등장인물 분석」 버튼을 누를 때만 분석합니다.')),
                     seg([['on', '켬 (기본)'], ['off', '끔']], st.set.castAuto ? 'on' : 'off', id => set('castAuto', id === 'on'))),
                 row('요청 사이 쉼', '답변이 길거나 목소리가 셋 이상이라 요청이 나뉠 때, 그 사이에 넣는 쉼입니다. 0~2000ms',
@@ -11631,8 +11633,8 @@ ${ctx || '(none)'}`;
                 row('보관한 소리', '이 기기에 저장한 소리를 모든 봇에서 지웁니다.',
                     h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기'))),
             group('대화', '모든 봇 공통',
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '대화 모델'), h('p', null, '「대화」 탭에서 답을 만들 모델입니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.')),
-                    seg([['model', '메인 모델 (기본)'], ['submodel', '보조 모델']], st.set.talkModel, id => set('talkModel', id))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '대화 모델'), h('p', null, '「대화」 탭에서 답을 만들 모델입니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다. 보조 모델이 싸고 빠르며, 말투가 어색하면 메인 모델을 고르세요.')),
+                    seg([['submodel', '보조 모델 (기본)'], ['model', '메인 모델']], st.set.talkModel, id => set('talkModel', id))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '답 자동 듣기'), h('p', null, st.set.talkSpeak
                         ? '답이 오면 그 인물의 목소리로 바로 읽어 줍니다. 대화 화면 무대 아래의 「TTS」 버튼으로도 바꿀 수 있습니다.'
                         : '글로만 대화합니다. 무대 아래 「다시 듣기」를 누르면 그 말만 들을 수 있습니다.')),
@@ -11688,8 +11690,8 @@ ${ctx || '(none)'}`;
         const castRow = h('div', { class: 'vf-row col' },
             h('div', { class: 'vf-tx' }, h('b', null, '📖 등장인물 분석'), h('p', null, (b.castAt
                 ? `${new Date(b.castAt).toLocaleString()}에 분석했습니다. 로어북을 고쳤으면 다시 누르세요. `
-                : '봇 설명 · 첫 메시지 · 로어북을 모델에게 읽혀, 나올 인물의 목소리 · 성별 · 지시문 · 별명을 미리 정합니다. ')
-                + '이미 정한 목소리와 직접 쓴 지시문은 바꾸지 않습니다.')),
+                : '봇 설명 · 첫 메시지 · 로어북을 메인 모델에게 읽혀, 나올 인물의 목소리 · 성별 · 지시문 · 별명을 미리 정합니다. ')
+                + '분석은 화자 나누기 설정과 상관없이 늘 메인 모델로 합니다. 이미 정한 목소리와 직접 쓴 지시문은 바꾸지 않습니다.')),
             h('div', { class: 'gt-acts' }, h('button', { class: 'gt-b main', type: 'button', disabled: !!cast && !mine, onclick: () => void castClick() }, mine ? '■ 멈추기' : '📖 등장인물 분석')),
             mine ? castLoad(cast) : null);
         return [
