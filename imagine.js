@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.7.0
+//@display-name 🎨 이매진 v4.8.0
 //@api 3.0
-//@version 4.7.0
+//@version 4.8.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.7.0';
+    const VERSION = '4.8.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -6616,7 +6616,8 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         + '.nc-act.nc-act .nc-act-b.nc-act-b{background:rgba(0,0,0,.62)!important}'
         + '@media (hover:hover) and (pointer:fine){.nc-fig.nc-fig:hover .nc-act.nc-act{opacity:1!important;visibility:visible!important;scale:1!important}'
         + '.nc-act.nc-act .nc-act-b.nc-act-b:hover{background:rgba(37,99,235,.92)!important}'
-        + '.nc-act.nc-act .nc-del.nc-del:hover{background:rgba(220,38,38,.92)!important}}'
+        + '.nc-act.nc-act .nc-del.nc-del:hover{background:rgba(220,38,38,.92)!important}'
+        + '.nc-gen.nc-gen:hover,.nc-tts-btn.nc-tts-btn:hover,.nc-tts-re.nc-tts-re:hover{filter:brightness(1.3)!important}}'
         + '.nc-fig.nc-fig.nc-on .nc-act.nc-act{opacity:.92!important;visibility:visible!important;scale:1!important}';
     function figCss(ptHide) {
         const s = st.set;
@@ -6637,30 +6638,36 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const PT_INLAY_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<div class="risu-inlay-image">(\s*)<img\b/g;
     const PT_IMG_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<img\b/g;
     const GEN_TEXT = { idle: '이미지 생성', nokey: '이미지 생성 · NAI 키 필요' };
-    const GEN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '4px', boxSizing: 'border-box', width: 'max-content', minWidth: '8.3em', maxWidth: '100%', minHeight: '30px', margin: '8px 0 2px', padding: '3px 11px',
-        fontSize: '.78rem', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', userSelect: 'none' };
+    const PILL_INK = 'var(--risu-theme-textcolor,#d7dbe6)';
+    const PILL_BG = 'color-mix(in srgb,var(--risu-theme-textcolor,#d7dbe6) 6%,transparent)';
+    const PILL_LINE = 'color-mix(in srgb,var(--risu-theme-textcolor,#d7dbe6) 22%,transparent)';
+    const PILL_RUN = 'rgba(122,162,255,.55)';
+    const GEN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', width: 'max-content', minWidth: '8.8em', maxWidth: '100%', minHeight: '30px', margin: '8px 0 2px', padding: '3px 13px 3px 11px',
+        fontSize: '12.5px', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', borderRadius: '999px', userSelect: 'none', transition: 'filter .18s' };
     const GEN_LOOKS = {
-        idle: { color: '#fff', fontWeight: '700', background: '#141c2e', borderColor: '#c7cdd6', opacity: '1', cursor: 'pointer' },
-        sub: { color: '#fff', fontWeight: '400', background: '#141c2e', borderColor: '#c7cdd6', opacity: '1', cursor: 'default' },
-        off: { color: '#fff', fontWeight: '400', background: '#141c2e', borderColor: '#c7cdd6', opacity: '.5', cursor: 'not-allowed' },
-        need: { color: '#fff', fontWeight: '400', background: '#141c2e', borderColor: '#c7cdd6', opacity: '.5', cursor: 'pointer' },
-        run: { color: '#fff', fontWeight: '700', background: '#141c2e', borderColor: '#c7cdd6', opacity: '1', cursor: 'pointer' },
-        bad: { color: '#fff', fontWeight: '700', background: '#b3261e', borderColor: '#8c1d18', opacity: '1', cursor: 'pointer' },
+        idle: { color: PILL_INK, fontWeight: '600', background: PILL_BG, borderColor: PILL_LINE, opacity: '1', cursor: 'pointer' },
+        sub: { color: PILL_INK, fontWeight: '400', background: PILL_BG, borderColor: PILL_LINE, opacity: '1', cursor: 'default' },
+        off: { color: PILL_INK, fontWeight: '400', background: PILL_BG, borderColor: PILL_LINE, opacity: '.5', cursor: 'not-allowed' },
+        need: { color: PILL_INK, fontWeight: '400', background: PILL_BG, borderColor: PILL_LINE, opacity: '.55', cursor: 'pointer' },
+        run: { color: PILL_INK, fontWeight: '600', background: PILL_BG, borderColor: PILL_RUN, opacity: '1', cursor: 'pointer' },
+        bad: { color: '#fff', fontWeight: '600', background: '#b3261e', borderColor: '#8c1d18', opacity: '1', cursor: 'pointer' },
     };
     const cssOf = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v).join(';');
     const cssImp = o => cssOf(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + ' !important'])));
     const genStyle = (look, gauge = false) => cssImp({ ...GEN_BASE, display: look ? 'flex' : 'none', ...(look ? GEN_LOOKS[look] : {}), ...(gauge ? { position: 'relative', overflow: 'hidden' } : {}) });
     const PAUSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" style="flex:none!important">'
         + '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
-    const FILL_BLUE = '#2f4a8a';
-    const FILL_GREY = '#64748b';
+    const FILL_BLUE = 'rgba(92,132,240,.32)';
+    const FILL_GREY = 'rgba(100,116,139,.45)';
+    const ico = (w, body, fill) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${w}" height="${w}" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none!important">${body}</svg>`;
+    const IMG_SVG = ico(15, '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>');
     const LBL_TEXT = imp({ minWidth: '0', overflow: 'hidden', textOverflow: 'ellipsis' });
     const fillStyle = (pct, color) => `width:${pct}%;` + imp({ position: 'absolute', left: '0', top: '0', bottom: '0', background: color, transition: 'width .45s ease-out,background .2s', pointerEvents: 'none' });
     const sizeStyle = pad => imp({ visibility: 'hidden', whiteSpace: 'nowrap', paddingLeft: pad });
     const lblStyle = left => imp({ position: 'absolute', left, right: '6px', top: '0', bottom: '0', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden' });
     const gaugeLbl = (text, stopping) => (stopping ? '' : PAUSE_SVG) + `<span style="${LBL_TEXT}">${text}</span>`;
     const gaugeHtml = (pct, text, stopping) => `<span class="x-risu-nc-fill" style="${fillStyle(pct, stopping ? FILL_GREY : FILL_BLUE)}"></span>`
-        + `<span class="x-risu-nc-size" style="${sizeStyle('18px')}">${GEN_TEXT.idle}</span>`
+        + `<span class="x-risu-nc-size" style="${sizeStyle('21px')}">${GEN_TEXT.idle}</span>`
         + `<span class="x-risu-nc-lbl" style="${lblStyle('11px')}">${gaugeLbl(text, stopping)}</span>`;
     const FIG_RUN = imp({ position: 'relative', overflow: 'hidden', background: 'rgba(15,23,42,.9)' });
     const DEL_ARMED = imp({ background: 'rgba(220,38,38,.92)' });
@@ -6674,7 +6681,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         if (st.set.ubtn === 'none' || rootDenied()) return '';
         const off = keyKnown === false;
         return '{{#if {{and::{{equal::{{role}}::char}}::{{not::{{isfirstmsg}}}}}}}}'
-            + `<span class="nc-gen nc-at-{{chat_index}}" style="${genStyle(off ? 'need' : 'idle')}">${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
+            + `<span class="nc-gen nc-at-{{chat_index}}" style="${genStyle(off ? 'need' : 'idle')}">${IMG_SVG}${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
             + '{{/if}}';
     }
     const RISU_ASSET_RE = /<div class="risu-inlay-image"><img src="([^"]*)" alt="\1" style="[^"]*"\/><\/div>\n?|<img src="([^"]*)" alt="\2" style="[^"]*"\/>|<video (?:controls autoplay|autoplay muted) loop><source src="[^"]*" type="video\/mp4"><\/video>\n?/g;
@@ -7083,7 +7090,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 if (g.sign === 'hide') await el.setStyleAttribute(genStyle(null));
                 else {
                     await el.setStyleAttribute(genStyle(g.look, !!g.gauge));
-                    await el.setInnerHTML(g.gauge ? gaugeHtml(pct, g.text, g.sign === 'stop') : g.text);
+                    await el.setInnerHTML(g.gauge ? gaugeHtml(pct, g.text, g.sign === 'stop') : (g.sign === 'wait' ? '' : IMG_SVG) + g.text);
                 }
                 await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-s-/.test(c)).concat(mark).join(' '));
                 root.genText.set(idx, g.text);
@@ -9713,13 +9720,13 @@ Rules:
     };
     const MALE = ['Achird', 'Algenib', 'Algieba', 'Alnilam', 'Charon', 'Enceladus', 'Fenrir', 'Iapetus', 'Orus', 'Puck', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar', 'Umbriel', 'Zubenelgenubi'];
     const MODELS = [
-        ['gemini-3.8-flash-tts', '3.8 Flash (최신)'],
+        ['gemini-3.8-flash-tts', '3.8 Flash'],
         ['gemini-3.8-flash-lite-tts', '3.8 Flash Lite'],
         ['gemini-2.5-flash-tts', '2.5 Flash'],
         ['gemini-2.5-pro-tts', '2.5 Pro'],
         ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
     ];
-    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 30, gap: 250, castAuto: true, auto: true, talkModel: 'submodel', talkSpeak: true, talkLink: false, setup: 0,
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, talkModel: 'submodel', talkSpeak: true, talkLink: false, setup: 0,
         talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkStage: 60 };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
     const STYLE_MAX = 300;
@@ -9764,6 +9771,8 @@ Rules:
         st.set.m38 = true;
         if (!st.set.t46 && st.set.talkModel === 'model') st.set.talkModel = 'submodel';
         st.set.t46 = true;
+        if (!st.set.t48 && Number(st.set.keep) === 30) st.set.keep = 300;
+        st.set.t48 = true;
     }
     async function botOf(chaId) {
         if (st.bots.has(chaId)) return st.bots.get(chaId);
@@ -10924,24 +10933,28 @@ ${ctx || '(none)'}`;
         return root.doc;
     }
 
-    const BTN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '4px', boxSizing: 'border-box', width: 'max-content', minHeight: '28px', padding: '2px 10px',
-        fontSize: '.78rem', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', borderColor: '#c7cdd6', background: '#141c2e', color: '#fff', userSelect: 'none', cursor: 'pointer' };
+    const BTN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', width: 'max-content', minHeight: '30px', padding: '3px 13px 3px 11px',
+        fontSize: '12.5px', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', borderRadius: '999px', borderColor: PILL_LINE, background: PILL_BG, color: PILL_INK, userSelect: 'none', cursor: 'pointer', transition: 'filter .18s' };
     const LOOKS = {
-        idle: { fontWeight: '700', opacity: '1', background: '#141c2e' },
-        have: { fontWeight: '700', opacity: '1', background: '#1f3a2e' },
-        run: { fontWeight: '400', opacity: '1', background: '#2f4a8a' },
-        wait: { fontWeight: '400', opacity: '.75', background: '#141c2e' },
-        need: { fontWeight: '400', opacity: '.55', background: '#141c2e' },
-        bad: { fontWeight: '700', opacity: '1', background: '#b3261e' },
+        idle: { fontWeight: '600', opacity: '1' },
+        have: { fontWeight: '600', opacity: '1', color: '#4fbf8f', borderColor: 'rgba(80,200,150,.5)', background: 'rgba(80,200,150,.1)' },
+        run: { fontWeight: '400', opacity: '1', borderColor: PILL_RUN, background: 'rgba(92,132,240,.18)' },
+        wait: { fontWeight: '400', opacity: '.75' },
+        need: { fontWeight: '400', opacity: '.55' },
+        bad: { fontWeight: '600', opacity: '1', color: '#fff', background: '#b3261e', borderColor: '#8c1d18' },
     };
+    const SPK_SVG = ico(15, '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>');
+    const PLAY_SVG = ico(13, '<path d="M7 4.5v15l12-7.5z"/>', true);
+    const RE_SVG = ico(14, '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>');
+    const TTS_ICON = { idle: SPK_SVG, need: SPK_SVG, have: PLAY_SVG };
     const BAR_STYLE = imp({ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', margin: '8px 0 2px' });
-    const RE_LOOK = { ...BTN_BASE, minWidth: '28px', padding: '2px 6px' };
+    const RE_LOOK = { ...BTN_BASE, minWidth: '30px', padding: '3px 7px' };
     function btnHtml() {
         if (rootDenied() || keyKnown !== true) return '';
         return '{{#if {{equal::{{role}}::char}}}}'
             + `<div class="nc-tts-bar" style="${BAR_STYLE}">`
-            + `<span class="nc-tts-btn nc-tts-at-{{chat_index}}" style="${imp({ ...BTN_BASE, display: 'flex', ...LOOKS.idle })}">🔊 읽기</span>`
-            + `<span class="nc-tts-re nc-tts-at-{{chat_index}}" title="새로 만들기" style="${imp({ ...RE_LOOK, display: 'none' })}">↻</span>`
+            + `<span class="nc-tts-btn nc-tts-at-{{chat_index}}" style="${imp({ ...BTN_BASE, display: 'flex', ...LOOKS.idle })}">${SPK_SVG}읽기</span>`
+            + `<span class="nc-tts-re nc-tts-at-{{chat_index}}" title="새로 만들기" style="${imp({ ...RE_LOOK, display: 'none' })}">${RE_SVG}</span>`
             + '</div>'
             + `<div class="nc-tts-slot nc-tts-at-{{chat_index}}" style="${imp({ display: 'block', margin: '4px 0 2px', maxWidth: '100%' })}"></div>`
             + '{{/if}}';
@@ -10953,13 +10966,13 @@ ${ctx || '(none)'}`;
             return { sign: 'run', text: j.note ? `⏳ ${j.note}` : j.total ? `⏳ 만드는 중 ${j.done}/${j.total}` : '⏳ 준비 중', look: 'run' };
         }
         if (j) return { sign: 'wait', text: '⏳ 기다리는 중', look: 'wait' };
-        if (keyKnown === false) return { sign: 'need', text: '🔊 키 필요', look: 'need' };
+        if (keyKnown === false) return { sign: 'need', text: '키 필요', look: 'need' };
         const msg = msgOf(w, idx);
         if (!msg) return { sign: 'hide' };
         const k = keyOf(chaId, msg);
         if (failed.has(k)) return { sign: 'bad', text: '⚠ 다시 시도', look: 'bad', k };
-        if (cached.has(k)) return { sign: 'have', text: '▶ 다시 듣기', look: 'have', k, re: true };
-        return { sign: 'idle', text: '🔊 읽기', look: 'idle', k };
+        if (cached.has(k)) return { sign: 'have', text: '다시 듣기', look: 'have', k, re: true };
+        return { sign: 'idle', text: '읽기', look: 'idle', k };
     }
     async function paint(force = false) {
         const d = root.doc;
@@ -10983,7 +10996,7 @@ ${ctx || '(none)'}`;
             if (g.sign === 'hide') await el.setStyleAttribute(imp({ ...BTN_BASE, display: 'none' }));
             else {
                 await el.setStyleAttribute(imp({ ...BTN_BASE, display: 'flex', ...LOOKS[g.look] }));
-                await el.setInnerHTML(esc(g.text));
+                await el.setInnerHTML((TTS_ICON[g.sign] ?? '') + esc(g.text));
             }
             await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-tts-s-/.test(c)).concat(mark).join(' '));
             const re = await (await el.getParent())?.querySelector('.x-risu-nc-tts-re');
@@ -11623,7 +11636,6 @@ ${ctx || '(none)'}`;
     }
     function paneSet() {
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); paintSoon(true); };
-        const splitDesc = { submodel: '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', model: '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', off: '화자를 나누지 않습니다. 대사는 모두 봇 목소리로 읽고, 인물 지시문도 자동으로 쓰지 않습니다.' };
         const used = cacheList.reduce((n, x) => n + (x.n || 0), 0) / 1048576;
         return [
             msgBox(),
@@ -11632,16 +11644,8 @@ ${ctx || '(none)'}`;
                         ? '봇 답변이 다 만들어지면 「🔊 읽기」를 누르지 않아도 바로 만들어 틉니다. 처음 켤 때 리수가 권한을 묻습니다. 거절하면 자동 읽기가 되지 않으니, 그때는 플러그인을 다시 켜고 허용해 주세요.'
                         : '「🔊 읽기」를 누를 때만 읽습니다.')),
                     seg([['on', '켬 (기본)'], ['off', '끔']], st.set.auto ? 'on' : 'off', id => { set('auto', id === 'on'); void syncListen(); })),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '모델'), h('p', null, '3.8 Flash(기본)는 가장 새 모델입니다. 2.5 Pro는 음질이 좋은 대신 분당 한도가 낮습니다.')),
-                    seg(MODELS, st.set.model, id => set('model', id))),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '읽을 범위'), h('p', null, st.set.read === 'all'
-                    ? '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.'
-                    : '따옴표 안의 대사만 인물 목소리로 읽고, 내레이션은 읽지 않습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.')),
-                    seg([['talk', '대사만 (기본)'], ['all', '내레이션까지']], st.set.read, id => set('read', id))),
                 row('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 2.5 모델에 쓰입니다. 3.8 모델은 글을 보고 언어를 알아서 정합니다. 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, 그 밖에는 한국어)도 이 값으로 정합니다.',
                     h('input', { class: 'vf-num', style: 'width:110px;text-align:left', value: st.set.lang, onchange: e => set('lang', e.target.value.trim() || 'ko-KR') })),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '화자 나누기'), h('p', null, splitDesc[st.set.split] ?? '')),
-                    seg([['submodel', '보조 모델 (추천)'], ['model', '메인 모델'], ['off', '나누지 않음']], st.set.split, id => set('split', id))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '새 인물 목소리'), h('p', null, st.set.split === 'off'
                         ? '화자를 나누지 않으면 새 인물이 생기지 않아 쓰이지 않습니다.'
                         : st.set.pick === 'hash'
@@ -11661,8 +11665,6 @@ ${ctx || '(none)'}`;
                 row('보관한 소리', '이 기기에 저장한 소리를 모든 봇에서 지웁니다.',
                     h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기'))),
             group('대화', '모든 봇 공통',
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '대화 모델'), h('p', null, '「대화」 탭에서 답을 만들 모델입니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다. 보조 모델이 싸고 빠르며, 말투가 어색하면 메인 모델을 고르세요.')),
-                    seg([['submodel', '보조 모델 (기본)'], ['model', '메인 모델']], st.set.talkModel, id => set('talkModel', id))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '답 자동 듣기'), h('p', null, st.set.talkSpeak
                         ? '답이 오면 그 인물의 목소리로 바로 읽어 줍니다. 대화 화면 무대 아래의 「TTS」 버튼으로도 바꿀 수 있습니다.'
                         : '글로만 대화합니다. 무대 아래 「다시 듣기」를 누르면 그 말만 들을 수 있습니다.')),
@@ -12423,7 +12425,7 @@ ${ctx || '(none)'}`;
         return ui.root;
     }
 
-    const SETUP = [['키 넣기', '구글 서비스 계정 키'], ['모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기']];
+    const SETUP = [['키 넣기', '구글 서비스 계정 키'], ['TTS 모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기'], ['LLM 모델', '대화 답을 만들 모델']];
     const MODEL_DESC = {
         'gemini-3.8-flash-tts': ['가장 새 모델입니다. 라이브러리 목소리를 함께 씁니다.', true],
         'gemini-3.8-flash-lite-tts': ['3.8 의 가벼운 모델입니다.'],
@@ -12458,10 +12460,13 @@ ${ctx || '(none)'}`;
         if (n === 2) return [h('div', { class: 'vz-cards' },
             wizCard('talk', '대사만', '따옴표 안의 대사만 인물 목소리로 읽습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.', st.set.read, val => set('read', val), true),
             wizCard('all', '내레이션까지', '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.', st.set.read, val => set('read', val)))];
-        return [h('div', { class: 'vz-cards' },
+        if (n === 3) return [h('div', { class: 'vz-cards' },
             wizCard('submodel', '보조 모델', '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', st.set.split, val => set('split', val), true),
             wizCard('model', '메인 모델', '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.split, val => set('split', val)),
             wizCard('off', '나누지 않음', '대사를 모두 봇 목소리로 읽습니다. 인물 지시문도 자동으로 쓰지 않습니다.', st.set.split, val => set('split', val)))];
+        return [h('div', { class: 'vz-cards' },
+            wizCard('submodel', '보조 모델', '「대화」 탭의 답을 보조 모델로 만듭니다. 싸고 빠릅니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.', st.set.talkModel, val => set('talkModel', val), true),
+            wizCard('model', '메인 모델', '말투가 어색하거나 인물을 잘 못 따라 할 때 고릅니다. 보조 모델보다 비싸고 느립니다.', st.set.talkModel, val => set('talkModel', val)))];
     }
     function readyCard() {
         const el = Date.now() - ui.readyAt, fresh = el < 1200;
@@ -12476,7 +12481,8 @@ ${ctx || '(none)'}`;
             h('ul', { class: 'fn-ck' },
                 li(`${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} 모델로 목소리를 만듭니다`),
                 li(st.set.read === 'all' ? '대사와 내레이션을 모두 읽습니다' : '따옴표 안의 대사만 읽습니다', st.set.read === 'all' ? '내레이션은 내레이션 목소리로' : '내레이션은 화자를 정할 때만 참고'),
-                li(split[st.set.split] ?? split.submodel)),
+                li(split[st.set.split] ?? split.submodel),
+                li(st.set.talkModel === 'model' ? '「대화」 탭 답은 메인 모델이 만듭니다' : '「대화」 탭 답은 보조 모델이 만듭니다')),
             h('div', { class: 'cf-row sw' },
                 h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 읽기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 바로 읽어 줍니다. 처음 켤 때 리수가 권한을 묻습니다.')),
                 host.toggle(st.set.auto, () => { st.set.auto = !st.set.auto; void saveSet(); void syncListen(); render(); paintSoon(true); })),
@@ -12498,7 +12504,7 @@ ${ctx || '(none)'}`;
             ui.dup ? h('p', { class: 'vz-dup' }, '따로 설치한 제미니 TTS 플러그인도 켜져 있습니다. 답변 아래 읽기 버튼이 두 벌 생기니 그쪽은 꺼 주세요.') : null);
         if (n >= SETUP.length) return [h('div', { class: 'vz' }, steps, h('div', { class: 'vz-fin' }, readyCard()))];
         const [title] = SETUP[n];
-        const desc = ['구글 클라우드에서 만든 서비스 계정 키를 고르면 음성을 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 설정 탭에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'][n];
+        const desc = ['구글 클라우드에서 만든 서비스 계정 키를 고르면 음성을 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 준비 탭에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.', '「대화」 탭에서 인물의 답을 만들 모델을 고릅니다. 나중에 준비 탭에서 바꿀 수 있습니다.'][n];
         const block = n === 0 && keyKnown !== true;
         return [h('div', { class: 'vz' }, steps,
             h('section', { class: 'vz-pn' },
