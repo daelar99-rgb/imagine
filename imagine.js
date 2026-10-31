@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.9.0
+//@display-name 🎨 이매진 v4.10.0
 //@api 3.0
-//@version 4.9.0
+//@version 4.10.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.9.0';
+    const VERSION = '4.10.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';   
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';   
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';   
@@ -1380,7 +1380,7 @@ ${TAG_STYLE}`;
         const fill = s => String(s ?? '').replace(/\{\{char\}\}/gi, char.name || 'char').replace(/\{\{user\}\}/gi, persona?.name || 'user');
         let lore = '', loreN = 0;
         for (const e of entries) {
-            if (String(e?.comment ?? '').startsWith('이매진 · ')) continue;
+            if (/^(이매진|제미니 대화|제미니 본편) · /.test(String(e?.comment ?? ''))) continue;
             const content = fill(e?.content).trim();
             if (!content) continue;
             const keys = [e.key, e.secondkey].filter(Boolean).join(', ');
@@ -1424,7 +1424,7 @@ ${TAG_STYLE}`;
         return out;
     }
     function loreKeysOf(e) {
-        if (!e || e.useRegex || String(e.comment ?? '').startsWith('이매진 · ')) return [];
+        if (!e || e.useRegex || /^(이매진|제미니 대화|제미니 본편) · /.test(String(e.comment ?? ''))) return [];
         return [e.key, e.secondkey].flatMap(k => String(k ?? '').split(',')).map(tidy).filter(Boolean);
     }
     function loreAliases(list, entries) {
@@ -2606,6 +2606,10 @@ Rules
 
     const TALK_LOG_MAX = 24;
     const talkStateKey = chaId => 'nc:talkState:' + chaId;
+    async function talkForget(chaId, name) {
+        const v = await api.pluginStorage.getItem(talkStateKey(chaId)).catch(() => null);
+        if (isObj(v) && name in v) { delete v[name]; await Promise.resolve(api.pluginStorage.setItem(talkStateKey(chaId), v)).catch(() => {}); }
+    }
     function talkJob(job, plan) {
         const I = ilAvg('img', acAvg(IL_IMG_SEC));
         Object.assign(job, { stop: false, stage: 0, step: null, steps: 28, at: Date.now(), label: '', est: { P: plan ? ilAvg(planKey(st.set.llm), 20) : 0, I, L: 0.65 * I, S: 0, n: 1 } });
@@ -2687,7 +2691,13 @@ Rules
             job.at = Date.now();
             const saved = await api.pluginStorage.getItem(talkStateKey(chaId)).catch(() => null);
             const all = isObj(saved) ? saved : {};
-            const state = readState(isObj(all[o.name]) ? { scriptstate: { '$nc_state': JSON.stringify(all[o.name]) } } : null);
+            const mc = await Promise.resolve(api.getChatFromIndex(o.ci, Number(char.chatPage ?? 0))).catch(() => null);
+            const ms = readState(mc);
+            const seedSig = fnv(JSON.stringify([ms.wear, ms.location, ms.time, ms.backgrounds]));
+            const mine = isObj(all[o.name]) ? all[o.name] : null;
+            const reseed = !mine || ((Object.keys(ms.wear ?? {}).length || ms.location) && mine.seedSig !== seedSig);
+            const state = reseed ? ms : readState({ scriptstate: { '$nc_state': JSON.stringify(mine) } });
+            state.seedSig = reseed ? seedSig : (mine?.seedSig ?? seedSig);
             const msgs = (o.log ?? []).slice(-TALK_LOG_MAX).map(x => ({ role: x.r === 'u' ? 'user' : 'char', data: String(x.t ?? ''), name: o.name }));
             const idx = msgs.findLastIndex(m => m.role === 'char');
             if (idx < 0) throw new Error('그릴 답이 없습니다.');
@@ -3658,6 +3668,26 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix-ftab .hi{width:15px;height:15px}
 .ix-ftab .cnt{padding:0 6px;font-style:normal;font-size:.7rem;font-weight:800;color:#fff;background:rgba(255,255,255,.24);border-radius:9px}
 .ix-ftab.on .cnt{color:#fff;background:var(--mc)}
+/* 4.10.0: 음성 「대화하기」 말풍선 단추 (왼쪽 아래 모서리만 뾰족, 점 세 개가 천천히 움직인다) */
+.ix .ix-talk{flex:none;position:relative;display:inline-flex;align-items:center;gap:8px;height:34px;margin:0 0 4px 6px;padding:0 16px 0 12px;border:0;border-radius:17px 17px 17px 5px;font-size:13.5px;font-weight:800;white-space:nowrap;color:#fff;background:#ff6b5e;box-shadow:0 3px 0 #d9483c,0 10px 18px -6px rgba(120,20,10,.5);transition:transform .15s,box-shadow .15s}
+.ix-dots{display:inline-flex;gap:3px}
+.ix-dots b{width:5px;height:5px;border-radius:50%;background:#fff;animation:ix-dot 1.3s ease-in-out infinite}
+.ix-dots b:nth-child(2){animation-delay:.18s}
+.ix-dots b:nth-child(3){animation-delay:.36s}
+@keyframes ix-dot{0%,70%,100%{opacity:.45;transform:translateY(0)}35%{opacity:1;transform:translateY(-3px)}}
+.ix .ix-talk:hover{transform:translateY(-2px);box-shadow:0 5px 0 #d9483c,0 14px 22px -6px rgba(120,20,10,.55)}
+.ix .ix-talk:active{transform:translateY(2px);box-shadow:0 1px 0 #d9483c,0 4px 10px -4px rgba(120,20,10,.5)}
+.ix-sep{flex:none;width:1px;height:22px;margin:0 2px 9px 8px;align-self:flex-end;background:rgba(255,255,255,.35)}
+@media (prefers-reduced-motion:reduce){.ix-dots b{animation:none;opacity:.8}}
+/* 4.10.0: 여는 중 화면. 띠 · 모드 카드 · 폴더 탭 자리를 같은 꼴의 빈 칸으로 먼저 그린다 */
+.ix-sk{display:block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);position:relative;overflow:hidden}
+.ix-sk.mo{flex:0 1 230px;min-width:0;height:56px;border-radius:12px}
+.ix-sk.ft{flex:none;width:92px;height:40px;border-radius:12px 12px 0 0;border-bottom:0}
+.ix-sk::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.25) 50%,transparent 80%);transform:translateX(-100%);animation:ix-shine 1.6s ease-in-out infinite}
+.ix-boot{max-width:460px;margin:28px auto 0;padding:30px 22px;border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(31,45,69,.06),0 8px 20px -10px rgba(31,45,69,.28)}
+.ix-boot .ix-open-bar{height:10px;border:0;border-radius:10px;background:#e9eff7}
+.ix-boot .ix-open-bar .fi{border-radius:10px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+.ix-boot .ix-tip b{border-radius:6px}
 .ix-pane{min-width:0;padding:22px 28px 24px}
 .ix-pane.anim>*{animation:ix-rise .5s var(--ease-out) backwards;animation-delay:var(--ae,0ms)}
 .ix-pane.anim>:nth-child(2){animation-delay:calc(var(--ae,0ms) + .05s)}
@@ -4383,10 +4413,14 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         const tabs = voiceOn ? VTABS : asset ? AC_TABS : TABS, cur = voiceOn ? ui.vtab : asset ? ui.atab : ui.tab;
         const tab = (on, kids, onclick, cls = '') => h('button', { class: 'ix-ftab' + cls + (on ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': on ? 'true' : 'false', onclick }, kids);
         return h('nav', { class: 'ix-fts', role: 'tablist', 'aria-label': voiceOn ? '음성 화면' : asset ? '애드 에셋 화면' : '삽화 화면' },
-            tabs.map(([id, label]) => tab(!ui.side && cur === id, label(), () => {
-                if (voiceOn) ui.vtab = id; else if (asset) ui.atab = id; else ui.tab = id;
-                ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
-            })),
+            tabs.map(([id, label]) => voiceOn && id === 'talk'
+                ? [h('span', { class: 'ix-sep', 'aria-hidden': 'true' }),
+                    h('button', { class: 'ix-talk', type: 'button', onclick: () => { ui.vtab = 'talk'; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); } },
+                        h('span', { class: 'ix-dots', 'aria-hidden': 'true' }, h('b'), h('b'), h('b')), '대화하기')]
+                : tab(!ui.side && cur === id, label(), () => {
+                    if (voiceOn) ui.vtab = id; else if (asset) ui.atab = id; else ui.tab = id;
+                    ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
+                })),
             voiceOn ? VSIDE.map(([id, label], i) => tab(!ui.side && ui.vtab === id, [headIcon(id === 'voices' ? 'mic' : id), label], () => {
                 ui.vtab = id; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
             }, i ? ' sd' : ' sd sd0'))
@@ -6547,9 +6581,11 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         ui.root ??= h('div', { class: 'ix', role: 'dialog', 'aria-label': '이매진' });
         if (!ui.root.isConnected) doc.body.append(ui.root);
         ui.root.replaceChildren(
-            h('header', { class: 'ix-band' }, h('div', { class: 'ix-top' }, h('span', { class: 'ix-word' }, 'IMAGINE'),
-                h('span', { class: 'ix-tr' }, h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))), h('nav', { class: 'ix-fts' })),
-            h('section', { class: 'ix-pane' }, h('div', { class: 'ix-empty' }, h('b', null, '여는 중입니다'), '잠시만 기다려 주세요.',
+            h('header', { class: 'ix-band m-' + (opts?.mode ?? ui.mode) }, h('div', { class: 'ix-top' }, h('span', { class: 'ix-word' }, 'IMAGINE'),
+                h('span', { class: 'ix-mos', 'aria-hidden': 'true' }, h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' })),
+                h('span', { class: 'ix-tr' }, h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))),
+                h('nav', { class: 'ix-fts', 'aria-hidden': 'true' }, h('span', { class: 'ix-sk ft' }), h('span', { class: 'ix-sk ft' }))),
+            h('section', { class: 'ix-pane' }, h('div', { class: 'ix-empty ix-boot' }, h('b', null, '여는 중입니다'), '잠시만 기다려 주세요.',
                 h('div', { class: 'ix-open-bar', role: 'progressbar', 'aria-label': '여는 중' }, h('div', { class: 'fi' })), tipRow())));
         if (!root.asked && needRoot()) await rootDoc();
         await Promise.resolve(api.showContainer('fullscreen')).catch(error => console.warn(LOG, 'showContainer', error));
@@ -7618,6 +7654,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
   .ix-top{flex-wrap:wrap}
   .ix-mos{order:3;flex:1 1 100%}
   .ix .ix-mo{flex:1 1 0;height:50px;gap:10px;padding:0 10px}
+  .ix-sk.mo{flex:1 1 0;height:50px}
 }
 @media (max-width:600px){
   .ix-word{font-size:21px}
@@ -8855,7 +8892,7 @@ Rules:
     function modeCards() {
         const nAst = acListNames(acAst()).length;
         const ptOff = !!st.view?.chaId && st.set.ptOff.includes(st.view.chaId);
-        const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice && voice.chipText()[1] === 'ok' };
+        const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice?.lit?.() };
         const tip = {
             imagine: lit.imagine ? '자동 그리기 켜짐' : setupDone() ? '자동 그리기 꺼짐' : '준비 전',
             asset: lit.asset ? `에셋 ${nAst}장 있음` : nAst ? `에셋 ${nAst}장 · 채팅에 보이기 꺼짐` : '아직 만든 에셋 없음',
@@ -9727,7 +9764,7 @@ Rules:
         ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
     ];
     const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, talkModel: 'submodel', talkSpeak: true, talkLink: false, setup: 0,
-        talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkStage: 60 };
+        talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100 };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
     const STYLE_MAX = 300;
     const DEF_BOT = { narrator: 'Aoede', narrStyle: '라디오 아나운서처럼 또렷하고 안정된 목소리로, 알맞은 속도로 읽어 주세요.', talkStyle: '장면의 감정에 맞게, 연기하듯 자연스럽게 말해 주세요.', voices: {} };
@@ -10142,12 +10179,12 @@ Rules:
         return name;
     }
     const knownOf = bot => Object.entries(bot.voices).map(([n, v]) => `${n} (${v.gender ?? 'unknown'}${String(v.style ?? '').trim() ? ', has voice' : ''}${v.persona ? ', the user' : ''}${v.aliases?.length ? ', also called: ' + v.aliases.join(' / ') : ''})`).join(', ') || '(none)';
-    async function askLabels(parts, count, bot, botName, botNote) {
+    async function askLabels(parts, count, bot, botName, botNote, mode) {
         const text = parts.map(p => p.q ? `[Q${p.q}]${p.text}` : p.text).join('');
         const out = await askModel([
             { role: 'system', content: LABEL_SYSTEM },
             { role: 'user', content: `MAIN CHARACTER (the bot): ${botName}\nCHARACTER NOTES:\n${botNote || '(none)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\nQUOTES: ${count}\n\nTEXT:\n${text}` },
-        ]);
+        ], mode);
         return parseLabels(out);
     }
     const PICK_SYSTEM = `You cast text-to-speech voices for new characters in a roleplay story.
@@ -10314,11 +10351,40 @@ Rules:
         }
     }
     const PERSONA_MAX = 3000;
+    async function rawPersona() {
+        try {
+            const db = await api.getDatabase(['personas', 'selectedPersona']);
+            const list = Array.isArray(db?.personas) ? db.personas : [];
+            const chat = await Promise.resolve(api.getChatFromIndex(await api.getCurrentCharacterIndex(), await api.getCurrentChatIndex())).catch(() => null);
+            const bound = chat?.bindedPersona ? list.findIndex(p => p && p.id === chat.bindedPersona) : -1;
+            return String(list[bound >= 0 ? bound : Number(db?.selectedPersona ?? 0) || 0]?.personaPrompt ?? '');
+        } catch { return ''; }
+    }
+    const CBS_BLOCK = /^\{\{\s*(#(if|if_pure|when|unless)\b|:else\b|else\s*\}\}|\/)/i;
+    function unblock(text) {
+        let out = '', i = 0;
+        while (i < text.length) {
+            const a = text.indexOf('{{', i);
+            if (a < 0) { out += text.slice(i); break; }
+            out += text.slice(i, a);
+            let depth = 0, j = a;
+            for (; j < text.length; j++) {
+                if (text.startsWith('{{', j)) { depth++; j++; }
+                else if (text.startsWith('}}', j)) { depth--; j++; if (!depth) break; }
+            }
+            const tag = text.slice(a, j + 1);
+            if (!CBS_BLOCK.test(tag)) out += tag;
+            i = j + 1;
+        }
+        return out;
+    }
     async function personaOf() {
         const name = await userName();
         let prompt = '';
         try {
-            const v = String((await api.parseRisuChat?.('{{persona}}')) ?? '').trim();
+            let v = String((await api.parseRisuChat?.('{{persona}}')) ?? '').trim();
+            const raw = await rawPersona();
+            if (/\{\{\s*#(if|if_pure|when|unless)\b/i.test(raw) && String((await api.parseRisuChat?.(raw)) ?? '').trim() === v) v = String((await api.parseRisuChat?.(unblock(raw))) ?? '').trim() || v;
             if (v !== '{{persona}}') prompt = plain(v.replace(/\{\{user\}\}/gi, name || 'User')).slice(0, PERSONA_MAX);
         } catch {}
         return { name, prompt, sig: name ? hash(name + '\n' + prompt) : '' };
@@ -10330,7 +10396,7 @@ Rules:
         const first = fm >= 0 ? char?.alternateGreetings?.[fm] ?? char?.firstMessage : char?.firstMessage;
         let lore = '';
         for (const e of entries ?? []) {
-            if (!e || e.mode === 'folder' || /^(이매진|제미니 대화) · /.test(String(e.comment ?? ''))) continue;
+            if (!e || e.mode === 'folder' || /^(이매진|제미니 대화|제미니 본편) · /.test(String(e.comment ?? ''))) continue;
             const body = clean(e.content);
             if (!body) continue;
             const keys = String(e.key ?? '').trim();
@@ -10467,7 +10533,7 @@ Rules:
     let cast = null;
     let castChanged = () => {};
     const castTried = new Set();
-    const CAST_STAGE = ['로어북 읽는 중', '목소리 목록 받는 중', '등장인물 분석 중', '인물 정리 중'];
+    const CAST_STAGE = ['로어북 읽는 중', '목소리 목록 받는 중', '등장인물 분석 중', '인물 정리 중', '본편 대사 모으는 중'];
     async function analyzeCast(w, onStage = () => {}, job = null) {
         const chaId = w?.char?.chaId;
         if (cast) throw new Error('이미 등장인물을 분석하고 있습니다.');
@@ -10506,6 +10572,8 @@ Rules:
             const p = await guard(personaOf());
             personaFail.delete(chaId + '|' + p.sig);
             await guard(ensurePersona(chaId, bot, p, 'model'));
+            if (job) void castMainLines(w, bot, user, entries, q => q, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
+            else try { step(4); await castMainLines(w, bot, user, entries, guard, (i, n) => { run.part = [i, n]; onStage(4); }, () => run.stop); } catch (error) { if (run.stop) throw error; console.warn(LOG, 'main lines', error); }
             return list.length;
         } catch (error) {
             throw run.stop ? stopError() : error;
@@ -10548,6 +10616,7 @@ Rules:
 
     const TALK_MAX = 200, TALK_TURNS = 30, TALK_CTX = 9000;
     const TALK_FOLDER = '제미니 TTS 대화', TALK_TAG = '제미니 대화 · ';
+    const MAIN_TAG = '제미니 본편 · ', MAIN_CHUNK = 16000, MAIN_KEEP = 8000, MAIN_CTX = 3000;
     const talks = new Map();
     function talkOf(chaId) {
         if (!talks.has(chaId)) talks.set(chaId, api.pluginStorage.getItem('gt:talk:' + chaId).catch(() => null).then(v => v && typeof v === 'object' && !Array.isArray(v) ? v : {}));
@@ -10577,7 +10646,7 @@ Rules:
         const names = [name, ...(rec?.aliases ?? [])].map(n => String(n).toLowerCase()).filter(n => n.length > 1);
         const hits = [];
         for (const e of entries ?? []) {
-            if (!e || e.mode === 'folder' || /^(이매진|제미니 대화) · /.test(String(e.comment ?? ''))) continue;
+            if (!e || e.mode === 'folder' || /^(이매진|제미니 대화|제미니 본편) · /.test(String(e.comment ?? ''))) continue;
             const body = clean(e.content);
             if (!body) continue;
             const item = `### ${String(e.comment ?? '').trim() || '(untitled)'}\n${body}`;
@@ -10589,6 +10658,12 @@ Rules:
         const mine = hits.length ? `## About ${name} (lorebook)\n${hits.join('\n\n')}` : '';
         let s = (main ? [...bot, mine] : [mine, ...bot]).filter(Boolean).join('\n\n');
         if (s.length > TALK_CTX) s = s.slice(0, TALK_CTX) + '\n…(truncated)';
+        const said = (entries ?? []).find(e => e && e.mode !== 'folder' && e.comment === MAIN_TAG + name);
+        if (said) {
+            let body = String(said.content ?? '').split('\n').slice(1).join('\n').trim();
+            if (body.length > MAIN_CTX) { body = body.slice(-MAIN_CTX); body = '…\n' + body.slice(body.indexOf('\n') + 1); }
+            if (body) s += `${s ? '\n\n' : ''}## ${name}'s lines in the main story (oldest first)\n${body}`;
+        }
         const me = String(persona ?? '').trim();
         return me ? `${s}${s ? '\n\n' : ''}## ${user || 'User'} (user persona)\n${me.slice(0, PERSONA_MAX)}` : s;
     }
@@ -10609,6 +10684,7 @@ ${ctx || '(none)'}`;
         s = plain(s);
         for (const n of [name, ...(rec?.aliases ?? [])]) s = s.replace(new RegExp('^\\s*' + reEsc(n) + '\\s*[:：]\\s*', 'i'), '');
         s = s.replace(/^\s*[(（][^)）\n]{0,200}[)）]\s*/, '').trim();
+        s = s.replace(/[(（][^)）]{0,400}[)）]|[\[［][^\]］]{0,400}[\]］]/g, ' ').replace(/[ \t]{2,}/g, ' ').replace(/ *\n */g, '\n').trim();
         const m = s.match(/^["“「『]([\s\S]*)["”」』]$/);
         if (m && !/["“”「」『』]/.test(m[1])) s = m[1].trim();
         return s;
@@ -10677,6 +10753,88 @@ ${ctx || '(none)'}`;
         if (folder && !lore.some(e => e !== folder && e?.folder === folder.key)) lore.splice(lore.indexOf(folder), 1);
         char.globalLore = lore;
         await api.setCharacterToIndex(ci, char);
+    }
+    async function castMainLines(w, bot, user, entries, guard, onPart, stopped) {
+        const char = w?.char, chaId = char?.chaId;
+        if (!chaId || !w.chat) return;
+        const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char.name ?? '').replace(/\{\{user\}\}/gi, user || 'User');
+        const fm = Number(w.chat.fmIndex ?? -1);
+        const first = fm >= 0 ? char.alternateGreetings?.[fm] ?? char.firstMessage : char.firstMessage;
+        let msgs = [{ role: 'char', data: first }, ...(Array.isArray(w.chat.message) ? w.chat.message : [])];
+        const max = Number(st.set.talkMain ?? DEF_SET.talkMain);
+        if (max > 0) msgs = msgs.slice(-max);
+        const chunks = [];
+        let cur = null;
+        for (const m of msgs) {
+            if (m?.role !== 'char' || !m.data) continue;
+            const { parts, count } = splitQuotes(plain(fill(m.data)));
+            if (!count) continue;
+            const len = parts.reduce((n, p) => n + p.text.length, 0);
+            if (!cur || cur.len > MAIN_CHUNK) chunks.push(cur = { parts: [], count: 0, len: 0 });
+            else cur.parts.push({ q: 0, text: '\n\n---\n\n' });
+            for (const p of parts) {
+                if (p.q) cur.parts.push({ q: ++cur.count, text: p.text });
+                else cur.parts.push({ q: 0, text: p.text.length > 240 ? p.text.slice(0, 80) + ' … ' + p.text.slice(-160) : p.text });
+            }
+            cur.len += len;
+        }
+        const lines = new Map();
+        const me = String(user ?? '').toLowerCase();
+        for (let i = 0; i < chunks.length; i++) {
+            if (stopped()) return;
+            const c = chunks[i];
+            onPart(i, chunks.length);
+            let got = null;
+            try { got = await guard(askLabels(c.parts, c.count, bot, char.name ?? '', '', 'model')); }
+            catch (error) { if (stopped()) throw error; console.warn(LOG, 'main lines', error); continue; }
+            const text = new Map(c.parts.filter(p => p.q).map(p => [p.q, p.text]));
+            for (const [n, x] of got.labels) {
+                const name = canonName(bot, x.speaker);
+                if (name === NARR || (me && name.toLowerCase() === me) || bot.voices[name]?.persona) continue;
+                const t = String(text.get(n) ?? '').replace(/^["“”「」『』‘’]+|["“”「」『』‘’]+$/g, '').replace(/\s+/g, ' ').trim();
+                if (!t || !spoken(t)) continue;
+                const list = lines.get(name) ?? [];
+                if (!list.includes(t)) list.push(t);
+                lines.set(name, list);
+            }
+        }
+        onPart(chunks.length, chunks.length);
+        if (stopped()) return;
+        const ci = Number.isInteger(w.ci) ? w.ci : await api.getCurrentCharacterIndex();
+        const job = loreJob.then(async () => {
+            let ch = null;
+            for (let tries = 0; ; tries++) {
+                ch = await api.getCharacterFromIndex(ci);
+                if (!ch || ch.chaId !== chaId) return;
+                if (tries >= 30 || !ch.chats?.some(c => c?.isStreaming)) break;
+                await new Promise(r => setTimeout(r, 2000));
+            }
+            const lore = (Array.isArray(ch.globalLore) ? ch.globalLore : []).filter(e => !(e && e.mode !== 'folder' && String(e.comment ?? '').startsWith(MAIN_TAG)));
+            let folder = lore.find(e => e?.mode === 'folder' && e.comment === TALK_FOLDER);
+            const own = [...lore, ...(entries ?? [])].filter(e => e && e.mode !== 'folder' && !e.useRegex && !/^(이매진|제미니 대화|제미니 본편) · /.test(String(e.comment ?? '')));
+            for (const [name, list] of lines) {
+                if (!list.length) continue;
+                const names = new Set([name, ...(bot.voices[name]?.aliases ?? [])].map(n => String(n).trim().toLowerCase()).filter(Boolean));
+                const keys = [];
+                for (const e of own) {
+                    const ks = String(e.key ?? '').split(',').map(k => k.trim()).filter(Boolean);
+                    if (!names.has(String(e.comment ?? '').trim().toLowerCase()) && !ks.some(k => names.has(k.toLowerCase()))) continue;
+                    for (const k of ks) if (!keys.includes(k)) keys.push(k);
+                }
+                let body = list.map(t => `${name}: ${t}`).join('\n');
+                if (body.length > MAIN_KEEP) { body = body.slice(-MAIN_KEEP); body = body.slice(body.indexOf('\n') + 1); }
+                if (!folder) {
+                    folder = { key: '\uf000folder:' + (globalThis.crypto?.randomUUID?.() ?? hash(chaId + Date.now())), secondkey: '', insertorder: 100, comment: TALK_FOLDER, content: '', mode: 'folder', alwaysActive: false, selective: false };
+                    lore.push(folder);
+                }
+                lore.push({ key: keys.join(', '), secondkey: '', insertorder: 100, comment: MAIN_TAG + name, content: `[${name} · 본편 대사]\n${body}`, mode: 'normal', alwaysActive: !keys.length, selective: false, useRegex: false, folder: folder.key });
+            }
+            if (folder && !lore.some(e => e !== folder && e?.folder === folder.key)) lore.splice(lore.indexOf(folder), 1);
+            ch.globalLore = lore;
+            await api.setCharacterToIndex(ci, ch);
+        });
+        loreJob = job.catch(error => console.warn(LOG, 'main lines lore', error));
+        await job;
     }
     let talkAudio = null, talkUrl = '', talkOpen = false;
     function talkUnlock() {
@@ -10857,7 +11015,7 @@ ${ctx || '(none)'}`;
             try {
                 const char = await api.getCharacterFromIndex(job.ci);
                 const chat = await api.getChatFromIndex(job.ci, job.chi);
-                if (char?.chaId === job.chaId) await analyzeCast({ char, chat }, n => { job.note = CAST_STAGE[n]; paintSoon(true); }, job);
+                if (char?.chaId === job.chaId) await analyzeCast({ ci: job.ci, char, chat }, n => { job.note = CAST_STAGE[n]; paintSoon(true); }, job);
             } catch (error) {
                 if (!error?.stop) console.warn(LOG, 'cast', error);
             }
@@ -11455,7 +11613,7 @@ ${ctx || '(none)'}`;
         return el;
     }
     const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, dup: false, readyAt: 0,
-        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voices: new Set(), voicing: new Map(), playing: '', confirm: null, add: '', view: '', sel: null, draw: null, pop: false, tick: 0 } };
+        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voices: new Set(), voicing: new Map(), playing: '', confirm: null, add: '', view: '', sel: null, draw: null, pop: false, tick: 0, hud: false } };
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
@@ -11522,8 +11680,8 @@ ${ctx || '(none)'}`;
     function paintCast(el, run) {
         if (!run) return;
         const t = Date.now() - run.at;
-        const pct = [5, 5 + Math.round(25 * Math.min(1, lib.page / Math.max(lib.pages, 1))), Math.min(90, 30 + Math.round(60 * t / 30000)), 95][run.stage];
-        const text = ['로어북을 읽는 중입니다', `목소리 목록을 받는 중입니다 · ${lib.page} / 약 ${lib.pages}쪽`, `모델이 인물을 정리하는 중입니다 · ${Math.floor(t / 1000)}초`, '목소리 표에 적는 중입니다'][run.stage];
+        const pct = [5, 5 + Math.round(25 * Math.min(1, lib.page / Math.max(lib.pages, 1))), Math.min(90, 30 + Math.round(60 * t / 30000)), 95, 95 + Math.round(4 * (run.part?.[0] ?? 0) / Math.max(run.part?.[1] ?? 1, 1))][run.stage];
+        const text = ['로어북을 읽는 중입니다', `목소리 목록을 받는 중입니다 · ${lib.page} / 약 ${lib.pages}쪽`, `모델이 인물을 정리하는 중입니다 · ${Math.floor(t / 1000)}초`, '목소리 표에 적는 중입니다', `본편 대사를 모으는 중입니다 · ${run.part?.[0] ?? 0} / ${run.part?.[1] ?? 0}`][run.stage];
         const [a, b] = el.firstChild.children;
         a.textContent = text;
         b.textContent = pct + '%';
@@ -11551,11 +11709,20 @@ ${ctx || '(none)'}`;
         }
         render();
     }
+    const talkPersonaAt = new Map();
     function talkAutoCast(v) {
-        if (!st.set.castAuto || v.bot.castAt || cast || castTried.has(v.chaId)) return;
-        castTried.add(v.chaId);
-        ui.talk.pop = true;
-        setTimeout(() => void castClick(), 0);
+        if (!st.set.castAuto || cast) return;
+        if (!v.bot.castAt) {
+            if (castTried.has(v.chaId)) return;
+            castTried.add(v.chaId);
+            ui.talk.pop = true;
+            setTimeout(() => void castClick(), 0);
+            return;
+        }
+        if (st.set.split === 'off' || Date.now() - (talkPersonaAt.get(v.chaId) ?? 0) < 30000) return;
+        talkPersonaAt.set(v.chaId, Date.now());
+        personaOf().then(p => (!p.sig || v.bot.voices[canonName(v.bot, p.name)]?.persona === p.sig) ? false : ensurePersona(v.chaId, v.bot, p))
+            .then(ok => { if (ok) talkPaint(); }).catch(error => console.warn(LOG, 'talk persona', error));
     }
     function pickPanel() {
         const p = ui.pick;
@@ -11682,7 +11849,9 @@ ${ctx || '(none)'}`;
                         set('talkLink', id === 'on');
                         const v = ui.view;
                         if (v) for (const [name, log] of Object.entries(v.talk)) if (log?.length) talkLoreSoon(v.chaId, v.ci, name);
-                    }))),
+                    })),
+                row('본편 대사 개수', '등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 「' + TALK_FOLDER + '」 폴더에 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
+                    h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 10, value: st.set.talkMain, onchange: e => { const n = Number(e.target.value); set('talkMain', e.target.value !== '' && Number.isFinite(n) ? Math.max(0, Math.min(2000, Math.round(n))) : DEF_SET.talkMain); } }), '개'))),
             group('대화 그림', '모든 봇 공통',
                 h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 음성 대화에만 씁니다. 삽화 탭의 삽화 · 만화, 해상도, 작가는 바뀌지 않습니다.')),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그림 종류'), h('p', null, talkKindNow() === 'comic'
@@ -11703,9 +11872,7 @@ ${ctx || '(none)'}`;
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '무대 맞춤'), h('p', null, st.set.talkFit === 'cover'
                         ? '그림을 무대에 꽉 채웁니다. 그림 위아래나 양옆이 조금 잘립니다.'
                         : '그림 전체를 보여 줍니다. 남는 자리는 같은 그림을 흐리게 깔아 채웁니다.')),
-                    seg([['contain', '전체 보기 (추천)'], ['cover', '꽉 채우기']], st.set.talkFit, id => set('talkFit', id))),
-                row('무대 크기', '대화 화면에서 무대(그림)가 차지하는 높이입니다. 나머지는 대화 기록입니다. 30~80%',
-                    h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 30, max: 80, step: 5, value: st.set.talkStage, onchange: e => set('talkStage', Math.max(30, Math.min(80, Number(e.target.value) || DEF_SET.talkStage))) }), '%'))),
+                    seg([['contain', '전체 보기 (추천)'], ['cover', '꽉 채우기']], st.set.talkFit, id => set('talkFit', id)))),
         ];
     }
     function paneCast() {
@@ -11783,6 +11950,12 @@ ${ctx || '(none)'}`;
         image: '<path d="M3 4h18v16H3z"/><circle cx="8.5" cy="9" r="1.6"/><path d="M21 15l-5-5L5 20"/>',
         trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
         send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+        illust: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M6.5 20c.8-3.2 3-5 5.5-5s4.7 1.8 5.5 5"/>',
+        comic: '<path d="M3 3h8v8H3zM13 3h8v5h-8zM3 13h8v8H3z"/><path d="M14 11h7v6h-3l-2 3v-3h-2z"/>',
+        zoom: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+        redo: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+        bubx: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M9 8l6 6M15 8l-6 6"/>',
+        brush: '<path d="M18.5 3.5l2 2L10 16l-3 1 1-3z"/><path d="M4 21c2 0 3-1 3-3"/>',
     };
     const TALK_KINDS = [['illust', '삽화 (기본)'], ['comic', '만화']];
     const talkKindNow = () => st.set.talkKind === 'comic' ? 'comic' : 'illust';
@@ -11865,37 +12038,47 @@ ${ctx || '(none)'}`;
                 h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': src.img.path, alt: `${name}와의 대화 장면`, style: `aspect-ratio:${w}/${ht}` }));
         } else {
             kids.push(h('div', { class: 'vn-hello' }, h('span', { class: 'vn-big', 'aria-hidden': 'true' }, [...String(name).trim()][0] ?? '?'), h('b', null, name),
-                h('p', null, drawing ? '첫 장면을 그리는 중입니다.' : auto ? '말을 보내면 답이 온 장면을 이 자리에 그립니다.' : '무대에 마우스를 올려 「그리기」를 누르면 마지막 답의 장면을 그립니다.')));
+                h('p', null, drawing ? '첫 장면을 그리는 중입니다.' : auto ? '말을 보내면 답이 온 장면을 이 자리에 그립니다.' : '아래 도구 줄의 「그리기」를 누르면 마지막 답의 장면을 그립니다. 도구 줄은 무대에 마우스를 올리거나 무대를 누르면 나옵니다.')));
         }
+        const di = (cls, icon, label, title, onclick, extra = {}) => h('button', { class: 'vn-di' + (cls ? ' ' + cls : ''), type: 'button', title, 'aria-label': title, onclick, ...extra },
+            h('i', null, talkIcon(icon)), h('span', null, label));
         const acts = [];
         if (src && !drawing) {
             const cf = T.confirm === 'img:' + src.at;
-            acts.push(h('button', { type: 'button', title: '크게 보기', 'aria-label': '크게 보기', onclick: () => void host.showBig(src.img.path) }, '🔍'));
-            if (src.img.req) acts.push(h('button', { type: 'button', disabled: !!T.draw, onclick: () => void talkArt(v, name, src, 'redo', false) }, '🔁', h('b', null, '다시 그리기')));
-            acts.push(h('button', { class: cf ? 'warn' : null, type: 'button', title: '그림 지우기', 'aria-label': '그림 지우기', onclick: () => talkDropImg(v, name, src) }, '🗑', cf ? h('b', null, '한 번 더 누르면 지웁니다') : null));
+            acts.push(di('', 'zoom', '크게', '크게 보기', () => void host.showBig(src.img.path)));
+            if (src.img.req) acts.push(di('', 'redo', '다시', '이 장면 다시 그리기', () => void talkArt(v, name, src, 'redo', false), { disabled: !!T.draw }));
+            acts.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '그림 삭제', cf ? '한 번 더 누르면 그림을 지웁니다' : '그림 지우기', () => talkDropImg(v, name, src)));
         }
-        if (drawing) acts.push(h('button', { type: 'button', onclick: () => T.draw?.job?.cancel?.() }, '■', h('b', null, '그리기 멈추기')));
-        if (lastC && !lastC.img?.path && !T.draw) acts.push(h('button', { type: 'button', onclick: () => void talkArt(v, name, lastC, 'new', false) }, '🖼', h('b', null, '그리기')));
-        if (log.length && T.busy !== name) acts.push(h('button', { class: T.confirm === name ? 'warn' : null, type: 'button', onclick: () => void talkClear(v, name) },
-            h('b', null, T.confirm === name ? '한 번 더 누르면 대화를 전부 지웁니다' : '대화 전부 지우기')));
-        kids.push(h('div', { class: 'vn-hv' },
-            h('button', { class: 'vn-tg vc' + (speak ? ' on' : ''), type: 'button', disabled: noKey, 'aria-pressed': String(speak),
-                title: noKey ? '음성 › 준비 탭에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
-                onclick: () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) talkQuiet(); talkPaint(); } },
-                talkIcon(speak ? 'speaker' : 'mute'), noKey ? 'TTS 키 없음' : speak ? 'TTS ON' : 'TTS OFF'),
-            h('button', { class: 'vn-tg' + (auto ? ' on' : ''), type: 'button', 'aria-pressed': String(auto), title: '말을 보낼 때마다 답의 장면을 NAI 로 그립니다',
-                onclick: () => {
-                    if (auto) st.set.talkAuto = false;
-                    else { st.set.talkAuto = true; if (st.set.talkWhen === 'manual') st.set.talkWhen = 'every'; }
-                    void saveSet();
-                    talkPaint();
-                } }, talkIcon('image'), '입력마다 그리기'),
-            h('span', { class: 'vn-kind', role: 'group', 'aria-label': '그림 종류' },
-                ...[['illust', '삽화'], ['comic', '만화']].map(([id, label]) => h('button', { class: 'vn-tg' + (talkKindNow() === id ? ' on' : ''), type: 'button', 'aria-pressed': String(talkKindNow() === id),
-                    title: id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
-                    onclick: () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); } }, label))),
-            acts.length ? h('div', { class: 'vn-acts' }, acts) : null));
-        return h('div', { class: 'vn-stage', style: `--h:${talkHue(name)}` }, kids);
+        if (drawing) acts.push(di('', 'halt', '멈추기', '그리기 멈추기', () => T.draw?.job?.cancel?.()));
+        if (lastC && !lastC.img?.path && !T.draw) acts.push(di('', 'brush', '그리기', '마지막 답의 장면 그리기', () => void talkArt(v, name, lastC, 'new', false)));
+        if (log.length && T.busy !== name) {
+            const cf = T.confirm === name;
+            acts.push(di('warn' + (cf ? ' cf' : ''), 'bubx', cf ? '한 번 더' : '대화 삭제', cf ? '한 번 더 누르면 대화를 전부 지웁니다' : '대화 전부 지우기', () => void talkClear(v, name)));
+        }
+        kids.push(h('div', { class: 'vn-dock', role: 'toolbar', 'aria-label': '대화 도구' },
+            di('vc' + (speak ? ' on' : ''), speak ? 'speaker' : 'mute', noKey ? '키 없음' : 'TTS',
+                noKey ? '음성 › 준비 탭에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
+                () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) talkQuiet(); talkPaint(); },
+                { disabled: noKey, 'aria-pressed': String(speak) }),
+            di(auto ? 'on' : '', 'image', '자동', auto ? '입력마다 그리기 끄기' : '말을 보낼 때마다 답의 장면을 NAI 로 그립니다', () => {
+                if (auto) st.set.talkAuto = false;
+                else { st.set.talkAuto = true; if (st.set.talkWhen === 'manual') st.set.talkWhen = 'every'; }
+                void saveSet();
+                talkPaint();
+            }, { 'aria-pressed': String(auto) }),
+            h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }),
+            [['illust', '삽화'], ['comic', '만화']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
+                id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
+                () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(talkKindNow() === id) })),
+            acts.length ? h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }) : null,
+            acts));
+        return h('div', { class: 'vn-stage', style: `--h:${talkHue(name)}`, onpointerup: talkHud }, kids);
+    }
+    function talkHud(e) {
+        if (e.pointerType === 'mouse' || e.target.closest('button,.vn-dock')) return;
+        const T = ui.talk;
+        T.hud = !T.hud;
+        e.currentTarget.closest('.vn')?.classList.toggle('hud', T.hud);
     }
     function talkFeed(v, name) {
         const T = ui.talk;
@@ -11943,6 +12126,7 @@ ${ctx || '(none)'}`;
         const T = ui.talk, at = Number(e.currentTarget.dataset.at);
         T.sel = T.sel === at ? null : at;
         e.currentTarget.closest('.vn-log')?.querySelectorAll('.vn-me[data-at],.vn-turn[data-at]').forEach(x => x.classList.toggle('sel', Number(x.dataset.at) === T.sel));
+        if (T.sel != null) { T.view = at; talkShow(); }
     }
     function talkShow() {
         const v = ui.view, T = ui.talk;
@@ -11975,9 +12159,9 @@ ${ctx || '(none)'}`;
         void host.acAnlas();
         talkAutoCast(v);
         if (T.draw && !T.tick) talkTick();
-        const stage = Math.max(30, Math.min(80, Number(st.set.talkStage) || DEF_SET.talkStage));
+        const stage = 60;
         setTimeout(() => { const lg = ui.root?.querySelector('.vn-log'); if (lg) lg.scrollTop = lg.scrollHeight; }, 0);
-        return [h('div', { class: 'vn', style: `--stage:${stage}%` },
+        return [h('div', { class: 'vn' + (T.hud ? ' hud' : ''), style: `--stage:${stage}%` },
             talkScene(v, name),
             talkTop(v, name),
             talkFeed(v, name),
@@ -12024,7 +12208,9 @@ ${ctx || '(none)'}`;
     }
     async function talkArt(v, name, entry, mode, quiet) {
         const T = ui.talk;
-        if (T.draw || !entry) return;
+        const later = () => { if (quiet && entry) T.next = { v, name, at: entry.at }; };
+        if (!entry) return;
+        if (T.draw) return later();
         const at = entry.at;
         let key = '';
         try { key = await host.naiKey(); } catch (error) { console.warn(LOG, 'talk art key', error); }
@@ -12034,7 +12220,9 @@ ${ctx || '(none)'}`;
         }
         const log = v.talk[name] ?? [];
         const idx = log.findIndex(m => m.at === at);
-        if (T.draw || idx < 0) return;
+        if (idx < 0) return;
+        if (T.draw) return later();
+        if (T.next?.name === name && T.next.at === at) T.next = null;
         const redo = mode === 'redo' && !!entry.img?.req;
         const size = redo ? entry.img.size ?? st.set.talkSize : st.set.talkSize;
         const kind = redo ? entry.img.kind ?? entry.img.req.kind ?? 'illust' : talkKindNow();
@@ -12061,6 +12249,12 @@ ${ctx || '(none)'}`;
             }
         } finally {
             if (T.draw?.job === job) T.draw = null;
+            const nx = T.next;
+            if (!T.draw && nx) {
+                T.next = null;
+                const e = nx.v.talk[nx.name]?.find(m => m.at === nx.at);
+                if (e && !e.img?.path) setTimeout(() => void talkArt(nx.v, nx.name, e, 'new', true), 0);
+            }
             talkPaint();
         }
     }
@@ -12142,6 +12336,8 @@ ${ctx || '(none)'}`;
         if (T.draw?.name === name) T.draw.job?.cancel?.();
         for (const m of v.talk[name] ?? []) if (m.img?.path) host.dropThumb(m.img.path);
         delete v.talk[name];
+        void host.talkForget?.(v.chaId, name);
+        if (T.next?.name === name) T.next = null;
         T.view = '';
         void saveTalk(v.chaId, v.talk);
         talkPaint();
@@ -12664,9 +12860,9 @@ ${ctx || '(none)'}`;
 .gt .vn-hello b{font-size:19px;font-weight:900}
 .gt .vn-hello p{font-size:13px;opacity:.8}
 .gt .vn-top{display:contents}
-.gt .vn-back{display:flex;align-items:center;gap:4px;height:38px;padding:0 14px 0 10px;border-radius:21px;background:rgba(10,18,34,.62);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:800;backdrop-filter:blur(6px)}
+.gt .vn-back{display:flex;align-items:center;gap:4px;height:38px;padding:0 14px 0 10px;border-radius:21px;background:rgba(10,18,34,.62);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:800;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
 .gt .vn-back small{margin-left:4px;font-size:11px;font-weight:600;opacity:.7}
-.gt .vn-cast{position:absolute;left:12px;top:12px;max-height:calc(var(--stage,60%) - 24px);z-index:4;display:flex;flex-direction:column;gap:4px;width:184px;padding:8px;border-radius:16px;background:rgba(10,18,34,.7);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
+.gt .vn-cast{position:absolute;left:12px;top:12px;max-height:calc(var(--stage,60%) - 104px);z-index:4;display:flex;flex-direction:column;gap:4px;width:184px;padding:8px;border-radius:16px;background:rgba(10,18,34,.7);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
 .gt .vn-cast::-webkit-scrollbar{width:6px}
 .gt .vn-cast::-webkit-scrollbar-thumb{background:rgba(255,255,255,.28);border-radius:3px}
 .gt .vn-ch{flex:none;padding:2px 4px 4px;font-size:11px;font-weight:800;color:#9aa8bd}
@@ -12684,33 +12880,32 @@ ${ctx || '(none)'}`;
 .gt .vn-pop>b{font-size:13px;color:var(--ink2)}
 .gt .vn-pop .gt-msg{margin:0}
 .gt .vn-tr{position:absolute;right:14px;top:12px;z-index:5;display:flex;align-items:center;gap:8px}
-.gt .vn-tr .an-c{--an:#fff;--an-f:rgba(255,255,255,.28);height:30px;margin:0;padding:0 12px;font-size:13px;font-weight:800;color:rgba(255,255,255,.8);background-color:rgba(255,255,255,.16);border:0;border-radius:15px;backdrop-filter:blur(6px)}
+.gt .vn-tr .an-c{--an:#fff;--an-f:rgba(255,255,255,.28);height:30px;margin:0;padding:0 12px;font-size:13px;font-weight:800;color:rgba(255,255,255,.88);background-color:rgba(10,18,34,.62);border:1px solid rgba(255,255,255,.14);border-radius:15px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
 .gt .vn-tr .an-c b{color:#fff}
 .gt .vn-tr .an-c b.lo{color:#ffd0cc}
 .gt .vn-tr .an-c .an-sep{background:rgba(255,255,255,.35)}
 .gt .vn-tr .an-c .lnk{color:#fff}
 .gt .vn-x{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#fff;color:var(--ink2);box-shadow:0 4px 12px rgba(0,0,0,.25)}
-.gt .vn-hv{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:34px 14px 10px 210px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.5));opacity:0;transform:translateY(8px);transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
-/* 4.7.0: 호버 줄 · 인물 목록은 바로 뜨지 않고 미끄러지며 천천히 뜬다 */
-.gt .vn-cast,.gt .vn-tr .an-c{opacity:0;transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
+/* 4.10.0: 무대 아래 가운데에 떠 있는 독. 아이콘 칸마다 아래 그림자가 있어 밝은 그림 위에서도 또렷하다 */
+.gt .vn-dock{position:absolute;left:0;right:0;bottom:14px;margin:0 auto;width:max-content;max-width:calc(100% - 20px);z-index:3;display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:6px;padding:7px 9px;border-radius:20px;background:rgba(255,255,255,.88);box-shadow:0 14px 34px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.6) inset;backdrop-filter:blur(14px)}
+.gt .vn-di{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:50px;padding:0;border:0;background:none;color:var(--ink2);font-size:10px;font-weight:800;white-space:nowrap;transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
+.gt .vn-di i{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;font-style:normal;background:#eef3f9;box-shadow:0 2px 0 #c9d6e6,0 4px 10px -4px rgba(15,26,46,.35);transition:background .15s}
+.gt .vn-di .vn-ic svg{width:18px;height:18px}
+.gt .vn-di.on i{color:#fff;background:linear-gradient(180deg,#4fb0ff,#1d7fe0);box-shadow:0 2px 0 #155fb0,0 6px 14px -4px rgba(43,149,240,.7)}
+.gt .vn-di.vc.on i{background:linear-gradient(180deg,#3fd6a4,#0f9f77);box-shadow:0 2px 0 #0b7a5b,0 6px 14px -4px rgba(20,179,134,.7)}
+.gt .vn-di.on::after{content:"";position:absolute;bottom:-5px;width:4px;height:4px;border-radius:50%;background:var(--sky)}
+.gt .vn-di.warn:hover i,.gt .vn-di.cf i{color:#fff;background:#e0574c;box-shadow:0 2px 0 #a8342b}
+.gt .vn-di.cf{color:#d0453b}
+.gt .vn-di:disabled{opacity:.5;cursor:not-allowed}
+.gt .vn-vsep{align-self:stretch;width:1px;margin:4px 3px;background:#d3dceb}
+@media (hover:hover){.gt .vn-di:hover:not(:disabled){transform:translateY(-6px) scale(1.15)}}
+/* 4.7.0: 독 · 인물 목록은 바로 뜨지 않고 미끄러지며 천천히 뜬다.
+   4.10.0: 호버는 마우스(pointer:fine)에서만 쓴다. 터치 화면은 호버가 풀리지 않으므로 무대를 눌러 .hud 로 켜고 끈다 */
+.gt .vn-dock,.gt .vn-cast,.gt .vn-tr .an-c{opacity:0;pointer-events:none;transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
 .gt .vn-cast{transform:translateX(-8px)}
-.gt .vn:has(.vn-stage:hover,.vn-top>:hover,.vn-top :focus-visible,.vn-pop) :is(.vn-hv,.vn-cast,.vn-tr .an-c),.gt .vn-hv:focus-within{opacity:1;transform:none}
-@media (hover:none){.gt .vn-hv,.gt .vn-cast,.gt .vn-tr .an-c{opacity:1;transform:none}}
-.gt .vn-acts{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:4px}
-.gt .vn-acts button{display:flex;align-items:center;gap:5px;height:26px;padding:0 8px;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px}
-.gt .vn-acts button b{font-size:11px;font-weight:700}
-.gt .vn-acts button.warn{background:#d0453b}
-.gt .vn-acts button:disabled{opacity:.5;cursor:not-allowed}
-.gt .vn-tg{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:14px;border:1.5px solid var(--ln);background:#fff;color:var(--mut);font-size:11.5px;font-weight:800;white-space:nowrap}
-.gt .vn-tg .vn-ic svg{width:14px;height:14px}
-.gt .vn-tg.on{border-color:var(--sky);background:var(--skl);color:var(--sky)}
-.gt .vn-tg.vc.on{border-color:var(--ok);background:#e8f8f2;color:#0d8a66}
-.gt .vn-kind{display:inline-flex;flex:none}
-.gt .vn-kind .vn-tg{padding:0 11px}
-.gt .vn-kind .vn-tg:first-child{border-radius:14px 0 0 14px}
-.gt .vn-kind .vn-tg:last-child{border-radius:0 14px 14px 0;margin-left:-1.5px}
-.gt .vn-kind .vn-tg.on{position:relative;z-index:1}
-.gt .vn-tg:disabled{opacity:.6;cursor:not-allowed}
+.gt .vn-dock{transform:translateY(10px)}
+.gt .vn.hud :is(.vn-dock,.vn-cast,.vn-tr .an-c),.gt .vn:has(.vn-pop) :is(.vn-dock,.vn-cast,.vn-tr .an-c),.gt .vn-dock:focus-within{opacity:1;transform:none;pointer-events:auto}
+@media (hover:hover) and (pointer:fine){.gt .vn:has(.vn-stage:hover,.vn-top>:hover,.vn-top :focus-visible) :is(.vn-dock,.vn-cast,.vn-tr .an-c){opacity:1;transform:none;pointer-events:auto}}
 .gt .vn-log{flex:1 1 auto;min-height:0;overflow-y:auto;background:linear-gradient(180deg,#f6faff,#fff);border-top:2px solid var(--sky)}
 .gt .vn-log::-webkit-scrollbar{width:10px}
 .gt .vn-log::-webkit-scrollbar-thumb{background:#c9d6e6;border-radius:5px;border:3px solid transparent;background-clip:padding-box}
@@ -12720,12 +12915,12 @@ ${ctx || '(none)'}`;
 .gt .vn-me time,.gt .vn-nm time{font-size:10.5px;color:#9aa8bd}
 .gt .vn-me,.gt .vn-turn{cursor:pointer}
 .gt .vn-me-ft{display:flex;align-items:center;gap:6px}
-.gt .vn-del{display:none;flex:none;height:24px;padding:0 10px;border:1.5px solid #f3c2c2;border-radius:12px;background:#fff;color:#d64545;font-size:11.5px;font-weight:600;line-height:1;white-space:nowrap;place-items:center;cursor:pointer}
+.gt .vn-del{display:none;flex:none;height:24px;padding:0 10px;border:1.5px solid #f3c2c2;border-radius:12px;background:#fff;color:#d64545;font-size:11.5px;font-weight:600;line-height:1;white-space:nowrap;place-items:center;cursor:pointer;box-shadow:0 2px 0 #f0caca}
 .gt .vn-del:hover{background:#fdecec;border-color:#d64545}
 .gt .vn-me.sel .vn-del,.gt .vn-turn.sel .vn-del{display:grid}
 .gt .vn-nm .vn-del{margin-left:auto}
-.gt .vn-me.sel p{box-shadow:0 0 0 2px #fff,0 0 0 4px #d64545}
-.gt .vn-turn.sel.sel{background:#fdf3f3}
+.gt .vn-me.sel p{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--sky)}
+.gt .vn-turn.sel.sel{background:#eef6fe;box-shadow:inset 0 0 0 2px var(--sky)}
 .gt .vn-turn{display:flex;flex-direction:column;gap:8px;margin:0 -8px;padding:6px 8px;border-radius:12px;transition:background .2s}
 .gt .vn-nm{display:flex;align-items:center;gap:8px}
 .gt .vn-nm b{font-size:13px;font-weight:900;color:#fff;padding:3px 12px;border-radius:12px;background:hsl(var(--h) 60% 52%)}
@@ -12740,15 +12935,13 @@ ${ctx || '(none)'}`;
 .gt .vn-turn.view{background:#eef6fe}
 .gt .vn-say{display:flex;align-items:flex-start;gap:10px}
 .gt .vn-t{flex:1;min-width:0;margin:0;padding:1px 6px;border-radius:6px;font-family:"Gowun Batang","Nanum Myeongjo","Noto Serif KR",serif;font-size:16.5px;line-height:1.7;color:var(--ink2);white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
-.gt .vn-pb{position:relative;flex:none;width:30px;height:30px;margin-top:2px;padding:0;border-radius:50%;display:grid;place-items:center;overflow:hidden;isolation:isolate;border:1.5px solid #b9cde3;color:#7d93ad;background:#fff;transition:border-color .15s,color .15s}
+.gt .vn-pb{position:relative;flex:none;width:30px;height:30px;margin-top:2px;padding:0;border-radius:50%;display:grid;place-items:center;overflow:hidden;isolation:isolate;border:1.5px solid #b9cde3;color:#7d93ad;background:#fff;box-shadow:0 2px 0 #c9d6e6;transition:border-color .15s,color .15s}
 .gt .vn-pb .vn-ic svg{width:12px;height:12px}
 .gt .vn-turn:hover .vn-pb{border-color:var(--sky);color:var(--sky)}
 .gt .vn-pb.have{border-color:var(--sky);background:var(--skl);color:var(--sky)}
 .gt .vn-pb.load{border-color:var(--sky);color:var(--sky);background:#fff}
 .gt .vn-pb.load::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;background:#9fd0f8;z-index:-1;animation:vn-fill var(--d,8s) linear var(--e,0s) forwards}
-.gt .vn-turn.load .vn-t{background:linear-gradient(#e3f1fd,#e3f1fd) no-repeat 0 0/0% 100%;animation:vn-fillbg var(--d,8s) linear var(--e,0s) forwards}
 @keyframes vn-fill{from{width:0}to{width:96%}}
-@keyframes vn-fillbg{from{background-size:0% 100%}to{background-size:96% 100%}}
 .gt .vn-pb.wait{border-color:var(--sky);border-style:dashed;color:var(--sky);background:var(--skl)}
 .gt .vn-pb.play{background:var(--sky);border-color:var(--sky);color:#fff;box-shadow:0 0 0 4px rgba(43,149,240,.18)}
 .gt .vn-turn.play .vn-t{background:var(--skl);color:#14508a}
@@ -12773,12 +12966,15 @@ ${ctx || '(none)'}`;
 @media (max-width:600px){
   .gt .vn-back{height:34px;padding:0 10px 0 6px}
   .gt .vn-back small{display:none}
-  .gt .vn-cast{left:8px;top:52px;max-height:calc(var(--stage,60%) - 60px);width:128px;padding:6px}
+  .gt .vn-cast{left:8px;top:52px;max-height:calc(var(--stage,60%) - 120px);width:128px;padding:6px}
   .gt .vn-av,.gt .vn-cast .pa{min-height:32px;font-size:12px}
   .gt .vn-pop{left:8px;top:52px}
   .gt .vn-tr{right:8px;top:8px;gap:6px}
-  .gt .vn-hv{padding:28px 8px 8px 144px}
-  .gt .vn-acts button b{display:none}
+  .gt .vn-dock{gap:4px;padding:6px 7px;bottom:10px}
+  .gt .vn-di{width:30px}
+  .gt .vn-di span{display:none}
+  .gt .vn-di i{width:30px;height:30px;border-radius:10px}
+  .gt .vn-vsep{margin:3px 1px}
   .gt .vn-col{padding:14px 12px 18px;gap:14px}
   .gt .vn-in{padding:0 10px}
   .gt .vn-bot{padding:8px 0}
@@ -12792,11 +12988,12 @@ ${ctx || '(none)'}`;
     await checkKey();
     wantRoot();
     await syncListen();
-    return { pane, chipText, status, bar: btnHtml, onOpen, onClose, unload, ready: () => keyKnown === true && setupOf() >= SETUP.length };
+    return { pane, chipText, status, bar: btnHtml, onOpen, onClose, unload, ready: () => keyKnown === true && setupOf() >= SETUP.length,
+        lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false };
     }
 
     await loadPrefs();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, openPanel, copyText, closePanel, toggle, talkDraw, talkRedraw, naiKey, SIZES, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, render: renderNow, openPanel, copyText, closePanel, toggle, talkDraw, talkRedraw, talkForget, naiKey, SIZES, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
