@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.10.0
+//@display-name 🎨 이매진 v5.0.0
 //@api 3.0
-//@version 4.10.0
+//@version 5.0.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.10.0';
+    const VERSION = '5.0.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -776,7 +776,7 @@
         void rootQueue(() => paintBusy(true));
         if (String(v ?? '').trim()) told.delete('nokey');
     }
-    const NO_KEY_AUTO = '이매진: NAI 키가 비어 있어 새 답변을 그리지 않았습니다. 리수는 플러그인을 새 버전으로 바꿀 때 플러그인 설정을 지웁니다. 🎨 이매진 패널의 준비 탭에서 키를 다시 넣어 주세요.';
+    const NO_KEY_AUTO = '이매진: NAI 키가 비어 있어 새 답변을 그리지 않았습니다. 리수는 플러그인을 새 버전으로 바꿀 때 플러그인 설정을 지웁니다. 🎨 이매진 패널의 삽화 › 준비에서 키를 다시 넣어 주세요.';
 
     async function readStream(stream, onChunk) {
         const reader = stream.getReader();
@@ -1117,7 +1117,8 @@ ${TAG_STYLE}`;
 - ONE sentence per panel at most. When a line has several sentences, copy just one complete sentence of it exactly (cut only at the speaker's own punctuation: . ! ? … ~) or choose another line.
 - by: the speaker's exact CAST key. The speaker must be in that panel's who. Spoken lines only: no narration captions.
 - The line goes ONLY in text. Never write "Text:", quotation marks or the spoken words inside tags or camera.
-- Give lines to the panels where the most important lines of the moment are spoken; leave text and by "" for a panel without a line.`;
+- Give lines to the panels where the most important lines of the moment are spoken; leave text and by "" for a panel without a line.
+- A page with exactly 2 panels gets AT MOST ONE spoken line in total: give text to one panel only (or to none); the other panel's text and by stay "".`;
     }
 
     function userInputOf(chat, idx) {
@@ -1898,6 +1899,8 @@ Rules
         const labels = new Map();
         const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
         const kindOf = x => x.e ? x.type : x.name;
+        const oneSay = img.panels.filter(pn => pn && typeof pn === 'object').length === 2;
+        let said = false;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
             if (slots.length >= 4) break;
@@ -1912,7 +1915,8 @@ Rules
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
-            const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
+            const line = bubblesNow() && !(oneSay && said) ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
+            if (line) said = true;
             const cam = joinTags(noText(dropNone(pn.camera))), say = line ? `speech bubble with Text: ${line} ` : '';
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
             const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
@@ -2224,7 +2228,7 @@ Rules
     function naiError(status, text) {
         let msg = String(text ?? '').slice(0, 400);
         try { msg = JSON.parse(msg).message || msg; } catch {}
-        const why = status === 401 ? 'NAI 키가 맞지 않습니다. 준비 탭에서 키를 확인해 주세요.'
+        const why = status === 401 ? 'NAI 키가 맞지 않습니다. 삽화 › 준비에서 키를 확인해 주세요.'
             : status === 402 ? 'Anlas 가 모자라거나 구독이 필요합니다. 스텝 28 이하 · 1장 · 1024×1024 이하는 Opus 무료입니다.'
             : status === 429 ? 'NAI 가 동시에 하나만 받습니다. 잠시 뒤 다시 시도합니다.'
             : status === 400 ? 'NAI 가 요청을 거절했습니다. 프롬프트나 모델 설정을 확인해 주세요.'
@@ -2354,7 +2358,7 @@ Rules
 
     async function callNai(body, stopped = () => st.busy?.stop, onStep = null) {
         const key = await naiKey();
-        if (!key) throw new Error('NAI 키가 없습니다. 패널의 준비 탭에서 넣어 주세요.');
+        if (!key) throw new Error('NAI 키가 없습니다. 패널의 삽화 › 준비에서 넣어 주세요.');
         if (onStep && !naiStreamOff) {
             const img = await naiStream(key, body, stopped, onStep);
             if (img) return img;
@@ -2624,7 +2628,7 @@ Rules
     }
     async function talkWith(o, job, fn) {
         if (job.stop) throw stopError();
-        if (!(await naiKey())) throw new Error('NAI 키가 없습니다. 삽화 › 준비 탭에서 넣어 주세요.');
+        if (!(await naiKey())) throw new Error('NAI 키가 없습니다. 삽화 › 준비에서 넣어 주세요.');
         talkOv = { kind: o.kind === 'comic' ? 'comic' : 'illust', size: SIZES[o.size] ? o.size : 'wide', preset: st.presets.some(p => p.id === o.preset) ? o.preset : '' };
         try { return await fn(); } finally { talkOv = null; }
     }
@@ -2743,7 +2747,7 @@ Rules
         render();
         let editSaved = '';
         try {
-            if (!(await naiKey())) throw new Error('NAI 키가 없습니다. 준비 탭에서 넣어 주세요.');
+            if (!(await naiKey())) throw new Error('NAI 키가 없습니다. 삽화 › 준비에서 넣어 주세요.');
             const char = await api.getCharacterFromIndex(job.ci);
             const chat = await api.getChatFromIndex(job.ci, job.chi);
             if (!char || !chat) throw new Error('채팅을 찾지 못했습니다.');
@@ -3624,6 +3628,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix-band.m-imagine{--mc:#7a6cff}
 .ix-band.m-asset{--mc:#17b897}
 .ix-band.m-voice{--mc:#2b95f0}
+.ix-band.m-talk{--mc:#ff6b5e}
 .ix-top{display:flex;align-items:center;gap:10px 18px;min-width:0}
 .ix-word{flex:none;font:italic 900 25px/1 "Segoe UI","Arial Black",Arial,sans-serif;letter-spacing:.6px;color:#fff}
 .ix-mos{display:flex;gap:12px;flex:1 1 auto;min-width:0}
@@ -3638,6 +3643,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix .ix-mo.m-imagine{--mc:#7a6cff}
 .ix .ix-mo.m-asset{--mc:#17b897}
 .ix .ix-mo.m-voice{--mc:#2b95f0}
+.ix .ix-mo.m-talk{--mc:#ff6b5e}
 .ix .ix-mo.on{color:#1f2d45;background:#fff;border-color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.15)}
 .ix-mo.on .bx{color:#fff;background:var(--mc)}
 .ix-mo.on small{color:var(--mc);opacity:1;font-weight:800}
@@ -4042,6 +4048,11 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix .lnk{padding:0;font-size:.76rem;color:var(--accent2);background:none;border:0;text-decoration:underline;cursor:pointer}
 .ix-under{margin-top:8px}
 .ix-set>.cf-grp:first-child{margin-top:0}
+/* 5.0.0: 설정 탭 모드 묶음 제목 */
+.cf-sec{display:flex;align-items:baseline;gap:8px;margin:36px 0 14px;padding:0 2px 8px;border-bottom:2px solid var(--ink);font-size:1.15rem;font-weight:800;color:var(--ink)}
+.ix-set>.cf-sec:first-child{margin-top:0}
+.cf-sec small{font-size:.72rem;font-weight:700;color:var(--accent)}
+.cf-sec+.cf-grp{margin-top:0}
 .sz-bar{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;margin:16px -16px -16px;padding:10px 16px;background:rgba(255,255,255,.97);border-top:1px solid var(--line2);box-shadow:0 -10px 18px -14px rgba(0,0,0,.35)}
 .sz-tx{font-size:.78rem;line-height:1.5;color:var(--muted)}
 .sz-tx.wait{color:var(--bad)}
@@ -4314,16 +4325,17 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     }
 
     let voice = null;
-    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', vtab: 'ready', side: '', lastTab: null, animAt: 0, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
+    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', vtab: 'ready', ttab: 'ready', side: '', lastTab: null, animAt: 0, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
     const galCount = () => { const v = st.view; return v ? Object.values(v.recs).filter(r => r.chat === v.chatKey).reduce((n, r) => n + (r.images?.length ?? 0), 0) : 0; };
     const TABS = [
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
         ['gallery', () => ['삽화 목록', galCount() ? h('em', { class: 'cnt' }, galCount()) : null]],
     ];
     const SIDE_TABS = [['cast', '등장인물'], ['style', '그림체'], ['set', '설정']];
-    const VTABS = [['ready', () => ['준비', voice?.ready?.() ? h('em', { class: 'cnt' }, '✓') : null]], ['talk', () => '대화']];
-    const VSIDE = [['cast', '등장인물'], ['voices', '목소리'], ['set', '설정']];
-    const MODES = [['imagine', '삽화'], ['asset', '애드 에셋'], ['voice', '음성']];
+    const VTABS = [['ready', () => ['준비', voice?.ready?.() ? h('em', { class: 'cnt' }, '✓') : null]], ['voices', () => [headIcon('mic'), '목소리']]];
+    const TTABS = [['ready', () => ['준비', voice?.talkReady?.() ? h('em', { class: 'cnt' }, '✓') : null]], ['talk', () => '대화하기']];
+    const MODES = [['imagine', '삽화'], ['asset', '애드 에셋'], ['voice', '음성'], ['talk', '대화']];
+    const vMode = m => m === 'voice' || m === 'talk';
 
     function render() {
         if (!ui.root?.isConnected) return;
@@ -4335,17 +4347,17 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         render.pending = false;
         const scroller = doc.scrollingElement ?? doc.documentElement;
         const keep = scroller.scrollTop;
-        if (ui.mode === 'voice' && !voice) ui.mode = 'imagine';
-        const now = ui.side ? 'side' + ui.side : ui.mode === 'voice' ? 'voice' + ui.vtab : ui.mode === 'asset' ? 'asset' + ui.atab : 'imagine' + ui.tab;
+        if (vMode(ui.mode) && !voice) ui.mode = 'imagine';
+        const now = ui.side ? 'side' + ui.side : ui.mode === 'voice' ? 'voice' + ui.vtab : ui.mode === 'talk' ? 'talk' + ui.ttab : ui.mode === 'asset' ? 'asset' + ui.atab : 'imagine' + ui.tab;
         const anim = ui.lastTab !== now;
         ui.lastTab = now;
         if (ui.side === 'upd' && !updOn()) ui.side = '';
-        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset())) : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady());
+        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'talk' ? voice.pane(ui.ttab === 'talk' ? 'talk' : 'tready') : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset())) : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady());
         if (anim) ui.animAt = Date.now();
         const ae = Date.now() - ui.animAt;
         if (ae < 1000) { pane.classList.add('anim'); pane.style.setProperty('--ae', -ae + 'ms'); }
         const lb = ui.root.querySelector(':scope > .lb');
-        const vn = ui.mode === 'voice' && ui.vtab === 'talk' && !ui.side;
+        const vn = ui.mode === 'talk' && ui.ttab === 'talk' && !ui.side;
         ui.root.classList.toggle('vn-on', vn);
         ui.root.replaceChildren(...[vn ? null : renderHead(), pane, vn ? null : renderFoot(), lb].filter(Boolean));
         scroller.scrollTop = keep;
@@ -4383,6 +4395,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         upd: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>',
         voice: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
         mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/>',
+        talk: '<path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/>',
     };
     function headIcon(k) {
         const el = h('span', { class: 'hi', 'aria-hidden': 'true' });
@@ -4390,7 +4403,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         return el;
     }
     function renderHead() {
-        const voiceOn = ui.mode === 'voice';
+        const voiceOn = vMode(ui.mode);
         const chip = voiceOn ? voice.chipText() : chipOf();
         const v = st.view, asset = ui.mode === 'asset';
         const an = !voiceOn && !ui.side && v?.hasKey && (asset ? ui.atab === 'make' && !v.group && !!acAst() : ui.tab === 'ready') ? nlChip(asset) : null;
@@ -4409,24 +4422,21 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             renderNav());
     }
     function renderNav() {
-        const voiceOn = ui.mode === 'voice', asset = ui.mode === 'asset';
-        const tabs = voiceOn ? VTABS : asset ? AC_TABS : TABS, cur = voiceOn ? ui.vtab : asset ? ui.atab : ui.tab;
+        const m = ui.mode, asset = m === 'asset', talk = m === 'talk';
+        const tabs = m === 'voice' ? VTABS : talk ? TTABS : asset ? AC_TABS : TABS, cur = m === 'voice' ? ui.vtab : talk ? ui.ttab : asset ? ui.atab : ui.tab;
         const tab = (on, kids, onclick, cls = '') => h('button', { class: 'ix-ftab' + cls + (on ? ' on' : ''), type: 'button', role: 'tab', 'aria-selected': on ? 'true' : 'false', onclick }, kids);
-        return h('nav', { class: 'ix-fts', role: 'tablist', 'aria-label': voiceOn ? '음성 화면' : asset ? '애드 에셋 화면' : '삽화 화면' },
-            tabs.map(([id, label]) => voiceOn && id === 'talk'
+        return h('nav', { class: 'ix-fts', role: 'tablist', 'aria-label': ({ voice: '음성 화면', talk: '대화 화면', asset: '애드 에셋 화면' })[m] ?? '삽화 화면' },
+            tabs.map(([id, label]) => talk && id === 'talk'
                 ? [h('span', { class: 'ix-sep', 'aria-hidden': 'true' }),
-                    h('button', { class: 'ix-talk', type: 'button', onclick: () => { ui.vtab = 'talk'; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); } },
+                    h('button', { class: 'ix-talk', type: 'button', onclick: () => { ui.ttab = 'talk'; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); } },
                         h('span', { class: 'ix-dots', 'aria-hidden': 'true' }, h('b'), h('b'), h('b')), '대화하기')]
                 : tab(!ui.side && cur === id, label(), () => {
-                    if (voiceOn) ui.vtab = id; else if (asset) ui.atab = id; else ui.tab = id;
+                    if (m === 'voice') ui.vtab = id; else if (talk) ui.ttab = id; else if (asset) ui.atab = id; else ui.tab = id;
                     ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
                 })),
-            voiceOn ? VSIDE.map(([id, label], i) => tab(!ui.side && ui.vtab === id, [headIcon(id === 'voices' ? 'mic' : id), label], () => {
-                ui.vtab = id; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
-            }, i ? ' sd' : ' sd sd0'))
-                : SIDE_TABS.map(([id, label], i) => tab(ui.side === id, [headIcon(id), label], () => {
-                    ui.side = id; ui.menu = ''; acs.menu = ''; renderNow();
-                }, i ? ' sd' : ' sd sd0')));
+            SIDE_TABS.map(([id, label], i) => tab(ui.side === id, [headIcon(id), label], () => {
+                ui.side = id; ui.menu = ''; acs.menu = ''; renderNow();
+            }, i ? ' sd' : ' sd sd0')));
     }
     async function copyText(text) {
         try { await navigator.clipboard.writeText(text); return true; } catch { }
@@ -4588,9 +4598,9 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     }
 
     function renderFoot() {
-        if (ui.mode === 'voice') {
+        if (vMode(ui.mode)) {
             return h('footer', { class: 'ix-foot' },
-                h('span', null, `이매진 v${VERSION} · 음성`),
+                h('span', null, `이매진 v${VERSION} · ${ui.mode === 'talk' ? '대화' : '음성'}`),
                 h('span', null, '키는 리수 플러그인 설정(vertex_json)에만 저장합니다'));
         }
         if (ui.mode === 'asset') {
@@ -5543,13 +5553,13 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         add(pane,
             step(1, 'LLM 모델 고르기', `${llmName(st.set.llm)} 모델`, () => [
                 llmCards('llm', () => { ui.reopen = 0; }),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다. 기본은 보조 모델이고, 카드를 누르면 다음 단계로 넘어갑니다. 애드 에셋은 애드 에셋 준비 탭에서 따로 고릅니다.')]),
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다. 기본은 보조 모델이고, 카드를 누르면 다음 단계로 넘어갑니다. 애드 에셋은 애드 에셋 › 준비에서 따로 고릅니다.')]),
             step(2, 'NovelAI 키 넣기', '키 저장됨', () => [
                 keyBox(ui.reopen === 2),
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 로 시작하는 키를 넣으세요.')]),
             step(3, 'NAI 모델 고르기', modelName(st.set.model), () => [
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋 준비 탭의 NAI 모델과 같은 값입니다. 애드 에셋도 이 모델로 그립니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋 › 준비의 NAI 모델과 같은 값입니다. 애드 에셋도 이 모델로 그립니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
                 ui.reopen === 3 && su.model ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('model'); ui.reopen = 0; renderNow(); } }, '이 모델로 다음'))]),
             step(4, '만화로 그릴까요, 삽화로 그릴까요?', kindName(), () => h('div', { class: 'dz', role: 'radiogroup' },
                 [['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']].map(([k, em, name, desc]) => {
@@ -5674,7 +5684,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         const goneLabel = og || nGone ? `지운 답변 ${nGone + nOther}` : '지운 답변';
         add(pane,
             h('div', { class: 'gal-top' },
-                h('span', { class: 'ix-hint' }, `답변 ${answers.length}개 · 그림 ${nImg}장${nGone ? ` · 지운 답변의 그림 ${nGone}장` : ''} · 「🎨 이미지 생성」은 준비 탭 설정(${recipe()})대로 그립니다.`),
+                h('span', { class: 'ix-hint' }, `답변 ${answers.length}개 · 그림 ${nImg}장${nGone ? ` · 지운 답변의 그림 ${nGone}장` : ''} · 「🎨 이미지 생성」은 삽화 › 준비 설정(${recipe()})대로 그립니다.`),
                 seg([['all', `전체 ${answers.length}`], ['has', `그림 있음 ${nHas}`], ['none', `그림 없음 ${answers.length - nHas}`], ['gone', goneLabel]], ui.galFilter,
                     f => { if (f === 'gone') { acs.gone = null; acs.goneMsg = ''; } ui.galFilter = f; ui.galLimit = 30; ui.menu = ''; acs.menu = ''; renderNow(); })),
             st.err && !st.busy && !lastFail() ? h('div', { class: 'ix-msg err', role: 'alert', style: 'margin:0 0 10px' }, st.err) : null,
@@ -5724,7 +5734,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         if (busyHere) foot = renderProgress('job');
         else if (waiting) foot = [h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, '⏳ 기다리는 중'), h('span', { class: 'ix-hint' }, '앞의 그림이 끝나면 그립니다')];
         else if (!v.hasKey) foot = [h('button', { class: 'ix-btn sm', type: 'button', disabled: true }, '🎨 이미지 생성'), h('span', { class: 'ix-hint' }, 'NAI 키가 필요합니다')];
-        else if (!setupDone()) foot = [h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '🎨 이미지 생성'), h('span', { class: 'ix-hint' }, '준비 탭을 먼저 마쳐 주세요')];
+        else if (!setupDone()) foot = [h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '🎨 이미지 생성'), h('span', { class: 'ix-hint' }, '삽화 › 준비를 먼저 마쳐 주세요')];
         else if (imgs.length) foot = fail ? [h('span', { class: 'bad-tx' }, `✕ 그리지 못했습니다. ${fail.error}`)] : null;
         else foot = [
             fail ? h('span', { class: 'bad-tx' }, `✕ 그리지 못했습니다. ${fail.error}`) : null,
@@ -6070,23 +6080,40 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         if (!v) { noChat(pane); return pane; }
         v.state.wear ??= {};
         ui.castOpen ??= new Set(v.cast.list.length === 1 ? [v.cast.list[0].id] : []);
+        const vm = ui.mode === 'voice' && !!voice, tm = ui.mode === 'talk' && !!voice;
+        const busy = vm ? voice.castBusy() : tm ? (!!st.lore || voice.castBusy() || !!ui.castSeq) : !!st.lore;
+        const castGo = () => {
+            if (busy) { stopLore(); voice?.castStop(); if (ui.castSeq) ui.castSeq.stop = true; renderNow(); return; }
+            if (vm) return void voice.castRun();
+            if (!tm) return void rereadLore();
+            const q = ui.castSeq = { stop: false };
+            renderNow();
+            void (async () => {
+                try {
+                    if (!v.group) await rereadLore();
+                    if (!q.stop) await voice.castRun();
+                } finally { if (ui.castSeq === q) ui.castSeq = null; renderNow(); }
+            })();
+        };
         add(pane,
             h('div', { class: 'ix-acts', style: 'margin-top:0' },
-                h('button', { class: 'ix-btn main', type: 'button', disabled: !!st.lore || !!st.busy?.lore || v.group, onclick: () => rereadLore() }, '📖 등장인물 분석'),
-                h('button', {
-                    class: 'ix-btn', type: 'button',
-                    onclick: () => {
-                        const id = uid();
-                        v.cast.list.push({ id, key: freshKey(v.cast.list, 'new_char'), keyAuto: true, name: '새 인물', aliases: [], canon: '', type: 'girl', look: '', wear: emptyWear(), src: 'edit', on: true });
-                        ui.castOpen.add(id);
-                        castChanged();
-                        renderNow();
-                    },
-                }, '+ 인물 추가')),
-            h('p', { class: 'ix-hint' }, v.group ? '그룹 채팅은 로어북을 읽을 수 없어, 인물을 직접 넣거나 그릴 때 모델이 알려 준 인물을 씁니다.'
+                h('button', { class: 'ix-btn main', type: 'button', disabled: !busy && !vm && !tm && (!!st.busy?.lore || v.group), onclick: castGo }, busy ? '■ 멈추기' : '📖 등장인물 분석')),
+            vm ? null : h('p', { class: 'ix-hint' }, v.group ? '그룹 채팅은 로어북을 읽을 수 없어, 그릴 때 모델이 알려 준 인물을 씁니다.'
+                : tm ? '대화에는 생김새와 목소리가 모두 쓰입니다. 분석은 생김새를 읽은 뒤 목소리를 정합니다. 기본 칸과 그 밖의 특징은 이 봇 전체에, 지금 칸은 이 채팅에만 저장됩니다.'
                 : '기본 칸과 그 밖의 특징은 이 봇 전체에, 지금 칸은 이 채팅에만 저장됩니다.'),
-            renderProgress(),
-            st.err && ui.side === 'cast' ? h('div', { class: 'ix-msg err' }, st.err) : null,
+            vm ? null : renderProgress(),
+            st.err && ui.side === 'cast' ? h('div', { class: 'ix-msg err' }, st.err) : null);
+        if (vm) { add(pane, voice.embed([...voice.castProgress(), ...voice.castPart()], true)); return pane; }
+        if (tm) add(pane, voice.embed(voice.castProgress(), true));
+        const matched = new Set();
+        const voiceTail = () => {
+            if (!tm) return null;
+            const rest = voice.voiceNames().filter(n => !matched.has(n));
+            return [rest.length ? [h('h2', { class: 'sub' }, '목소리만 있는 인물', h('small', null, `${rest.length}명 · 생김새 카드와 이름이 맞지 않는 인물`)),
+                voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows(rest))])] : null,
+                voice.embed(voice.castFoot())];
+        };
+        add(pane,
             h('h2', { class: 'sub' }, '장소'),
             placeCard(v),
             h('h2', { class: 'sub' }, '등장인물', h('small', null, `${v.cast.list.length}명 · 이름을 누르면 펼쳐서 고칩니다`),
@@ -6095,7 +6122,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                     onclick: () => { const all = v.cast.list.every(e => ui.castOpen.has(e.id)); ui.castOpen = new Set(all ? [] : v.cast.list.map(e => e.id)); renderNow(); },
                 }, v.cast.list.every(e => ui.castOpen.has(e.id)) ? '모두 접기' : '모두 펼치기') : null));
         if (!v.cast.list.length) {
-            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), '「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'));
+            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), '「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'), voiceTail());
             return pane;
         }
         const SRC = { lore: '로어북', persona: '페르소나', chat: '채팅에서', edit: '직접 고침' };
@@ -6199,8 +6226,11 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                             renderNow();
                         }, undefined, 'cast:' + e.id))));
             }
+            const vn = tm ? voice.voiceMatch(e) : null;
+            if (vn) { matched.add(vn); add(card, voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([vn]))])); }
             add(pane, card);
         });
+        add(pane, voiceTail());
         return pane;
     }
 
@@ -6399,7 +6429,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         const note = (short, more) => [short ? h('p', null, short) : null, more ? h('details', null, h('summary', null, '자세히'), h('p', null, more)) : null];
         const row = (cls, title, short, more, ...ctl) => h('div', { class: 'cf-row' + (cls ? ' ' + cls : '') }, h('div', { class: 'cf-tx' }, h('b', null, title), note(short, more)), ctl);
         const grp = (title, ...rows) => h('div', { class: 'cf-grp' }, h('h2', null, title), h('div', { class: 'cf-card' }, rows));
-        const toReady = h('button', { class: 'lnk', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '준비 탭');
+        const toReady = h('button', { class: 'lnk', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '삽화 › 준비');
         const devRow = () => {
             const msg = h('span', { class: 'cf-dev-msg', role: 'status', 'aria-live': 'polite' });
             const go = () => openLink(DEV_URL, msg);
@@ -6413,15 +6443,14 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                     msg),
                 h('button', { class: 'cf-dev-go', type: 'button', onclick: go }, '깃허브 열기 ↗'));
         };
-        add(pane,
-            grp('NovelAI 키',
+        const gKey = grp('NovelAI 키',
                 row('col', 'NAI API 키', 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 키를 넣습니다.',
                     '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
-                    keyBox(true))),
-            grp('그리기',
-                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · LLM 모델 · NAI 모델은 ', toReady, '에서, 그림체는 그림체 탭에서 바꿉니다. 애드 에셋의 LLM 모델은 애드 에셋 준비 탭에서 따로 고릅니다. 지금: ', recipe())),
+                    keyBox(true)));
+        const gDraw = grp('그리기',
+                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · LLM 모델 · NAI 모델은 ', toReady, '에서, 그림체는 그림체 탭에서 바꿉니다. 애드 에셋의 LLM 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe())),
                 row('sw', '답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
-                    '끄면 답변 아래 「이미지 생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 준비 탭을 마치기 전에는 켜져 있어도 그리지 않습니다.',
+                    '끄면 답변 아래 「이미지 생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
                     toggle(s.auto, () => setVal('auto', !s.auto))),
                 row('col', '해상도', '모든 그림이 이 크기로 나옵니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                     seg(SIZE_OPTS, sizeNow(), v => setVal('size', v))),
@@ -6437,10 +6466,10 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 그림체가 「이매진 그림체」일 때만 동작합니다.',
                     null,
                     toggle(s.dynamic !== false, () => setVal('dynamic', s.dynamic === false))),
-                dynMinRow()),
-            grp('채팅 속 그림',
+                dynMinRow());
+        const gChat = grp('채팅 속 그림',
                 row('', '「이미지 생성」 버튼', '봇 답변 아래에 두는 버튼입니다. 누르면 씬 재구성으로 그립니다. 모델이 그 답변의 장면부터 다시 고르고(「씬 재구성 중」) 이어서 그립니다(「그리는 중」). 이미 그림이 있어도 같습니다.',
-                    '「안 씀」이면 자동 그리기와 이 창의 「삽화 목록」 탭으로만 그립니다. 준비 탭을 마치기 전에 누르면 이 창의 준비 탭을 엽니다.',
+                    '「안 씀」이면 자동 그리기와 이 창의 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에 누르면 이 창의 삽화 › 준비를 엽니다.',
                     seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.ubtn, v => setVal('ubtn', v))),
                 sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.', PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
                 sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.', MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v)),
@@ -6452,18 +6481,19 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                     seg([['last', '마지막 채팅 맨 위'], ['fig', '그린 그림'], ['off', '리수 기본(안 옮김)']], s.scroll, v => setVal('scroll', v))) : null,
                 needRoot() ? h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' },
                     rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
-                        : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.')) : null),
-            grp('이 봇의 그림',
+                        : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.')) : null);
+        const gBot = grp('이 봇의 그림',
                 row('col', '봇의 기존 그림 숨기기', '이 봇의 백그라운드 임베딩 · 정규식 · Lua 트리거에서 에셋 그림을 띄우는 곳을 모델이 찾아 숨기고, 메시지 · 첫 메시지에 바로 쓴 에셋 그림({{img::…}} 등)도 화면에서 지웁니다. 이 봇에만 적용됩니다. (봇 정규식이 복잡하면 적용되지 않을 수 있습니다)',
                     null,
-                    hideControls())),
-            grp('등장인물 분석',
+                    hideControls()));
+        const gCast = grp('등장인물 분석',
                 h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '📖 등장인물 분석과, 캐스트에 없는 인물을 로어북에서 다시 찾을 때 쓰는 제한입니다. 0 이나 빈칸이면 제한하지 않습니다.')),
+                voice ? voice.embed([voice.castAutoRow()]) : null,
                 limitRow('로어북 글자 수', '로어북이 이 글자 수를 넘으면 뒤쪽 항목은 보내지 않습니다.',
                     '로어북이 아주 길면 모델이 입력 길이 한도를 넘어 거절할 수 있습니다. 그럴 때 60000 같은 값을 넣습니다. 봇 설명 · 페르소나에는 따로 제한이 있습니다.',
                     'loreMax', '자'),
-                limitRow('인물 수', '모델이 중요한 인물부터 이 수만큼만 돌려줍니다.', '제한이 없으면 모델이 외모가 나오는 인물을 모두 돌려줍니다.', 'castMax', '명')),
-            grp('모델에게 주는 지시',
+                limitRow('인물 수', '모델이 중요한 인물부터 이 수만큼만 돌려줍니다.', '제한이 없으면 모델이 외모가 나오는 인물을 모두 돌려줍니다.', 'castMax', '명'));
+        const gHead = grp('모델에게 주는 지시',
                 row('col', '프롬프트 맨 위', '장면 모델에게 보내는 지시문 맨 앞에 그대로 넣습니다.',
                     '로어북 읽기와 장면 고르기 모두에 들어가고, 기본 규칙과 부딪히면 이 글을 먼저 따르게 합니다. 비워 두면 보내지 않습니다.',
                     h('textarea', {
@@ -6472,12 +6502,27 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                         oninput: textSet('head'),
                     }, s.head ?? '')),
                 row('col', '프롬프트 맨 아래 (덧붙일 지시)', '요청 맨 끝에 덧붙입니다. 예) 배경을 자세히 / 코믹한 표정 위주로', null,
-                    h('textarea', { class: 'cf-ta', style: 'min-height:64px', 'aria-label': '프롬프트 맨 아래', oninput: textSet('extra') }, s.extra))),
-            grp('저장',
+                    h('textarea', { class: 'cf-ta', style: 'min-height:64px', 'aria-label': '프롬프트 맨 아래', oninput: textSet('extra') }, s.extra)));
+        const gSave = grp('저장',
                 row('sw', 'WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다.', null, toggle(s.webp, () => setVal('webp', !s.webp))),
                 row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 열두 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
                     null,
-                    toggle(s.vars, () => setVal('vars', !s.vars)))),
+                    toggle(s.vars, () => setVal('vars', !s.vars))));
+        const gAsset = grp('모델 · 그림체',
+            h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '애드 에셋의 LLM 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다. 초상화 크기는 공통 「채팅 속 그림」의 가로 길이를 따릅니다.')));
+        const SECS = {
+            common: ['공통', [gKey, gChat, gHead, gSave]],
+            cast: ['등장인물 분석', [gCast]],
+            imagine: ['삽화', [gDraw, gBot]],
+            asset: ['애드 에셋', [gAsset]],
+            voice: ['음성', voice ? [voice.embed(voice.setPart('voice'), true)] : []],
+            talk: ['대화', voice ? [voice.embed(voice.setPart('talk'))] : []],
+        };
+        const order = [ui.mode, ...['common', 'cast', 'imagine', 'asset', 'voice', 'talk'].filter(m => m !== ui.mode)];
+        add(pane,
+            order.filter(m => SECS[m]?.[1].length).map(m => [
+                h('div', { class: 'cf-sec' }, SECS[m][0], m === ui.mode ? h('small', null, '지금 모드') : null),
+                SECS[m][1]]),
             devRow(),
             st.sizeNote ? h('div', { class: 'sz-bar', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'sz-tx ' + st.sizeNote.cls }, st.sizeNote.text)) : null,
         );
@@ -6507,7 +6552,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         listen(doc, 'focusout', () => { if (!ptrDown) flush(); });
     }
     function closePanel() {
-        if (ui.mode === 'voice') voice?.onClose();
+        if (vMode(ui.mode)) voice?.onClose();
         acs.edit = null;
         acs.pe = null;
         ui.root?.remove();
@@ -6582,7 +6627,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         if (!ui.root.isConnected) doc.body.append(ui.root);
         ui.root.replaceChildren(
             h('header', { class: 'ix-band m-' + (opts?.mode ?? ui.mode) }, h('div', { class: 'ix-top' }, h('span', { class: 'ix-word' }, 'IMAGINE'),
-                h('span', { class: 'ix-mos', 'aria-hidden': 'true' }, h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' })),
+                h('span', { class: 'ix-mos', 'aria-hidden': 'true' }, h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' })),
                 h('span', { class: 'ix-tr' }, h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))),
                 h('nav', { class: 'ix-fts', 'aria-hidden': 'true' }, h('span', { class: 'ix-sk ft' }), h('span', { class: 'ix-sk ft' }))),
             h('section', { class: 'ix-pane' }, h('div', { class: 'ix-empty ix-boot' }, h('b', null, '여는 중입니다'), '잠시만 기다려 주세요.',
@@ -6604,7 +6649,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         ui.menu = '';
         ui.reopen = 0;
         if (opts?.mode) ui.mode = opts.mode;
-        if (ui.mode === 'voice') await voice?.onOpen().catch(error => console.warn(LOG, 'voice open', error));
+        if (vMode(ui.mode)) await voice?.onOpen().catch(error => console.warn(LOG, 'voice open', error));
         renderNow();
         void checkUpdate();
     }
@@ -7650,7 +7695,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const AC_OKEY_RE = /^[a-z][a-z0-9]*$/;
     const acOutfitKey = (en, used) => acKeyFrom(tidy(String(en ?? '').split(',')[0]), used);
     const AC_CSS = `
-@media (max-width:860px){
+@media (max-width:1040px){
   .ix-top{flex-wrap:wrap}
   .ix-mos{order:3;flex:1 1 100%}
   .ix .ix-mo{flex:1 1 0;height:50px;gap:10px;padding:0 10px}
@@ -8892,29 +8937,30 @@ Rules:
     function modeCards() {
         const nAst = acListNames(acAst()).length;
         const ptOff = !!st.view?.chaId && st.set.ptOff.includes(st.view.chaId);
-        const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice?.lit?.() };
+        const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice?.lit?.(), talk: !!voice?.talkLit?.() };
         const tip = {
             imagine: lit.imagine ? '자동 그리기 켜짐' : setupDone() ? '자동 그리기 꺼짐' : '준비 전',
             asset: lit.asset ? `에셋 ${nAst}장 있음` : nAst ? `에셋 ${nAst}장 · 채팅에 보이기 꺼짐` : '아직 만든 에셋 없음',
             voice: voice ? voice.status() : '쓸 수 없음',
+            talk: voice ? voice.talkStatus() : '쓸 수 없음',
         };
         return h('span', { class: 'ix-mos', role: 'tablist', 'aria-label': '모드' }, MODES.map(([m, label]) => {
             const on = !ui.side && ui.mode === m;
             return h('button', {
                 type: 'button', role: 'tab', class: 'ix-mo m-' + m + (on ? ' on' : ''), 'aria-selected': on ? 'true' : 'false',
-                disabled: m === 'voice' && !voice, title: tip[m], 'aria-label': `${label} · ${tip[m]}`,
+                disabled: vMode(m) && !voice, title: tip[m], 'aria-label': `${label} · ${tip[m]}`,
                 onclick: () => goMode(m),
             }, h('span', { class: 'bx' }, headIcon(m)), h('span', { class: 't' }, h('b', null, label, h('i', { class: 'ix-led' + (lit[m] ? ' lit' : ''), 'aria-hidden': 'true' })), h('small', null, tip[m])));
         }));
     }
     function goMode(m) {
         const was = ui.mode;
-        if (was === 'voice' && m !== 'voice') voice?.onClose();
+        if (vMode(was) && !vMode(m)) voice?.onClose();
         ui.mode = m;
         ui.side = ''; ui.menu = ''; acs.menu = '';
         renderNow();
         if (m === 'asset') void acAnlas();
-        if (m === 'voice' && was !== 'voice') voice.onOpen().catch(error => console.warn(LOG, 'voice open', error)).finally(renderNow);
+        if (vMode(m) && !vMode(was)) voice.onOpen().catch(error => console.warn(LOG, 'voice open', error)).finally(renderNow);
     }
     const acListNames = a => { const have = acHas(); return a ? a.made.filter(n => have.has(n)) : []; };
     const AC_TABS = [
@@ -8963,7 +9009,7 @@ Rules:
                 llmDone && acs.llmOpen ? h('button', { class: 'lnk', type: 'button', onclick: () => { acs.llmOpen = false; renderNow(); } }, '완료') : null),
             h('div', { class: 'sp-bd' }, llmCur ? [
                 llmCards('acLlm', () => { acs.llmOpen = false; }),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '등장인물 분석 · 감정 태그 · 커스텀 감정을 맡길 모델입니다. 기본은 보조 모델이고, 카드를 누르면 다음 단계로 넘어갑니다. 삽화는 삽화 준비 탭에서 따로 고릅니다.')] : null)));
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '등장인물 분석 · 감정 태그 · 커스텀 감정을 맡길 모델입니다. 기본은 보조 모델이고, 카드를 누르면 다음 단계로 넘어갑니다. 삽화는 삽화 › 준비에서 따로 고릅니다.')] : null)));
         if (!llmDone) return add(pane, h('p', { class: 'ix-hint' }, '앞 단계를 마치면 열립니다.'));
         if (!v.hasKey) return add(pane, h('p', { class: 'ix-hint' }, '애드 에셋은 NovelAI 키가 있어야 그릴 수 있습니다.'), keyBox(true));
         const a = acAst();
@@ -9283,7 +9329,7 @@ Rules:
         ];
         const sModel = () => [
             modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
-            h('p', { class: 'ix-hint', style: 'margin:6px 0 12px' }, '삽화 준비 탭의 NAI 모델과 같은 값입니다. 여기서 바꾸면 삽화를 그릴 때도 이 모델을 씁니다.'),
+            h('p', { class: 'ix-hint', style: 'margin:6px 0 12px' }, '삽화 › 준비의 NAI 모델과 같은 값입니다. 여기서 바꾸면 삽화를 그릴 때도 이 모델을 씁니다.'),
             h('div', { class: 'cf-row sw rf' },
                 h('div', { class: 'cf-tx' }, h('b', null, '레퍼런스'), h('p', null, '기본 그림을 먼저 그린 뒤, 나머지 그림에 레퍼런스로 넣어 얼굴 · 옷이 같게 나오게 합니다.')),
                 toggle(a.ref, () => { a.ref = !a.ref; keep(); renderNow(); })),
@@ -9629,7 +9675,7 @@ Rules:
                 h('div', { class: 'dlg-h' }, h('span', null, `📝 ${t.e.name} · ${t.o.ko} · ${t.emo.icon || ''} ${t.emo.ko} · `, h('code', null, t.name)),
                     h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: close }, '×')),
                 h('div', { class: 'dlg-b' },
-                    h('p', { class: 'ix-hint', style: 'margin:0 0 8px' }, '이 그림 한 장의 프롬프트입니다. 저장한 프롬프트는 이 그림을 다시 그릴 때마다 씁니다(준비 탭의 다시 그리기 포함).'),
+                    h('p', { class: 'ix-hint', style: 'margin:0 0 8px' }, '이 그림 한 장의 프롬프트입니다. 저장한 프롬프트는 이 그림을 다시 그릴 때마다 씁니다(애드 에셋 › 준비의 다시 그리기 포함).'),
                     h('h3', { class: 'sub' }, '본 프롬프트 ', h('small', null, '그림체 · 구도 · 배경')),
                     ta('base', '본 프롬프트', 4),
                     h('h3', { class: 'sub' }, `캐릭터 칸 · ${t.e.name} `, h('small', null, '외형 · 복장 · 감정 · 자세')),
@@ -9748,12 +9794,44 @@ Rules:
     const ALIAS_NARR = 'Narrator';
     const NARR = '__narrator';
     const FEMALE = ['Achernar', 'Aoede', 'Autonoe', 'Callirrhoe', 'Despina', 'Erinome', 'Gacrux', 'Kore', 'Laomedeia', 'Leda', 'Pulcherrima', 'Sulafat', 'Vindemiatrix', 'Zephyr'];
-    const BASE_DESC = {
+    const BASE_TRAIT = {
         Achernar: 'soft', Aoede: 'breezy', Autonoe: 'bright', Callirrhoe: 'easy-going', Despina: 'smooth', Erinome: 'clear', Gacrux: 'mature',
         Kore: 'firm', Laomedeia: 'upbeat', Leda: 'youthful', Pulcherrima: 'forward', Sulafat: 'warm', Vindemiatrix: 'gentle', Zephyr: 'bright',
         Achird: 'friendly', Algenib: 'gravelly', Algieba: 'smooth', Alnilam: 'firm', Charon: 'informative', Enceladus: 'breathy', Fenrir: 'excitable',
         Iapetus: 'clear', Orus: 'firm', Puck: 'upbeat', Rasalgethi: 'informative', Sadachbia: 'lively', Sadaltager: 'knowledgeable', Schedar: 'even',
         Umbriel: 'easy-going', Zubenelgenubi: 'casual',
+    };
+    const BASE_DESC = {
+        Achernar: 'A soft, higher-pitched female voice with a gentle, airy tone. Suits shy, tender or dreamy young women.',
+        Aoede: 'A breezy, mid-pitched female voice, light and relaxed with a natural flow. Suits cheerful, carefree women and casual talk.',
+        Autonoe: 'A bright, mid-pitched female voice, clear and lively. Suits upbeat, confident young women.',
+        Callirrhoe: 'An easy-going, mid-pitched female voice, calm and unhurried. Suits laid-back, friendly women.',
+        Despina: 'A smooth, mid-pitched female voice with a polished, flowing delivery. Suits elegant, composed women.',
+        Erinome: 'A clear, mid-pitched female voice with crisp articulation. Suits intelligent, precise or professional women.',
+        Gacrux: 'A mature, mid-pitched female voice, grounded and experienced. Suits older women, mentors and mothers.',
+        Kore: 'A firm, mid-pitched female voice, steady and assertive. Suits strong-willed leaders and serious women.',
+        Laomedeia: 'An upbeat, higher-pitched female voice, energetic and playful. Suits cheerful, bubbly girls.',
+        Leda: 'A youthful, higher-pitched female voice, fresh and light. Suits teenage girls and young heroines.',
+        Pulcherrima: 'A forward, mid-pitched female voice, direct and projecting. Suits bold, outspoken women.',
+        Sulafat: 'A warm, mid-pitched female voice, kind and comforting. Suits caring, affectionate women.',
+        Vindemiatrix: 'A gentle, mid-pitched female voice, soft-spoken and calm. Suits kind, quiet or graceful women.',
+        Zephyr: 'A bright, higher-pitched female voice, sunny and energetic. Suits lively, optimistic young women.',
+        Achird: 'A friendly, lower-middle male voice, approachable and warm. Suits kind young men and good friends.',
+        Algenib: 'A gravelly, low male voice with a rough texture. Suits tough veterans, rogues and weathered men.',
+        Algieba: 'A smooth, low male voice, rich and relaxed. Suits charming, composed or seductive men.',
+        Alnilam: 'A firm, lower-middle male voice, steady and authoritative. Suits commanders, knights and serious men.',
+        Charon: 'An informative, low male voice, calm and measured like a narrator. Suits scholars, butlers and wise elders.',
+        Enceladus: 'A breathy, low male voice, soft and intimate. Suits quiet, mysterious or weary men.',
+        Fenrir: 'An excitable, lower-middle male voice, energetic and quick. Suits hot-blooded, passionate young men.',
+        Iapetus: 'A clear, lower-middle male voice with clean diction. Suits honest, reliable men and announcers.',
+        Orus: 'A firm, lower-middle male voice, solid and decisive. Suits soldiers, protectors and stern men.',
+        Puck: 'An upbeat, mid-pitched male voice, playful and lively. Suits cheerful boys, jokers and tricksters.',
+        Rasalgethi: 'An informative, mid-pitched male voice, articulate and even. Suits teachers, guides and explainers.',
+        Sadachbia: 'A lively, low male voice, animated with a deep tone. Suits boisterous, spirited men.',
+        Sadaltager: 'A knowledgeable, mid-pitched male voice, thoughtful and assured. Suits experts, strategists and advisors.',
+        Schedar: 'An even, lower-middle male voice, balanced and calm. Suits level-headed, steady men.',
+        Umbriel: 'An easy-going, lower-middle male voice, relaxed and casual. Suits laid-back, gentle men.',
+        Zubenelgenubi: 'A casual, lower-middle male voice, natural and conversational. Suits ordinary young men in everyday talk.',
     };
     const MALE = ['Achird', 'Algenib', 'Algieba', 'Alnilam', 'Charon', 'Enceladus', 'Fenrir', 'Iapetus', 'Orus', 'Puck', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar', 'Umbriel', 'Zubenelgenubi'];
     const MODELS = [
@@ -9763,7 +9841,7 @@ Rules:
         ['gemini-2.5-pro-tts', '2.5 Pro'],
         ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
     ];
-    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, talkModel: 'submodel', talkSpeak: true, talkLink: false, setup: 0,
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, talkModel: 'submodel', talkSpeak: true, talkLink: false, setup: 0, talkSetup: 0,
         talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100 };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
     const STYLE_MAX = 300;
@@ -9810,6 +9888,7 @@ Rules:
         st.set.t46 = true;
         if (!st.set.t48 && Number(st.set.keep) === 30) st.set.keep = 300;
         st.set.t48 = true;
+        if (!st.set.t50) { if (Number(st.set.setup) >= 5) st.set.talkSetup = 3; st.set.setup = Math.min(Number(st.set.setup) || 0, 4); st.set.t50 = true; }
     }
     async function botOf(chaId) {
         if (st.bots.has(chaId)) return st.bots.get(chaId);
@@ -9971,10 +10050,10 @@ Rules:
             if (!quota && project && /quota project|user project|x-goog-user-project/i.test(msg)) return synth(r, job, true);
             if (res.status === 401) tok.value = '';
             const hint = res.status === 403 ? (vertex
-                    ? ' (구글 클라우드 콘솔에서 Vertex AI API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자 · Vertex AI 사용자)을 가졌는지 확인해 주세요. 급하면 설정 탭에서 모델을 2.5 Flash 로 바꿔도 됩니다.)'
+                    ? ' (구글 클라우드 콘솔에서 Vertex AI API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자 · Vertex AI 사용자)을 가졌는지 확인해 주세요. 급하면 음성 › 준비에서 모델을 2.5 Flash 로 바꿔도 됩니다.)'
                     : ' (구글 클라우드 콘솔에서 Cloud Text-to-Speech API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자)을 가졌는지 확인해 주세요.)')
-                : res.status === 400 && useLib && /lite/.test(model) ? ' (라이브러리 목소리는 3.8 Flash 에서만 시험했습니다. 설정 탭에서 모델을 3.8 Flash 로 바꿔 보세요.)'
-                : res.status === 429 ? (/pro/i.test(model) ? ' (Pro 모델은 분당 요청 한도가 낮습니다. 설정 탭에서 모델을 Flash 로 바꾸거나, 1분쯤 뒤에 다시 눌러 주세요.)' : ' (분당 요청 한도에 걸렸습니다. 1분쯤 뒤에 다시 눌러 주세요.)')
+                : res.status === 400 && useLib && /lite/.test(model) ? ' (라이브러리 목소리는 3.8 Flash 에서만 시험했습니다. 음성 › 준비에서 모델을 3.8 Flash 로 바꿔 보세요.)'
+                : res.status === 429 ? (/pro/i.test(model) ? ' (Pro 모델은 분당 요청 한도가 낮습니다. 음성 › 준비에서 모델을 Flash 로 바꾸거나, 1분쯤 뒤에 다시 눌러 주세요.)' : ' (분당 요청 한도에 걸렸습니다. 1분쯤 뒤에 다시 눌러 주세요.)')
                 : '';
             throw Object.assign(new Error(`Gemini-TTS 오류 ${res.status}: ${msg}${hint}`), { status: res.status });
         }
@@ -10623,9 +10702,9 @@ Rules:
         return talks.get(chaId);
     }
     const saveTalk = (chaId, t) => api.pluginStorage.setItem('gt:talk:' + chaId, t).catch(error => console.warn(LOG, 'save talk', error));
-    function talkPush(t, name, r, text) {
+    function talkPush(t, name, r, text, tone = '') {
         const log = t[name] ??= [];
-        log.push({ r, t: text, at: Date.now() });
+        log.push(tone ? { r, t: text, tone, at: Date.now() } : { r, t: text, at: Date.now() });
         if (log.length > TALK_MAX) log.splice(0, log.length - TALK_MAX);
     }
     const reEsc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -10671,7 +10750,7 @@ Rules:
         return `You are ${name}, in a private one-on-one conversation with ${user}, outside the main story.
 Stay fully in character: your personality, way of speaking and what you know come from PROFILE. Who ${user} is comes from the user persona in PROFILE, and your relationship with ${user} comes from both.
 Rules:
-- Reply with only the words ${name} says next.
+- Write the reply in this form: the first line is TONE: followed by one short direction for the voice actor on how ${name} says this reply (feeling, volume, speed), written as a polite request in the language of the reply, e.g. "TONE: 조용히 속삭이는 듯이 말해 주세요". From the next line on, write only the words ${name} says next.
 - No narration, no actions in asterisks or brackets, no name prefix, no quotation marks around the reply.
 - Never write ${user}'s lines. Never mention being an AI, a model or a roleplay.
 - Reply in the language ${user} writes in.${style ? `\n- Your voice and manner: ${style}` : ''}
@@ -10689,19 +10768,23 @@ ${ctx || '(none)'}`;
         if (m && !/["“”「」『』]/.test(m[1])) s = m[1].trim();
         return s;
     }
+    const TONE_RE = /^[ \t]*(?:TONE|톤|말투)[ \t]*[:：][ \t]*(.+)$/im;
     async function talkAsk(system, log, name, rec) {
         const msgs = [];
         for (const m of log.slice(-TALK_TURNS)) {
             const role = m.r === 'u' ? 'user' : 'assistant';
             if (!msgs.length && role === 'assistant') continue;
+            const t = role === 'assistant' && m.tone ? `TONE: ${m.tone}\n${m.t}` : m.t;
             const last = msgs[msgs.length - 1];
-            if (last?.role === role) last.content += '\n' + m.t;
-            else msgs.push({ role, content: m.t });
+            if (last?.role === role) last.content += '\n' + t;
+            else msgs.push({ role, content: t });
         }
-        const out = await askModel([{ role: 'system', content: system }, ...msgs], st.set.talkModel === 'model' ? 'model' : 'submodel');
-        const text = talkClean(out, name, rec);
+        const out = noThink(await askModel([{ role: 'system', content: system }, ...msgs], st.set.talkModel === 'model' ? 'model' : 'submodel'));
+        const tm = out.match(TONE_RE);
+        const tone = tm ? tm[1].replace(/^["“「『(（\[]+|["”」』)）\]]+$/g, '').trim().slice(0, STYLE_MAX) : '';
+        const text = talkClean(tm ? out.replace(tm[0], '') : out, name, rec);
         if (!spoken(text)) throw new Error('모델이 빈 답을 돌려주었습니다. 한 번 더 보내 보세요.');
-        return text;
+        return { text, tone };
     }
     const loreWait = new Map();
     let loreJob = Promise.resolve(), loreShut = false;
@@ -10857,13 +10940,14 @@ ${ctx || '(none)'}`;
         talkRates = a.filter(x => a.length < 2 || x <= 3 * lo).slice(-10);
         void Promise.resolve(api.pluginStorage.setItem('gt:ttsTimes', talkRates)).catch(() => {});
     }
-    function talkEst(chaId, name, text) {
-        if (cached.has(hash('talk|' + chaId + '|' + name + '|' + text))) return 0.6;
+    const talkHash = (chaId, name, text, tone) => hash('talk|' + chaId + '|' + name + '|' + text + (tone ? '|' + tone : ''));
+    function talkEst(chaId, name, text, tone) {
+        if (cached.has(talkHash(chaId, name, text, tone))) return 0.6;
         const rate = talkRates?.length ? talkMid(talkRates) : TALK_RATE;
         return Math.max(TALK_MIN_SEC, rate * plain(text).length);
     }
-    async function talkVoice(chaId, name, text, job) {
-        const k = hash('talk|' + chaId + '|' + name + '|' + text);
+    async function talkVoice(chaId, name, text, job, tone) {
+        const k = talkHash(chaId, name, text, tone);
         if (cached.has(k)) {
             const v = await getAudio(k);
             if (v) return v;
@@ -10871,7 +10955,7 @@ ${ctx || '(none)'}`;
         const bot = await botOf(chaId);
         const voice = voiceFor(bot, name, bot.voices[name]?.gender ?? 'unknown');
         if (bot.dirty) { delete bot.dirty; void saveBot(chaId, bot); }
-        const prompt = cutBytes([bot.talkStyle, bot.voices[name]?.style].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
+        const prompt = cutBytes([tone, bot.talkStyle, bot.voices[name]?.style].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
         const parts = [], body = plain(text), t0 = Date.now();
         for (const c of chunks(body, TEXT_BYTES)) {
             if (parts.length) parts.push(silence(Number(st.set.gap) || 0));
@@ -11320,6 +11404,7 @@ ${ctx || '(none)'}`;
 .gt .gt-x.sm{width:22px;height:22px;font-size:.9rem}
 .gt-pane{min-width:0;padding:18px}
 .gt-pane.talk{padding:0}
+.gt.gt-emb{display:block;background:none}
 /* 4.7.0: 탭을 열 때 칸이 차례로 떠오른다. 대화(.talk)는 무대라 빼고, 준비(.vz)는 단계 목록 · 본문 두 칸이 떠오른다 */
 .gt.anim>.gt-pane:not(.talk)>:not(.vz),.gt.anim>.gt-pane>.vz>*{animation:gt-rise .5s var(--ease-out) backwards;animation-delay:var(--ae,0ms)}
 .gt.anim>.gt-pane:not(.talk)>:not(.vz):nth-child(2),.gt.anim>.gt-pane>.vz>*:nth-child(2){animation-delay:calc(var(--ae,0ms) + .05s)}
@@ -11612,8 +11697,8 @@ ${ctx || '(none)'}`;
         }
         return el;
     }
-    const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, dup: false, readyAt: 0,
-        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voices: new Set(), voicing: new Map(), playing: '', confirm: null, add: '', view: '', sel: null, draw: null, pop: false, tick: 0, hud: false } };
+    const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, tstep: 0, dup: false, readyAt: 0,
+        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voices: new Set(), voicing: new Map(), playing: '', confirm: null, view: '', sel: null, draw: null, pop: false, tick: 0, hud: false } };
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
@@ -11649,8 +11734,8 @@ ${ctx || '(none)'}`;
         return cats.map(c => h('div', { class: 'gt-pk-cat' }, h('b', null, `${c || '기타'} · ${hits.filter(v => v.cat === c).length}`),
             hits.filter(v => v.cat === c).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(v => h('div', { class: 'gt-pk-it' },
                 h('button', { class: 'gt-pk-pick', type: 'button', title: v.id, onclick: () => { const fn = p.onchange; ui.pick = null; fn(v.id); render(); } },
-                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, v.base ? ` ${sex[v.gender]} · ${v.desc}` : ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
-                    v.base ? null : h('span', { class: 'gt-pk-ds' }, v.desc)),
+                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, v.base ? ` ${sex[v.gender]} · ${BASE_TRAIT[v.id] ?? ''}` : ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
+                    h('span', { class: 'gt-pk-ds' }, v.desc)),
                 h('button', { class: 'gt-b sm', type: 'button', title: '미리 듣기', 'data-pv': '', disabled: ui.preview?.busy, onclick: () => void preview(v.id, '') }, '▶')))));
     }
     function libLoad() {
@@ -11715,8 +11800,8 @@ ${ctx || '(none)'}`;
         if (!v.bot.castAt) {
             if (castTried.has(v.chaId)) return;
             castTried.add(v.chaId);
-            ui.talk.pop = true;
-            setTimeout(() => void castClick(), 0);
+            ui.talk.pop = 'auto';
+            setTimeout(async () => { await castClick(); if (ui.talk.pop === 'auto') { ui.talk.pop = false; talkPaint(); } }, 0);
             return;
         }
         if (st.set.split === 'off' || Date.now() - (talkPersonaAt.get(v.chaId) ?? 0) < 30000) return;
@@ -11781,7 +11866,7 @@ ${ctx || '(none)'}`;
         root.classList.toggle('gt-pvon', !!ui.preview);
         const old = root.querySelector(':scope > .gt-pv'), bar = previewBar();
         if (old !== bar) { old?.remove(); if (bar) root.append(bar); }
-        root.querySelectorAll('[data-pv]').forEach(b => { b.disabled = !!ui.preview?.busy; });
+        doc.querySelectorAll('[data-pv]').forEach(b => { b.disabled = !!ui.preview?.busy; });
     }
     async function refreshView() {
         try {
@@ -11807,10 +11892,10 @@ ${ctx || '(none)'}`;
             h('button', { class: keyKnown === false ? 'gt-b main' : 'gt-b', type: 'button', disabled: ui.testing, onclick: pickKeyFile }, keyKnown === false ? 'JSON 파일 선택' : 'JSON 파일 다시 선택'),
             h('button', { class: keyKnown === false ? 'gt-b' : 'gt-b main', type: 'button', disabled: ui.testing || keyKnown === false, onclick: () => void testKey() }, ui.testing ? '확인하는 중…' : '연결 확인'));
     }
-    function paneSet() {
+    function setPart(part) {
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); paintSoon(true); };
         const used = cacheList.reduce((n, x) => n + (x.n || 0), 0) / 1048576;
-        return [
+        if (part === 'voice') return [
             msgBox(),
             group('읽기 설정', '모든 봇 공통',
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 읽기'), h('p', null, st.set.auto
@@ -11825,25 +11910,20 @@ ${ctx || '(none)'}`;
                             ? '처음 나온 인물에게 성별이 맞는 기본 목소리를 이름에 따라 정해 줍니다. 모델에게 따로 묻지 않습니다.'
                             : '처음 나온 인물이 있으면 화자를 나눈 모델에게 한 번 더 물어, 나이 · 성격에 맞는 목소리를 고르게 합니다. 확장 라이브러리 목소리를 먼저 보고, 맞는 것이 없으면 기본 30개에서 고릅니다. 목록을 아직 받지 않았으면 처음 한 번 받아 옵니다. 이미 정한 목소리는 바꾸지 않습니다.')),
                     seg([['model', '모델이 고름 (기본)'], ['hash', '이름으로 정함']], st.set.pick, id => set('pick', id))),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 등장인물 분석'), h('p', null, !st.set.castAuto
-                        ? '자동으로 분석하지 않습니다. 등장인물 탭의 「📖 등장인물 분석」 버튼을 누를 때만 분석합니다.'
-                        : st.set.split === 'off' || st.set.pick === 'hash'
-                            ? '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때 「📖 등장인물 분석」을 한 번 합니다. 화자를 나누지 않거나 새 인물 목소리를 이름으로 정해서, 읽기 전에는 분석하지 않습니다.'
-                            : '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때나 그 봇의 답변을 처음 읽을 때 「📖 등장인물 분석」을 한 번 합니다. 메인 모델 요청이 한 번 늘고, 읽기라면 소리가 조금 늦게 나옵니다.')),
-                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.castAuto ? 'on' : 'off', id => set('castAuto', id === 'on'))),
                 row('요청 사이 쉼', '답변이 길거나 목소리가 셋 이상이라 요청이 나뉠 때, 그 사이에 넣는 쉼입니다. 0~2000ms',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 50, value: st.set.gap, onchange: e => set('gap', Math.max(0, Math.min(2000, Number(e.target.value) || 0))) }), 'ms')),
                 row('보관 개수', `지금 ${cacheList.length}개 · ${used.toFixed(1)}MB를 보관하고 있습니다. 넘치면 오래된 것부터 지웁니다.`,
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 1, max: 500, value: st.set.keep, onchange: e => set('keep', Math.max(1, Math.min(500, Number(e.target.value) || DEF_SET.keep))) }), '개')),
                 row('보관한 소리', '이 기기에 저장한 소리를 모든 봇에서 지웁니다.',
-                    h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기'))),
+                    h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기')))];
+        return [
             group('대화', '모든 봇 공통',
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '답 자동 듣기'), h('p', null, st.set.talkSpeak
                         ? '답이 오면 그 인물의 목소리로 바로 읽어 줍니다. 대화 화면 무대 아래의 「TTS」 버튼으로도 바꿀 수 있습니다.'
                         : '글로만 대화합니다. 무대 아래 「다시 듣기」를 누르면 그 말만 들을 수 있습니다.')),
                     seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '본편에 대화 알리기'), h('p', null, st.set.talkLink
-                        ? '대화 기록 항목에 인물 이름과 별명을 키로 넣습니다. 본편 이야기에 그 이름이 나오면 대화 기록이 함께 들어가, 봇이 대화 탭에서 나눈 말을 기억합니다. 그만큼 입력 토큰이 늘어납니다.'
+                        ? '대화 기록 항목에 인물 이름과 별명을 키로 넣습니다. 본편 이야기에 그 이름이 나오면 대화 기록이 함께 들어가, 봇이 대화에서 나눈 말을 기억합니다. 그만큼 입력 토큰이 늘어납니다.'
                         : '대화 기록은 봇 로어북의 「' + TALK_FOLDER + '」 폴더에 저장만 하고, 키를 비워 두어 본편 이야기에는 들어가지 않습니다.')),
                     seg([['off', '끔 (기본)'], ['on', '켬']], st.set.talkLink ? 'on' : 'off', id => {
                         set('talkLink', id === 'on');
@@ -11853,68 +11933,79 @@ ${ctx || '(none)'}`;
                 row('본편 대사 개수', '등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 「' + TALK_FOLDER + '」 폴더에 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 10, value: st.set.talkMain, onchange: e => { const n = Number(e.target.value); set('talkMain', e.target.value !== '' && Number.isFinite(n) ? Math.max(0, Math.min(2000, Math.round(n))) : DEF_SET.talkMain); } }), '개'))),
             group('대화 그림', '모든 봇 공통',
-                h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 음성 대화에만 씁니다. 삽화 탭의 삽화 · 만화, 해상도, 작가는 바뀌지 않습니다.')),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그림 종류'), h('p', null, talkKindNow() === 'comic'
-                        ? '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 삽화 탭 설정을 따릅니다.'
-                        : '답의 장면을 컷 없는 한 장 그림으로 그립니다.')),
-                    seg(TALK_KINDS, talkKindNow(), id => set('talkKind', id))),
+                h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 작가는 바뀌지 않습니다. 대화 그림의 종류 · 작가 · 해상도는 대화 › 준비에서 고릅니다.')),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 그리기'), h('p', null, st.set.talkAuto
                         ? '답이 오면 그 장면을 NovelAI 로 그려 대화 화면 위쪽 무대에 겁니다. 한 장마다 Anlas 를 씁니다.'
                         : '무대에 마우스를 올려 「그리기」를 누를 때만 그립니다.')),
                     seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkAuto ? 'on' : 'off', id => set('talkAuto', id === 'on'))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그릴 때'), h('p', null, '「장면이 바뀔 때」는 다음 버전에서 씁니다.')),
                     talkWhenSeg(id => set('talkWhen', id))),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '해상도'), h('p', null, '대화 화면 무대는 가로로 넓어서 가로 그림이 가장 잘 맞습니다.')),
-                    seg([['wide', '가로 1216×832 (추천)'], ['wide2', '가로 1152×896'], ['square', '정사각 1024×1024'], ['tall2', '세로 896×1152'], ['tall', '세로 832×1216']], st.set.talkSize, id => set('talkSize', id))),
-                row('작가', '대화 그림에 쓸 작가(그림체)입니다. 「삽화 탭과 같게」는 삽화 탭에서 고른 작가를 따라갑니다.',
-                    h('select', { class: 'vf-in', style: 'width:auto;max-width:220px', 'aria-label': '대화 그림 작가', onchange: e => set('talkPreset', e.target.value) },
-                        [['', '삽화 탭과 같게'], ...host.presets().map(x => [x.id, x.name || '이름 없음'])].map(([id, label]) => h('option', { value: id, selected: id === st.set.talkPreset }, label)))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '무대 맞춤'), h('p', null, st.set.talkFit === 'cover'
                         ? '그림을 무대에 꽉 채웁니다. 그림 위아래나 양옆이 조금 잘립니다.'
                         : '그림 전체를 보여 줍니다. 남는 자리는 같은 그림을 흐리게 깔아 채웁니다.')),
                     seg([['contain', '전체 보기 (추천)'], ['cover', '꽉 채우기']], st.set.talkFit, id => set('talkFit', id)))),
         ];
     }
-    function paneCast() {
-        const v = ui.view;
-        if (!v) return [h('div', { class: 'gt-empty' }, h('b', null, '열린 봇 채팅이 없습니다'), '봇 채팅을 연 뒤에 이 창을 다시 열면 그 봇의 목소리를 고를 수 있습니다.')];
-        const b = v.bot;
+    function castAutoRow() {
+        const set = (k, val) => { st.set[k] = val; void saveSet(); render(); };
+        return h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 등장인물 분석 (음성 · 대화)'), h('p', null, !st.set.castAuto
+                ? '자동으로 분석하지 않습니다. 등장인물 탭의 「📖 등장인물 분석」 버튼을 누를 때만 목소리를 분석합니다.'
+                : st.set.split === 'off' || st.set.pick === 'hash'
+                    ? '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때 목소리 분석을 한 번 합니다. 화자를 나누지 않거나 새 인물 목소리를 이름으로 정해서, 읽기 전에는 분석하지 않습니다.'
+                    : '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때나 그 봇의 답변을 처음 읽을 때 목소리 분석을 한 번 합니다. 메인 모델 요청이 한 번 늘고, 읽기라면 소리가 조금 늦게 나옵니다.')),
+            seg([['on', '켬 (기본)'], ['off', '끔']], st.set.castAuto ? 'on' : 'off', id => set('castAuto', id === 'on')));
+    }
+    function voiceRow(name) {
+        const v = ui.view, b = v.bot, x = b.voices[name];
         const pv = ui.preview;
         const botSave = () => void saveBot(v.chaId, v.bot);
-        const people = Object.entries(b.voices).map(([name, x]) => h('div', { class: 'vf-row' },
+        return h('div', { class: 'vf-row' },
             h('span', { class: 'gt-who' }, name, x.persona || x.aliases?.length ? h('small', null, [x.persona ? '페르소나' : '', ...(x.aliases ?? [])].filter(Boolean).join(' · ')) : null),
             seg([['female', '여'], ['male', '남'], ['unknown', '?']], x.gender ?? 'unknown', id => { x.gender = id; botSave(); render(); }, 'sm'),
             voiceField('p:' + name, x.voice, val => { x.voice = val; botSave(); render(); }),
             h('button', { class: 'gt-b sm', type: 'button', 'data-pv': '', disabled: pv?.busy, onclick: () => void preview(x.voice, [b.talkStyle, x.style].filter(Boolean).join(' ')) }, '▶ 듣기'),
             h('button', { class: 'gt-b sm warn', type: 'button', title: '지우기', onclick: () => { delete b.voices[name]; botSave(); render(); } }, '×'),
             ui.pick?.key === 'p:' + name ? pickPanel() : null,
-            h('textarea', { class: 'vf-ta gt-st', rows: 2, placeholder: '이 인물의 목소리 지시문. 비워 두면 다음에 읽을 때 나이대 · 음색 · 속도 · 말버릇을 담아 자동으로 채웁니다.', onchange: e => { x.style = e.target.value; botSave(); } }, x.style ?? '')));
-        const mine = cast?.chaId === v.chaId;
-        const castRow = h('div', { class: 'vf-row col' },
-            h('div', { class: 'vf-tx' }, h('b', null, '📖 등장인물 분석'), h('p', null, (b.castAt
-                ? `${new Date(b.castAt).toLocaleString()}에 분석했습니다. 로어북을 고쳤으면 다시 누르세요. `
-                : '봇 설명 · 첫 메시지 · 로어북을 메인 모델에게 읽혀, 나올 인물의 목소리 · 성별 · 지시문 · 별명을 미리 정합니다. ')
-                + '분석은 화자 나누기 설정과 상관없이 늘 메인 모델로 합니다. 이미 정한 목소리와 직접 쓴 지시문은 바꾸지 않습니다.')),
-            h('div', { class: 'gt-acts' }, h('button', { class: 'gt-b main', type: 'button', disabled: !!cast && !mine, onclick: () => void castClick() }, mine ? '■ 멈추기' : '📖 등장인물 분석')),
-            mine ? castLoad(cast) : null);
+            h('textarea', { class: 'vf-ta gt-st', rows: 2, placeholder: '이 인물의 목소리 지시문. 비워 두면 다음에 읽을 때 나이대 · 음색 · 속도 · 말버릇을 담아 자동으로 채웁니다.', onchange: e => { x.style = e.target.value; botSave(); } }, x.style ?? ''));
+    }
+    const voiceNames = () => ui.view ? Object.keys(ui.view.bot.voices).filter(n => n !== NARR) : [];
+    const voiceRows = names => ui.view ? names.filter(n => ui.view.bot.voices[n]).map(voiceRow) : [];
+    function voiceMatch(e) {
+        const b = ui.view?.bot;
+        if (!b) return null;
+        for (const k of [e?.name, e?.key, ...(e?.aliases ?? [])]) {
+            const t = String(k ?? '').trim();
+            if (!t) continue;
+            const n = canonName(b, t);
+            if (n !== NARR && b.voices[n]) return n;
+        }
+        return null;
+    }
+    function castPart() {
+        if (!ui.view) return [h('div', { class: 'gt-empty' }, h('b', null, '열린 봇 채팅이 없습니다'), '봇 채팅을 연 뒤에 이 창을 다시 열면 그 봇의 목소리를 고를 수 있습니다.')];
+        const names = voiceNames();
+        return [group('인물 목소리', `${names.length}명`,
+                names.length ? voiceRows(names) : h('div', { class: 'vf-row' }, h('span', { class: 'gt-hint' }, '아직 없습니다. 위의 「📖 등장인물 분석」을 누르거나, 답변을 처음 읽으면 추가됩니다.'))),
+            ...castFoot()];
+    }
+    function castFoot() {
+        const v = ui.view;
+        if (!v) return [];
         return [
-            group('인물 목소리', `${people.length}명`,
-                castRow,
-                msgBox(),
-                people.length ? people : h('div', { class: 'vf-row' }, h('span', { class: 'gt-hint' }, '아직 없습니다. 위의 「📖 등장인물 분석」을 누르거나, 답변을 처음 읽으면 추가됩니다.')),
-                h('div', { class: 'vf-row' },
-                    h('input', { class: 'vf-in', placeholder: '인물 이름', value: ui.newName, oninput: e => { ui.newName = e.target.value; } }),
-                    h('button', { class: 'gt-b', type: 'button', onclick: () => {
-                        const name = ui.newName.trim();
-                        if (!name || b.voices[name]) return;
-                        voiceFor(b, name, 'unknown');
-                        delete b.dirty;
-                        ui.newName = '';
-                        botSave();
-                        render();
-                    } }, '인물 추가'))),
             h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '인물은 성별에 맞는 목소리와 성격에 맞는 지시문을 자동으로 받습니다. 이름 아래 작은 글씨는 별명이며, 별명으로 불린 대사도 같은 목소리로 읽습니다. 지시문을 새로 받고 싶으면 칸을 비우세요. 목소리나 지시문을 바꾼 뒤에는 답변 아래 ↻ 로 새로 만들어야 바뀐 목소리로 들립니다.'),
             h('div', { class: 'gt-acts', style: 'margin-top:12px' }, h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(v.chaId) }, '이 봇의 보관한 소리 지우기')),
+        ];
+    }
+    function castProgress() {
+        const v = ui.view;
+        if (!v) return [];
+        return [
+            h('p', { class: 'gt-hint', style: 'margin:0 2px 10px' }, (v.bot.castAt
+                ? `목소리는 ${new Date(v.bot.castAt).toLocaleString()}에 분석했습니다. 로어북을 고쳤으면 다시 누르세요. `
+                : '목소리 분석은 봇 설명 · 첫 메시지 · 로어북을 메인 모델에게 읽혀, 나올 인물의 목소리 · 성별 · 지시문 · 별명을 미리 정합니다. ')
+                + '화자 나누기 설정과 상관없이 늘 메인 모델로 하며, 이미 정한 목소리와 직접 쓴 지시문은 바꾸지 않습니다.'),
+            cast?.chaId === v.chaId ? castLoad(cast) : null,
+            msgBox(),
         ];
     }
 
@@ -11993,15 +12084,13 @@ ${ctx || '(none)'}`;
                 h('div', { class: 'vn-ch' }, `대화 상대 ${names.length}명`),
                 names.map((n, i) => h('button', { class: n === name ? 'vn-av on' : 'vn-av', type: 'button', style: `--h:${talkHue(n)}`, title: i === 0 ? `${n} (봇)` : n, 'aria-pressed': String(n === name), onclick: () => talkPick(n) },
                     h('i', { 'aria-hidden': 'true' }, [...String(n).trim()][0] ?? '?'), h('span', null, n), i === 0 ? h('em', null, '봇') : null)),
-                h('button', { class: T.pop ? 'pa on' : 'pa', type: 'button', title: '인물 추가 · 등장인물 분석', 'aria-expanded': String(!!T.pop), onclick: () => { T.pop = !T.pop; talkPaint(); } }, talkIcon('plus', 2.4), '추가')),
-            T.pop ? h('div', { class: 'vn-pop' }, h('b', null, '대화 상대 추가'),
-                h('input', { class: 'vf-in', placeholder: '+ 이름으로 인물 추가', 'aria-label': '인물 추가', value: T.add,
-                    oninput: e => { T.add = e.target.value; }, onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) talkAdd(v); } }),
+                h('button', { class: T.pop ? 'pa on' : 'pa', type: 'button', title: '등장인물 분석', 'aria-expanded': String(!!T.pop), onclick: () => { T.pop = !T.pop; talkPaint(); } }, talkIcon('plus', 2.4), '분석')),
+            T.pop ? h('div', { class: 'vn-pop' }, h('b', null, '등장인물 분석'),
                 h('button', { class: mine ? 'gt-b sm main' : 'gt-b sm', type: 'button', disabled: !!cast && !mine, onclick: () => void castClick() }, mine ? '■ 분석 멈추기' : '📖 등장인물 분석'),
                 mine ? castLoad(cast) : null,
                 msgBox()) : null,
             h('div', { class: 'vn-tr' }, host.anlas(),
-                h('button', { class: 'vn-back', type: 'button', 'aria-label': '음성 탭으로 돌아가기', onclick: () => go('ready') }, talkIcon('back', 2.4), '음성', h('small', null, '탭으로')),
+                h('button', { class: 'vn-back', type: 'button', 'aria-label': '대화 준비로 돌아가기', onclick: () => { host.ui.ttab = 'ready'; render(); } }, talkIcon('back', 2.4), '준비', h('small', null, '로')),
                 h('button', { class: 'vn-x', type: 'button', 'aria-label': '창 닫기', onclick: () => host.closePanel() }, talkIcon('x', 2.4))));
     }
     function talkPct(job) {
@@ -12042,22 +12131,31 @@ ${ctx || '(none)'}`;
         }
         const di = (cls, icon, label, title, onclick, extra = {}) => h('button', { class: 'vn-di' + (cls ? ' ' + cls : ''), type: 'button', title, 'aria-label': title, onclick, ...extra },
             h('i', null, talkIcon(icon)), h('span', null, label));
+        const grp = (label, list) => list.length ? h('div', { class: 'vn-dg', role: 'group', 'aria-label': label }, h('b', null, label), h('div', null, list)) : null;
         const acts = [];
         if (src && !drawing) {
             const cf = T.confirm === 'img:' + src.at;
             acts.push(di('', 'zoom', '크게', '크게 보기', () => void host.showBig(src.img.path)));
             if (src.img.req) acts.push(di('', 'redo', '다시', '이 장면 다시 그리기', () => void talkArt(v, name, src, 'redo', false), { disabled: !!T.draw }));
-            acts.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '그림 삭제', cf ? '한 번 더 누르면 그림을 지웁니다' : '그림 지우기', () => talkDropImg(v, name, src)));
+            acts.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 그림을 지웁니다' : '그림 지우기', () => talkDropImg(v, name, src)));
         }
         if (drawing) acts.push(di('', 'halt', '멈추기', '그리기 멈추기', () => T.draw?.job?.cancel?.()));
         if (lastC && !lastC.img?.path && !T.draw) acts.push(di('', 'brush', '그리기', '마지막 답의 장면 그리기', () => void talkArt(v, name, lastC, 'new', false)));
+        const vt = src?.r === 'c' ? src : lastC;
+        const voc = [];
+        if (vt) {
+            const cf = T.confirm === 'aud:' + vt.at;
+            voc.push(di('', 'redo', '다시', noKey ? '키가 없어 목소리를 만들 수 없습니다' : '이 답의 목소리 다시 만들기', () => void talkRevoice(v, name, vt), { disabled: noKey }));
+            voc.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 이 답의 목소리를 지웁니다' : '이 답의 목소리 지우기', () => void talkDropVoice(v, name, vt)));
+        }
+        const wipe = [];
         if (log.length && T.busy !== name) {
             const cf = T.confirm === name;
-            acts.push(di('warn' + (cf ? ' cf' : ''), 'bubx', cf ? '한 번 더' : '대화 삭제', cf ? '한 번 더 누르면 대화를 전부 지웁니다' : '대화 전부 지우기', () => void talkClear(v, name)));
+            wipe.push(di('warn' + (cf ? ' cf' : ''), 'bubx', cf ? '한 번 더' : '전체삭제', cf ? '한 번 더 누르면 대화를 전부 지웁니다' : '대화 전부 지우기', () => void talkClear(v, name)));
         }
         kids.push(h('div', { class: 'vn-dock', role: 'toolbar', 'aria-label': '대화 도구' },
             di('vc' + (speak ? ' on' : ''), speak ? 'speaker' : 'mute', noKey ? '키 없음' : 'TTS',
-                noKey ? '음성 › 준비 탭에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
+                noKey ? '음성 › 준비에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
                 () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) talkQuiet(); talkPaint(); },
                 { disabled: noKey, 'aria-pressed': String(speak) }),
             di(auto ? 'on' : '', 'image', '자동', auto ? '입력마다 그리기 끄기' : '말을 보낼 때마다 답의 장면을 NAI 로 그립니다', () => {
@@ -12070,8 +12168,8 @@ ${ctx || '(none)'}`;
             [['illust', '삽화'], ['comic', '만화']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
                 id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
                 () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(talkKindNow() === id) })),
-            acts.length ? h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }) : null,
-            acts));
+            acts.length || voc.length || wipe.length ? h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }) : null,
+            grp('그림', acts), grp('음성', voc), wipe));
         return h('div', { class: 'vn-stage', style: `--h:${talkHue(name)}`, onpointerup: talkHud }, kids);
     }
     function talkHud(e) {
@@ -12100,11 +12198,11 @@ ${ctx || '(none)'}`;
             if (m.img?.path) thumb = h('button', { class: 'vn-thumb' + (src === m ? ' on' : '') + (drawing ? ' dr' : ''), type: 'button', title: '무대에 다시 걸기', 'aria-label': '이 그림을 무대에 걸기',
                 onclick: () => { T.view = m.at; talkPaint(); } }, h('img', { 'data-path': m.img.path, alt: '' }), drawing ? h('i', { style: `width:${pct}%` }) : null);
             else if (drawing) thumb = h('span', { class: 'vn-thumb dr', 'aria-hidden': 'true' }, h('i', { style: `width:${pct}%` }));
-            const pb = h('button', { class: 'vn-pb', type: 'button', 'data-k': m.at, 'data-ck': hash('talk|' + v.chaId + '|' + name + '|' + m.t), onclick: () => void talkReplay(v.chaId, name, m.t, m.at) });
+            const pb = h('button', { class: 'vn-pb', type: 'button', 'data-k': m.at, 'data-ck': talkHash(v.chaId, name, m.t, m.tone), onclick: () => void talkReplay(v.chaId, name, m.t, m.at, m.tone) });
             kids.push(h('div', { class: 'vn-turn' + (src === m ? ' view' : '') + sel(m), 'data-at': m.at, onclick: talkSel },
                 h('div', { class: 'vn-nm', style: hue }, thumb, h('b', null, name),
                     h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · 그리는 중 ${pct}%`) : null), del(m)),
-                h('div', { class: 'vn-say' }, pb, h('p', { class: 'vn-t' }, m.t))));
+                h('div', { class: 'vn-say' }, pb, h('p', { class: 'vn-t' }, m.t, m.tone ? h('small', { class: 'vn-tone' }, m.tone) : null))));
             talkMarkOne(pb);
         }
         const last = log.at(-1);
@@ -12131,7 +12229,7 @@ ${ctx || '(none)'}`;
     function talkShow() {
         const v = ui.view, T = ui.talk;
         const vn = ui.root?.querySelector('.vn:not(.vn-none)');
-        if (!v || !vn || host.ui.mode !== 'voice' || host.ui.vtab !== 'talk') return;
+        if (!v || !vn || host.ui.mode !== 'talk' || host.ui.ttab !== 'talk' || host.ui.side) return;
         const stage = vn.querySelector('.vn-stage');
         if (stage) {
             const next = talkScene(v, T.name);
@@ -12150,7 +12248,7 @@ ${ctx || '(none)'}`;
         const v = ui.view;
         if (!v) return [h('div', { class: 'vn vn-none' }, h('div', { class: 'gt-empty' }, h('b', null, '열린 봇 채팅이 없습니다'),
             '봇 채팅을 연 뒤에 이 창을 다시 열면 그 봇과 로어북 인물들에게 말을 걸 수 있습니다.',
-            h('div', { class: 'vn-row' }, h('button', { class: 'gt-b sm', type: 'button', onclick: () => go('ready') }, '음성 탭으로'),
+            h('div', { class: 'vn-row' }, h('button', { class: 'gt-b sm', type: 'button', onclick: () => { host.ui.ttab = 'ready'; render(); } }, '대화 준비로'),
                 h('button', { class: 'gt-b sm', type: 'button', onclick: () => host.closePanel() }, '창 닫기'))))];
         const T = ui.talk;
         const names = talkCast(v);
@@ -12179,7 +12277,7 @@ ${ctx || '(none)'}`;
     function talkPaint() {
         const v = ui.view;
         const vn = ui.root?.querySelector('.vn:not(.vn-none)');
-        if (!v || !vn || host.ui.mode !== 'voice' || host.ui.vtab !== 'talk') return;
+        if (!v || !vn || host.ui.mode !== 'talk' || host.ui.ttab !== 'talk' || host.ui.side) return;
         const name = ui.talk.name;
         const keep = talkKeep(vn);
         const stage = vn.querySelector('.vn-stage');
@@ -12215,7 +12313,7 @@ ${ctx || '(none)'}`;
         let key = '';
         try { key = await host.naiKey(); } catch (error) { console.warn(LOG, 'talk art key', error); }
         if (!key) {
-            if (!quiet) { T.err = { name, text: 'NAI 키가 없어 그릴 수 없습니다. 삽화 › 준비 탭에서 키를 넣어 주세요.' }; talkPaint(); }
+            if (!quiet) { T.err = { name, text: 'NAI 키가 없어 그릴 수 없습니다. 삽화 › 준비에서 키를 넣어 주세요.' }; talkPaint(); }
             return;
         }
         const log = v.talk[name] ?? [];
@@ -12274,6 +12372,32 @@ ${ctx || '(none)'}`;
         if (path) host.dropThumb(path);
         talkPaint();
     }
+    async function talkRevoice(v, name, m) {
+        const T = ui.talk;
+        if (T.voicing.has(m.at)) return;
+        if (T.playing === m.at) talkQuiet();
+        await dropAudio(talkHash(v.chaId, name, m.t, m.tone));
+        talkMark();
+        await talkReplay(v.chaId, name, m.t, m.at, m.tone);
+    }
+    async function talkDropVoice(v, name, m) {
+        const T = ui.talk, key = 'aud:' + m.at;
+        if (T.confirm !== key) {
+            T.confirm = key;
+            talkPaint();
+            setTimeout(() => { if (T.confirm === key) { T.confirm = null; talkPaint(); } }, 3000);
+            return;
+        }
+        T.confirm = null;
+        for (const j of T.voices) if (j.at === m.at) { j.stop = true; T.voices.delete(j); }
+        T.voicing.delete(m.at);
+        for (let n = talkQ.length - 1; n >= 0; n--) if (talkQ[n].k === m.at) talkQ.splice(n, 1)[0].end(true);
+        if (T.playing === m.at) talkHalt();
+        talkNext();
+        await dropAudio(talkHash(v.chaId, name, m.t, m.tone));
+        talkMark();
+        talkPaint();
+    }
     function talkDropMsg(v, name, at) {
         const T = ui.talk;
         const log = v.talk[name] ?? [];
@@ -12306,19 +12430,6 @@ ${ctx || '(none)'}`;
         T.pop = false;
         talkQuiet();
         render();
-    }
-    function talkAdd(v) {
-        const T = ui.talk;
-        const name = canonName(v.bot, T.add.trim());
-        if (!name) return;
-        if (!v.bot.voices[name] && !talkCast(v).includes(name)) {
-            voiceFor(v.bot, name, 'unknown');
-            delete v.bot.dirty;
-            void saveBot(v.chaId, v.bot);
-        }
-        T.add = '';
-        T.name = null;
-        talkPick(name);
     }
     async function talkClear(v, name) {
         const T = ui.talk;
@@ -12374,8 +12485,9 @@ ${ctx || '(none)'}`;
             const rec = v.bot.voices[name];
             const main = name === talkCast(v)[0];
             const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt));
-            reply = await talkAsk(system, v.talk[name] ?? [], name, rec);
-            talkPush(v.talk, name, 'c', reply);
+            const got = await talkAsk(system, v.talk[name] ?? [], name, rec);
+            reply = got.text;
+            talkPush(v.talk, name, 'c', got.text, got.tone);
             void saveTalk(v.chaId, v.talk);
             talkLoreSoon(v.chaId, w.ci, name);
             if (!speak) T.view = '';
@@ -12384,16 +12496,16 @@ ${ctx || '(none)'}`;
             T.err = { name, text: '답을 받지 못했습니다. ' + String(error?.message ?? error) };
         }
         T.busy = '';
-        const here = () => ui.root?.isConnected && host.ui.mode === 'voice' && host.ui.vtab === 'talk' && T.name === name;
+        const here = () => ui.root?.isConnected && host.ui.mode === 'talk' && host.ui.ttab === 'talk' && !host.ui.side && T.name === name;
         if (!reply || !speak || !st.set.talkSpeak || !here()) { talkPaint(); return; }
         const entry = v.talk[name].at(-1);
         const at = entry.at;
         const job = { stop: false, note: '', at };
         T.voices.add(job);
-        T.voicing.set(at, { t0: Date.now(), sec: talkEst(v.chaId, name, entry.t), job });
+        T.voicing.set(at, { t0: Date.now(), sec: talkEst(v.chaId, name, entry.t, entry.tone), job });
         talkPaint();
         try {
-            const data = await talkVoice(v.chaId, name, entry.t, job);
+            const data = await talkVoice(v.chaId, name, entry.t, job, entry.tone);
             if (job.stop) return;
             talkUnvoice(at, job);
             talkMark();
@@ -12415,18 +12527,18 @@ ${ctx || '(none)'}`;
         ui.talk.voicing.delete(k);
         return true;
     }
-    async function talkReplay(chaId, name, text, k) {
+    async function talkReplay(chaId, name, text, k, tone) {
         const T = ui.talk;
         if (T.playing === k || T.voicing.has(k)) { talkQuiet(); return; }
-        if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. 음성 › 준비 탭에서 키를 등록해 주세요.' }; talkPaint(); return; }
+        if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. 음성 › 준비에서 키를 등록해 주세요.' }; talkPaint(); return; }
         talkUnlock();
         talkQuiet();
         const job = { stop: false, note: '', at: k };
         T.voices.add(job);
-        T.voicing.set(k, { t0: Date.now(), sec: talkEst(chaId, name, text), job });
+        T.voicing.set(k, { t0: Date.now(), sec: talkEst(chaId, name, text, tone), job });
         talkMark();
         try {
-            const data = await talkVoice(chaId, name, text, job);
+            const data = await talkVoice(chaId, name, text, job, tone);
             if (!job.stop) { talkUnvoice(k, job); await talkPlay(data, k); }
         } catch (error) {
             if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
@@ -12548,7 +12660,7 @@ ${ctx || '(none)'}`;
             tts(' 결제 계정이 연결되지 않았다면 이때 연결하라는 안내가 나옵니다.'),
             ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account + ' 그 프로젝트의 키(.json)가 이미 있으면 이 단계와 다음 단계를 건너뜁니다.', figAccount(), '서비스 계정 만들기 화면 (간략도)'],
             ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
-            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 준비 탭의 JSON 파일 선택 버튼'],
+            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 › 준비의 JSON 파일 선택 버튼'],
         ] : [
             ['위쪽 「프로젝트 선택」 → 「새 프로젝트」', '구글 클라우드 콘솔(console.cloud.google.com)에 구글 계정으로 들어가서 누릅니다.', figPicker(false), '구글 버텍스 프로젝트 선택 창의 새 프로젝트 버튼'],
             ['프로젝트 이름을 정하고 「만들기」', '이름은 자유롭게 정합니다. 아래에 나온 프로젝트 ID는 나중에 바꿀 수 없습니다.', figNewProject(), '새 프로젝트 양식의 만들기 버튼'],
@@ -12557,7 +12669,7 @@ ${ctx || '(none)'}`;
             ['결제 계정 연결', '유료 API라서 결제 계정이 연결되어 있어야 소리가 만들어집니다. 「사용」을 누를 때 결제 연결을 요구하면 그 안내를 따라갑니다. 결제 수단 등록은 직접 하세요.', figBilling(), '결제 메뉴의 결제 계정 연결 버튼 (간략도)'],
             ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account, figAccount(), '서비스 계정 만들기 화면 (간략도)'],
             ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
-            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 준비 탭의 JSON 파일 선택 버튼'],
+            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 › 준비의 JSON 파일 선택 버튼'],
         ];
         return [ask,
             h('p', { class: 'gt-intro' }, h('b', null, ui.gproj === 'have' ? '있는 프로젝트로' : '처음부터'),
@@ -12604,15 +12716,17 @@ ${ctx || '(none)'}`;
         paintSoon(true);
     }
     function render() {
-        if (host.ui.mode !== 'voice' || host.ui.side || !host.ui.root?.isConnected) return;
+        if (!host.ui.root?.isConnected) return;
+        const sd = host.ui.side;
+        if (sd ? !(sd === 'cast' || sd === 'set') : !(host.ui.mode === 'voice' || host.ui.mode === 'talk')) return;
         const ae = doc.activeElement;
         const typing = ae?.classList?.contains('tk-ta') ? [ae.selectionStart, ae.selectionEnd] : null;
-        const pk = ui.root?.querySelector('.gt-pk-list')?.scrollTop;
+        const pk = doc.querySelector('.gt-pk-list')?.scrollTop;
         host.render();
-        if (pk) { const l = ui.root?.querySelector('.gt-pk-list'); if (l) l.scrollTop = pk; }
-        const ll = ui.root?.querySelector('.vn-ll');
+        if (pk) { const l = doc.querySelector('.gt-pk-list'); if (l) l.scrollTop = pk; }
+        const ll = doc.querySelector('.vn-ll');
         if (ll) ll.scrollTop = ll.scrollHeight;
-        const ta = ui.root?.querySelector('.tk-ta');
+        const ta = doc.querySelector('.tk-ta');
         if (ta && ui.talk.draft) talkGrow(ta);
         if (ta && typing) { ta.focus(); ta.setSelectionRange(typing[0], typing[1]); }
     }
@@ -12621,14 +12735,20 @@ ${ctx || '(none)'}`;
     }
     function pane(vtab) {
         if (!doc.getElementById('nc-voice-style')) doc.head.append(h('style', { id: 'nc-voice-style' }, CSS + WIZ_CSS));
-        const body = vtab === 'talk' ? paneTalk() : vtab === 'cast' ? paneCast() : vtab === 'voices' ? paneVoices() : vtab === 'set' ? paneSet() : paneReady();
+        const body = vtab === 'talk' ? paneTalk() : vtab === 'tready' ? paneTalkReady() : vtab === 'voices' ? paneVoices() : paneReady();
         ui.root = h('div', { class: 'gt' + (ui.preview ? ' gt-pvon' : '') + (vtab === 'talk' ? ' gt-vn' : ''), role: 'tabpanel' },
             h('div', { class: 'gt-pane' + (vtab === 'talk' ? ' talk' : '') }, body),
             previewBar());
         return ui.root;
     }
+    function embed(kids, main) {
+        if (!doc.getElementById('nc-voice-style')) doc.head.append(h('style', { id: 'nc-voice-style' }, CSS + WIZ_CSS));
+        const el = h('div', { class: 'gt gt-emb' + (main && ui.preview ? ' gt-pvon' : '') }, kids, main ? previewBar() : null);
+        if (main) ui.root = el;
+        return el;
+    }
 
-    const SETUP = [['키 넣기', '구글 서비스 계정 키'], ['TTS 모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기'], ['LLM 모델', '대화 답을 만들 모델']];
+    const SETUP = [['키 넣기', '구글 서비스 계정 키'], ['TTS 모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기']];
     const MODEL_DESC = {
         'gemini-3.8-flash-tts': ['가장 새 모델입니다. 라이브러리 목소리를 함께 씁니다.', true],
         'gemini-3.8-flash-lite-tts': ['3.8 의 가벼운 모델입니다.'],
@@ -12667,9 +12787,7 @@ ${ctx || '(none)'}`;
             wizCard('submodel', '보조 모델', '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', st.set.split, val => set('split', val), true),
             wizCard('model', '메인 모델', '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.split, val => set('split', val)),
             wizCard('off', '나누지 않음', '대사를 모두 봇 목소리로 읽습니다. 인물 지시문도 자동으로 쓰지 않습니다.', st.set.split, val => set('split', val)))];
-        return [h('div', { class: 'vz-cards' },
-            wizCard('submodel', '보조 모델', '「대화」 탭의 답을 보조 모델로 만듭니다. 싸고 빠릅니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.', st.set.talkModel, val => set('talkModel', val), true),
-            wizCard('model', '메인 모델', '말투가 어색하거나 인물을 잘 못 따라 할 때 고릅니다. 보조 모델보다 비싸고 느립니다.', st.set.talkModel, val => set('talkModel', val)))];
+        return [];
     }
     function readyCard() {
         const el = Date.now() - ui.readyAt, fresh = el < 1200;
@@ -12684,14 +12802,13 @@ ${ctx || '(none)'}`;
             h('ul', { class: 'fn-ck' },
                 li(`${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} 모델로 목소리를 만듭니다`),
                 li(st.set.read === 'all' ? '대사와 내레이션을 모두 읽습니다' : '따옴표 안의 대사만 읽습니다', st.set.read === 'all' ? '내레이션은 내레이션 목소리로' : '내레이션은 화자를 정할 때만 참고'),
-                li(split[st.set.split] ?? split.submodel),
-                li(st.set.talkModel === 'model' ? '「대화」 탭 답은 메인 모델이 만듭니다' : '「대화」 탭 답은 보조 모델이 만듭니다')),
+                li(split[st.set.split] ?? split.submodel)),
             h('div', { class: 'cf-row sw' },
                 h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 읽기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 바로 읽어 줍니다. 처음 켤 때 리수가 권한을 묻습니다.')),
                 host.toggle(st.set.auto, () => { st.set.auto = !st.set.auto; void saveSet(); void syncListen(); render(); paintSoon(true); })),
             h('div', { class: 'fn-go' },
                 h('button', { class: 'ix-btn main', type: 'button', onclick: () => host.closePanel() }, '채팅으로 돌아가기'),
-                h('button', { class: 'ix-btn', type: 'button', onclick: () => go('talk') }, '💬 대화하기')));
+                h('button', { class: 'ix-btn', type: 'button', onclick: () => { host.ui.ttab = talkReady() ? 'talk' : 'ready'; host.goMode('talk'); } }, '💬 대화하기')));
     }
     function paneReady() {
         const done = setupOf();
@@ -12707,7 +12824,7 @@ ${ctx || '(none)'}`;
             ui.dup ? h('p', { class: 'vz-dup' }, '따로 설치한 제미니 TTS 플러그인도 켜져 있습니다. 답변 아래 읽기 버튼이 두 벌 생기니 그쪽은 꺼 주세요.') : null);
         if (n >= SETUP.length) return [h('div', { class: 'vz' }, steps, h('div', { class: 'vz-fin' }, readyCard()))];
         const [title] = SETUP[n];
-        const desc = ['구글 클라우드에서 만든 서비스 계정 키를 고르면 음성을 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 준비 탭에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.', '「대화」 탭에서 인물의 답을 만들 모델을 고릅니다. 나중에 준비 탭에서 바꿀 수 있습니다.'][n];
+        const desc = ['구글 클라우드에서 만든 서비스 계정 키를 고르면 음성을 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 음성 › 준비에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'][n];
         const block = n === 0 && keyKnown !== true;
         return [h('div', { class: 'vz' }, steps,
             h('section', { class: 'vz-pn' },
@@ -12722,6 +12839,85 @@ ${ctx || '(none)'}`;
     function go(vtab) {
         host.ui.vtab = vtab;
         render();
+    }
+
+    const TSETUP = [['LLM 모델', '대화 답을 만들 모델'], ['그림', '종류 · 작가 · 해상도'], ['목소리', '듣기 켬/끔 · TTS 키']];
+    const talkSetupOf = () => Math.max(0, Math.min(TSETUP.length, Number(st.set.talkSetup) || 0));
+    const talkReady = () => talkSetupOf() >= TSETUP.length;
+    function talkSetupNext(n) {
+        if (talkSetupOf() < n + 1) { st.set.talkSetup = n + 1; void saveSet(); }
+        if (n === TSETUP.length - 1) ui.readyAt = Date.now();
+        ui.tstep = n + 1;
+        ui.msg = '';
+        render();
+    }
+    function talkStep(n) {
+        const set = (k, val) => { st.set[k] = val; void saveSet(); render(); };
+        if (n === 0) return [h('div', { class: 'vz-cards' },
+            wizCard('submodel', '보조 모델', '대화의 답을 보조 모델로 만듭니다. 싸고 빠릅니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.', st.set.talkModel, val => set('talkModel', val), true),
+            wizCard('model', '메인 모델', '말투가 어색하거나 인물을 잘 못 따라 할 때 고릅니다. 보조 모델보다 비싸고 느립니다.', st.set.talkModel, val => set('talkModel', val)))];
+        if (n === 1) return [
+            h('div', { class: 'vz-cards' },
+                wizCard('illust', '삽화', '답의 장면을 컷 없는 한 장 그림으로 그립니다.', talkKindNow(), val => set('talkKind', val), true),
+                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 삽화 설정을 따릅니다.', talkKindNow(), val => set('talkKind', val))),
+            h('div', { class: 'vf-card', style: 'margin-top:14px' },
+                row('작가', '대화 그림에 쓸 작가(그림체)입니다. 「삽화 작가와 같게」는 삽화 › 준비에서 고른 작가를 따라갑니다.',
+                    h('select', { class: 'vf-in', style: 'width:auto;max-width:220px', 'aria-label': '대화 그림 작가', onchange: e => set('talkPreset', e.target.value) },
+                        [['', '삽화 작가와 같게'], ...host.presets().map(x => [x.id, x.name || '이름 없음'])].map(([id, label]) => h('option', { value: id, selected: id === st.set.talkPreset }, label)))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '해상도'), h('p', null, '대화 화면 무대는 가로로 넓어서 가로 그림이 가장 잘 맞습니다.')),
+                    seg([['wide', '가로 1216×832 (추천)'], ['wide2', '가로 1152×896'], ['square', '정사각 1024×1024'], ['tall2', '세로 896×1152'], ['tall', '세로 832×1216']], st.set.talkSize, id => set('talkSize', id)))),
+        ];
+        const [chip, cls] = chipText();
+        return [
+            h('div', { class: 'vz-cards' },
+                wizCard('on', '목소리로 듣기', '답이 오면 그 인물의 목소리로 바로 읽어 줍니다. 대화 화면 무대 아래의 「TTS」 버튼으로도 바꿀 수 있습니다.', st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'), true),
+                wizCard('off', '글로만', '글로만 대화합니다. 무대 아래 「다시 듣기」를 누르면 그 말만 들을 수 있습니다.', st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'))),
+            h('div', { class: 'vz-key' }, h('b', null, 'TTS 키 · ', h('span', { class: 'gt-chip ' + cls }, chip)),
+                keyKnown === true
+                    ? h('p', null, '음성 › 준비에서 등록한 구글 키로 목소리를 만듭니다.')
+                    : h('p', null, '음성 › 준비에서 키를 넣으면 목소리로 들을 수 있습니다. 키가 없어도 글로는 대화할 수 있습니다.'),
+                keyKnown === true ? null : h('div', { class: 'gt-acts' }, h('button', { class: 'gt-b', type: 'button', onclick: () => { host.ui.vtab = 'ready'; host.goMode('voice'); } }, '음성 › 준비로 가기'))),
+        ];
+    }
+    function talkReadyCard() {
+        const el = Date.now() - ui.readyAt, fresh = el < 1200;
+        const ok = h('span', { class: 'fn-ok' + (fresh ? '' : ' still'), 'aria-hidden': 'true' });
+        ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+        const li = tx => h('li', null, h('span', null, tx));
+        const pr = host.presets().find(x => x.id === st.set.talkPreset);
+        return h('div', { class: 'fn-card' + (fresh ? ' fn-rise' : ''), style: fresh ? `--fe:${el}ms` : null },
+            h('div', { class: 'fn-top' }, ok,
+                h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'), h('span', null, '봇과 로어북 인물에게 말을 걸 수 있습니다.'))),
+            h('ul', { class: 'fn-ck' },
+                li(st.set.talkModel === 'model' ? '대화의 답은 메인 모델이 만듭니다' : '대화의 답은 보조 모델이 만듭니다'),
+                li(`${talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 작가 ${pr ? pr.name || '이름 없음' : '삽화 작가와 같게'}`),
+                li(st.set.talkSpeak ? (keyKnown === true ? '답을 목소리로 읽어 줍니다' : '목소리로 들으려면 음성 › 준비에서 키를 넣어야 합니다') : '글로만 대화합니다')),
+            h('div', { class: 'fn-go' },
+                h('button', { class: 'ix-btn main', type: 'button', onclick: () => { host.ui.ttab = 'talk'; render(); } }, '💬 대화하기'),
+                h('button', { class: 'ix-btn', type: 'button', onclick: () => host.closePanel() }, '채팅으로 돌아가기')));
+    }
+    function paneTalkReady() {
+        const done = talkSetupOf();
+        const n = Math.max(0, Math.min(TSETUP.length, ui.tstep));
+        const steps = h('aside', { class: 'vz-steps', 'aria-label': '준비 단계' },
+            h('h3', null, '준비 단계', h('span', null, `${done} / ${TSETUP.length}`)),
+            TSETUP.map(([title, sub], i) => {
+                const state = i === n ? 'cur' : i < done ? 'done' : i > done ? 'lock' : '';
+                return h('button', { class: 'vz-st ' + state, type: 'button', disabled: i > done, 'aria-current': i === n ? 'step' : null, onclick: () => { ui.tstep = i; ui.msg = ''; render(); } },
+                    h('i', null, i < done && i !== n ? '✓' : String(i + 1)),
+                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 단계' : i < done ? '끝남' : sub)));
+            }));
+        if (n >= TSETUP.length) return [h('div', { class: 'vz' }, steps, h('div', { class: 'vz-fin' }, talkReadyCard()))];
+        const desc = ['대화에서 인물의 답을 만들 모델을 고릅니다. 나중에 대화 › 준비에서 바꿀 수 있습니다.', '대화 화면 무대에 걸 그림의 종류 · 작가 · 해상도를 고릅니다. 삽화 설정은 바뀌지 않습니다.', '답을 목소리로 들을지 고릅니다. 목소리는 음성 › 준비에서 넣은 구글 키로 만듭니다.'][n];
+        return [h('div', { class: 'vz' }, steps,
+            h('section', { class: 'vz-pn' },
+                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `${n + 1} / ${TSETUP.length} 단계`), h('h2', null, TSETUP[n][0])),
+                h('p', { class: 'vz-desc' }, desc),
+                talkStep(n),
+                h('div', { class: 'vz-ft' },
+                    h('p', { class: 'vz-note' }, '고른 값은 바로 저장됩니다.'),
+                    n > 0 ? h('button', { class: 'vz-back', type: 'button', onclick: () => { ui.tstep = n - 1; ui.msg = ''; render(); } }, '이전') : null,
+                    h('button', { class: 'vz-cta', type: 'button', onclick: () => talkSetupNext(n) }, n === TSETUP.length - 1 ? '준비 끝내기' : '다음 단계로')))) ];
     }
     function status() {
         const n = setupOf();
@@ -12747,6 +12943,7 @@ ${ctx || '(none)'}`;
         ui.talk.voicing.clear();
         void talkRatesLoad();
         ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : 0;
+        ui.tstep = Math.min(talkSetupOf(), TSETUP.length);
         try {
             const d = root.asked ? await rootDoc() : null;
             ui.dup = !!(d && await d.querySelector('[class*="x-risu-gt-at-"]'));
@@ -12897,6 +13094,10 @@ ${ctx || '(none)'}`;
 .gt .vn-di.warn:hover i,.gt .vn-di.cf i{color:#fff;background:#e0574c;box-shadow:0 2px 0 #a8342b}
 .gt .vn-di.cf{color:#d0453b}
 .gt .vn-di:disabled{opacity:.5;cursor:not-allowed}
+.gt .vn-dg{display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 4px 0;border-radius:14px;background:rgba(43,149,240,.08)}
+.gt .vn-dg>b{font-size:9px;font-weight:900;letter-spacing:.06em;color:var(--ink2)}
+.gt .vn-dg>div{display:flex;gap:6px}
+.gt .vn-tone{display:block;margin-top:4px;font-size:11px;font-style:italic;font-weight:600;color:var(--ink2)}
 .gt .vn-vsep{align-self:stretch;width:1px;margin:4px 3px;background:#d3dceb}
 @media (hover:hover){.gt .vn-di:hover:not(:disabled){transform:translateY(-6px) scale(1.15)}}
 /* 4.7.0: 독 · 인물 목록은 바로 뜨지 않고 미끄러지며 천천히 뜬다.
@@ -12904,7 +13105,8 @@ ${ctx || '(none)'}`;
 .gt .vn-dock,.gt .vn-cast,.gt .vn-tr .an-c{opacity:0;pointer-events:none;transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
 .gt .vn-cast{transform:translateX(-8px)}
 .gt .vn-dock{transform:translateY(10px)}
-.gt .vn.hud :is(.vn-dock,.vn-cast,.vn-tr .an-c),.gt .vn:has(.vn-pop) :is(.vn-dock,.vn-cast,.vn-tr .an-c),.gt .vn-dock:focus-within{opacity:1;transform:none;pointer-events:auto}
+/* 5.0.0: 분석 창이 열려 있으면 인물 목록만 띄운다(독은 감춘 채). 독은 키보드 포커스(:focus-visible)일 때만 붙잡는다. 전에는 누른 버튼에 남은 포커스로 독이 한동안 떠 있었다 */
+.gt .vn.hud :is(.vn-dock,.vn-cast,.vn-tr .an-c),.gt .vn:has(.vn-pop) .vn-cast,.gt .vn-dock:has(:focus-visible){opacity:1;transform:none;pointer-events:auto}
 @media (hover:hover) and (pointer:fine){.gt .vn:has(.vn-stage:hover,.vn-top>:hover,.vn-top :focus-visible) :is(.vn-dock,.vn-cast,.vn-tr .an-c){opacity:1;transform:none;pointer-events:auto}}
 .gt .vn-log{flex:1 1 auto;min-height:0;overflow-y:auto;background:linear-gradient(180deg,#f6faff,#fff);border-top:2px solid var(--sky)}
 .gt .vn-log::-webkit-scrollbar{width:10px}
@@ -12989,11 +13191,14 @@ ${ctx || '(none)'}`;
     wantRoot();
     await syncListen();
     return { pane, chipText, status, bar: btnHtml, onOpen, onClose, unload, ready: () => keyKnown === true && setupOf() >= SETUP.length,
-        lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false };
+        lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false,
+        talkReady, talkLit: () => talkReady() && !!st.set.talkAuto, talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
+        castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
+        castPart, castProgress, castFoot, voiceMatch, voiceRows, voiceNames, setPart, castAutoRow, embed };
     }
 
     await loadPrefs();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, openPanel, copyText, closePanel, toggle, talkDraw, talkRedraw, talkForget, naiKey, SIZES, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, render: renderNow, openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkForget, naiKey, SIZES, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
