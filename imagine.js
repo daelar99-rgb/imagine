@@ -12713,7 +12713,7 @@ ${ctx || '(none)'}`;
 @media (max-width:600px){
   .gt .vn-back{height:34px;padding:0 10px 0 6px}
   .gt .vn-back small{display:none}
-  .gt .vn-cast{left:8px;top:8px;max-height:calc(var(--stage,60%) - 16px);width:128px;padding:6px}
+  .gt .vn-cast{left:8px;top:52px;max-height:calc(var(--stage,60%) - 60px);width:128px;padding:6px}
   .gt .vn-av,.gt .vn-cast .pa{min-height:32px;font-size:12px}
   .gt .vn-pop{left:8px;top:52px}
   .gt .vn-tr{right:8px;top:8px;gap:6px}
