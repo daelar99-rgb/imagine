@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.3.0
+//@display-name 🎨 이매진 v4.4.0
 //@api 3.0
-//@version 4.3.0
+//@version 4.4.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.3.0';
+    const VERSION = '4.4.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -10683,6 +10683,12 @@ ${ctx || '(none)'}`;
         await putAudio(k, chaId, wav).catch(error => console.warn(LOG, 'talk cache', error));
         return b64(wav);
     }
+    let talkEnd = null;
+    function talkDone() {
+        const r = talkEnd;
+        talkEnd = null;
+        r?.();
+    }
     function talkPlay(data, k) {
         talkStop();
         talkAudio ??= new Audio();
@@ -10690,7 +10696,7 @@ ${ctx || '(none)'}`;
         talkAudio.src = talkUrl;
         ui.talk.playing = k;
         talkMark();
-        const off = () => { ui.talk.playing = ''; talkMark(); };
+        const off = () => { ui.talk.playing = ''; talkMark(); talkDone(); };
         talkAudio.onended = off;
         talkAudio.onpause = off;
         return talkAudio.play().then(() => { talkOpen = true; return true; }, () => { off(); return false; });
@@ -10701,11 +10707,16 @@ ${ctx || '(none)'}`;
         talkAudio.pause();
         ui.talk.playing = '';
         talkMark();
+        talkDone();
         if (talkUrl) { URL.revokeObjectURL(talkUrl); talkUrl = ''; }
     }
+    async function talkPlayWait(data, k) {
+        if (!await talkPlay(data, k)) return false;
+        if (ui.talk.playing === k) await new Promise(resolve => { talkEnd = resolve; });
+        return true;
+    }
     function talkMark() {
-        ui.root?.querySelectorAll('.vn-tg[data-k]').forEach(talkMarkOne);
-        talkState();
+        ui.root?.querySelectorAll('.vn-pb[data-k]').forEach(talkMarkOne);
     }
 
     async function where() {
@@ -11347,7 +11358,7 @@ ${ctx || '(none)'}`;
         return el;
     }
     const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, dup: false, readyAt: 0,
-        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voice: null, voicing: '', playing: '', confirm: null, add: '', page: -1, draw: null, pop: false, hist: false, tick: 0 } };
+        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voice: null, voicing: '', playing: '', confirm: null, add: '', view: '', draw: null, pop: false, tick: 0 } };
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
@@ -11580,7 +11591,7 @@ ${ctx || '(none)'}`;
                 h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 삽화 설정은 음성 대화에만 씁니다. 삽화 탭의 해상도 · 작가는 바뀌지 않습니다.')),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 삽화'), h('p', null, st.set.talkAuto
                         ? '답이 오면 그 장면을 NovelAI 로 그려 대화 화면 위쪽 무대에 겁니다. 한 장마다 Anlas 를 씁니다.'
-                        : '무대 아래 「이 장면 그리기」를 누를 때만 그립니다.')),
+                        : '무대에 마우스를 올려 「그리기」를 누를 때만 그립니다.')),
                     seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkAuto ? 'on' : 'off', id => set('talkAuto', id === 'on'))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그릴 때'), h('p', null, '「장면이 바뀔 때」는 다음 버전에서 씁니다.')),
                     talkWhenSeg(id => set('talkWhen', id))),
@@ -11593,7 +11604,7 @@ ${ctx || '(none)'}`;
                         ? '그림을 무대에 꽉 채웁니다. 그림 위아래나 양옆이 조금 잘립니다.'
                         : '그림 전체를 보여 줍니다. 남는 자리는 같은 그림을 흐리게 깔아 채웁니다.')),
                     seg([['contain', '전체 보기 (추천)'], ['cover', '꽉 채우기']], st.set.talkFit, id => set('talkFit', id))),
-                row('무대 크기', '대화 화면에서 무대(그림)가 차지하는 높이입니다. 나머지는 대사 상자입니다. 30~80%',
+                row('무대 크기', '대화 화면에서 무대(그림)가 차지하는 높이입니다. 나머지는 대화 기록입니다. 30~80%',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 30, max: 80, step: 5, value: st.set.talkStage, onchange: e => set('talkStage', Math.max(30, Math.min(80, Number(e.target.value) || DEF_SET.talkStage))) }), '%'))),
         ];
     }
@@ -11663,15 +11674,13 @@ ${ctx || '(none)'}`;
     const talkTime = at => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const TALK_SVG = {
         back: '<path d="M15 5l-7 7 7 7"/>',
-        next: '<path d="M9 5l7 7-7 7"/>',
         plus: '<path d="M12 5v14M5 12h14"/>',
         x: '<path d="M6 6l12 12M18 6L6 18"/>',
         speaker: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
         mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/>',
-        stop: '<rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor"/>',
+        play: '<path d="M8 5v14l11-7z" fill="currentColor"/>',
+        halt: '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>',
         image: '<path d="M3 4h18v16H3z"/><circle cx="8.5" cy="9" r="1.6"/><path d="M21 15l-5-5L5 20"/>',
-        pencil: '<path d="M14.5 4.5l5 5L10 19H5v-5z"/><path d="M12.5 6.5l5 5"/>',
-        list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
         trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
         send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
     };
@@ -11680,53 +11689,32 @@ ${ctx || '(none)'}`;
         el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${TALK_SVG[name]}</svg>`;
         return el;
     }
-    function talkPage(log) {
-        const cs = [];
-        log.forEach((m, i) => { if (m.r === 'c') cs.push(i); });
-        const wait = log.at(-1)?.r === 'u';
-        const last = Math.max(0, wait ? cs.length : cs.length - 1);
-        const p = ui.talk.page < 0 || ui.talk.page > last ? last : ui.talk.page;
-        const i = cs[p] ?? -1;
-        const from = p > 0 ? cs[p - 1] : -1;
-        let u = null;
-        for (let j = (i >= 0 ? i : log.length) - 1; j > from; j--) if (log[j].r === 'u') { u = log[j]; break; }
-        return { cs, last, p, i, m: i >= 0 ? log[i] : null, u, wait: wait && p === last };
-    }
-    function talkImgAt(log, pg) {
-        for (let k = Math.min(pg.p, pg.cs.length - 1); k >= 0; k--) {
-            const m = log[pg.cs[k]];
-            if (m?.img?.path) return m;
+    function talkSplit(text) {
+        const out = [];
+        for (const line of String(text ?? '').split(/\n+/)) {
+            let first = true;
+            for (const part of line.split(/(?<=[.!?。！？]["'”’」』)\]]*)\s+/)) {
+                const t = part.trim();
+                if (!t) continue;
+                const prev = out.at(-1);
+                if (!first && prev != null && (t.length < 6 || /\.\.["'”’」』)\]]*$/.test(prev))) out[out.length - 1] = prev + ' ' + t;
+                else out.push(t);
+                first = false;
+            }
         }
-        return null;
-    }
-    function talkGo(p, last) {
-        ui.talk.page = p >= last ? -1 : Math.max(0, p);
-        talkPaint();
-    }
-    function talkStateKids() {
-        const T = ui.talk;
-        if (T.voicing) return ['목소리 만드는 중'];
-        if (T.playing) return [h('span', { class: 'vn-eq', 'aria-hidden': 'true' }, h('i'), h('i'), h('i')), '말하는 중'];
-        if (T.busy && T.busy === T.name) return ['답을 쓰는 중'];
-        if (keyKnown === false) return ['키가 없어 글로만 대화'];
-        return [];
-    }
-    function talkState() {
-        ui.root?.querySelector('.vn-state')?.replaceChildren(...talkStateKids());
+        return out;
     }
     function talkMarkOne(x) {
         const T = ui.talk;
-        const play = x.dataset.k === T.playing, wait = !play && x.dataset.k === T.voicing;
+        const play = x.dataset.k === T.playing, load = !play && x.dataset.k === T.voicing;
         x.classList.toggle('play', play);
-        x.classList.toggle('wait', wait);
-        x.setAttribute('aria-label', play ? '멈추기' : '이 말 다시 듣기');
-        x.replaceChildren(talkIcon(play ? 'stop' : 'speaker'), play ? '멈추기' : wait ? '목소리 만드는 중' : '다시 듣기');
-    }
-    function talkReplayBtn(v, name, m) {
-        const k = String(m.at);
-        const el = h('button', { class: 'vn-tg', type: 'button', 'data-k': k, onclick: () => void talkReplay(v.chaId, name, m.t, k) });
-        talkMarkOne(el);
-        return el;
+        x.classList.toggle('load', load);
+        x.classList.toggle('have', !play && !load && cached.has(x.dataset.ck));
+        const row = x.closest('.vn-s');
+        row?.classList.toggle('play', play);
+        row?.classList.toggle('load', load);
+        x.setAttribute('aria-label', play ? '멈추기' : load ? '목소리 만드는 중' : '이 문장 듣기');
+        x.replaceChildren(talkIcon(play ? 'halt' : 'play'));
     }
     function talkTop(v, name) {
         const T = ui.talk;
@@ -11748,37 +11736,13 @@ ${ctx || '(none)'}`;
             h('div', { class: 'vn-tr' }, host.anlas(),
                 h('button', { class: 'vn-x', type: 'button', 'aria-label': '창 닫기', onclick: () => host.closePanel() }, talkIcon('x', 2.4))));
     }
-    function talkHud(v, name, pg) {
-        const T = ui.talk;
-        const rec = v.bot.voices[name];
-        const noKey = keyKnown === false;
-        const speak = st.set.talkSpeak && !noKey;
-        const auto = st.set.talkAuto && st.set.talkWhen !== 'manual';
-        const [sw, sh] = host.SIZES[st.set.talkSize] ?? host.SIZES.wide;
-        return h('div', { class: 'vn-hud' },
-            h('span', { class: 'nm' }, h('b', { style: `--h:${talkHue(name)}` }, name), h('span', { class: 'vn-state', role: 'status' }, talkStateKids())),
-            h('button', { class: 'vn-tg vc' + (speak ? ' on' : ''), type: 'button', disabled: noKey, 'aria-pressed': String(speak),
-                title: noKey ? '음성 › 준비 탭에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
-                onclick: () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) talkStop(); talkPaint(); } },
-                talkIcon(speak ? 'speaker' : 'mute'), noKey ? 'TTS 키 없음' : speak ? 'TTS ON' + (rec?.voice ? ' · ' + voiceLabel(rec.voice) : '') : 'TTS OFF'),
-            pg.m ? talkReplayBtn(v, name, pg.m) : null,
-            h('button', { class: 'vn-tg' + (auto ? ' on' : ''), type: 'button', 'aria-pressed': String(auto), title: '답이 오면 그 장면을 NAI 로 자동으로 그립니다',
-                onclick: () => {
-                    if (auto) st.set.talkAuto = false;
-                    else { st.set.talkAuto = true; if (st.set.talkWhen === 'manual') st.set.talkWhen = 'every'; }
-                    void saveSet();
-                    talkPaint();
-                } }, talkIcon('pencil'), '자동 삽화'),
-            h('button', { class: 'vn-tg', type: 'button', disabled: !pg.m || !!T.draw, onclick: () => void talkArt(v, name, pg.m, 'new', false) }, talkIcon('image'), '이 장면 그리기'),
-            h('button', { class: 'vn-tg' + (T.hist ? ' on' : ''), type: 'button', 'aria-pressed': String(!!T.hist), onclick: () => { T.hist = !T.hist; talkPaint(); } }, talkIcon('list'), '기록'),
-            v.talk[name]?.length ? h('button', { class: T.confirm === name ? 'vn-tg warn' : 'vn-tg', type: 'button', onclick: () => void talkClear(v, name) },
-                talkIcon('trash'), T.confirm === name ? '한 번 더 누르면 지웁니다' : '대화 지우기') : null,
-            h('span', { class: 'vn-sz', title: '대화 삽화 해상도 (설정 탭에서 바꿉니다)' }, `${sw}×${sh}`));
+    function talkPct(job) {
+        const { done, total } = job?.progress?.() ?? { done: 0, total: 0 };
+        return { done, total, pct: total > 0 ? Math.min(99, Math.round(done / total * 100)) : 0 };
     }
     function talkDrawCard() {
         const job = ui.talk.draw.job;
-        const { done, total } = job.progress?.() ?? { done: 0, total: 0 };
-        const pct = total > 0 ? Math.min(99, Math.round(done / total * 100)) : 0;
+        const { done, total, pct } = talkPct(job);
         return h('div', { class: 'vn-drawc', role: 'status' },
             h('div', { class: 'vn-dt' }, h('b', null, job.label || (job.stage ? '그리는 중' : '장면을 정하는 중')), h('span', null, pct + '%')),
             h('div', { class: 'vn-gauge' }, h('i', { style: `width:${pct}%` })),
@@ -11790,15 +11754,24 @@ ${ctx || '(none)'}`;
         ui.talk.tick = setInterval(() => {
             if (!ui.talk.draw || !ui.root?.isConnected) { clearInterval(ui.talk.tick); ui.talk.tick = 0; return; }
             ui.root.querySelector('.vn-drawc')?.replaceWith(talkDrawCard());
+            const { pct } = talkPct(ui.talk.draw.job);
+            ui.root.querySelectorAll('.vn-dpct').forEach(x => { x.textContent = ` · 그리는 중 ${pct}%`; });
+            ui.root.querySelectorAll('.vn-thumb.dr i').forEach(x => { x.style.width = pct + '%'; });
         }, 1000);
+    }
+    function talkSrc(log) {
+        const T = ui.talk;
+        return (T.view && log.find(m => m.at === T.view && m.img?.path)) || log.findLast(m => m.img?.path) || null;
     }
     function talkScene(v, name) {
         const T = ui.talk;
         const log = v.talk[name] ?? [];
-        const pg = talkPage(log);
-        const src = talkImgAt(log, pg);
-        const own = !!src && src === pg.m;
+        const src = talkSrc(log);
         const drawing = T.draw?.name === name;
+        const noKey = keyKnown === false;
+        const speak = st.set.talkSpeak && !noKey;
+        const auto = st.set.talkAuto && st.set.talkWhen !== 'manual';
+        const lastC = log.findLast(m => m.r === 'c');
         const kids = [];
         if (src) {
             const [w, ht] = host.SIZES[src.img.size] ?? host.SIZES.wide;
@@ -11806,50 +11779,71 @@ ${ctx || '(none)'}`;
                 h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': src.img.path, alt: `${name}와의 대화 장면`, style: `aspect-ratio:${w}/${ht}` }));
         } else if (!drawing) {
             kids.push(h('div', { class: 'vn-hello' }, h('span', { class: 'vn-big', 'aria-hidden': 'true' }, [...String(name).trim()][0] ?? '?'), h('b', null, name),
-                h('p', null, st.set.talkAuto && st.set.talkWhen === 'every' ? '답이 오면 이 자리에 그 장면을 그립니다.' : '아래 「이 장면 그리기」를 누르면 이 자리에 장면을 그립니다.')));
+                h('p', null, auto ? '말을 보내면 답이 온 장면을 이 자리에 그립니다.' : '무대에 마우스를 올려 「그리기」를 누르면 마지막 답의 장면을 그립니다.')));
         }
+        const acts = [];
         if (src && !drawing) {
             const cf = T.confirm === 'img:' + src.at;
-            kids.push(h('div', { class: 'vn-acts' },
-                h('button', { type: 'button', onclick: () => void host.showBig(src.img.path) }, '🔍', h('b', null, '크게 보기')),
-                own && src.img.req ? h('button', { type: 'button', disabled: !!T.draw, onclick: () => void talkArt(v, name, src, 'redo', false) }, '🔁', h('b', null, '다시 그리기')) : null,
-                own ? h('button', { class: cf ? 'warn' : null, type: 'button', onclick: () => talkDropImg(v, name, src) }, '🗑', h('b', null, cf ? '한 번 더 누르면 지웁니다' : '그림 지우기')) : null));
+            acts.push(h('button', { type: 'button', title: '크게 보기', 'aria-label': '크게 보기', onclick: () => void host.showBig(src.img.path) }, '🔍'));
+            if (src.img.req) acts.push(h('button', { type: 'button', disabled: !!T.draw, onclick: () => void talkArt(v, name, src, 'redo', false) }, '🔁', h('b', null, '다시 그리기')));
+            acts.push(h('button', { class: cf ? 'warn' : null, type: 'button', title: '그림 지우기', 'aria-label': '그림 지우기', onclick: () => talkDropImg(v, name, src) }, '🗑', cf ? h('b', null, '한 번 더 누르면 지웁니다') : null));
         }
-        kids.push(talkHud(v, name, pg));
+        if (lastC && !lastC.img?.path && !T.draw) acts.push(h('button', { type: 'button', onclick: () => void talkArt(v, name, lastC, 'new', false) }, '🖼', h('b', null, '그리기')));
+        if (log.length) acts.push(h('button', { class: T.confirm === name ? 'warn' : null, type: 'button', onclick: () => void talkClear(v, name) },
+            h('b', null, T.confirm === name ? '한 번 더 누르면 대화를 지웁니다' : '대화 지우기')));
+        kids.push(h('div', { class: 'vn-hv' },
+            h('button', { class: 'vn-tg vc' + (speak ? ' on' : ''), type: 'button', disabled: noKey, 'aria-pressed': String(speak),
+                title: noKey ? '음성 › 준비 탭에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
+                onclick: () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) { if (T.voice) T.voice.stop = true; talkStop(); } talkPaint(); } },
+                talkIcon(speak ? 'speaker' : 'mute'), noKey ? 'TTS 키 없음' : speak ? 'TTS ON' : 'TTS OFF'),
+            h('button', { class: 'vn-tg' + (auto ? ' on' : ''), type: 'button', 'aria-pressed': String(auto), title: '말을 보낼 때마다 답의 장면을 NAI 로 그립니다',
+                onclick: () => {
+                    if (auto) st.set.talkAuto = false;
+                    else { st.set.talkAuto = true; if (st.set.talkWhen === 'manual') st.set.talkWhen = 'every'; }
+                    void saveSet();
+                    talkPaint();
+                } }, talkIcon('image'), '입력마다 그리기'),
+            acts.length ? h('div', { class: 'vn-acts' }, acts) : null));
         if (drawing) kids.push(talkDrawCard());
         return h('div', { class: 'vn-stage', style: `--h:${talkHue(name)}` }, kids);
     }
-    function talkHist(v, name, log, pg) {
-        const T = ui.talk;
-        return h('div', { class: 'vn-log', role: 'dialog', 'aria-label': '대화 기록' },
-            h('div', { class: 'vn-lh' }, h('b', null, `${name}와 나눈 말`),
-                h('button', { class: 'vn-x', type: 'button', 'aria-label': '기록 닫기', onclick: () => { T.hist = false; talkPaint(); } }, talkIcon('x', 2.4))),
-            h('div', { class: 'vn-ll' }, log.length ? log.map((m, i) => m.r === 'c'
-                ? h('button', { class: 'vn-li them', type: 'button', title: '이 답으로 가기', onclick: () => { T.hist = false; talkGo(pg.cs.indexOf(i), pg.last); } }, h('b', null, name), h('span', null, m.t), h('time', null, talkTime(m.at)))
-                : h('div', { class: 'vn-li me' }, h('b', null, '나'), h('span', null, m.t), h('time', null, talkTime(m.at))))
-                : h('p', { class: 'vn-sub' }, '아직 나눈 말이 없습니다.')));
-    }
-    function talkDlg(v, name) {
+    function talkFeed(v, name) {
         const T = ui.talk;
         const log = v.talk[name] ?? [];
-        const pg = talkPage(log);
-        const when = pg.m ?? pg.u;
-        const kids = [h('div', { class: 'vn-mr' },
-            h('span', { class: 'vn-me', title: pg.u?.t ?? null }, pg.u ? '나: ' + pg.u.t : ''),
-            pg.last > 0 ? h('span', { class: 'vn-pg' },
-                h('button', { type: 'button', 'aria-label': '이전 답', disabled: pg.p <= 0, onclick: () => talkGo(pg.p - 1, pg.last) }, talkIcon('back', 2.4)),
-                h('span', null, `${pg.p + 1} / ${pg.last + 1}`),
-                h('button', { class: pg.p < pg.last ? 'nx' : null, type: 'button', 'aria-label': '다음 답', disabled: pg.p >= pg.last, onclick: () => talkGo(pg.p + 1, pg.last) }, talkIcon('next', 2.4))) : null,
-            when ? h('time', null, talkTime(when.at)) : null)];
-        if (pg.m) kids.push(h('div', { class: 'vn-tx' }, pg.m.t));
-        else if (pg.wait && T.busy === name) kids.push(h('div', { class: 'vn-tx' }, h('span', { class: 'vn-dots', role: 'status', 'aria-label': `${name}이(가) 답을 쓰는 중` }, h('i'), h('i'), h('i'))));
-        else if (pg.wait) kids.push(h('div', { class: 'vn-tx' }, '아직 답이 없습니다.'),
-            T.busy ? null : h('div', { class: 'vn-retry' }, h('button', { class: 'gt-b sm', type: 'button', onclick: () => void talkSend(true) }, '↻ 답 다시 받기')));
-        else kids.push(h('div', { class: 'vn-tx' }, `${name}에게 먼저 말을 걸어 보세요.`),
-            h('p', { class: 'vn-sub' }, `리수 채팅에는 남지 않고, 봇 로어북의 「${TALK_FOLDER}」 폴더에 기록됩니다.`));
+        const src = talkSrc(log);
+        const hue = `--h:${talkHue(name)}`;
+        const kids = [];
+        for (const m of log) {
+            if (m.r === 'u') {
+                kids.push(h('div', { class: 'vn-me' }, h('p', null, m.t), h('time', null, talkTime(m.at))));
+                continue;
+            }
+            const drawing = T.draw?.name === name && T.draw.at === m.at;
+            const pct = drawing ? talkPct(T.draw.job).pct : 0;
+            let thumb = null;
+            if (m.img?.path) thumb = h('button', { class: 'vn-thumb' + (src === m ? ' on' : '') + (drawing ? ' dr' : ''), type: 'button', title: '무대에 다시 걸기', 'aria-label': '이 그림을 무대에 걸기',
+                onclick: () => { T.view = m.at; talkPaint(); } }, h('img', { 'data-path': m.img.path, alt: '' }), drawing ? h('i', { style: `width:${pct}%` }) : null);
+            else if (drawing) thumb = h('span', { class: 'vn-thumb dr', 'aria-hidden': 'true' }, h('i', { style: `width:${pct}%` }));
+            kids.push(h('div', { class: 'vn-turn' },
+                h('div', { class: 'vn-nm', style: hue }, thumb, h('b', null, name),
+                    h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · 그리는 중 ${pct}%`) : null)),
+                h('div', { class: 'vn-ss' }, talkSplit(m.t).map((t, i) => {
+                    const k = m.at + ':' + i;
+                    const pb = h('button', { class: 'vn-pb', type: 'button', 'data-k': k, 'data-ck': hash('talk|' + v.chaId + '|' + name + '|' + t), onclick: () => void talkReplay(v.chaId, name, t, k) });
+                    const row = h('div', { class: 'vn-s' }, pb, h('span', { class: 'vn-t' }, t));
+                    talkMarkOne(pb);
+                    return row;
+                }))));
+        }
+        const last = log.at(-1);
+        if (!last) kids.push(h('div', { class: 'vn-empty' }, h('b', null, `${name}에게 먼저 말을 걸어 보세요.`),
+            h('p', { class: 'vn-sub' }, `리수 채팅에는 남지 않고, 봇 로어북의 「${TALK_FOLDER}」 폴더에 기록됩니다.`)));
+        else if (last.r === 'u' && T.busy === name) kids.push(h('div', { class: 'vn-turn' }, h('div', { class: 'vn-nm', style: hue }, h('b', null, name)),
+            h('span', { class: 'vn-dots', role: 'status', 'aria-label': `${name}이(가) 답을 쓰는 중` }, h('i'), h('i'), h('i'))));
+        else if (last.r === 'u' && !T.busy) kids.push(h('div', { class: 'vn-retry' }, h('span', { class: 'vn-sub' }, '아직 답이 없습니다.'),
+            h('button', { class: 'gt-b sm', type: 'button', onclick: () => void talkSend(true) }, '↻ 답 다시 받기')));
         if (T.err?.name === name) kids.push(h('p', { class: 'vn-err', role: 'alert' }, T.err.text));
-        if (T.hist) kids.push(talkHist(v, name, log, pg));
-        return h('div', { class: 'vn-dh' }, kids);
+        return h('div', { class: 'vn-log' }, h('div', { class: 'vn-col' }, kids));
     }
     function paneTalk() {
         const v = ui.view;
@@ -11864,15 +11858,17 @@ ${ctx || '(none)'}`;
         void host.acAnlas();
         if (T.draw && !T.tick) talkTick();
         const stage = Math.max(30, Math.min(80, Number(st.set.talkStage) || DEF_SET.talkStage));
+        setTimeout(() => { const lg = ui.root?.querySelector('.vn-log'); if (lg) lg.scrollTop = lg.scrollHeight; }, 0);
         return [h('div', { class: 'vn', style: `--stage:${stage}%` },
             talkScene(v, name),
             talkTop(v, name),
-            h('div', { class: 'vn-dlg' }, talkDlg(v, name),
+            talkFeed(v, name),
+            h('div', { class: 'vn-bot' }, h('div', { class: 'vn-in' },
                 h('div', { class: 'vn-box' },
-                    h('textarea', { class: 'tk-ta', rows: 1, placeholder: `${name}에게 말하기 · Enter 보내기, Shift+Enter 줄 바꾸기`, 'aria-label': '메시지', value: T.draft,
+                    h('textarea', { class: 'tk-ta', rows: 1, placeholder: window.innerWidth > 600 ? `${name}에게 말하기 · Enter 보내기, Shift+Enter 줄 바꾸기` : `${name}에게 말하기`, 'aria-label': '메시지', value: T.draft,
                         oninput: e => { T.draft = e.target.value; talkGrow(e.target); },
                         onkeydown: e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); void talkSend(false); } } }),
-                    h('button', { class: 'tk-send vn-send', type: 'button', 'aria-label': '보내기', disabled: !!T.busy, onclick: () => void talkSend(false) }, talkIcon('send', 2.6)))))];
+                    h('button', { class: 'tk-send vn-send', type: 'button', 'aria-label': '보내기', disabled: !!T.busy, onclick: () => void talkSend(false) }, talkIcon('send', 2.6))))))];
     }
     function talkGrow(el) {
         el.style.height = 'auto';
@@ -11883,20 +11879,30 @@ ${ctx || '(none)'}`;
         const vn = ui.root?.querySelector('.vn:not(.vn-none)');
         if (!v || !vn || host.ui.mode !== 'voice' || host.ui.vtab !== 'talk') return;
         const name = ui.talk.name;
+        const old = new Map([...vn.querySelectorAll('img[data-path]')].filter(x => x.src).map(x => [x.dataset.path, x.src]));
+        const keep = el => el.querySelectorAll('img[data-path]').forEach(x => { const src = old.get(x.dataset.path); if (src) x.src = src; });
         const stage = vn.querySelector('.vn-stage');
         if (stage) {
-            const old = new Map([...stage.querySelectorAll('img[data-path]')].filter(x => x.src).map(x => [x.dataset.path, x.src]));
             const next = talkScene(v, name);
-            next.querySelectorAll('img[data-path]').forEach(x => { const src = old.get(x.dataset.path); if (src) x.src = src; });
+            keep(next);
             stage.replaceWith(next);
         }
         const top = vn.querySelector('.vn-top');
         if (top && !top.contains(doc.activeElement)) top.replaceWith(talkTop(v, name));
-        vn.querySelector('.vn-dh')?.replaceWith(talkDlg(v, name));
+        const lg = vn.querySelector('.vn-log');
+        if (lg) {
+            const count = el => el.querySelectorAll('.vn-me,.vn-turn').length;
+            const errOf = el => el.querySelector('.vn-err')?.textContent || '';
+            const end = lg.scrollHeight - lg.scrollTop - lg.clientHeight < 40;
+            const y = lg.scrollTop, n = count(lg), e = errOf(lg);
+            const next = talkFeed(v, name);
+            keep(next);
+            lg.replaceWith(next);
+            const ne = errOf(next);
+            next.scrollTop = end || count(next) > n || (ne && ne !== e) ? next.scrollHeight : y;
+        }
         const send = vn.querySelector('.tk-send');
         if (send) send.disabled = !!ui.talk.busy;
-        const ll = vn.querySelector('.vn-ll');
-        if (ll) ll.scrollTop = ll.scrollHeight;
         host.loadThumbs();
     }
     async function talkArt(v, name, entry, mode, quiet) {
@@ -11949,6 +11955,7 @@ ${ctx || '(none)'}`;
             return;
         }
         T.confirm = null;
+        if (T.view === m.at) T.view = '';
         const path = m.img?.path;
         delete m.img;
         void saveTalk(v.chaId, v.talk);
@@ -11961,9 +11968,9 @@ ${ctx || '(none)'}`;
         T.name = name;
         T.err = null;
         T.confirm = null;
-        T.page = -1;
+        T.view = '';
         T.pop = false;
-        T.hist = false;
+        if (T.voice) T.voice.stop = true;
         talkStop();
         render();
     }
@@ -11990,10 +11997,11 @@ ${ctx || '(none)'}`;
         }
         T.confirm = null;
         T.err = null;
+        if (T.voice) T.voice.stop = true;
         talkStop();
         for (const m of v.talk[name] ?? []) if (m.img?.path) host.dropThumb(m.img.path);
         delete v.talk[name];
-        T.page = -1;
+        T.view = '';
         void saveTalk(v.chaId, v.talk);
         talkPaint();
         talkLoreSoon(v.chaId, v.ci, name);
@@ -12010,7 +12018,7 @@ ${ctx || '(none)'}`;
         T.busy = name;
         T.err = null;
         T.confirm = null;
-        T.page = -1;
+        T.view = '';
         if (!retry) {
             T.draft = '';
             const ta = ui.root?.querySelector('.tk-ta');
@@ -12035,36 +12043,52 @@ ${ctx || '(none)'}`;
             talkPush(v.talk, name, 'c', reply);
             void saveTalk(v.chaId, v.talk);
             talkLoreSoon(v.chaId, w.ci, name);
-            T.page = -1;
+            T.view = '';
             if (st.set.talkAuto && st.set.talkWhen === 'every') void talkArt(v, name, v.talk[name].at(-1), 'new', true);
         } catch (error) {
             T.err = { name, text: '답을 받지 못했습니다. ' + String(error?.message ?? error) };
         }
         T.busy = '';
         if (!reply || !speak || !st.set.talkSpeak || !ui.root?.isConnected) { talkPaint(); return; }
-        const k = String(v.talk[name].at(-1).at);
+        const at = v.talk[name].at(-1).at;
+        const lines = talkSplit(reply);
         const job = T.voice = { stop: false, note: '' };
-        T.voicing = k;
+        const make = i => {
+            const k = at + ':' + i;
+            T.voicing = k;
+            talkMark();
+            const p = talkVoice(v.chaId, name, lines[i], job);
+            p.then(() => { if (T.voicing === k && T.voice === job) { T.voicing = ''; talkMark(); } }, () => {});
+            return p;
+        };
         talkPaint();
         try {
-            const data = await talkVoice(v.chaId, name, reply, job);
-            if (job.stop) return;
-            T.voicing = '';
-            talkMark();
-            if (ui.root?.isConnected && host.ui.mode === 'voice' && host.ui.vtab === 'talk' && T.name === name && !await talkPlay(data, k)) {
-                T.err = { name, text: '브라우저가 소리를 막았습니다. 아래 「다시 듣기」를 눌러 들어 주세요.' };
-                talkPaint();
+            let next = lines.length ? make(0) : null;
+            for (let i = 0; i < lines.length; i++) {
+                const data = await next;
+                if (job.stop) return;
+                next = i + 1 < lines.length ? make(i + 1) : null;
+                next?.catch(() => {});
+                if (!ui.root?.isConnected || host.ui.mode !== 'voice' || host.ui.vtab !== 'talk' || T.name !== name) return;
+                if (!await talkPlayWait(data, at + ':' + i)) {
+                    T.err = { name, text: '브라우저가 소리를 막았습니다. 문장 옆 ▶ 버튼을 눌러 들어 주세요.' };
+                    talkPaint();
+                    return;
+                }
+                if (job.stop) return;
             }
         } catch (error) {
             if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
         } finally {
-            if (T.voicing === k) { T.voicing = ''; talkMark(); }
-            if (T.voice === job) T.voice = null;
+            if (T.voice === job) {
+                T.voice = null;
+                if (T.voicing.startsWith(at + ':')) { T.voicing = ''; talkMark(); }
+            }
         }
     }
     async function talkReplay(chaId, name, text, k) {
         const T = ui.talk;
-        if (T.playing === k) { talkStop(); return; }
+        if (T.playing === k) { if (T.voice) T.voice.stop = true; talkStop(); return; }
         if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. 음성 › 준비 탭에서 키를 등록해 주세요.' }; talkPaint(); return; }
         talkUnlock();
         talkStop();
@@ -12380,8 +12404,8 @@ ${ctx || '(none)'}`;
         ui.pick = null;
         await checkKey();
         await refreshView();
-        if (ui.talk.chaId !== ui.view?.chaId) Object.assign(ui.talk, { chaId: ui.view?.chaId, name: null, err: null, confirm: null, page: -1 });
-        Object.assign(ui.talk, { pop: false, hist: false });
+        if (ui.talk.chaId !== ui.view?.chaId) Object.assign(ui.talk, { chaId: ui.view?.chaId, name: null, err: null, confirm: null, view: '' });
+        Object.assign(ui.talk, { pop: false });
         ui.talk.voicing = '';
         ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : 0;
         try {
@@ -12517,33 +12541,19 @@ ${ctx || '(none)'}`;
 .gt .vn-tr .an-c .an-sep{background:rgba(255,255,255,.35)}
 .gt .vn-tr .an-c .lnk{color:#fff}
 .gt .vn-x{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#fff;color:var(--ink2);box-shadow:0 4px 12px rgba(0,0,0,.25)}
-.gt .vn-acts{position:absolute;right:14px;top:56px;z-index:3;display:flex;flex-direction:column;align-items:flex-end;gap:4px;opacity:0;transition:opacity .18s}
-.gt .vn-acts button{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:0;border-radius:15px;background:rgba(0,0,0,.55);color:#fff;font-size:13px}
+.gt .vn-hv{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:34px 14px 10px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.5));opacity:0;transition:opacity .18s}
+.gt .vn-stage:hover .vn-hv,.gt .vn-hv:focus-within{opacity:1}
+@media (hover:none){.gt .vn-hv{opacity:1}}
+.gt .vn-acts{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:4px}
+.gt .vn-acts button{display:flex;align-items:center;gap:5px;height:26px;padding:0 8px;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px}
 .gt .vn-acts button b{font-size:11px;font-weight:700}
 .gt .vn-acts button.warn{background:#d0453b}
 .gt .vn-acts button:disabled{opacity:.5;cursor:not-allowed}
-.gt .vn-hud{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:36px 14px 12px;background:linear-gradient(180deg,transparent,rgba(8,14,28,.8));opacity:0;transition:opacity .18s}
-.gt .vn-stage:hover .vn-hud,.gt .vn-hud:focus-within,.gt .vn-stage:hover .vn-acts,.gt .vn-acts:focus-within{opacity:1}
-@media (hover:none){.gt .vn-hud,.gt .vn-acts{opacity:1}}
-.gt .vn-hud .nm{display:flex;align-items:center;gap:8px;margin-right:4px}
-.gt .vn-hud .nm b{padding:4px 10px;border-radius:12px;font-size:13px;font-weight:900;color:#fff;background:hsl(var(--h) 60% 52%)}
-.gt .vn-state{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#9fd4ff}
-.gt .vn-eq{display:inline-flex;align-items:flex-end;gap:2px;height:12px}
-.gt .vn-eq i{width:3px;border-radius:1px;background:#9fd4ff;transform-origin:bottom;animation:vn-eq .8s ease-in-out infinite}
-.gt .vn-eq i:nth-child(1){height:6px}
-.gt .vn-eq i:nth-child(2){height:12px;animation-delay:.15s}
-.gt .vn-eq i:nth-child(3){height:8px;animation-delay:.3s}
-@keyframes vn-eq{50%{transform:scaleY(.35)}}
-.gt .vn-tg{position:relative;z-index:0;overflow:hidden;display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:14px;border:1.5px solid var(--ln);background:#fff;color:var(--mut);font-size:11.5px;font-weight:800;white-space:nowrap}
+.gt .vn-tg{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 10px;border-radius:14px;border:1.5px solid var(--ln);background:#fff;color:var(--mut);font-size:11.5px;font-weight:800;white-space:nowrap}
 .gt .vn-tg .vn-ic svg{width:14px;height:14px}
 .gt .vn-tg.on{border-color:var(--sky);background:var(--skl);color:var(--sky)}
 .gt .vn-tg.vc.on{border-color:var(--ok);background:#e8f8f2;color:#0d8a66}
-.gt .vn-tg.wait::before{content:"";position:absolute;left:0;top:0;bottom:0;z-index:-1;width:0;background:#bfe0fb;animation:vn-fill 2.4s ease-out infinite}
-@keyframes vn-fill{0%{width:0}85%,100%{width:100%}}
-.gt .vn-tg.play{border-color:var(--sky);background:var(--sky);color:#fff}
-.gt .vn-tg.warn{border-color:#e6b4b0;color:#d0453b}
-.gt .vn-tg:disabled{opacity:.45;cursor:not-allowed}
-.gt .vn-sz{margin-left:auto;font-size:10.5px;color:rgba(255,255,255,.7);font-variant-numeric:tabular-nums}
+.gt .vn-tg:disabled{opacity:.6;cursor:not-allowed}
 .gt .vn-drawc{position:absolute;left:50%;top:50%;z-index:4;display:flex;flex-direction:column;gap:7px;width:280px;max-width:calc(100% - 28px);padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.95);box-shadow:0 12px 30px rgba(0,0,0,.3);transform:translate(-50%,-50%)}
 .gt .vn-dt{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:var(--ink2)}
 .gt .vn-dt b{font-weight:800}
@@ -12552,52 +12562,69 @@ ${ctx || '(none)'}`;
 .gt .vn-gauge{height:6px;overflow:hidden;border-radius:3px;background:#dceafa}
 .gt .vn-gauge i{display:block;height:100%;background:var(--sky)}
 .gt .vn-stop{height:26px;padding:0 10px;border-radius:13px;border:1.5px solid var(--ln);background:#fff;color:var(--mut);font-size:11.5px;font-weight:800}
-.gt .vn-dlg{position:relative;flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:10px;padding:14px 40px 12px;background:linear-gradient(180deg,#f6faff,#fff);border-top:2px solid var(--sky)}
-.gt .vn-dh{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:6px}
-.gt .vn-mr{display:flex;align-items:center;gap:10px;min-height:28px}
-.gt .vn-me{flex:1 1 auto;min-width:0;overflow:hidden;font-size:12.5px;color:var(--mut);white-space:nowrap;text-overflow:ellipsis}
-.gt .vn-pg{flex:none;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--mut);font-variant-numeric:tabular-nums}
-.gt .vn-pg button{display:grid;place-items:center;width:28px;height:28px;padding:0;border-radius:50%;border:1.5px solid var(--ln);background:#fff;color:var(--mut)}
-.gt .vn-pg button:disabled{opacity:.4;cursor:default}
-.gt .vn-pg button.nx{border-color:var(--sky);color:var(--sky);animation:vn-bob 1.2s ease-in-out infinite}
-@keyframes vn-bob{50%{transform:translateX(3px)}}
-.gt .vn-mr time{flex:none;font-size:11px;color:#9aa8bd}
-.gt .vn-tx{flex:1 1 auto;min-height:0;overflow:auto;font-family:"Gowun Batang","Nanum Myeongjo","Noto Serif KR",serif;font-size:17px;line-height:1.75;color:var(--ink2);white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.gt .vn-log{flex:1 1 auto;min-height:0;overflow-y:auto;background:linear-gradient(180deg,#f6faff,#fff);border-top:2px solid var(--sky)}
+.gt .vn-log::-webkit-scrollbar{width:10px}
+.gt .vn-log::-webkit-scrollbar-thumb{background:#c9d6e6;border-radius:5px;border:3px solid transparent;background-clip:padding-box}
+.gt .vn-col{max-width:820px;margin:0 auto;padding:20px 24px 26px;display:flex;flex-direction:column;gap:18px}
+.gt .vn-me{align-self:flex-end;max-width:70%;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.gt .vn-me p{margin:0;padding:10px 16px;border-radius:16px 16px 4px 16px;background:var(--sky);color:#fff;font-size:14px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 4px 12px rgba(43,149,240,.25)}
+.gt .vn-me time,.gt .vn-nm time{font-size:10.5px;color:#9aa8bd}
+.gt .vn-turn{display:flex;flex-direction:column;gap:10px}
+.gt .vn-nm{display:flex;align-items:center;gap:8px}
+.gt .vn-nm b{font-size:13px;font-weight:900;color:#fff;padding:3px 12px;border-radius:12px;background:hsl(var(--h) 60% 52%)}
+.gt .vn-dpct{color:var(--sky);font-weight:700}
+.gt .vn-thumb{position:relative;flex:none;width:54px;height:37px;padding:0;border:0;border-radius:6px;overflow:hidden;background:#dceafa;box-shadow:0 0 0 2px #fff,0 0 0 3.5px #c9d6e6;cursor:pointer;transition:box-shadow .15s}
+.gt .vn-thumb img{display:block;width:100%;height:100%;object-fit:cover}
+.gt button.vn-thumb:hover,.gt .vn-thumb.on{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--sky)}
+.gt .vn-thumb.dr{box-shadow:0 0 0 2px #fff,0 0 0 3.5px #bfe0fb;cursor:default}
+.gt .vn-thumb.dr img{filter:brightness(.5)}
+.gt .vn-thumb i{position:absolute;left:0;bottom:0;height:4px;background:var(--sky);transition:width .8s linear}
+.gt .vn-ss{display:flex;flex-direction:column;gap:2px}
+.gt .vn-s{display:flex;align-items:flex-start;gap:10px;padding:4px 8px 4px 4px;border-radius:10px;transition:background .15s}
+.gt .vn-t{flex:1;min-width:0;padding:1px 6px;border-radius:6px;font-family:"Gowun Batang","Nanum Myeongjo","Noto Serif KR",serif;font-size:16.5px;line-height:1.7;color:var(--ink2);white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.gt .vn-pb{position:relative;flex:none;width:26px;height:26px;margin-top:2px;padding:0;border-radius:50%;display:grid;place-items:center;overflow:hidden;isolation:isolate;border:1.5px solid #b9cde3;color:#7d93ad;background:#fff;transition:border-color .15s,color .15s}
+.gt .vn-pb .vn-ic svg{width:11px;height:11px}
+.gt .vn-s:hover .vn-pb{border-color:var(--sky);color:var(--sky)}
+.gt .vn-pb.have{border-color:var(--sky);background:var(--skl);color:var(--sky)}
+.gt .vn-pb.load{border-color:var(--sky);color:var(--sky);background:#fff}
+.gt .vn-pb.load::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;background:#bfe0fb;z-index:-1;animation:vn-fill 2.4s ease-in-out infinite}
+.gt .vn-s.load .vn-t{background:linear-gradient(#e3f1fd,#e3f1fd) no-repeat 0 0/0% 100%;animation:vn-fillbg 2.4s ease-in-out infinite}
+@keyframes vn-fill{0%{width:0}85%,100%{width:100%}}
+@keyframes vn-fillbg{0%{background-size:0% 100%}85%,100%{background-size:100% 100%}}
+.gt .vn-pb.play{background:var(--sky);border-color:var(--sky);color:#fff;box-shadow:0 0 0 4px rgba(43,149,240,.18)}
+.gt .vn-s.play{background:var(--skl)}
+.gt .vn-s.play .vn-t{color:#14508a}
+.gt .vn-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 0;text-align:center}
+.gt .vn-empty b{font-family:"Gowun Batang","Nanum Myeongjo","Noto Serif KR",serif;font-size:17px;color:var(--ink2)}
 .gt .vn-sub{margin:0;font-size:12.5px;color:var(--mut)}
 .gt .vn-err{margin:0;font-size:12.5px;font-weight:700;color:#d0453b}
-.gt .vn-retry{display:flex}
-.gt .vn-dots{display:inline-flex;gap:6px;padding:10px 0}
+.gt .vn-retry{display:flex;align-items:center;gap:10px}
+.gt .vn-dots{display:inline-flex;gap:6px;padding:6px 0 6px 4px}
 .gt .vn-dots i{width:8px;height:8px;border-radius:50%;background:var(--sky);animation:vn-dot 1.2s ease-in-out infinite}
 .gt .vn-dots i:nth-child(2){animation-delay:.2s}
 .gt .vn-dots i:nth-child(3){animation-delay:.4s}
 @keyframes vn-dot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
-.gt .vn-box{flex:none;display:flex;align-items:flex-end;gap:10px;padding:5px 5px 5px 16px;border-radius:14px;border:1.5px solid var(--ln);background:#fff;transition:border-color .15s,box-shadow .15s}
+.gt .vn-bot{flex:none;padding:12px 0;background:#fff;border-top:1px solid var(--ln);box-shadow:0 -10px 24px rgba(15,26,46,.06)}
+.gt .vn-in{max-width:820px;margin:0 auto;padding:0 24px}
+.gt .vn-box{display:flex;align-items:flex-end;gap:10px;padding:5px 5px 5px 16px;border-radius:14px;border:1.5px solid var(--ln);background:#fff;transition:border-color .15s,box-shadow .15s}
 .gt .vn-box:focus-within{border-color:var(--sky);box-shadow:0 0 0 4px rgba(43,149,240,.12)}
 .gt .vn-box .tk-ta,.gt .vn-box .tk-ta:focus,.gt .vn-box .tk-ta:focus-visible{flex:1 1 auto;min-height:0;padding:9px 0;border:0;border-radius:0;background:transparent;box-shadow:none;outline:none}
 .gt .vn-send{width:40px;height:40px;border-radius:12px;background:var(--co);box-shadow:0 6px 14px rgba(255,107,94,.35)}
 .gt .vn-send .vn-ic svg{width:20px;height:20px}
 .gt .vn-send:disabled{opacity:1;background:#f3c4bf;box-shadow:none}
-.gt .vn-log{position:absolute;inset:0;z-index:8;display:flex;flex-direction:column;background:rgba(246,250,255,.98)}
-.gt .vn-lh{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--ln)}
-.gt .vn-lh b{font-size:15px;color:var(--ink2)}
-.gt .vn-ll{flex:1 1 auto;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:12px 18px}
-.gt .vn-li{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:10px;padding:8px 12px;border-radius:10px;border:1px solid var(--ln);background:#fff;font-size:13.5px;line-height:1.6;color:var(--ink2);text-align:left}
-.gt .vn-li.me{border-color:transparent;background:#eef5ff}
-.gt button.vn-li:hover{border-color:var(--sky)}
-.gt .vn-li b{font-size:12px;font-weight:800;color:var(--mut);white-space:nowrap}
-.gt .vn-li span{white-space:pre-wrap;overflow-wrap:anywhere}
-.gt .vn-li time{font-size:11px;color:#9aa8bd}
 @media (max-width:600px){
-  .gt .vn-dlg{padding:10px 14px}
   .gt .vn-back{left:8px;top:8px;height:36px;padding:0 10px 0 6px}
   .gt .vn-back small{display:none}
   .gt .vn-cast{left:8px;top:52px;max-width:calc(100% - 16px)}
   .gt .vn-pop{left:8px;top:96px}
   .gt .vn-tr{right:8px;top:8px;gap:6px}
-  .gt .vn-acts{right:8px;top:96px}
-  .gt .vn-hud{padding:28px 8px 8px}
-  .gt .vn-sz{display:none}
-  .gt .vn-tx{font-size:15.5px}
+  .gt .vn-hv{padding:28px 8px 8px}
+  .gt .vn-acts button b{display:none}
+  .gt .vn-col{padding:14px 12px 18px;gap:14px}
+  .gt .vn-in{padding:0 10px}
+  .gt .vn-bot{padding:8px 0}
+  .gt .vn-me{max-width:85%}
+  .gt .vn-t{font-size:15.5px}
 }
 `;
     await loadSet();
