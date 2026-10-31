@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.5.0
+//@display-name 🎨 이매진 v4.5.1
 //@api 3.0
-//@version 4.5.0
+//@version 4.5.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.5.0';
+    const VERSION = '4.5.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -11838,8 +11838,8 @@ ${ctx || '(none)'}`;
         }
         if (drawing) acts.push(h('button', { type: 'button', onclick: () => T.draw?.job?.cancel?.() }, '■', h('b', null, '그리기 멈추기')));
         if (lastC && !lastC.img?.path && !T.draw) acts.push(h('button', { type: 'button', onclick: () => void talkArt(v, name, lastC, 'new', false) }, '🖼', h('b', null, '그리기')));
-        if (log.length) acts.push(h('button', { class: T.confirm === name ? 'warn' : null, type: 'button', onclick: () => void talkClear(v, name) },
-            h('b', null, T.confirm === name ? '한 번 더 누르면 대화를 지웁니다' : '대화 지우기')));
+        if (log.length && T.busy !== name) acts.push(h('button', { class: T.confirm === name ? 'warn' : null, type: 'button', onclick: () => void talkClear(v, name) },
+            h('b', null, T.confirm === name ? '한 번 더 누르면 대화를 전부 지웁니다' : '대화 전부 지우기')));
         kids.push(h('div', { class: 'vn-hv' },
             h('button', { class: 'vn-tg vc' + (speak ? ' on' : ''), type: 'button', disabled: noKey, 'aria-pressed': String(speak),
                 title: noKey ? '음성 › 준비 탭에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
@@ -11866,7 +11866,7 @@ ${ctx || '(none)'}`;
         const hue = `--h:${talkHue(name)}`;
         const kids = [];
         const del = m => T.busy === name && m === log.at(-1) ? null
-            : h('button', { class: 'vn-del', type: 'button', title: '이 말 지우기', 'aria-label': '이 말 지우기', onclick: () => talkDropMsg(v, name, m.at) }, '🗑');
+            : h('button', { class: 'vn-del', type: 'button', title: '이 말 지우기', 'aria-label': '이 말 지우기', onclick: () => talkDropMsg(v, name, m.at) }, '지우기');
         const sel = m => T.sel === m.at ? ' sel' : '';
         for (const m of log) {
             if (m.r === 'u') {
@@ -12088,6 +12088,7 @@ ${ctx || '(none)'}`;
     }
     async function talkClear(v, name) {
         const T = ui.talk;
+        if (T.busy === name) return;
         if (T.confirm !== name) {
             T.confirm = name;
             talkPaint();
@@ -12098,6 +12099,7 @@ ${ctx || '(none)'}`;
         T.err = null;
         T.sel = null;
         talkQuiet();
+        if (T.draw?.name === name) T.draw.job?.cancel?.();
         for (const m of v.talk[name] ?? []) if (m.img?.path) host.dropThumb(m.img.path);
         delete v.talk[name];
         T.view = '';
@@ -12146,19 +12148,20 @@ ${ctx || '(none)'}`;
             T.err = { name, text: '답을 받지 못했습니다. ' + String(error?.message ?? error) };
         }
         T.busy = '';
-        if (!reply || !speak || !st.set.talkSpeak || !ui.root?.isConnected) { talkPaint(); return; }
+        const here = () => ui.root?.isConnected && host.ui.mode === 'voice' && host.ui.vtab === 'talk' && T.name === name;
+        if (!reply || !speak || !st.set.talkSpeak || !here()) { talkPaint(); return; }
         const entry = v.talk[name].at(-1);
         const at = entry.at;
         const job = { stop: false, note: '', at };
         T.voices.add(job);
-        T.voicing.set(at, { t0: Date.now(), sec: talkEst(v.chaId, name, entry.t) });
+        T.voicing.set(at, { t0: Date.now(), sec: talkEst(v.chaId, name, entry.t), job });
         talkPaint();
         try {
             const data = await talkVoice(v.chaId, name, entry.t, job);
             if (job.stop) return;
-            T.voicing.delete(at);
+            talkUnvoice(at, job);
             talkMark();
-            if (!ui.root?.isConnected || host.ui.mode !== 'voice' || host.ui.vtab !== 'talk' || T.name !== name) return;
+            if (!here()) return;
             if (!await talkPlayWait(data, at)) {
                 T.err = { name, text: '브라우저가 소리를 막았습니다. 답 옆 ▶ 버튼을 눌러 들어 주세요.' };
                 talkPaint();
@@ -12167,27 +12170,32 @@ ${ctx || '(none)'}`;
             if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
         } finally {
             T.voices.delete(job);
-            if (T.voicing.delete(at)) talkMark();
+            if (talkUnvoice(at, job)) talkMark();
         }
+    }
+    function talkUnvoice(k, job) {
+        if (ui.talk.voicing.get(k)?.job !== job) return false;
+        ui.talk.voicing.delete(k);
+        return true;
     }
     async function talkReplay(chaId, name, text, k) {
         const T = ui.talk;
-        if (T.playing === k) { talkQuiet(); return; }
+        if (T.playing === k || T.voicing.has(k)) { talkQuiet(); return; }
         if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. 음성 › 준비 탭에서 키를 등록해 주세요.' }; talkPaint(); return; }
         talkUnlock();
         talkQuiet();
         const job = { stop: false, note: '', at: k };
         T.voices.add(job);
-        T.voicing.set(k, { t0: Date.now(), sec: talkEst(chaId, name, text) });
+        T.voicing.set(k, { t0: Date.now(), sec: talkEst(chaId, name, text), job });
         talkMark();
         try {
             const data = await talkVoice(chaId, name, text, job);
-            if (!job.stop) { T.voicing.delete(k); await talkPlay(data, k); }
+            if (!job.stop) { talkUnvoice(k, job); await talkPlay(data, k); }
         } catch (error) {
             if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
         } finally {
             T.voices.delete(job);
-            if (T.voicing.delete(k)) talkMark();
+            if (talkUnvoice(k, job)) talkMark();
         }
     }
 
@@ -12660,7 +12668,7 @@ ${ctx || '(none)'}`;
 .gt .vn-me time,.gt .vn-nm time{font-size:10.5px;color:#9aa8bd}
 .gt .vn-me,.gt .vn-turn{cursor:pointer}
 .gt .vn-me-ft{display:flex;align-items:center;gap:6px}
-.gt .vn-del{display:none;flex:none;width:26px;height:26px;padding:0;border:1.5px solid #f3c2c2;border-radius:50%;background:#fff;color:#d64545;font-size:12px;line-height:1;place-items:center;cursor:pointer}
+.gt .vn-del{display:none;flex:none;height:24px;padding:0 10px;border:1.5px solid #f3c2c2;border-radius:12px;background:#fff;color:#d64545;font-size:11.5px;font-weight:600;line-height:1;white-space:nowrap;place-items:center;cursor:pointer}
 .gt .vn-del:hover{background:#fdecec;border-color:#d64545}
 .gt .vn-me.sel .vn-del,.gt .vn-turn.sel .vn-del{display:grid}
 .gt .vn-nm .vn-del{margin-left:auto}
