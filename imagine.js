@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.6.0
+//@display-name 🎨 이매진 v4.6.1
 //@api 3.0
-//@version 4.6.0
+//@version 4.6.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.6.0';
+    const VERSION = '4.6.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -10765,15 +10765,18 @@ ${ctx || '(none)'}`;
     }
     function talkPlayWait(data, k) {
         return new Promise(end => {
-            talkQ.push({ data, k, end });
+            let i = talkQ.findIndex(q => q.k > k);
+            if (i < 0) i = talkQ.length;
+            talkQ.splice(i, 0, { data, k, end });
             talkNext();
         });
     }
     function talkNext() {
         if (ui.talk.playing) { talkMark(); return; }
-        const q = talkQ.shift();
-        if (q) void talkPlay(q.data, q.k, q.end);
-        else talkMark();
+        const q = talkQ[0];
+        if (!q || [...ui.talk.voicing.keys()].some(x => x < q.k)) { talkMark(); return; }
+        talkQ.shift();
+        void talkPlay(q.data, q.k, q.end);
     }
     function talkMark() {
         ui.root?.querySelectorAll('.vn-pb[data-k]').forEach(talkMarkOne);
@@ -12052,7 +12055,8 @@ ${ctx || '(none)'}`;
         for (const j of T.voices) if (j.at === at) { j.stop = true; T.voices.delete(j); }
         T.voicing.delete(at);
         for (let n = talkQ.length - 1; n >= 0; n--) if (talkQ[n].k === at) talkQ.splice(n, 1)[0].end(true);
-        if (T.playing === at) { talkHalt(); talkNext(); }
+        if (T.playing === at) talkHalt();
+        talkNext();
         if (T.draw?.name === name && T.draw.at === at) T.draw.job?.cancel?.();
         const [m] = log.splice(i, 1);
         if (m.img?.path) host.dropThumb(m.img.path);
@@ -12172,7 +12176,8 @@ ${ctx || '(none)'}`;
             if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
         } finally {
             T.voices.delete(job);
-            if (talkUnvoice(at, job)) talkMark();
+            talkUnvoice(at, job);
+            talkNext();
         }
     }
     function talkUnvoice(k, job) {
@@ -12197,7 +12202,8 @@ ${ctx || '(none)'}`;
             if (!job.stop && !error?.stop) { T.err = { name, text: '목소리를 만들지 못했습니다. ' + String(error?.message ?? error) }; talkPaint(); }
         } finally {
             T.voices.delete(job);
-            if (talkUnvoice(k, job)) talkMark();
+            talkUnvoice(k, job);
+            talkNext();
         }
     }
 
