@@ -13,17 +13,17 @@
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
     const VERSION = '4.10.0';
-    const DEV_URL = 'https://github.com/daelar99-rgb';   
-    const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';   
-    const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';   
+    const DEV_URL = 'https://github.com/daelar99-rgb';
+    const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
+    const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
     const doc = document;
 
     const DEFAULT_POS = '0.4::artist:solipsist ::, 0.2::artist:ebora ::, 0.8::artist:tianliang duohe fangdongye ::, 0.9::artist:freng ::, 0.9::artist:modare ::, 0.3::artist:balecxi ::, 0.3::artist:miyu ::, 0.2::artist:chamchami (cham22) ::, 1.2::artist:xipa ::, 0.4::artist:satou kukki ::, 0.9::artist:sohn woohyoung ::, 1.2::artist:ryusei hasida ::, 0.8::artist:healthyman ::, 0.8::artist:channel (caststation) ::, 0.8::artist:conto ::, 0.4::artist:mizumizuni ::, 0.6::artist:ie (raarami) ::, 0.5::artist:jp06 ::, 1.2::artist:horikoshi kohei ::, year 2026, year 2025, -5::artist collaboration ::, -1::flat color ::, masterpiece, very aesthetic, highres, incredibly absurdres, best quality, best illustration, 0.4::blender (medium), photorealistic ::, high complexity, glossy cloth, 2::sound effects ::, motion blur, motion lines,';
     const DEFAULT_NEG = 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, fat, muscular, athletic, toned body, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy ::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers ::, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, unrealistic colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background,';
     const DEFAULT_PRESET = { id: 'default', name: '프리셋1 (v5f)', pos: DEFAULT_POS, neg: DEFAULT_NEG };
-    const OLD_DEFAULT_NAME = '기본 작가';   
-    const OLD_PRESET2_NAME = '프리셋2 (v4f)';   
+    const OLD_DEFAULT_NAME = '기본 작가';
+    const OLD_PRESET2_NAME = '프리셋2 (v4f)';
     const PRESET2_POS = '2::artist:imamura ryou::, 1.5::artist:loliconder::, 1.5::artist:shigure s::, 1.5::artist:jabara tornado::, ::artist:teshima nari::, 0.5::artist:kerorira::, ::artist:fellatrix::, 2::artist:meme50 ::, 6::jaggy lines, cel shading, anime coloring::, -2::artist collaboration::, year 2025, year 2024, year 2023, -2::flat color, monochrome, upscaled, blurry::, -2::signature, artist name, artist socials, censored::, highres, absurdres, masterpiece, very aesthetic, best illustration';
     const PRESET2_NEG = 'logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist:xinzoruo, 2::artist:milkpanda::, artist:khyle., artist:bkub, artist:gaoo (frpjx283), 15::artist collaboration::, variant set, large variant set, 4koma, 2koma, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, empty eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, unsatisfactory, displeasing, very displeasing, bad illustration, bad portrait, puckered lips, thick lips, bags under eyes';
     const PRESET2 = { id: 'preset2', name: '프리셋2 (v4.5f)', pos: PRESET2_POS, neg: PRESET2_NEG };
@@ -79,55 +79,55 @@
     const KINDS = [['comic', '만화'], ['illust', '삽화']];
     const DEFAULT_SET = {
         model: 'nai-diffusion-4-5-full',
-        auto: true,          
-        llm: 'submodel',     
-        acLlm: 'submodel',   
-        acPresetId: '',      
-        kind: 'comic',       
-        count: 1,            
-        countMode: 'fixed',  
-        countMin: 2,         
-        countMax: 4,         
-        size: 'tall',        
-        sv: 31,              
+        auto: true,
+        llm: 'submodel',
+        acLlm: 'submodel',
+        acPresetId: '',
+        kind: 'comic',
+        count: 1,
+        countMode: 'fixed',
+        countMin: 2,
+        countMax: 4,
+        size: 'tall',
+        sv: 31,
         bubbles: true,
-        loreMax: 0,          
-        castMax: 0,          
-        userFirst: false,    
-        dynamic: true,       
-        dynMin: 9,           
-        genre: true,         
+        loreMax: 0,
+        castMax: 0,
+        userFirst: false,
+        dynamic: true,
+        dynMin: 9,
+        genre: true,
         steps: 28,
         scale: 5,
         cfgRescale: 0,
         sampler: 'k_euler_ancestral',
-        pc: '480',           
-        mo: '80',            
-        tap: true,           
-        ubtn: 'all',         
-        setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },   
-        assetOff: [],        
-        ptOff: [],           
-        scroll: 'last',      
-        panelBtn: true,      
-        webp: true,          
-        vars: true,          
-        head: '',            
-        extra: '',           
+        pc: '480',
+        mo: '80',
+        tap: true,
+        ubtn: 'all',
+        setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
+        assetOff: [],
+        ptOff: [],
+        scroll: 'last',
+        panelBtn: true,
+        webp: true,
+        vars: true,
+        head: '',
+        extra: '',
     };
 
     const st = {
         set: { ...DEFAULT_SET },
         presets: BUILTIN_PRESETS.map(p => ({ ...p })),
         presetId: ARTIST1.id,
-        view: null,          
+        view: null,
         busy: null,
         lore: null,
         note: '', err: '', ok: false,
         promptOpen: new Set(),
-        drafts: {},          
-        persona: null,       
-        personaFail: '',     
+        drafts: {},
+        persona: null,
+        personaFail: '',
         jobs: 0,
     };
     const castCache = new Map();
@@ -214,7 +214,7 @@
         return Object.assign(new Error('중단했습니다.'), { isStop: true });
     }
 
-    let sizeMoved = false;   
+    let sizeMoved = false;
     async function loadPrefs() {
         const [set, presets, presetId] = await Promise.all([
             api.pluginStorage.getItem('nc:set').catch(() => null),
@@ -1026,7 +1026,7 @@ ${TAG_STYLE}`;
         const was = setupDone();
         st.set = { ...st.set, setup: { ...st.set.setup, [k]: true } };
         saveSet();
-        if (!was && setupDone()) ui.readyAt = Date.now();   
+        if (!was && setupDone()) ui.readyAt = Date.now();
     }
     const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 4, 2);
 
@@ -1056,7 +1056,7 @@ ${TAG_STYLE}`;
         sad: 'melancholy, dim lighting',
         suspense: 'suspense, dramatic lighting, shadow',
         daily: 'slice of life, warm lighting',
-        nsfw: '2::nsfw::',   
+        nsfw: '2::nsfw::',
     };
     const GENRE_RULE = `- genre: the mood of this image (for a comic page: the page as a whole), one of: action (combat, an attack, a chase, a fast dash), romance (flirting, a confession, a kiss, a tender moment), comedy (a gag, a silly reaction), horror (fear, gore, something creepy), sad (grief, tears, loneliness), suspense (tension, a mystery, a threat before it strikes), daily (calm everyday life), nsfw (sexual content, nudity, an explicit or erotic scene; pick it over romance when the image shows any of these), none (unclear or mixed). The app adds that genre's tags itself, so do not write genre or motion tags into scene or tags.`;
     const monoNow = () => st.set.dynamic !== false && [ARTIST3.id, ARTIST4.id].includes(preset()?.id);
@@ -1805,7 +1805,7 @@ Rules
     function dropNegBias(text) {
         const parts = String(text ?? '').split(',');
         const out = [];
-        let open = '';   
+        let open = '';
         for (const raw of parts) {
             const lead = /^\s*/.exec(raw)[0];
             let body = raw.slice(lead.length);
@@ -1816,10 +1816,10 @@ Rules
             const closer = cm ? '::' : '';
             if (cm) body = body.slice(0, cm.index);
             if (NEG_BIAS_TAGS.includes(body.trim().toLowerCase())) {
-                if (opener && closer) continue;                       
-                if (opener) { open = opener; continue; }               
-                if (closer) {                                          
-                    if (open) open = '';                               
+                if (opener && closer) continue;
+                if (opener) { open = opener; continue; }
+                if (closer) {
+                    if (open) open = '';
                     else if (out.length) out[out.length - 1] = out[out.length - 1].replace(/\s*$/, '::');
                     continue;
                 }
@@ -2594,7 +2594,7 @@ Rules
             : e.P + n * e.I + part(e.S);
         return { done, total, e, n, sec };
     }
-    const LORE_STAGES = ['로어북 읽기', '모델 분석', '인물 정리'];   
+    const LORE_STAGES = ['로어북 읽기', '모델 분석', '인물 정리'];
 
     function cancelAll() {
         gen++;
@@ -3131,7 +3131,7 @@ Rules
         await saveRecs(v.chaId, recs);
     }
 
-    const autoSeen = new Map();   
+    const autoSeen = new Map();
     async function onOutput(ev) {
         try {
             if (!st.set.auto || !setupDone() || await retired()) return;
@@ -4370,7 +4370,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         if (st.view && !st.view.hasKey) return ['키 없음', 'bad'];
         if (!setupDone()) return ['준비 전', ''];
         if (st.err || [...failed.values()].some(f => f.chat === st.view?.chatKey)) return ['실패', 'bad'];
-        return null; 
+        return null;
     }
 
     const HEAD_ICON = {
@@ -4444,7 +4444,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 
     async function openLink(url, msg) {
         let w = null;
-        try { w = window.open(url, '_blank'); } catch { }   
+        try { w = window.open(url, '_blank'); } catch { }
         if (w) { try { w.opener = null; } catch { } return; }
         msg.textContent = await copyText(url)
             ? `새 창이 막혀 주소(${url})를 클립보드에 복사했습니다. 브라우저 주소창에 붙여 넣어 주세요.`
@@ -4458,7 +4458,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         return 0;
     };
     async function checkUpdate() {
-        if (upd.checked) return;   
+        if (upd.checked) return;
         try {
             upd.skip = String(await api.pluginStorage.getItem('nc:updSkip').catch(() => '') ?? '');
             const res = await api.nativeFetch(UPDATE_URL, { method: 'GET', headers: { Range: 'bytes=0-512' } });
@@ -4603,7 +4603,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             h('span', null, '그림은 봇의 추가 에셋에 nc_… 이름으로 저장됩니다'));
     }
 
-    const armedKeys = new Map();   
+    const armedKeys = new Map();
     function armButton(label, armedLabel, onFire, cls = 'ix-btn sm warn', key = '') {
         let armed = false, timer = 0, kids = null;
         const arm = ms => {
@@ -4868,7 +4868,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 const type = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]), len = dv.getUint32(p + 4, true);
                 if (type === 'EXIF') {
                     let d = b.subarray(p + 8, p + 8 + len);
-                    if (d[0] === 0x45 && d[1] === 0x78 && d[4] === 0 && d[5] === 0) d = d.subarray(6);   
+                    if (d[0] === 0x45 && d[1] === 0x78 && d[4] === 0 && d[5] === 0) d = d.subarray(6);
                     return tiffTexts(d);
                 }
                 p += 8 + len + (len & 1);
@@ -4931,7 +4931,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             if (sig === 'stealth_pngcomp') data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
             const text = new TextDecoder().decode(data);
             let j;
-            try { j = JSON.parse(text); } catch { return { parameters: text }; }   
+            try { j = JSON.parse(text); } catch { return { parameters: text }; }
             if (!j || typeof j !== 'object') return {};
             const out = {};
             for (const k of ['Description', 'Software', 'Source']) if (typeof j[k] === 'string') out[k] = j[k];
@@ -5229,7 +5229,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             renderNow();
             let reply = '';
             try { reply = await requestModel(PICK_SYS, s.prompt, true, st.set.llm); } catch (error) { s.err = String(error?.message || error); }
-            if (ui.scan !== s) return;   
+            if (ui.scan !== s) return;
             s.reply = reply;
             Object.assign(s, parsePicks(reply, list));
             await analyze(s, s.picks, s.fallback ? 'fallback' : 'model');
@@ -5244,7 +5244,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 s.group = r.g; s.src = { name: a.name, why: s.picks.find(p => p.name === a.name)?.why || '', via: 'user' };
                 s.phase = 'done'; s.choose = false;
                 autoAdd(r.g, s);
-            } else { noteTry(s, a.name, r.why); s.msg = failMsg(a, r); s.phase = back; s.choose = false; }   
+            } else { noteTry(s, a.name, r.why); s.msg = failMsg(a, r); s.phase = back; s.choose = false; }
             renderNow();
         }
         const isImg = f => /^image\/(png|webp|jpeg)$/.test(f.type) || /\.(png|webp|jpe?g)$/i.test(f.name);
@@ -5263,7 +5263,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 else f.bad[info.kind === 'none' || info.kind === 'other' ? info.kind : 'broken'].push(name);
                 f.n++;
             }
-            if (ui.files !== f) return;   
+            if (ui.files !== f) return;
             const groups = groupStyles(srcs);
             if (groups[0]) {
                 f.cleaning = true; renderNow();
@@ -5377,7 +5377,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         }
         const clearBtn = (title, onclick) => h('button', { class: 'ps-clr', type: 'button', title, onclick }, '결과 지우기');
         function botParts() {
-            if (ui.scan && ui.scan.chaId !== st.view?.chaId) ui.scan = null;   
+            if (ui.scan && ui.scan.chaId !== st.view?.chaId) ui.scan = null;
             const s = ui.scan, n = usable().length, out = { tiles: [], tray: [] };
             if (!n) return out;
             out.tiles.push(askTile(`「${botName()}」 그림체 가져오기`, `에셋 ${n}장 중 인물 그림 하나로`, startScan, '에셋에서 그림체 찾기'));
@@ -5393,7 +5393,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                     : [`모델이 고른 ${s.picks.map(p => `「${p.name}」`).join(' · ')}에서 `, h('span', { class: 'ps-miss', style: 'color:var(--bad)' }, '쓸 수 있는 인물 그림을 찾지 못했습니다.'), ' 「다른 에셋으로」를 눌러 다른 에셋을 골라 보세요.'],
                 h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', 'aria-expanded': s.choose ? 'true' : 'false', onclick: () => { s.choose = !s.choose; if (!s.choose) s.msg = ''; renderNow(); } }, s.choose ? '고르기 닫기' : '다른 에셋으로'),
                 clearBtn('이 결과로 넣은 그림체를 목록에서 뺍니다', () => { dropAdds(ui.scan); ui.scan = null; renderNow(); })));
-            out.tray.push(msgBox(s));   
+            out.tray.push(msgBox(s));
             if (s.choose) out.tray.push(assetGrid(s, a => pickOther(s, a), s.src?.name, '누르면 그 그림을 바로 읽어 그림체를 하나 더 넣습니다'));
             out.tray.push(scanBox(s), cleanBox(g?.clean));
             return out;
@@ -5519,11 +5519,11 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
         const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count];
-        const cur = done.indexOf(false);   
+        const cur = done.indexOf(false);
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
-        if (v.hasKey) void acAnlas();   
-        const END = 7;   
+        if (v.hasKey) void acAnlas();
+        const END = 7;
         const step = (n, title, sum, body) => {
             const state = n === END ? (cur < 0 ? 'done' : 'lock') : stateOf(n - 1);
             let bd = null;
@@ -6298,7 +6298,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         const tail = SA.tailParts();
         const toIllust = () => {
             ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; ui.menu = ''; acs.menu = '';
-            if (st.set.setup?.preset && !st.busy) ui.reopen = 5;   
+            if (st.set.setup?.preset && !st.busy) ui.reopen = 5;
             renderNow();
         };
         const toAsset = () => {
@@ -6759,7 +6759,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         for (const line of lines) {
             const key = keyOf(line);
             if (!Object.prototype.hasOwnProperty.call(values, key)) { out.push(line); continue; }
-            if (!seen.has(key)) out.push(key + '=' + values[key]);   
+            if (!seen.has(key)) out.push(key + '=' + values[key]);
             seen.add(key);
         }
         const add = Object.keys(values).filter(k => !seen.has(k)).map(k => k + '=' + values[k]);
@@ -7942,13 +7942,13 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const AC_HUES = ['#3d5afe', '#c2185b', '#00897b', '#ef6c00', '#7b1fa2', '#2e7d32', '#0277bd', '#6d4c41'];
     const acInitial = s => ([...String(s || '?').trim()][0] ?? '?').toUpperCase();
     const AC_VIEW_DEF = '2::cowboy shot::, standing, looking at viewer';
-    const AC_VIEW_OLD = ['cowboy shot, standing, looking at viewer'];   
+    const AC_VIEW_OLD = ['cowboy shot, standing, looking at viewer'];
     const AC_AST = () => ({
         picked: null, outfits: null, extra: [], botOutfits: null, count: 10, custom: null, customText: '', special: null, specials: [], why: '', ref: true, view: AC_VIEW_DEF,
         gn: '', gnEdited: false, step: 1, edits: {}, refName: {}, slugs: {}, slugBy: {}, enNames: {}, asked: false, made: [],
-        prompts: {},   
-        refOf: {},     
-        spKeys: [],    
+        prompts: {},
+        refOf: {},
+        spKeys: [],
     });
     const astCache = new Map();
     const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -8005,9 +8005,9 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         an: null, anAt: 0, anBusy: false, anErr: '', anShow: false, anFlash: false, quota: null, anT0: 0,
         refs: new Map(), times: [], timer: 0, fail: new Map(), menu: '', who: '', outfit: '', adv: false, trErr: '', lw: 'all',
         reopen: 0, reopenCha: '', llmOpen: false,
-        ren: false,   
-        sp: false, spAt: 0, spErr: '',   
-        fOpen: false, mOpen: false, finAt: 0,   
+        ren: false,
+        sp: false, spAt: 0, spErr: '',
+        fOpen: false, mOpen: false, finAt: 0,
     };
 
     const acCast = () => (st.view?.cast?.list ?? []).filter(e => e && e.on !== false);
@@ -8270,7 +8270,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             const ci = await api.getCurrentCharacterIndex();
             const now = await api.getCharacterFromIndex(ci);
             if (now?.chaId !== run.chaId) throw Object.assign(new Error('봇이 바뀌어 멈췄습니다. 이 봇의 채팅으로 돌아와 애드 에셋을 다시 누르면 남은 칸부터 그립니다.'), { moved: true });
-            run.ci = ci;   
+            run.ci = ci;
             run.cur = t;
             run.curAt = Date.now();
             render();
@@ -8331,7 +8331,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             const names = [...new Set(run.tasks.map(t => t.e.name))];
             const hv = acHave.get(run.chaId) ?? new Map(), all = st.view?.chaId === run.chaId && acPlan(a).every(t => hv.has(t.name));
             acs.msg = run.single ? `${run.tasks[0].name}을(를) 다시 그렸습니다.`
-                : all ? ''   
+                : all ? ''
                 : `애드 에셋을 마쳤습니다. ${names.join(' · ')} ${names.length}명, ${run.n}장을 봇에 넣고 인물마다 로어북 「외형」 · 「에셋」을 썼습니다.`;
             if (note === 'put' && acs.msg && !run.single) acs.msg += ' 글로벌노트에 에셋 목록을 넣었습니다.';
             if (all && !run.single) acs.finAt = Date.now();
@@ -8915,7 +8915,7 @@ Rules:
         renderNow();
         if (m === 'asset') void acAnlas();
         if (m === 'voice' && was !== 'voice') voice.onOpen().catch(error => console.warn(LOG, 'voice open', error)).finally(renderNow);
-    }    
+    }
     const acListNames = a => { const have = acHas(); return a ? a.made.filter(n => have.has(n)) : []; };
     const AC_TABS = [
         ['make', () => '준비'],
@@ -8991,7 +8991,7 @@ Rules:
         const noSp = a.count === 1;
         const hasSp = a.count !== 1 && a.count !== 'custom';
         if (noSp && a.step === 4) a.step = 5;
-        const shown = n => (noSp && n > 4 ? n - 1 : n) + 1;   
+        const shown = n => (noSp && n > 4 ? n - 1 : n) + 1;
         const cs = acPicked(a), os = acOutfits(a), emos = acEmos(a), sp = acSpecial(a);
         const plan = acPlan(a), have = acHas(), left = plan.filter(t => !have.has(t.name));
         if (run) { a.step = 8; acs.reopen = 0; }
@@ -9518,7 +9518,7 @@ Rules:
             const cur = acs.run?.cur?.name === t.n && !acs.run.stop;
             const item = (label, small, fn, cls) => h('button', { type: 'button', class: cls, onclick: () => { acs.menu = ''; fn(); } }, h('b', null, label), h('small', null, small));
             const task = open ? acTaskOf(a, g.e, g.slug, t.n) : null;
-            const refN = task ? acRefPick(a, task, acHas()) : null;   
+            const refN = task ? acRefPick(a, task, acHas()) : null;
             const menu = open ? h('div', { class: 'menu as-menu', role: 'menu' },
                 item('크게 보기', '그림을 크게 엽니다', () => { renderNow(); void showBig(t.path); }),
                 task ? item('🔁 다시 그리기', `${a.prompts[t.n] ? '고친 프롬프트' : '같은 프롬프트'} · ${refN ? `레퍼런스 ${refN} 넣어` : '레퍼런스 없이'} 이 한 장만 새로`, () => { if (!acStart(a, [task], true)) say('지금은 그릴 수 없습니다. 다른 그림을 다 그린 뒤에 눌러 주세요.', false); }) : null,
@@ -9740,7 +9740,7 @@ Rules:
     const isLib = v => /^[a-z]{2}-[a-z]{2}-/.test(String(v ?? ''));
     const LIB_LANGS = ['ko-kr-', 'ja-jp-'];
     const LIB_TTL = 24 * 3600 * 1000;
-    const LIB_PAGES = 42; 
+    const LIB_PAGES = 42;
     const LIB_MODEL = 'gemini-3.8-flash-tts';
     const RATE = 24000;
     const TEXT_BYTES = 3800;
@@ -10000,7 +10000,7 @@ Rules:
         await loadLib();
         if (lib.busy || (!force && lib.voices && Date.now() - lib.at < LIB_TTL)) return lib.voices;
         Object.assign(lib, { busy: true, page: 0, err: '' });
-        onPage(0); 
+        onPage(0);
         try {
             const { token, project } = await accessToken();
             if (!project) throw new Error('키 JSON 에 project_id 가 없어 목소리 목록을 받을 수 없습니다.');
@@ -12972,7 +12972,7 @@ ${ctx || '(none)'}`;
   .gt .vn-tr{right:8px;top:8px;gap:6px}
   .gt .vn-dock{gap:4px;padding:6px 7px;bottom:10px}
   .gt .vn-di{width:30px}
-  .gt .vn-di span{display:none}
+  .gt .vn-di>span{display:none}
   .gt .vn-di i{width:30px;height:30px;border-radius:10px}
   .gt .vn-vsep{margin:3px 1px}
   .gt .vn-col{padding:14px 12px 18px;gap:14px}
