@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v4.6.1
+//@display-name 🎨 이매진 v4.7.0
 //@api 3.0
-//@version 4.6.1
+//@version 4.7.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '4.6.1';
+    const VERSION = '4.7.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3618,7 +3618,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix-word{flex:none;font:italic 900 25px/1 "Segoe UI","Arial Black",Arial,sans-serif;letter-spacing:.6px;color:#fff}
 .ix-mos{display:flex;gap:12px;flex:1 1 auto;min-width:0}
 .ix .ix-mo{flex:0 1 230px;display:flex;align-items:center;gap:12px;min-width:0;height:56px;padding:0 14px;text-align:left;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-radius:12px;transition:background .15s,box-shadow .2s var(--ease-out),transform .2s var(--ease-out)}
-.ix .ix-mo:hover:not(:disabled){background:rgba(255,255,255,.24);transform:translateY(-1px)}
+.ix .ix-mo:hover:not(:disabled):not(.on){background:rgba(255,255,255,.24);transform:translateY(-1px)}
 .ix .ix-mo:disabled{opacity:.5;cursor:not-allowed}
 .ix-mo .bx{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.2)}
 .ix-mo .bx .hi{width:20px;height:20px}
@@ -3651,7 +3651,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix .ix-band .ix-x:hover{background:#e9f5ff}
 .ix-fts{display:flex;align-items:flex-end;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
 .ix .ix-ftab{flex:none;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 22px;white-space:nowrap;font-size:14px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);border:0;border-radius:12px 12px 0 0;transition:background .15s}
-.ix .ix-ftab:hover{background:rgba(255,255,255,.26)}
+.ix .ix-ftab:hover:not(.on){background:rgba(255,255,255,.26)}
 .ix .ix-ftab.on{color:#1f2d45;background:var(--paper)}
 .ix .ix-ftab.sd{padding:0 16px;font-weight:700}
 .ix-ftab.sd0{margin-left:auto}
@@ -3659,16 +3659,16 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix-ftab .cnt{padding:0 6px;font-style:normal;font-size:.7rem;font-weight:800;color:#fff;background:rgba(255,255,255,.24);border-radius:9px}
 .ix-ftab.on .cnt{color:#fff;background:var(--mc)}
 .ix-pane{min-width:0;padding:22px 28px 24px}
-.ix-pane.anim>*{animation:ix-rise .5s var(--ease-out) backwards}
-.ix-pane.anim>:nth-child(2){animation-delay:.05s}
-.ix-pane.anim>:nth-child(3){animation-delay:.1s}
-.ix-pane.anim>:nth-child(4){animation-delay:.15s}
-.ix-pane.anim>:nth-child(5){animation-delay:.2s}
-.ix-pane.anim>:nth-child(6){animation-delay:.25s}
-.ix-pane.anim>:nth-child(7){animation-delay:.3s}
-.ix-pane.anim>:nth-child(8){animation-delay:.35s}
-.ix-pane.anim>:nth-child(9){animation-delay:.4s}
-.ix-pane.anim>:nth-child(n+10){animation-delay:.45s}
+.ix-pane.anim>*{animation:ix-rise .5s var(--ease-out) backwards;animation-delay:var(--ae,0ms)}
+.ix-pane.anim>:nth-child(2){animation-delay:calc(var(--ae,0ms) + .05s)}
+.ix-pane.anim>:nth-child(3){animation-delay:calc(var(--ae,0ms) + .1s)}
+.ix-pane.anim>:nth-child(4){animation-delay:calc(var(--ae,0ms) + .15s)}
+.ix-pane.anim>:nth-child(5){animation-delay:calc(var(--ae,0ms) + .2s)}
+.ix-pane.anim>:nth-child(6){animation-delay:calc(var(--ae,0ms) + .25s)}
+.ix-pane.anim>:nth-child(7){animation-delay:calc(var(--ae,0ms) + .3s)}
+.ix-pane.anim>:nth-child(8){animation-delay:calc(var(--ae,0ms) + .35s)}
+.ix-pane.anim>:nth-child(9){animation-delay:calc(var(--ae,0ms) + .4s)}
+.ix-pane.anim>:nth-child(n+10){animation-delay:calc(var(--ae,0ms) + .45s)}
 @keyframes ix-rise{from{opacity:0;transform:translateY(10px)}}
 .ix-hint{font-size:.76rem;color:var(--muted)}
 .ix .ix-intro{margin:0 0 34px;padding:7px 12px;font-size:.8rem;line-height:1.5;color:var(--ink);background:var(--paper2);border-left:3px solid var(--line2)}
@@ -4284,14 +4284,15 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     }
 
     let voice = null;
-    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', vtab: 'ready', side: '', lastTab: null, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
+    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', vtab: 'ready', side: '', lastTab: null, animAt: 0, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
     const galCount = () => { const v = st.view; return v ? Object.values(v.recs).filter(r => r.chat === v.chatKey).reduce((n, r) => n + (r.images?.length ?? 0), 0) : 0; };
     const TABS = [
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
         ['gallery', () => ['삽화 목록', galCount() ? h('em', { class: 'cnt' }, galCount()) : null]],
     ];
     const SIDE_TABS = [['cast', '등장인물'], ['style', '그림체'], ['set', '설정']];
-    const VTABS = [['ready', () => '준비'], ['talk', () => '대화'], ['cast', () => '등장인물'], ['voices', () => '목소리'], ['set', () => '설정']];
+    const VTABS = [['ready', () => ['준비', voice?.ready?.() ? h('em', { class: 'cnt' }, '✓') : null]], ['talk', () => '대화']];
+    const VSIDE = [['cast', '등장인물'], ['voices', '목소리'], ['set', '설정']];
     const MODES = [['imagine', '삽화'], ['asset', '애드 에셋'], ['voice', '음성']];
 
     function render() {
@@ -4310,7 +4311,9 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         ui.lastTab = now;
         if (ui.side === 'upd' && !updOn()) ui.side = '';
         const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset())) : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady());
-        if (anim) pane.classList.add('anim');
+        if (anim) ui.animAt = Date.now();
+        const ae = Date.now() - ui.animAt;
+        if (ae < 1000) { pane.classList.add('anim'); pane.style.setProperty('--ae', -ae + 'ms'); }
         const lb = ui.root.querySelector(':scope > .lb');
         const vn = ui.mode === 'voice' && ui.vtab === 'talk' && !ui.side;
         ui.root.classList.toggle('vn-on', vn);
@@ -4349,6 +4352,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         asset: '<circle cx="12" cy="7.5" r="3.5"/><path d="M5 21v-2.5A4.5 4.5 0 0 1 9.5 14h5a4.5 4.5 0 0 1 4.5 4.5V21"/><path d="M19 3v4M17 5h4"/>',
         upd: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>',
         voice: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
+        mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/>',
     };
     function headIcon(k) {
         const el = h('span', { class: 'hi', 'aria-hidden': 'true' });
@@ -4383,9 +4387,12 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 if (voiceOn) ui.vtab = id; else if (asset) ui.atab = id; else ui.tab = id;
                 ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
             })),
-            voiceOn ? null : SIDE_TABS.map(([id, label], i) => tab(ui.side === id, [headIcon(id), label], () => {
-                ui.side = id; ui.menu = ''; acs.menu = ''; renderNow();
-            }, i ? ' sd' : ' sd sd0')));
+            voiceOn ? VSIDE.map(([id, label], i) => tab(!ui.side && ui.vtab === id, [headIcon(id === 'voices' ? 'mic' : id), label], () => {
+                ui.vtab = id; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow();
+            }, i ? ' sd' : ' sd sd0'))
+                : SIDE_TABS.map(([id, label], i) => tab(ui.side === id, [headIcon(id), label], () => {
+                    ui.side = id; ui.menu = ''; acs.menu = ''; renderNow();
+                }, i ? ' sd' : ' sd sd0')));
     }
     async function copyText(text) {
         try { await navigator.clipboard.writeText(text); return true; } catch { }
@@ -11142,11 +11149,14 @@ ${ctx || '(none)'}`;
 .gt .gt-x.sm{width:22px;height:22px;font-size:.9rem}
 .gt-pane{min-width:0;padding:18px}
 .gt-pane.talk{padding:0}
-.gt-pane.anim>*{animation:gt-rise .5s var(--ease-out) backwards}
-.gt-pane.anim>:nth-child(2){animation-delay:.05s}
-.gt-pane.anim>:nth-child(3){animation-delay:.1s}
-.gt-pane.anim>:nth-child(4){animation-delay:.15s}
-.gt-pane.anim>:nth-child(n+5){animation-delay:.2s}
+/* 4.7.0: 탭을 열 때 칸이 차례로 떠오른다. 대화(.talk)는 무대라 빼고, 준비(.vz)는 단계 목록 · 본문 두 칸이 떠오른다 */
+.gt.anim>.gt-pane:not(.talk)>:not(.vz),.gt.anim>.gt-pane>.vz>*{animation:gt-rise .5s var(--ease-out) backwards;animation-delay:var(--ae,0ms)}
+.gt.anim>.gt-pane:not(.talk)>:not(.vz):nth-child(2),.gt.anim>.gt-pane>.vz>*:nth-child(2){animation-delay:calc(var(--ae,0ms) + .05s)}
+.gt.anim>.gt-pane:not(.talk)>:not(.vz):nth-child(3),.gt.anim>.gt-pane>.vz>*:nth-child(3){animation-delay:calc(var(--ae,0ms) + .1s)}
+.gt.anim>.gt-pane:not(.talk)>:not(.vz):nth-child(4),.gt.anim>.gt-pane>.vz>*:nth-child(4){animation-delay:calc(var(--ae,0ms) + .15s)}
+.gt.anim>.gt-pane:not(.talk)>:not(.vz):nth-child(5),.gt.anim>.gt-pane>.vz>*:nth-child(5){animation-delay:calc(var(--ae,0ms) + .2s)}
+.gt.anim>.gt-pane:not(.talk)>:not(.vz):nth-child(6),.gt.anim>.gt-pane>.vz>*:nth-child(6){animation-delay:calc(var(--ae,0ms) + .25s)}
+.gt.anim>.gt-pane:not(.talk)>:not(.vz):nth-child(n+7),.gt.anim>.gt-pane>.vz>*:nth-child(n+7){animation-delay:calc(var(--ae,0ms) + .3s)}
 @keyframes gt-rise{from{opacity:0;transform:translateY(10px)}}
 .gt-hint{font-size:.76rem;color:var(--muted)}
 .gt .gt-intro{margin:0 0 22px;padding:8px 13px;font-size:.8rem;line-height:1.55;color:var(--ink);background:var(--paper2);border-left:3px solid var(--line2)}
@@ -11201,7 +11211,8 @@ ${ctx || '(none)'}`;
 .vf-seg.sm button{min-height:32px;padding:0 10px}
 .gt-who{flex:0 0 7em;min-width:0;font-size:.9rem;font-weight:700}
 .gt-who small{display:block;margin-top:2px;font-size:.72rem;font-weight:400;color:var(--muted);overflow-wrap:anywhere}
-.gt-vs{flex:0 1 150px}
+.gt .gt-vbtn{flex:0 1 190px;min-width:0;justify-content:space-between}
+.gt-vbtn>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .vf-row .gt-st{flex:1 1 100%}
 .gt-pk{flex:1 1 100%;display:flex;flex-direction:column;gap:8px;padding:10px;background:var(--paper2);border:1px solid var(--line)}
 .gt-pk-bar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
@@ -11301,13 +11312,17 @@ ${ctx || '(none)'}`;
 .gt .tk-send{flex:none;display:grid;place-items:center;width:42px;height:42px;padding:0;font-size:1.15rem;font-weight:700;color:#fff;background:var(--accent);border:0;border-radius:50%;box-shadow:0 10px 18px -10px var(--glow);transition:transform .15s,opacity .15s}
 .gt .tk-send:hover:not(:disabled){transform:translateY(-2px)}
 .gt .tk-send:disabled{opacity:.4;cursor:not-allowed}
-.vu-steps{display:flex;flex-direction:column;gap:12px}
-.vu-step{display:flex;flex-direction:column;min-width:0;background:var(--card);border:1px solid var(--line)}
-.vu-cap{display:flex;align-items:flex-start;gap:9px;min-height:54px;padding:10px 11px;font-size:.8rem;line-height:1.45}
-.vu-cap b{color:var(--ink)}
-.vu-cap small{display:block;margin-top:2px;font-size:.7rem;color:var(--muted)}
-.vu-n{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;font-size:.78rem;font-weight:800;color:#1b1b1b;background:#fbbf24}
-.vu-fig{position:relative;flex:1 1 auto;display:flex;min-height:190px;overflow:hidden;color:#e6e7ee;background:#1f2029;font-size:.72rem;line-height:1.3}
+.vu-steps{display:flex;flex-direction:column;gap:26px}
+.vu-step{position:relative;display:flex;flex-direction:column;min-width:0;background:var(--card);border:1px solid var(--line2);border-radius:14px;box-shadow:0 1px 2px rgba(31,45,69,.06),0 8px 20px -10px rgba(31,45,69,.28)}
+.vu-step+.vu-step::before{content:"";position:absolute;left:27px;top:-27px;width:2px;height:26px;background:repeating-linear-gradient(180deg,var(--line2) 0 4px,transparent 4px 8px)}
+.vu-cap{display:flex;align-items:flex-start;gap:11px;padding:13px 16px;font-size:.84rem;line-height:1.45;color:var(--ink);background:var(--soft);border-bottom:1px solid var(--line);border-radius:13px 13px 0 0}
+.vu-cap>div{flex:1 1 auto;min-width:0}
+.vu-cap b{font-weight:800}
+.vu-cap small{display:block;margin-top:3px;font-size:.74rem;line-height:1.55;color:var(--muted)}
+.vu-n{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-size:.78rem;font-weight:800;color:#fff;background:var(--accent);box-shadow:0 0 0 3px #fff}
+/* 4.7.0: 그림 오른쪽 · 아래에 여백을 두어 커서(.vu-cur)가 잘리지 않는다 */
+.vu-fig{position:relative;flex:1 1 auto;display:flex;min-height:190px;padding:16px 28px 30px 16px;font-size:.72rem;line-height:1.3;background:#eef2f7;border-radius:0 0 13px 13px}
+.vu-fig>*{box-shadow:0 0 0 1px #cfd8e3,0 10px 24px -14px rgba(31,45,69,.5)}
 .vu-hit{position:relative;display:inline-flex;outline:2px solid #fbbf24;outline-offset:3px;animation:vu-ring 1.4s ease-in-out infinite}
 @keyframes vu-ring{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,.55)}50%{box-shadow:0 0 0 9px rgba(251,191,36,0)}}
 .vu-cur{position:absolute;right:-15px;bottom:-19px;z-index:2;width:20px;height:20px;pointer-events:none}
@@ -11315,8 +11330,12 @@ ${ctx || '(none)'}`;
 .vu-after{margin-top:14px;padding:11px 14px;font-size:.78rem;line-height:1.55;background:var(--paper2);border-left:3px solid #fbbf24}
 .vu-after ul{margin:5px 0 0;padding-left:18px}
 .vu-after li+li{margin-top:3px}
-.vu-link{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 0}
-.vu-link .vf-in{font-size:.76rem;color:var(--muted)}
+.vu-link{display:flex;gap:8px;margin:8px 0 0}
+.vu-link .vf-in{flex:1 1 auto;min-width:0;font-size:.76rem;color:var(--muted)}
+.vg-url{flex:none;display:flex;align-items:center;gap:5px;height:30px;padding:0 8px;background:#dee3ea}
+.vg-url i{flex:none;width:8px;height:8px;border-radius:50%;background:#b8c0cc}
+.vg-url span{flex:1 1 auto;min-width:0;display:flex;align-items:center;height:20px;margin-left:4px;padding:0 9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:#3c4043;background:#fff;border-radius:10px;outline:2px dashed var(--accent);outline-offset:1px}
+.vg-url em{flex:none;padding:2px 8px;font-style:normal;font-size:.64rem;font-weight:800;color:#fff;background:var(--accent);border-radius:9px}
 .vg{position:relative;flex:1 1 auto;display:flex;flex-direction:column;min-width:0;color:#202124;background:#fff;font-size:.72rem;line-height:1.4}
 .vg-top{flex:none;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;background:#fff;border-bottom:1px solid #dadce0}
 .vg-ham{display:inline-flex;flex-direction:column;justify-content:center;gap:2px;width:14px;height:14px}
@@ -11328,7 +11347,7 @@ ${ctx || '(none)'}`;
 .vg-nav{flex:none;display:flex;flex-direction:column;gap:2px;width:118px;padding:8px 0;background:#fff;border-right:1px solid #dadce0}
 .vg-nav span{padding:3px 10px;color:#5f6368;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .vg-nav span.on{font-weight:700;color:#1967d2;background:#e8f0fe}
-.vg-body{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;min-width:0;padding:10px 14px}
+.vg-body{flex:1 1 auto;display:flex;flex-direction:column;gap:8px;min-width:0;padding:10px 14px 16px}
 .vg-h{font-size:.92rem;font-weight:700;color:#202124}
 .vg-sub{color:#5f6368}
 .vg-crumb{color:#1a73e8;font-weight:600}
@@ -11346,8 +11365,8 @@ ${ctx || '(none)'}`;
 .vg-note{font-size:.64rem;color:#5f6368}
 .vg-note em{font-style:normal;font-weight:700;color:#1a73e8}
 .vg-warn{padding:5px 8px;color:#3c4043;background:#fef7e0;border-left:3px solid #f9ab00}
-.vg-dim{flex:1 1 auto;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(32,33,36,.5)}
-.vg-dlg{display:flex;flex-direction:column;gap:7px;width:100%;max-width:420px;padding:10px 12px;color:#202124;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.35)}
+.vg-dim{flex:1 1 auto;display:flex;align-items:center;justify-content:center;padding:14px 14px 22px;background:rgba(32,33,36,.5)}
+.vg-dlg{display:flex;flex-direction:column;gap:7px;width:100%;max-width:420px;padding:10px 12px 14px;color:#202124;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.35)}
 .vg-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
 .vg-tbl{display:grid;grid-template-columns:2fr 1fr 1.4fr;border-top:1px solid #dadce0}
 .vg-tbl span{padding:3px 4px;border-bottom:1px solid #dadce0}
@@ -11355,6 +11374,7 @@ ${ctx || '(none)'}`;
 .vg-tbl i{display:block;height:7px;margin:2px 0;background:#e8eaed}
 .vg-hex{flex:none;width:30px;height:30px;background:#1a73e8;clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
 .vg-api{display:flex;align-items:center;gap:10px}
+.vg-api>div{display:flex;flex-direction:column}
 .vg-menu{display:flex;flex-direction:column;align-self:flex-start;min-width:120px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.3)}
 .vg-menu span{padding:4px 10px}
 .vg-rad{display:flex;gap:14px}
@@ -11380,8 +11400,11 @@ ${ctx || '(none)'}`;
 .rs-row b{font-size:.78rem}
 .rs-btn{display:inline-flex;align-items:center;padding:3px 10px;font-weight:700;color:#fff;background:#3d5afe}
 .rs-btn.l{color:#2b2f36;font-weight:400;background:#fff;border:1px solid #bfc5cf}
+.gt .vu-fig .rs-row{padding-bottom:26px}
 @media (max-width:600px){
   .gt-pane{padding:12px}
+  .vu-fig{padding:12px 22px 28px 12px}
+  .vu-link{flex-wrap:wrap}
   .vg-nav{width:84px}
   .gt-who{flex:1 1 100%}
   .tk{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);height:calc(100vh - 190px);min-height:440px}
@@ -11399,9 +11422,7 @@ ${ctx || '(none)'}`;
   .tk-log{padding:12px 10px 10px}
   .tk-col,.tk-line.me .tk-row{max-width:86%}
 }
-@media (prefers-reduced-motion:reduce){
-  .gt *,.gt *::before{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition:none !important}
-}
+/* 4.7.0: 움직임 줄이기 설정에서도 삽화 탭처럼 탭 애니메이션 · 호버 페이드를 보인다 (사용자 결정, 전체 끄기 규칙 삭제) */
 `;
     function h(tagName, props, ...children) {
         const el = doc.createElement(tagName);
@@ -11425,16 +11446,10 @@ ${ctx || '(none)'}`;
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
-    function voiceSelect(value, onchange) {
-        return h('select', { class: 'vf-in gt-vs', onchange: e => onchange(e.target.value) },
-            isLib(value) ? h('optgroup', { label: '라이브러리 (3.8)' }, h('option', { value, selected: true }, voiceLabel(value))) : null,
-            h('optgroup', { label: '여성' }, FEMALE.map(v => h('option', { value: v, selected: v === value }, v))),
-            h('optgroup', { label: '남성' }, MALE.map(v => h('option', { value: v, selected: v === value }, v))));
-    }
     function voiceField(key, value, onchange) {
         const open = ui.pick?.key === key;
-        return [voiceSelect(value, onchange),
-            h('button', { class: open ? 'gt-b sm main' : 'gt-b sm', type: 'button', 'aria-expanded': String(open), onclick: () => openPick(key, value, onchange) }, '라이브러리')];
+        return h('button', { class: open ? 'gt-b sm main gt-vbtn' : 'gt-b sm gt-vbtn', type: 'button', 'aria-expanded': String(open), onclick: () => openPick(key, value, onchange) },
+            h('span', null, voiceLabel(value)), ' ▾');
     }
     function openPick(key, value, onchange) {
         if (ui.pick?.key === key) { ui.pick = null; render(); return; }
@@ -11449,21 +11464,23 @@ ${ctx || '(none)'}`;
         await p;
         render();
     }
+    const BASE_CAT = '기본 목소리';
     function pickItems() {
         const p = ui.pick;
         const q = p.q.trim().toLowerCase();
-        const hits = (lib.voices ?? []).filter(v => v.lang === p.lang && (!p.gender || v.gender === p.gender) && (!p.accent || v.accent === p.accent)
-            && (!q || [v.name, v.cat, v.role, v.desc, v.id, accentKo(v.accent)].join(' ').toLowerCase().includes(q)));
+        const base = [...FEMALE, ...MALE].map(id => ({ id, name: id, gender: FEMALE.includes(id) ? 'female' : 'male', desc: BASE_DESC[id] ?? '', base: true, accent: '', cat: BASE_CAT }));
+        const hits = [...(p.accent ? [] : base), ...(lib.voices ?? []).filter(v => v.lang === p.lang)].filter(v => (!p.gender || v.gender === p.gender) && (!p.accent || v.accent === p.accent)
+            && (!q || [v.name, v.cat, v.role, v.desc, v.id, v.base ? '' : accentKo(v.accent)].join(' ').toLowerCase().includes(q)));
         if (!hits.length) return [h('div', { class: 'gt-hint gt-pk-none' }, lib.voices ? '맞는 목소리가 없습니다.'
             : lib.busy ? '목록을 받으면 여기에 보입니다. 처음 한 번만 기다리면 되고, 그 뒤 하루 동안은 바로 열립니다.' : '목록이 아직 없습니다.')];
-        const cats = [...new Set(hits.map(v => v.cat))].sort();
+        const cats = [...new Set(hits.map(v => v.cat))].sort((a, b) => (b === BASE_CAT) - (a === BASE_CAT) || String(a).localeCompare(String(b)));
         const sex = { male: '남', female: '여', neutral: '중성' };
         return cats.map(c => h('div', { class: 'gt-pk-cat' }, h('b', null, `${c || '기타'} · ${hits.filter(v => v.cat === c).length}`),
             hits.filter(v => v.cat === c).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(v => h('div', { class: 'gt-pk-it' },
                 h('button', { class: 'gt-pk-pick', type: 'button', title: v.id, onclick: () => { const fn = p.onchange; ui.pick = null; fn(v.id); render(); } },
-                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
-                    h('span', { class: 'gt-pk-ds' }, v.desc)),
-                h('button', { class: 'gt-b sm', type: 'button', title: '미리 듣기', disabled: ui.preview?.busy, onclick: () => void preview(v.id, '') }, '▶')))));
+                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, v.base ? ` ${sex[v.gender]} · ${v.desc}` : ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
+                    v.base ? null : h('span', { class: 'gt-pk-ds' }, v.desc)),
+                h('button', { class: 'gt-b sm', type: 'button', title: '미리 듣기', 'data-pv': '', disabled: ui.preview?.busy, onclick: () => void preview(v.id, '') }, '▶')))));
     }
     function libLoad() {
         const el = h('div', { class: 'gt-pk-load', role: 'progressbar', 'aria-label': '목소리 목록 받기', 'aria-valuemin': '0', 'aria-valuemax': '100' },
@@ -11559,18 +11576,26 @@ ${ctx || '(none)'}`;
     }
     async function preview(voice, prompt) {
         ui.preview = { voice, busy: true, src: '' };
-        render();
+        paintPreview();
         try {
             const text = /^ja-/.test(voice) ? 'こんにちは。この声で物語を読み上げますね。' : '안녕하세요. 이 목소리로 이야기를 읽어 드릴게요.';
             const pcm = await synth({ voice, text, prompt, turns: [] });
             ui.preview = { voice, busy: false, src: 'data:audio/wav;base64,' + b64(wavOf([pcm])) };
-            ui.msg = '';
+            if (ui.msg) { ui.msg = ''; render(); } else paintPreview();
         } catch (error) {
             ui.preview = null;
             ui.msg = String(error?.message ?? error);
             ui.ok = false;
+            render();
         }
-        render();
+    }
+    function paintPreview() {
+        const root = ui.root;
+        if (!root?.isConnected) { render(); return; }
+        root.classList.toggle('gt-pvon', !!ui.preview);
+        const old = root.querySelector(':scope > .gt-pv'), bar = previewBar();
+        if (old !== bar) { old?.remove(); if (bar) root.append(bar); }
+        root.querySelectorAll('[data-pv]').forEach(b => { b.disabled = !!ui.preview?.busy; });
     }
     async function refreshView() {
         try {
@@ -11685,7 +11710,7 @@ ${ctx || '(none)'}`;
             h('span', { class: 'gt-who' }, name, x.persona || x.aliases?.length ? h('small', null, [x.persona ? '페르소나' : '', ...(x.aliases ?? [])].filter(Boolean).join(' · ')) : null),
             seg([['female', '여'], ['male', '남'], ['unknown', '?']], x.gender ?? 'unknown', id => { x.gender = id; botSave(); render(); }, 'sm'),
             voiceField('p:' + name, x.voice, val => { x.voice = val; botSave(); render(); }),
-            h('button', { class: 'gt-b sm', type: 'button', disabled: pv?.busy, onclick: () => void preview(x.voice, [b.talkStyle, x.style].filter(Boolean).join(' ')) }, '▶ 듣기'),
+            h('button', { class: 'gt-b sm', type: 'button', 'data-pv': '', disabled: pv?.busy, onclick: () => void preview(x.voice, [b.talkStyle, x.style].filter(Boolean).join(' ')) }, '▶ 듣기'),
             h('button', { class: 'gt-b sm warn', type: 'button', title: '지우기', onclick: () => { delete b.voices[name]; botSave(); render(); } }, '×'),
             ui.pick?.key === 'p:' + name ? pickPanel() : null,
             h('textarea', { class: 'vf-ta gt-st', rows: 2, placeholder: '이 인물의 목소리 지시문. 비워 두면 다음에 읽을 때 나이대 · 음색 · 속도 · 말버릇을 담아 자동으로 채웁니다.', onchange: e => { x.style = e.target.value; botSave(); } }, x.style ?? '')));
@@ -11727,7 +11752,7 @@ ${ctx || '(none)'}`;
         return [
             group('내레이션', v.name || '이름 없음',
                 row('내레이션 목소리', st.set.read === 'all' ? '따옴표 밖의 글을 읽는 목소리입니다.' : '따옴표 밖의 글을 읽는 목소리입니다. 지금은 읽을 범위가 「대사만」이라 쓰이지 않습니다.', voiceField('narr', b.narrator, val => { b.narrator = val; botSave(); render(); }),
-                    h('button', { class: 'gt-b sm', type: 'button', disabled: pv?.busy, onclick: () => void preview(b.narrator, b.narrStyle) }, '▶ 듣기'),
+                    h('button', { class: 'gt-b sm', type: 'button', 'data-pv': '', disabled: pv?.busy, onclick: () => void preview(b.narrator, b.narrStyle) }, '▶ 듣기'),
                     ui.pick?.key === 'narr' ? pickPanel() : null),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '내레이션 말투')),
                     h('textarea', { class: 'vf-ta', rows: 2, onchange: e => { b.narrStyle = e.target.value; botSave(); } }, b.narrStyle)),
@@ -12212,9 +12237,11 @@ ${ctx || '(none)'}`;
         cur.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 2l14 10-6.2 1.2L8.6 20z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>';
         return h('span', { class: 'vu-hit' }, ...kids, cur);
     }
-    function upStep(n, cap, sub, fig, alt) {
+    function upStep(n, cap, sub, fig, alt, link) {
         return h('div', { class: 'vu-step' },
-            h('div', { class: 'vu-cap' }, h('span', { class: 'vu-n' }, String(n)), h('div', null, h('b', null, cap), sub ? h('small', null, sub) : null)),
+            h('div', { class: 'vu-cap' }, h('span', { class: 'vu-n' }, String(n)), h('div', null, h('b', null, cap), sub ? h('small', null, sub) : null,
+                link ? h('div', { class: 'vu-link' }, h('input', { class: 'vf-in', value: link, readOnly: true, onfocus: e => e.target.select() }),
+                    h('button', { class: 'gt-b sm', type: 'button', onclick: copyLink }, '주소 복사')) : null)),
             h('div', { class: 'vu-fig', role: 'img', 'aria-label': alt }, fig));
     }
     function gcTop(project, hit) {
@@ -12247,13 +12274,15 @@ ${ctx || '(none)'}`;
                 h('div', { class: 'vg-fld' }, h('small', null, '위치 *'), h('span', { class: 'vg-box' }, '내 조직', h('span', { class: 'vg-txt', style: 'padding:0' }, '찾아보기'))),
                 h('div', { class: 'vg-acts' }, upHit(h('span', { class: 'vg-blue' }, '만들기')), h('span', { class: 'vg-txt' }, '취소'))));
     }
-    function figApi() {
-        return h('div', { class: 'vg' }, gcTop('my-project-12345'),
+    function figApi(name, desc, url) {
+        return h('div', { class: 'vg' },
+            h('div', { class: 'vg-url' }, h('i'), h('i'), h('i'), h('span', null, url.replace('https://', '')), h('em', null, '여기에 붙여 넣기')),
+            gcTop('my-project-12345'),
             h('div', { class: 'vg-body' },
                 h('span', { class: 'vg-crumb' }, '← 제품 세부정보'),
                 h('div', { class: 'vg-api' }, h('span', { class: 'vg-hex' }),
-                    h('div', null, h('span', { class: 'vg-h' }, 'Cloud Text-to-Speech API'), h('div', { class: 'vg-txt', style: 'padding:0;min-height:0' }, 'Google Enterprise API'))),
-                h('span', { class: 'vg-sub' }, 'Synthesizes natural-sounding speech by applying powerful neural network models.'),
+                    h('div', null, h('span', { class: 'vg-h' }, name), h('div', { class: 'vg-txt', style: 'padding:0;min-height:0' }, 'Google Enterprise API'))),
+                h('span', { class: 'vg-sub' }, desc),
                 h('div', { class: 'vg-acts' }, upHit(h('span', { class: 'vg-blue' }, '사용')), h('span', { class: 'vg-line' }, 'API 사용해 보기 ↗')),
                 h('div', { class: 'vg-tabs' }, h('span', { class: 'on' }, '개요'), h('span', null, '가격 책정'), h('span', null, '문서'), h('span', null, '관련 제품'))));
     }
@@ -12291,56 +12320,54 @@ ${ctx || '(none)'}`;
     function figRisuPick() {
         return h('div', { class: 'rs-pane' }, h('div', { class: 'rs-card' },
             h('div', { class: 'rs-hd' }, '🎨 이매진 · 음성', h('i')),
-            h('div', { class: 'rs-tabs' }, h('span', { class: 'on' }, '준비'), h('span', null, '대화'), h('span', null, '등장인물'), h('span', null, '목소리'), h('span', null, '설정')),
+            h('div', { class: 'rs-tabs' }, h('span', { class: 'on' }, '준비'), h('span', null, '대화'), h('span', { style: 'margin-left:auto' }, '등장인물'), h('span', null, '목소리'), h('span', null, '설정')),
             h('div', { class: 'rs-row' }, h('b', null, '서비스 계정 키'),
                 h('span', { style: 'display:inline-flex;gap:8px' }, upHit(h('span', { class: 'rs-btn' }, 'JSON 파일 선택')), h('span', { class: 'rs-btn l' }, '연결 확인')))));
     }
-    function apiLinks() {
-        const link = (label, url) => h('div', { class: 'vu-lk' }, h('small', null, label),
-            h('div', { class: 'vu-link' }, h('input', { class: 'vf-in', value: url, readOnly: true, onfocus: e => e.target.select() }),
-                h('button', { class: 'gt-b sm', type: 'button', onclick: copyLink }, '주소 복사')));
-        return h('div', { class: 'vu-after', style: 'margin:0 0 14px' }, h('b', null, 'API 두 개의 주소'),
-            h('p', { class: 'gt-hint', style: 'margin:4px 0 8px' }, '주소창에 붙여 넣고, 위쪽 띠에 쓸 프로젝트가 골라져 있는지 확인한 뒤 「사용」을 누릅니다.'),
-            link('Vertex AI API', VERTEX_PAGE), link('Cloud Text-to-Speech API', API_PAGE));
-    }
     function paneGuide() {
-        const ask = h('div', { class: 'vz-q' }, h('b', null, '구글 클라우드 프로젝트가 이미 있나요?'),
+        const ask = h('div', { class: 'vz-q' }, h('b', null, '구글 버텍스 프로젝트가 이미 있나요?'),
             h('div', { class: 'vz-cards' },
-                wizCard('have', '있습니다', '쓰던 프로젝트에 API를 켜고 키만 만듭니다.', ui.gproj, id => { ui.gproj = id; render(); }),
-                wizCard('none', '없습니다', '구글 클라우드 프로젝트부터 만듭니다. 처음이면 이쪽입니다.', ui.gproj, id => { ui.gproj = id; render(); })));
+                wizCard('have', '있습니다', '프로젝트에서 TTS 기능을 추가합니다.', ui.gproj, id => { ui.gproj = id; render(); }),
+                wizCard('none', '없습니다', '구글 버텍스 프로젝트부터 만듭니다. 처음이면 이쪽입니다.', ui.gproj, id => { ui.gproj = id; render(); })));
         if (!ui.gproj) return [ask];
-        const api = '「Vertex AI API」와 「Cloud Text-to-Speech API」에서 각각 「사용」을 누릅니다. 위쪽 띠에 쓸 프로젝트가 골라져 있는지 먼저 확인합니다.';
+        const vertex = proj => ['「Vertex AI API」 화면에서 「사용」', `아래 주소를 복사해 브라우저 주소창(그림 맨 위 파란 점선 칸)에 붙여 넣고 엽니다. 위쪽 띠에 ${proj} 골라져 있는지 확인한 뒤 「사용」을 누릅니다.`,
+            figApi('Vertex AI API', 'Train high-quality custom machine learning models with minimal machine learning expertise and effort.', VERTEX_PAGE), '주소창에 Vertex AI API 주소를 붙여 넣고 사용 버튼을 누르는 모습', VERTEX_PAGE];
+        const tts = more => ['「Cloud Text-to-Speech API」 화면에서 「사용」', '이번 주소도 복사해 주소창에 붙여 넣고 엽니다. 같은 프로젝트가 골라져 있는지 확인한 뒤 「사용」을 누릅니다.' + more,
+            figApi('Cloud Text-to-Speech API', 'Synthesizes natural-sounding speech by applying powerful neural network models.', API_PAGE), '주소창에 Cloud Text-to-Speech API 주소를 붙여 넣고 사용 버튼을 누르는 모습', API_PAGE];
         const account = '이름은 아무것이나 정하고(예: risu-tts), 역할은 「편집자」처럼 API를 쓸 수 있는 역할을 줍니다.';
         const key = '「만들기」를 누르면 .json 파일이 내려받아집니다. 이 파일은 비밀번호와 같으니 남에게 보내거나 올리지 마세요.';
         const risu = '「연결되었습니다」가 나오면 끝입니다. 아래 「JSON 파일 선택」이 바로 그 버튼입니다.';
         const steps = ui.gproj === 'have' ? [
-            ['위쪽 「프로젝트 선택」에서 쓸 프로젝트 고르기', '이미 서비스 계정 키(.json)가 있으면 그 키를 만든 프로젝트를 고릅니다.', figPicker(true), '구글 클라우드 프로젝트 선택 창에서 쓰던 프로젝트를 고르는 모습'],
-            ['API 두 개에서 「사용」', api + ' 결제 계정이 연결되지 않았다면 이때 연결하라는 안내가 나옵니다.', figApi(), 'Cloud Text-to-Speech API 제품 화면의 사용 버튼'],
+            ['위쪽 「프로젝트 선택」에서 쓸 프로젝트 고르기', '이미 서비스 계정 키(.json)가 있으면 그 키를 만든 프로젝트를 고릅니다.', figPicker(true), '구글 버텍스 프로젝트 선택 창에서 쓰던 프로젝트를 고르는 모습'],
+            vertex('쓸 프로젝트가'),
+            tts(' 결제 계정이 연결되지 않았다면 이때 연결하라는 안내가 나옵니다.'),
             ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account + ' 그 프로젝트의 키(.json)가 이미 있으면 이 단계와 다음 단계를 건너뜁니다.', figAccount(), '서비스 계정 만들기 화면 (간략도)'],
             ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
             ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 준비 탭의 JSON 파일 선택 버튼'],
         ] : [
-            ['위쪽 「프로젝트 선택」 → 「새 프로젝트」', '구글 클라우드 콘솔(console.cloud.google.com)에 구글 계정으로 들어가서 누릅니다.', figPicker(false), '구글 클라우드 프로젝트 선택 창의 새 프로젝트 버튼'],
+            ['위쪽 「프로젝트 선택」 → 「새 프로젝트」', '구글 클라우드 콘솔(console.cloud.google.com)에 구글 계정으로 들어가서 누릅니다.', figPicker(false), '구글 버텍스 프로젝트 선택 창의 새 프로젝트 버튼'],
             ['프로젝트 이름을 정하고 「만들기」', '이름은 자유롭게 정합니다. 아래에 나온 프로젝트 ID는 나중에 바꿀 수 없습니다.', figNewProject(), '새 프로젝트 양식의 만들기 버튼'],
-            ['API 두 개에서 「사용」', api, figApi(), 'Cloud Text-to-Speech API 제품 화면의 사용 버튼'],
+            vertex('방금 만든 프로젝트가'),
+            tts(''),
             ['결제 계정 연결', '유료 API라서 결제 계정이 연결되어 있어야 소리가 만들어집니다. 「사용」을 누를 때 결제 연결을 요구하면 그 안내를 따라갑니다. 결제 수단 등록은 직접 하세요.', figBilling(), '결제 메뉴의 결제 계정 연결 버튼 (간략도)'],
             ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account, figAccount(), '서비스 계정 만들기 화면 (간략도)'],
             ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
             ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 준비 탭의 JSON 파일 선택 버튼'],
         ];
-        return [ask, apiLinks(),
+        return [ask,
             h('p', { class: 'gt-intro' }, h('b', null, ui.gproj === 'have' ? '있는 프로젝트로' : '처음부터'),
                 ui.gproj === 'have' ? 'API 사용 → 서비스 계정 → JSON 키 → 이매진 순서입니다. 노란 테두리가 누를 자리입니다.'
                     : '구글 계정 하나와 결제 수단이 필요합니다. 프로젝트 → API 사용 → 결제 연결 → 서비스 계정 → JSON 키 → 이매진 순서입니다. 노란 테두리가 누를 자리입니다.'),
-            h('div', { class: 'vu-steps' }, steps.map(([cap, sub, fig, alt], i) => upStep(i + 1, cap, sub, fig, alt)))];
+            h('div', { class: 'vu-steps' }, steps.map(([cap, sub, fig, alt, link], i) => upStep(i + 1, cap, sub, fig, alt, link)))];
     }
     function previewBar() {
         const pv = ui.preview;
         if (!pv) return null;
-        return h('div', { class: 'gt-pv', role: 'status' },
+        const close = () => { if (ui.preview === pv) { ui.preview = null; paintPreview(); } };
+        return pv.el ??= h('div', { class: 'gt-pv', role: 'status' },
             h('div', { class: 'gt-pv-t' }, h('b', null, `미리 듣기 · ${voiceLabel(pv.voice)}`),
-                h('button', { class: 'gt-x sm', type: 'button', 'aria-label': '미리 듣기 닫기', onclick: () => { ui.preview = null; render(); } }, '×')),
-            pv.busy ? h('div', { class: 'gt-hint' }, '만드는 중입니다…') : h('audio', { controls: '', autoplay: '', src: pv.src }));
+                h('button', { class: 'gt-x sm', type: 'button', 'aria-label': '미리 듣기 닫기', onclick: close }, '×')),
+            pv.busy ? h('div', { class: 'gt-hint' }, '만드는 중입니다…') : h('audio', { controls: '', autoplay: '', src: pv.src, onended: close }));
     }
     async function testKey() {
         ui.testing = true;
@@ -12375,7 +12402,9 @@ ${ctx || '(none)'}`;
         if (host.ui.mode !== 'voice' || host.ui.side || !host.ui.root?.isConnected) return;
         const ae = doc.activeElement;
         const typing = ae?.classList?.contains('tk-ta') ? [ae.selectionStart, ae.selectionEnd] : null;
+        const pk = ui.root?.querySelector('.gt-pk-list')?.scrollTop;
         host.render();
+        if (pk) { const l = ui.root?.querySelector('.gt-pk-list'); if (l) l.scrollTop = pk; }
         const ll = ui.root?.querySelector('.vn-ll');
         if (ll) ll.scrollTop = ll.scrollHeight;
         const ta = ui.root?.querySelector('.tk-ta');
@@ -12419,11 +12448,11 @@ ${ctx || '(none)'}`;
     function readyStep(n) {
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); paintSoon(true); };
         if (n === 0) return [
-            keyKnown === true ? h('p', { class: 'gt-msg ok' }, ui.conn === false ? '키는 등록되어 있지만 연결 확인에 실패했습니다. 아래 안내로 API와 권한을 확인해 주세요.' : '키가 등록되어 있습니다. 「연결 확인」으로 소리가 만들어지는지 볼 수 있습니다.') : null,
+            keyKnown === true ? h('p', { class: 'gt-msg ok vz-reg' }, ui.conn === false ? '키는 등록되어 있지만 연결 확인에 실패했습니다. 아래 안내로 API와 권한을 확인해 주세요.' : '키가 등록되어 있습니다. 「연결 확인」으로 소리가 만들어지는지 볼 수 있습니다.') : null,
             h('div', { class: 'vz-key' }, h('b', null, '서비스 계정 키 (.json)'),
                 h('p', null, '고른 키는 리수의 플러그인 설정(vertex_json 칸)에만 저장됩니다. 플러그인 버전을 바꾸면 리수가 이 칸을 비우니 다시 골라 주세요.'),
                 keyButtons(), msgBox()),
-            h('div', { class: 'vz-guide' }, h('h3', null, '키가 없다면'), paneGuide()),
+            h('div', { class: 'vz-guide' }, h('h3', null, 'TTS 기능 추가 시작'), paneGuide()),
         ];
         if (n === 1) return [h('div', { class: 'vz-cards' }, MODELS.map(([id, label]) => wizCard(id, label, MODEL_DESC[id]?.[0] ?? '', st.set.model, val => set('model', val), MODEL_DESC[id]?.[1])))];
         if (n === 2) return [h('div', { class: 'vz-cards' },
@@ -12582,8 +12611,8 @@ ${ctx || '(none)'}`;
 .gt .vz-guide h3{margin:4px 0 10px;font-size:15px;font-weight:900;color:var(--ink2)}
 .gt .vz-q{margin:0 0 14px}
 .gt .vz-q>b{display:block;margin:0 0 8px;font-size:14px;color:var(--ink2)}
-.gt .vu-lk{margin:0 0 6px}
-.gt .vu-lk small{display:block;margin:0 0 3px;font-size:11.5px;font-weight:700;color:var(--mut)}
+/* 4.7.0: 「키가 등록되어 있습니다」는 왼쪽 줄 없이, 아래 키 상자와 띄운다 */
+.gt .gt-msg.vz-reg{margin:0 0 14px;border-left:1px solid var(--line)}
 @media (max-width:860px){
   .gt .vz{flex-direction:column}
   .gt .vz-steps{display:flex;flex-wrap:wrap;align-items:flex-start;width:100%}
@@ -12597,10 +12626,10 @@ ${ctx || '(none)'}`;
 /* 4.1.0: 음성 탭 나머지 화면도 견본 3의 색 · 둥근 모서리에 맞춘다 */
 .gt{--line:#dbe5f0;--line2:#c3d1e2;--line3:#9aa8bd;--ink:#1f2d45;--muted:#6d7c95;--accent:#2b95f0;--accent2:#1d5bc4;--accent-t:#1d5bc4;--soft:#e9f5ff;--good:#14b386;--head:#1d5bc4}
 .gt .gt-b,.gt .vf-ta,.gt .vf-num,.gt .vf-in,.gt .tk-ta,.gt .rs-in{border-radius:10px}
-.gt .gt-msg,.gt .gt-pv,.gt .gt-pk,.gt .gt-pk-list,.gt .vu-step,.gt .vg-box,.gt .rs-pop{border-radius:12px}
+.gt .gt-msg,.gt .gt-pv,.gt .gt-pk,.gt .gt-pk-list,.gt .vg-box,.gt .rs-pop{border-radius:12px}
 .gt .vf-card,.gt .rs-card{border-radius:14px;overflow:clip}
 /* 4.3.0: 선만 있는 상자에 그림자 (overflow:clip 은 자기 그림자를 자르지 않는다) */
-.gt .vf-card,.gt .rs-card,.gt .gt-pk,.gt .gt-pk-list,.gt .vu-step,.gt .vz-pn,.gt .gt-msg{box-shadow:0 1px 2px rgba(31,45,69,.06),0 8px 20px -10px rgba(31,45,69,.28)}
+.gt .vf-card,.gt .rs-card,.gt .gt-pk,.gt .gt-pk-list,.gt .vz-pn,.gt .gt-msg{box-shadow:0 1px 2px rgba(31,45,69,.06),0 8px 20px -10px rgba(31,45,69,.28)}
 .gt .vz-mc:not(.sel){box-shadow:0 1px 2px rgba(31,45,69,.06),0 4px 12px -6px rgba(31,45,69,.22)}
 .gt .vf-seg{border-radius:20px;overflow:hidden}
 .gt .gt-x{border-radius:50%}
@@ -12648,10 +12677,12 @@ ${ctx || '(none)'}`;
 .gt .vn-tr .an-c .an-sep{background:rgba(255,255,255,.35)}
 .gt .vn-tr .an-c .lnk{color:#fff}
 .gt .vn-x{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#fff;color:var(--ink2);box-shadow:0 4px 12px rgba(0,0,0,.25)}
-.gt .vn-hv{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:34px 14px 10px 210px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.5));opacity:0;transition:opacity .18s}
-.gt .vn-cast,.gt .vn-tr .an-c{opacity:0;transition:opacity .18s}
-.gt .vn:has(.vn-stage:hover,.vn-top>:hover,.vn-top :focus-visible,.vn-pop) :is(.vn-hv,.vn-cast,.vn-tr .an-c),.gt .vn-hv:focus-within{opacity:1}
-@media (hover:none){.gt .vn-hv,.gt .vn-cast,.gt .vn-tr .an-c{opacity:1}}
+.gt .vn-hv{position:absolute;left:0;right:0;bottom:0;z-index:3;display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:34px 14px 10px 210px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.5));opacity:0;transform:translateY(8px);transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
+/* 4.7.0: 호버 줄 · 인물 목록은 바로 뜨지 않고 미끄러지며 천천히 뜬다 */
+.gt .vn-cast,.gt .vn-tr .an-c{opacity:0;transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
+.gt .vn-cast{transform:translateX(-8px)}
+.gt .vn:has(.vn-stage:hover,.vn-top>:hover,.vn-top :focus-visible,.vn-pop) :is(.vn-hv,.vn-cast,.vn-tr .an-c),.gt .vn-hv:focus-within{opacity:1;transform:none}
+@media (hover:none){.gt .vn-hv,.gt .vn-cast,.gt .vn-tr .an-c{opacity:1;transform:none}}
 .gt .vn-acts{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:4px}
 .gt .vn-acts button{display:flex;align-items:center;gap:5px;height:26px;padding:0 8px;border:0;border-radius:8px;background:rgba(0,0,0,.55);color:#fff;font-size:12px}
 .gt .vn-acts button b{font-size:11px;font-weight:700}
@@ -12748,7 +12779,7 @@ ${ctx || '(none)'}`;
     await checkKey();
     wantRoot();
     await syncListen();
-    return { pane, chipText, status, bar: btnHtml, onOpen, onClose, unload };
+    return { pane, chipText, status, bar: btnHtml, onOpen, onClose, unload, ready: () => keyKnown === true && setupOf() >= SETUP.length };
     }
 
     await loadPrefs();
