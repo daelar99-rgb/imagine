@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.5.0
+//@display-name 🎨 이매진 v5.6.0
 //@api 3.0
-//@version 5.5.0
+//@version 5.6.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.5.0';
+    const VERSION = '5.6.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2655,12 +2655,14 @@ Rules
     }
     function talkJob(job, plan) {
         const I = ilAvg('img', acAvg(IL_IMG_SEC));
-        Object.assign(job, { stop: false, stage: 0, step: null, steps: 28, at: Date.now(), label: '', est: { P: plan ? ilAvg(planKey(job.llm ?? st.set.llm), 20) : 0, I, L: 0.65 * I, S: 0, n: 1 } });
+        Object.assign(job, { stop: false, stage: 0, step: null, steps: 28, at: Date.now(), peak: 0, label: '', est: { P: plan ? ilAvg(planKey(job.llm ?? st.set.llm), 20) : 0, I, L: 0.65 * I, S: 0, n: 1 } });
         job.halt = new Promise(resolve => { job.onStop = resolve; });
         job.cancel = () => { if (!job.stop) { job.stop = true; job.onStop?.(); } };
         job.progress = () => {
             const e = job.est, sec = Math.max(0, (Date.now() - job.at) / 1000);
-            const done = job.stage === 0 ? (e.P > 0 ? e.P * Math.min(0.97, sec / e.P) : 0) : e.P + ((job.i ?? 1) - 1) * e.I + ilImgPart(job, e, sec);
+            const plan = sec < 0.9 * e.P ? sec : e.P * (0.9 + 0.09 * (1 - Math.exp(-(sec - 0.9 * e.P) / e.P)));
+            const done = Math.max(job.peak ?? 0, job.stage === 0 ? (e.P > 0 ? plan : 0) : e.P + ((job.i ?? 1) - 1) * e.I + ilImgPart(job, e, sec));
+            job.peak = done;
             return { done, total: e.P + (e.n || 1) * e.I };
         };
         return job;
@@ -4283,6 +4285,8 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 /* 3.22.0: 그리드 칸 안의 max-height:100% 는 칸 높이를 따라 늘어나 그림이 화면 아래로 잘렸다. 창 크기(vw · vh)로 직접 막는다 */
 .lb{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;background:rgba(0,0,0,.88);cursor:zoom-out}
 .lb img{display:block;width:auto;height:auto;max-width:calc(100vw - 32px);max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px);object-fit:contain;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.lb-two{display:flex;justify-content:center;align-items:center;gap:0;max-width:calc(100vw - 32px)}
+.lb-two img{max-width:calc(50vw - 16px)}
 .lb-tip{font-size:.76rem;color:#c7cdd6}
 .lb-x{position:absolute;top:10px;right:10px;width:38px;height:38px;padding:0;font-size:1.2rem;line-height:1;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);cursor:pointer}
 .lb-x:hover{background:rgba(255,255,255,.25)}
@@ -6624,12 +6628,13 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             });
         }
     }
-    async function showBig(path) {
+    async function showBig(path, path2 = '') {
         try {
             const url = await thumbUrl(path);
+            const url2 = path2 ? await thumbUrl(path2) : '';
             const lb = h('div', { class: 'lb', role: 'dialog', 'aria-label': '크게 보기', onclick: () => lb.remove() },
                 h('button', { class: 'lb-x', type: 'button', 'aria-label': '닫기' }, '✕'),
-                h('img', { src: url, alt: '' }),
+                url2 ? h('div', { class: 'lb-two' }, h('img', { src: url, alt: '' }), h('img', { src: url2, alt: '' })) : h('img', { src: url, alt: '' }),
                 h('span', { class: 'lb-tip' }, '아무 곳이나 누르거나 Esc 를 누르면 닫힙니다'));
             ui.root.append(lb);
         } catch {}
@@ -12852,7 +12857,7 @@ ${ctx || '(none)'}`;
         return el;
     }
     const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, tstep: 0, dup: false, readyAt: 0,
-        talk: { chaId: null, tk: null, name: null, list: true, draft: '', busy: '', err: null, edit: null, voices: new Set(), voicing: new Map(), voiceQ: [], drawQ: [], playing: '', confirm: null, view: '', sel: null, draw: null, pre: null, cmsg: null, tick: 0, hud: false } };
+        talk: { chaId: null, tk: null, name: null, list: true, draft: '', busy: '', err: null, edit: null, voices: new Set(), voicing: new Map(), voiceQ: [], drawQ: [], playing: '', confirm: null, note: null, recast: '', view: '', sel: null, draw: null, pre: null, cmsg: null, tick: 0, hud: false } };
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
@@ -13285,6 +13290,7 @@ ${ctx || '(none)'}`;
         illust: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M6.5 20c.8-3.2 3-5 5.5-5s4.7 1.8 5.5 5"/>',
         comic: '<path d="M3 3h8v8H3zM13 3h8v5h-8zM3 13h8v8H3z"/><path d="M14 11h7v6h-3l-2 3v-3h-2z"/>',
         comic2: '<path d="M3 3h8v18H3zM13 3h8v18h-8zM3 12h8M13 12h8"/>',
+        mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
         zoom: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
         redo: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
         bubx: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M9 8l6 6M15 8l-6 6"/>',
@@ -13386,8 +13392,7 @@ ${ctx || '(none)'}`;
         const acts = [];
         if (src?.img?.path && !drawing) {
             const cf = T.confirm === 'img:' + src.at;
-            acts.push(di('', 'zoom', src.img.path2 ? '왼쪽' : '크게', src.img.path2 ? '왼쪽 장 크게 보기' : '크게 보기', () => void host.showBig(src.img.path)));
-            if (src.img.path2) acts.push(di('', 'zoom', '오른쪽', '오른쪽 장 크게 보기', () => void host.showBig(src.img.path2)));
+            acts.push(di('', 'zoom', '크게', src.img.path2 ? '두 장 함께 크게 보기' : '크게 보기', () => void host.showBig(src.img.path, src.img.path2)));
             if (src.img.req && !assetMode) acts.push(di('', 'redo', '다시', '이 장면 다시 그리기', () => void talkArt(v, name, src, 'redo', false), { disabled: !!T.draw }));
             acts.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 그림을 지웁니다' : '그림 지우기', () => talkDropImg(v, name, src)));
         }
@@ -13398,6 +13403,11 @@ ${ctx || '(none)'}`;
         if (drawC && !drawC.img?.path && !T.draw && !assetMode) acts.push(di('', 'brush', '그리기', pickC && pickC !== lastC ? '이 답의 장면 그리기' : '마지막 답의 장면 그리기', () => void talkArt(v, name, drawC, 'new', false)));
         const vt = src?.r === 'c' ? src : lastC;
         const voc = [];
+        if (lastC) {
+            const busy = T.recast === name;
+            voc.push(di(busy ? 'on' : '', 'mic', busy ? '고르는 중' : '재분석', busy ? '목소리를 고르는 중입니다' : '이 인물의 목소리를 다시 골라 바꾸기 (지금 · 지난 목소리는 빼고 고릅니다)',
+                () => void talkRecast(v, name, log, vt), { disabled: !!T.recast }));
+        }
         if (vt) {
             const cf = T.confirm === 'aud:' + vt.at;
             const re = di('vr', 'redo', '다시', noKey ? '키가 없어 목소리를 만들 수 없습니다' : '이 답의 목소리 다시 만들기', () => void talkRevoice(v, name, vt), { disabled: noKey, 'data-k': vt.at });
@@ -13460,7 +13470,7 @@ ${ctx || '(none)'}`;
             const pb = h('button', { class: 'vn-pb', type: 'button', 'data-k': m.at, 'data-ck': talkHash(v.chaId, name, m.t, m.tone), onclick: () => void talkReplay(v.chaId, name, m.t, m.at, m.tone) });
             kids.push(h('div', { class: 'vn-turn' + sel(m), 'data-at': m.at, onclick: talkSel },
                 h('div', { class: 'vn-nm' }, thumb, h('b', null, name),
-                    h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · ${word} ${pct}%`) : queued ? h('span', { class: 'vn-dpct' }, ' · 그림 대기') : null), editing ? null : del(m)),
+                    h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · ${word} ${pct}%`) : queued ? h('span', { class: 'vn-dq' }, ' · 그림 대기') : null), editing ? null : del(m)),
                 h('div', { class: 'vn-say' }, pb, editing ? talkEditBox(v, name, m) : h('p', { class: 'vn-t' }, m.t))));
             talkMarkOne(pb);
         }
@@ -13472,6 +13482,7 @@ ${ctx || '(none)'}`;
         else if (last.r === 'u' && !T.busy) kids.push(h('div', { class: 'vn-retry' }, h('span', { class: 'vn-sub' }, '아직 답이 없습니다.'),
             h('button', { class: 'gt-b sm', type: 'button', onclick: () => void talkSend(true) }, '↻ 답 다시 받기')));
         if (T.err?.name === name) kids.push(h('p', { class: 'vn-err', role: 'alert' }, T.err.text));
+        if (T.note?.name === name) kids.push(h('p', { class: 'vn-note', role: 'status' }, T.note.text));
         return h('div', { class: 'vn-log' }, h('div', { class: 'vn-col' }, kids));
     }
     function talkKeep(vn) {
@@ -13652,6 +13663,59 @@ ${ctx || '(none)'}`;
         talkMark();
         await talkReplay(v.chaId, name, m.t, m.at, m.tone);
     }
+    const RECAST_SYSTEM = `You recast the text-to-speech voice of one character in a roleplay story.
+Reply with JSON only, no prose: {"voice":"voice id"}
+Rules:
+- Choose exactly one id from CANDIDATES. Copy the id exactly.
+- Never choose an id listed in EXCLUDED. Those voices were already used for this character and the user wants a different one.
+- The candidate's gender must match the character's gender. For "unknown", choose by the brief and the sample lines.
+- Match apparent age, personality and role from the brief and SAMPLE LINES.
+- Prefer a library voice (ids like ko-kr-...) whose age and role fit; use a short-described base voice only when no library voice fits.`;
+    async function talkRecast(v, name, log, vt) {
+        const T = ui.talk;
+        if (T.recast) return;
+        T.recast = name;
+        T.err = null;
+        T.note = null;
+        talkPaint();
+        try {
+            if (!await loadLib() && !lib.tried && !lib.busy) { lib.tried = true; await fetchLib().catch(() => null); }
+            const bot = await botOf(v.chaId);
+            const old = voiceFor(bot, name, bot.voices[name]?.gender ?? 'unknown');
+            const rec = bot.voices[name];
+            let past = [...new Set([...(Array.isArray(rec.past) ? rec.past : []), old])];
+            const wantG = new Set([rec.gender ?? 'unknown']);
+            let pool = castPool(bot, wantG).filter(x => !past.includes(x.id));
+            let reset = false;
+            if (!pool.length) { past = [old]; reset = true; pool = castPool(bot, wantG); }
+            if (!pool.length) throw new Error('고를 수 있는 목소리가 없습니다.');
+            const lines = log.filter(m => m.r === 'c').slice(-3).map(m => '- ' + plain(m.t).slice(0, 200)).join('\n');
+            const out = await askModel([
+                { role: 'system', content: RECAST_SYSTEM },
+                { role: 'user', content: `CHARACTER: ${name} (${rec.gender ?? 'unknown'})${rec.aliases?.length ? '\nALSO CALLED: ' + rec.aliases.join(' / ') : ''}\nBRIEF: ${String(rec.style ?? '').trim() || '(no brief)'}\n\nSAMPLE LINES:\n${lines || '(none)'}\n\nEXCLUDED (do not choose):\n${past.map(id => `${id} | ${voiceLabel(id)}`).join('\n')}\n\nCANDIDATES (id | gender | description):\n${pool.map(x => `${x.id} | ${x.gender} | ${x.desc}`).join('\n')}` },
+            ]);
+            const a = out.indexOf('{'), b = out.lastIndexOf('}');
+            let j = null;
+            if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
+            const byId = new Map(pool.map(x => [x.id.toLowerCase(), x]));
+            const pick = byId.get(String(j?.voice ?? '').trim().toLowerCase()) ?? pool[0];
+            rec.past = past;
+            rec.voice = pick.id;
+            await saveBot(v.chaId, bot);
+            talkQuiet();
+            talkNext();
+            for (const m of log) if (m.r === 'c') await dropAudio(talkHash(v.chaId, name, m.t, m.tone), false);
+            await saveList();
+            T.note = { name, text: `${name}의 목소리를 ${voiceLabel(old)} → ${voiceLabel(pick.id)}(으)로 바꿨습니다.${reset ? ' 고를 수 있는 목소리를 모두 써 봐서 지난 기록을 비우고 골랐습니다.' : ''}` };
+            if (vt && keyKnown !== false) void talkReplay(v.chaId, name, vt.t, vt.at, vt.tone);
+        } catch (error) {
+            T.err = { name, text: '목소리를 다시 고르지 못했습니다. ' + String(error?.message ?? error) };
+        } finally {
+            T.recast = '';
+            talkMark();
+            talkPaint();
+        }
+    }
     async function talkDropVoice(v, name, m) {
         const T = ui.talk, key = 'aud:' + m.at;
         if (T.confirm !== key) {
@@ -13810,6 +13874,7 @@ ${ctx || '(none)'}`;
         if (T.name === name) return;
         T.name = name;
         T.err = null;
+        T.note = null;
         T.confirm = null;
         T.sel = null;
         T.view = '';
@@ -14303,8 +14368,8 @@ ${ctx || '(none)'}`;
             wizCard('model', '메인 모델', '대화 상대의 생김새 · 복장 · 말투를 로어북과 채팅에서 읽어 정리합니다. 인물을 더 정확히 읽습니다.', st.set.castLlm, val => set('castLlm', val), true),
             wizCard('submodel', '보조 모델', '싸고 빠르지만 인물을 빠뜨리거나 생김새를 덜 읽을 수 있습니다.', st.set.castLlm, val => set('castLlm', val)))];
         if (n === 2) return [h('div', { class: 'vz-cards' },
-            wizCard('submodel', '보조 모델', '대화의 답을 보조 모델로 만듭니다. 싸고 빠릅니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.', st.set.talkModel, val => set('talkModel', val), true),
-            wizCard('model', '메인 모델', '말투가 어색하거나 인물을 잘 못 따라 할 때 고릅니다. 보조 모델보다 비싸고 느립니다.', st.set.talkModel, val => set('talkModel', val)))];
+            wizCard('model', '메인 모델', '말투가 어색하거나 인물을 잘 못 따라 할 때 고릅니다. 보조 모델보다 비싸고 느립니다.', st.set.talkModel, val => set('talkModel', val)),
+            wizCard('submodel', '보조 모델', '대화의 답을 보조 모델로 만듭니다. 싸고 빠릅니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.', st.set.talkModel, val => set('talkModel', val), true))];
         if (n === 3) {
             const cnt = ui.view?.stage?.list?.length;
             return [h('div', { class: 'vz-cards' },
@@ -14330,15 +14395,15 @@ ${ctx || '(none)'}`;
         }
         if (n === 4) return [
             h('div', { class: 'vz-cards' },
-                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 아래 「말풍선」 칸에서 켜고 끕니다.', talkKindNow(), val => set('talkKind', val), true),
-                wizCard('comic2', '만화v2', '연출 한 번으로 세로 만화 두 장을 그려 무대에 왼쪽 · 오른쪽으로 겁니다. 장마다 컷은 1~2개이고 위아래로 쌓입니다. 크기는 세로 832×1216 으로 정해져 있고, NAI 요청은 두 번입니다.', talkKindNow(), val => set('talkKind', val)),
+                wizCard('comic2', '만화v2', '연출 한 번으로 세로 만화 두 장을 그려 무대에 왼쪽 · 오른쪽으로 겁니다. 장마다 컷은 1~2개이고 위아래로 쌓입니다. 크기는 세로 832×1216 으로 정해져 있고, NAI 요청은 두 번입니다.', talkKindNow(), val => set('talkKind', val), true),
+                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 아래 「말풍선」 칸에서 켜고 끕니다.', talkKindNow(), val => set('talkKind', val)),
                 wizCard('illust', '삽화', '답의 장면을 컷 없는 한 장 그림으로 그립니다.', talkKindNow(), val => set('talkKind', val))),
             h('div', { class: 'vf-card', style: 'margin-top:14px' },
                 row('작가', '대화 그림에 쓸 작가(그림체)입니다. 삽화 › 준비의 작가와 따로 고릅니다.',
                     h('select', { class: 'vf-in', style: 'width:auto;max-width:220px', 'aria-label': '대화 그림 작가', onchange: e => set('talkPreset', e.target.value) },
                         host.presets().map((x, i) => h('option', { value: x.id, selected: x.id === st.set.talkPreset || (i === 0 && !host.presets().some(p => p.id === st.set.talkPreset)) }, x.name || '이름 없음')))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '연출 모델'), h('p', null, '답의 장면 · 구도 · 복장을 정해 NovelAI 프롬프트를 쓰는 모델입니다. 삽화의 연출 모델과 따로 고릅니다.')),
-                    seg([['submodel', '보조 모델 (추천)'], ['model', '메인 모델']], st.set.talkLlm === 'model' ? 'model' : 'submodel', id => set('talkLlm', id))),
+                    seg([['model', '메인 모델'], ['submodel', '보조 모델 (추천)']], st.set.talkLlm === 'model' ? 'model' : 'submodel', id => set('talkLlm', id))),
                 talkKindNow() !== 'illust' ? h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '말풍선'), h('p', null, st.set.talkBubbles !== false
                         ? '만화 컷에 대사 말풍선을 넣습니다.'
                         : '말풍선 없이 그림만 그립니다.')),
@@ -14561,8 +14626,8 @@ ${ctx || '(none)'}`;
 .gt .vn-blur{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(18px) brightness(.75);transform:scale(1.08)}
 .gt .vn-shot{position:absolute;left:50%;top:0;bottom:0;height:100%;width:auto;max-width:100%;object-fit:contain;transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 40px rgba(0,0,0,.45)}
 .gt .vn-shot.cover{left:0;right:0;width:100%;max-width:none;object-fit:cover;transform:none;box-shadow:none}
-.gt .vn-pair{position:absolute;inset:0;display:flex;justify-content:center;align-items:stretch;gap:6px}
-.gt .vn-pair .vn-shot{position:static;flex:0 1 auto;height:100%;width:auto;max-width:calc(50% - 3px);transform:none}
+.gt .vn-pair{position:absolute;inset:0;display:flex;justify-content:center;align-items:stretch;gap:0}
+.gt .vn-pair .vn-shot{position:static;flex:0 1 auto;height:100%;width:auto;max-width:50%;transform:none}
 .gt .vn-pair .vn-shot.cover{flex:1 1 0;width:auto;max-width:none;min-width:0;object-fit:cover}
 .gt .vn-noimg{position:absolute;inset:0;display:grid;place-items:center;background:#e6edf5;color:#a3b3c8}
 .gt .vn-noimg>.vn-ic svg{width:72px;height:72px}
@@ -14711,6 +14776,7 @@ ${ctx || '(none)'}`;
 .gt .vn-nm{display:flex;align-items:center;gap:8px}
 .gt .vn-nm b{font-size:13px;font-weight:900;color:var(--ink2)}
 .gt .vn-dpct{color:var(--sky);font-weight:700}
+.gt .vn-dq{color:var(--mut,#64748b);font-weight:700}
 .gt .vn-thumb{position:relative;flex:none;width:54px;height:37px;padding:0;border:0;border-radius:6px;overflow:hidden;background:#e6edf5}
 .gt .vn-thumb img{position:relative;display:block;width:100%;height:100%;object-fit:cover}
 .gt .vn-thumb img:not([src]){visibility:hidden}
@@ -14734,6 +14800,7 @@ ${ctx || '(none)'}`;
 .gt .vn-empty b{font-family:"Gowun Batang","Nanum Myeongjo","Noto Serif KR",serif;font-size:17px;color:var(--ink2)}
 .gt .vn-sub{margin:0;font-size:12.5px;color:var(--mut)}
 .gt .vn-err{margin:0;font-size:12.5px;font-weight:700;color:#d0453b}
+.gt .vn-note{margin:0;font-size:12.5px;font-weight:700;color:var(--sky)}
 .gt .vn-retry{display:flex;align-items:center;gap:10px}
 .gt .vn-dots{display:inline-flex;gap:6px;padding:6px 0 6px 4px}
 .gt .vn-dots i{width:8px;height:8px;border-radius:50%;background:var(--sky);animation:vn-dot 1.2s ease-in-out infinite}
