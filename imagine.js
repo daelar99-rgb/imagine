@@ -1,18 +1,18 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.0.0
+//@display-name 🎨 이매진 v5.4.0
 //@api 3.0
-//@version 5.0.0
+//@version 5.4.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
-//@arg vertex_json string 구글 서비스 계정 JSON 키 (음성 모드). 이매진 › 음성 › 준비의 「JSON 파일 선택」으로 등록하면 이 칸이 채워집니다 (내용 전체를 직접 붙여 넣어도 됩니다)
+//@arg vertex_json string 구글 서비스 계정 JSON 키 (음성 모드). 이매진 › 음성 · 대화 › 준비의 「JSON 파일 선택」으로 등록하면 이 칸이 채워집니다 (내용 전체를 직접 붙여 넣어도 됩니다)
 
 
 (async () => {
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.0.0';
+    const VERSION = '5.4.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -89,7 +89,7 @@
         countMin: 2,
         countMax: 4,
         size: 'tall',
-        sv: 31,
+        sv: 32,
         bubbles: true,
         loreMax: 0,
         castMax: 0,
@@ -105,7 +105,9 @@
         mo: '80',
         tap: true,
         ubtn: 'all',
+        keepOld: false,
         setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
+        introSeen: { illust: false, asset: false },
         assetOff: [],
         ptOff: [],
         scroll: 'last',
@@ -113,6 +115,7 @@
         webp: true,
         vars: true,
         head: '',
+        nsfw: { st: '', on: { illust: true, asset: true, talk: true } },
         extra: '',
     };
 
@@ -241,6 +244,12 @@
         if (!['all', 'last', 'none'].includes(st.set.ubtn)) st.set.ubtn = DEFAULT_SET.ubtn;
         if (!['last', 'fig', 'off'].includes(st.set.scroll)) st.set.scroll = st.set.scroll === false ? 'off' : DEFAULT_SET.scroll;
         st.set.setup = { ...DEFAULT_SET.setup, ...(st.set.setup && typeof st.set.setup === 'object' ? st.set.setup : {}) };
+        st.set.introSeen = { illust: !!st.set.introSeen?.illust || !!st.set.setup.llm, asset: !!st.set.introSeen?.asset || !!st.set.setup.acLlm };
+        {
+            const n = st.set.nsfw && typeof st.set.nsfw === 'object' ? st.set.nsfw : {};
+            const on = n.on && typeof n.on === 'object' ? n.on : {};
+            st.set.nsfw = { st: ['used', 'skip'].includes(n.st) ? n.st : '', on: { illust: on.illust !== false, asset: on.asset !== false, talk: on.talk !== false } };
+        }
         st.set.panelBtn = st.set.panelBtn !== false;
         st.set.assetOff = Array.isArray(st.set.assetOff) ? [...new Set(st.set.assetOff.filter(x => typeof x === 'string' && x))] : [];
         st.set.ptOff = Array.isArray(st.set.ptOff) ? [...new Set(st.set.ptOff.filter(x => typeof x === 'string' && x))] : [];
@@ -446,6 +455,11 @@
                 save('nc:presets', st.presets);
             }
             st.set.sv = 31;
+            saveSet();
+        }
+        if (set && typeof set === 'object' && !(set.sv >= 32)) {
+            if (!st.set.nsfw.st) st.set.nsfw.st = 'skip';
+            st.set.sv = 32;
             saveSet();
         }
         st.set.tap = true;
@@ -797,11 +811,13 @@
         return `[USER INSTRUCTIONS — read these first. They take priority over the rules below whenever they conflict, but the output must still be the JSON object described below.]\n${head}\n\n${system}`;
     }
 
-    async function requestModel(system, user, raw = false, llm = st.busy?.llm ?? st.set.llm) {
+    async function requestModel(system, user, raw = false, llm = st.busy?.llm ?? st.set.llm, rail = '') {
         if (!raw) system = withHead(system);
-        const res = await api.runLLMModel({
+        const ns = rail ? nsfwText(rail) : '';
+        const res = await selfLLM({
             mode: llm === 'model' ? 'model' : 'submodel',
             messages: [
+                ...(ns ? [{ role: 'system', content: ns }] : []),
                 { role: 'system', content: system },
                 { role: 'user', content: user },
             ],
@@ -815,7 +831,7 @@
 
     async function askModel(system, user, busy = st.busy) {
         if (busy?.stop) throw stopError();
-        const work = requestModel(system, user, false, busy?.llm ?? st.set.llm);
+        const work = requestModel(system, user, false, busy?.llm ?? st.set.llm, busy?.rail ?? 'illust');
         work.catch(() => {});
         const text = await (busy ? Promise.race([work, busy.halt]) : work);
         if (busy?.stop) throw stopError();
@@ -1020,7 +1036,7 @@ ${TAG_STYLE}`;
     const rollCount = () => { if (!randomCount()) return countNow(); const [a, b] = countRange(); return a + Math.floor(Math.random() * (b - a + 1)); };
     const loreMaxNow = () => Math.max(0, parseInt(st.set.loreMax, 10) || 0);
     const castMaxNow = () => Math.max(0, parseInt(st.set.castMax, 10) || 0);
-    const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count);
+    const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count && st.set.nsfw?.st);
     const recipe = () => `${kindName()} ${countLabel()} · ${preset().name || '이름 없음'}`;
     function setStep(k) {
         const was = setupDone();
@@ -1117,8 +1133,7 @@ ${TAG_STYLE}`;
 - ONE sentence per panel at most. When a line has several sentences, copy just one complete sentence of it exactly (cut only at the speaker's own punctuation: . ! ? … ~) or choose another line.
 - by: the speaker's exact CAST key. The speaker must be in that panel's who. Spoken lines only: no narration captions.
 - The line goes ONLY in text. Never write "Text:", quotation marks or the spoken words inside tags or camera.
-- Give lines to the panels where the most important lines of the moment are spoken; leave text and by "" for a panel without a line.
-- A page with exactly 2 panels gets AT MOST ONE spoken line in total: give text to one panel only (or to none); the other panel's text and by stay "".`;
+- Give lines to the panels where the most important lines of the moment are spoken; leave text and by "" for a panel without a line.`;
     }
 
     function userInputOf(chat, idx) {
@@ -1838,8 +1853,8 @@ Rules
     const dropGaze = text => tidy(String(text ?? '').split(',').filter(s => !/^(looking (?!back\b)|eye contact$|staring\b|gazing\b)/.test(tagCore(s))).join(',').replace(/,\s*,/g, ','));
     const dropViewer = text => tidy(String(text ?? '').replace(/\blooking at (the )?viewer\b,?/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,|,\s*$/g, ''));
     const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 80);
-    const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?(?:\bspeech bubble with\s+)?\bText:[^,\n]*/gi, '');
-    const SAY_RE = /\b(?:speech bubble with )?Text:/;
+    const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?(?:\b(?:tailless\s+)?speech bubble with\s+|\b[a-z0-9][\w.\-() ]*'s\s+)?\btext:[^,\n]*/gi, '');
+    const SAY_RE = /(?:\b(?:tailless )?speech bubble with |\b[A-Za-z0-9][\w.\-() ]*'s )?\b[Tt]ext:/;
     const endComma = t => {
         const s = String(t ?? '');
         return SAY_RE.test(s.slice(s.lastIndexOf('\n') + 1)) ? `${s.replace(/\s+$/, '')} ` : `${s.replace(/[,\s]+$/, '')}, `;
@@ -1881,13 +1896,7 @@ Rules
 
     function bubbleSlot(b) {
         const narration = !b.by || /^(narration|narrator|나레이션|내레이션)$/i.test(tidy(b.by));
-        const text = quoteText(b.text);
-        return {
-            prompt: narration
-                ? `no humans, rectangular dialogue box, black dialogue box, white border, white characters, text only, "${text}"`
-                : `no humans, circular speech bubble, white speech bubble, black border, black characters, "${text}"`,
-            uc: '', kind: narration ? 'narration' : 'bubble',
-        };
+        return { prompt: `Text: ${quoteText(b.text)} `, uc: '', kind: narration ? 'narration' : 'bubble' };
     }
 
     function buildComicReq(img, cast, state) {
@@ -1899,8 +1908,6 @@ Rules
         const labels = new Map();
         const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
         const kindOf = x => x.e ? x.type : x.name;
-        const oneSay = img.panels.filter(pn => pn && typeof pn === 'object').length === 2;
-        let said = false;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
             if (slots.length >= 4) break;
@@ -1915,16 +1922,17 @@ Rules
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
-            const line = bubblesNow() && !(oneSay && said) ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            if (line) said = true;
-            const cam = joinTags(noText(dropNone(pn.camera))), say = line ? `speech bubble with Text: ${line} ` : '';
+            const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
+            const cam = joinTags(noText(dropNone(pn.camera)));
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
             const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
             const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
             const acts = (who.length ? who : [null]).map((x, k) => refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
-            const sayAt = say ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
+            const sayAt = line && who.length ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
+            const sayWho = sayAt >= 0 ? labelOf(who[sayAt]) : '';
+            const say = line ? `${sayWho ? `${sayWho}'s text` : 'Text'}: ${line} ` : '';
             const personLine = k => `${labelOf(who[k])}: ${[mergeTags(kindOf(who[k]), idents[k], acts[k]).join(TAG_JOIN), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             const lines = [who.length ? `${head},` : '', cam ? `${cam},` : ''].filter(Boolean);
             if (who.length) {
@@ -2096,9 +2104,16 @@ Rules
             return { prompt: mergeTags(ident, tags).join(', '), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type, name: e?.name ?? tidy(c.name) };
         });
         if (bubblesNow()) {
-            const room = Math.min(4, MAX_SLOTS - slots.length);
-            const bubbles = (Array.isArray(img.bubbles) ? img.bubbles : []).filter(b => tidy(b?.text)).slice(0, room);
-            for (const b of bubbles) slots.push(bubbleSlot(b));
+            const bubbles = (Array.isArray(img.bubbles) ? img.bubbles : []).filter(b => tidy(b?.text)).slice(0, 4);
+            for (const b of bubbles) {
+                const text = quoteText(b.text);
+                const narration = !b.by || /^(narration|narrator|나레이션|내레이션)$/i.test(tidy(b.by));
+                const e = narration ? null : findCast(cast, b.by);
+                const at = narration ? -1 : chars.findIndex(x => e ? x.e === e : x.monster && tidy(x.c.name).toLowerCase() === tidy(b.by).toLowerCase());
+                const who = at >= 0 ? tidy(chars[at].e?.canon) || `char${at + 1}` : '';
+                if (who) { slots[at].prompt = `${slots[at].prompt}, ${who}'s text: ${text} `; continue; }
+                if (slots.length < MAX_SLOTS) slots.push(bubbleSlot(b));
+            }
         }
         const types = slots.filter(s => s.kind === 'char').map(s => s.type);
         const base = joinTags(countTags(types), p.pos, dropNone(img.scene));
@@ -2609,10 +2624,21 @@ Rules
     }
 
     const TALK_LOG_MAX = 24;
-    const talkStateKey = chaId => 'nc:talkState:' + chaId;
-    async function talkForget(chaId, name) {
-        const v = await api.pluginStorage.getItem(talkStateKey(chaId)).catch(() => null);
-        if (isObj(v) && name in v) { delete v[name]; await Promise.resolve(api.pluginStorage.setItem(talkStateKey(chaId), v)).catch(() => {}); }
+    const talkStateKey = tk => 'nc:talkState:' + tk;
+    const talkKeyOf = (chaId, chat, chi) => chaId + '|' + chatKeyOf(chat, chi);
+    async function adoptOld(key, old) {
+        const v = await api.pluginStorage.getItem(key).catch(() => null);
+        if (isObj(v)) return v;
+        const was = await api.pluginStorage.getItem(old).catch(() => null);
+        if (!isObj(was)) return null;
+        await Promise.resolve(api.pluginStorage.setItem(key, was)).catch(() => {});
+        await Promise.resolve(api.pluginStorage.removeItem(old)).catch(() => {});
+        return was;
+    }
+    const talkStateOf = tk => adoptOld(talkStateKey(tk), talkStateKey(String(tk).split('|')[0]));
+    async function talkForget(tk, name) {
+        const v = await talkStateOf(tk);
+        if (isObj(v) && name in v) { delete v[name]; await Promise.resolve(api.pluginStorage.setItem(talkStateKey(tk), v)).catch(() => {}); }
     }
     function talkJob(job, plan) {
         const I = ilAvg('img', acAvg(IL_IMG_SEC));
@@ -2693,7 +2719,8 @@ Rules
             }
             job.label = '';
             job.at = Date.now();
-            const saved = await api.pluginStorage.getItem(talkStateKey(chaId)).catch(() => null);
+            const tk = o.tk || chaId;
+            const saved = await talkStateOf(tk);
             const all = isObj(saved) ? saved : {};
             const mc = await Promise.resolve(api.getChatFromIndex(o.ci, Number(char.chatPage ?? 0))).catch(() => null);
             const ms = readState(mc);
@@ -2726,7 +2753,7 @@ Rules
             if (job.est.P) ilPush(planKey(st.set.llm), (Date.now() - job.at) / 1000);
             const out = await talkNai(job, buildReq(img, cast, state));
             all[o.name] = state;
-            await Promise.resolve(api.pluginStorage.setItem(talkStateKey(chaId), all)).catch(() => {});
+            await Promise.resolve(api.pluginStorage.setItem(talkStateKey(tk), all)).catch(() => {});
             return out;
         }));
     }
@@ -3099,7 +3126,7 @@ Rules
                 if (char.additionalAssets.length !== before) await api.setCharacterToIndex(job.ci, char);
             };
             if (!ok && want.length) await drop(want)();
-            else if (ok && !reverted && gone.length) setTimeout(() => { inQueue(drop(gone)).catch(error => console.warn(LOG, 'drop old', error)); }, DROP_LATER);
+            else if (ok && !reverted && gone.length && !st.set.keepOld) setTimeout(() => { inQueue(drop(gone)).catch(error => console.warn(LOG, 'drop old', error)); }, DROP_LATER);
         }
         if (writeErr) throw writeErr;
         if (lost) throw new Error('그림을 넣을 답변을 찾지 못했습니다. 그리는 사이에 답변이나 채팅이 지워졌거나 옮겨졌습니다.');
@@ -3139,6 +3166,7 @@ Rules
     async function onOutput(ev) {
         try {
             if (!st.set.auto || !setupDone() || await retired()) return;
+            if (ns.armed || ns.got || Date.now() < ns.mute) return;
             const { characterIndex: ci, chatIndex: chi, messageIndex } = ev ?? {};
             const msg = ev?.chat?.message?.[messageIndex];
             if (!msg || msg.role !== 'char' || !Number.isInteger(ci) || !Number.isInteger(chi)) return;
@@ -3160,7 +3188,10 @@ Rules
     let settleTimer = null;
     function onOutputText(content) {
         try {
-            if (st.set.auto && setupDone()) {
+            if (ns.got) {
+                clearTimeout(ns.timer);
+                ns.timer = setTimeout(() => void nsBack(), 2500);
+            } else if (st.set.auto && setupDone() && !ns.armed && Date.now() >= ns.mute) {
                 clearTimeout(settleTimer);
                 settleTimer = setTimeout(() => {
                     settleTimer = null;
@@ -3187,7 +3218,7 @@ Rules
         if (!text.includes('::nc_')) return text;
         return text.replace(TAG_RE, '');
     }
-    function stripRequest(messages) {
+    function stripRequest(messages, model) {
         try {
             for (const m of messages ?? []) {
                 if (typeof m?.content === 'string') {
@@ -3201,7 +3232,391 @@ Rules
                 }
             }
         } catch {}
+        try { nsCatch(messages, model); } catch (error) { console.warn(LOG, 'nsfw catch', error); }
         return messages;
+    }
+
+    const NS_RAILS = {
+        illust: { model: '장면 모델', tgLabel: '장면 모델 요청에 넣기', tgDesc: '이매진이 장면 · 대사 · 복장을 정할 때 고른 글을 함께 보냅니다.' },
+        asset: { model: '분석 모델', tgLabel: '분석 모델 요청에 넣기', tgDesc: '인물을 분석하고 감정 에셋 프롬프트를 정할 때 고른 글을 함께 보냅니다.' },
+        talk: { model: '대화 모델', tgLabel: '대화 모델 요청에 넣기', tgDesc: '음성 대화에서 답을 만들 때 고른 글을 함께 보냅니다.' },
+    };
+    const NS_ROLE = { system: '시스템', user: '유저', assistant: '어시스턴트' };
+    const NS_CHAT_MAX = 80;
+    const NS_LINE_MIN = 10;
+    const ns = { armed: false, rail: '', view: '', cap: null, pick: new Set(), data: null, open: new Set(), got: false, mute: 0, timer: 0, back: 0, work: null, err: '' };
+    const nsNorm = s => String(s ?? '').replace(/\r\n?/g, '\n');
+    let nsSelf = 0;
+    async function selfLLM(arg) {
+        nsSelf++;
+        try { return await api.runLLMModel(arg); } finally { nsSelf--; }
+    }
+    async function nsLoad() {
+        try {
+            const d = await api.pluginStorage.getItem('nc:nsfw');
+            ns.data = d && Array.isArray(d.blocks) && Array.isArray(d.pick) ? d : null;
+        } catch { ns.data = null; }
+    }
+    const nsPicked = () => ns.data ? ns.data.blocks.filter(b => ns.data.pick.includes(b.id)) : [];
+    function nsfwText(rail) {
+        const s = st.set.nsfw;
+        if (!NS_RAILS[rail] || s?.st !== 'used' || !s.on?.[rail] || !ns.data) return '';
+        return nsPicked().map(b => b.text).join('\n\n').trim();
+    }
+    function nsfwSum(rail) {
+        const s = st.set.nsfw;
+        if (!s?.st) return '';
+        if (s.st === 'skip') return '안 씀';
+        return s.on?.[rail] ? `NSFW 글 ${nsPicked().length}개 넣음` : '꺼 둠';
+    }
+    function finLine(rail) {
+        const s = st.set.nsfw;
+        if (s?.st !== 'used') return 'NSFW 프롬프트 안 씀';
+        return s.on?.[rail] ? `NSFW 글 ${nsPicked().length}개 넣음` : 'NSFW 글 꺼 둠';
+    }
+    function nsSet(patch) {
+        const was = setupDone();
+        st.set = { ...st.set, nsfw: { ...st.set.nsfw, ...patch } };
+        saveSet();
+        if (!was && setupDone()) ui.readyAt = Date.now();
+    }
+    const nsWant = rail => !!ns.view && ns.rail === rail;
+    function nsTitle(b) {
+        const [first, ...rest] = b.text.split('\n');
+        if (/^#+\s/.test(first)) return { ti: first.replace(/^#+\s*/, ''), pv: rest.join('\n').trim() };
+        const s = b.text.split(/(?<=[.!?])\s/)[0];
+        return { ti: s, pv: s === b.text ? '' : b.text };
+    }
+
+    const NS_SYSCHAT = /^(?:user|assistant|example_[^:\n]{0,40}):(?: |$)/;
+    const nsText = m => typeof m?.content === 'string' ? m.content : Array.isArray(m?.content) ? m.content.map(p => typeof p?.text === 'string' ? p.text : '').join('') : '';
+    function nsCatch(messages, model) {
+        if (!ns.armed || nsSelf > 0 || model !== 'model' || !Array.isArray(messages)) return;
+        if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return;
+        ns.armed = false;
+        ns.got = true;
+        const copy = messages.map(m => ({
+            role: String(m?.role ?? ''),
+            memo: m?.memo ? String(m.memo) : '',
+            text: nsText(m),
+        }));
+        ns.work = nsDigest(copy).catch(error => {
+            console.warn(LOG, 'nsfw digest', error);
+            ns.view = '';
+            ns.err = '받은 요청을 나누지 못했습니다. 다시 가져와 주세요.';
+        });
+        clearTimeout(ns.back);
+        ns.back = setTimeout(() => void nsBack(), 90000);
+    }
+    async function nsBotTexts() {
+        const out = [];
+        out.priv = [];
+        try {
+            const ci = await api.getCurrentCharacterIndex(), chi = await api.getCurrentChatIndex();
+            if (!Number.isInteger(ci) || ci < 0) return out;
+            const char = await api.getCharacterFromIndex(ci);
+            if (!char) return out;
+            const chat = Number.isInteger(chi) && chi >= 0 ? await api.getChatFromIndex(ci, chi).catch(() => null) : null;
+            const canParse = typeof api.parseRisuChat === 'function';
+            const parse = async (src, opt) => {
+                try { const r = await api.parseRisuChat(src, opt); return typeof r === 'string' ? r : ''; } catch { return ''; }
+            };
+            const push = async (lb, srcs, { opts = [undefined], more = () => [] } = {}) => {
+                srcs = (Array.isArray(srcs) ? srcs : [srcs]).map(nsNorm).filter(x => x.trim());
+                if (!srcs.length) return;
+                const ts = new Set();
+                for (const src of srcs) {
+                    ts.add(src.trim());
+                    if (canParse) for (const o of opts) { const r = nsNorm(await parse(src, o)).trim(); if (r) ts.add(r); }
+                }
+                for (const t of [...ts]) for (const x of more(t)) ts.add(x);
+                const probe = srcs[0].trim().split('{{')[0].split(/\n{2,}/)[0].trim();
+                out.push({ lb, ts: [...ts].filter(t => t.length >= 4), probe: probe.length >= 4 ? probe : '' });
+            };
+            const pieces = s => nsNorm(s).split('{{original}}');
+            await push('봇 설명', char.desc);
+            if (tidy(char.personality)) await push('봇 성격', [char.personality, '\n\nDescription of {{char}}: ' + char.personality]);
+            if (tidy(char.scenario)) await push('상황', [char.scenario, '\n\nCircumstances and context of the dialogue: ' + char.scenario]);
+            for (const p of pieces(char.systemPrompt)) await push('봇 시스템 프롬프트', p);
+            for (const p of pieces(char.replaceGlobalNote)) await push('봇 글로벌노트', p);
+            const persona = await loadPersona(chat, true);
+            await push('페르소나', [persona?.prompt ?? '', '{{persona}}']);
+            let entries = [];
+            try { entries = await api.getCurrentLorebookEntries() ?? []; } catch (error) { console.warn(LOG, 'nsfw lorebook', error); }
+            for (const e of entries) await push('로어북', String(e?.content ?? '').split('\n').filter(l => !l.trim().startsWith('@@')).join('\n'));
+            if (tidy(chat?.note)) await push('작가 노트', chat.note);
+            if (tidy(char.depth_prompt?.prompt)) await push('깊이 프롬프트', char.depth_prompt.prompt);
+            const name = String(char.name ?? '');
+            await push('첫 메시지', firstMessageOf(char, chi), { opts: [undefined, { processRegex: true }], more: t => name ? [`${name}: ${t}`] : [] });
+            out.priv = await nsPrivate(chat, persona, out, parse, canParse);
+        } catch (error) {
+            console.warn(LOG, 'nsfw bot texts', error);
+        }
+        return out;
+    }
+    async function nsPrivate(chat, persona, bots, parse, canParse) {
+        const flat = s => nsNorm(s).replace(/\s+/g, ' ').trim();
+        const chatTs = [];
+        for (const m of (Array.isArray(chat?.message) ? chat.message : []).slice(-NS_CHAT_MAX)) {
+            const d = String(m?.data ?? '');
+            if (!d.trim()) continue;
+            chatTs.push(d);
+            if (canParse) { const r = await parse(d, { processRegex: true }); if (r) chatTs.push(r); }
+        }
+        const perTs = [persona?.prompt ?? ''];
+        if (canParse) perTs.push(await parse('{{persona}}'));
+        try {
+            const db = await api.getDatabase(['personas']);
+            for (const p of Array.isArray(db?.personas) ? db.personas : []) perTs.push(String(p?.personaPrompt ?? ''));
+        } catch (error) { console.warn(LOG, 'nsfw personas', error); }
+        const join = ts => ts.map(flat).filter(t => t.length >= 4).join('\n\u0000\n');
+        return [
+            { lb: '채팅', all: join(chatTs) },
+            { lb: '페르소나', all: join(perTs) },
+            ...bots.map(b => ({ lb: b.lb, all: join(b.ts) })),
+        ].filter(x => x.all);
+    }
+    function nsLineCut(segs, priv) {
+        let chatN = 0, botN = 0;
+        const out = [];
+        for (const sg of segs) {
+            if (sg.k !== 'raw') { out.push(sg); continue; }
+            let run = null, sticky = '';
+            const put = (k, lb, l) => {
+                if (run && run.k === k && run.lb === lb) { run.t += '\n' + l; return; }
+                if (run) out.push(run);
+                run = k === 'cut' ? { k, lb, t: l } : { k, t: l };
+                if (k === 'cut') { if (lb === '채팅') chatN++; else botN++; }
+            };
+            for (const l of sg.t.split('\n')) {
+                const f = l.replace(/\s+/g, ' ').trim();
+                let lb = '';
+                if (!f) lb = sticky;
+                else if (NS_SYSCHAT.test(f)) lb = '채팅';
+                else if (f.length >= NS_LINE_MIN) lb = priv.find(p => p.all.includes(f))?.lb ?? '';
+                else if (sticky && !/^[<#[]/.test(f)) lb = sticky;
+                if (f) sticky = lb;
+                put(lb ? 'cut' : 'raw', lb, l);
+            }
+            if (run) out.push(run);
+        }
+        segs.splice(0, segs.length, ...out.map(sg => sg.k === 'cut' ? { ...sg, t: sg.t.replace(/\n+$/, '') } : sg));
+        return [chatN, botN];
+    }
+    function nsCut(segs, t, lb) {
+        let hits = 0;
+        const out = [];
+        for (const sg of segs) {
+            if (sg.k !== 'raw' || !sg.t.includes(t)) { out.push(sg); continue; }
+            sg.t.split(t).forEach((p, i) => {
+                if (i) { out.push({ k: 'cut', lb, t }); hits++; }
+                if (p) out.push({ k: 'raw', t: p });
+            });
+        }
+        segs.splice(0, segs.length, ...out);
+        return hits;
+    }
+    const NS_HEAD = /^\s*(?:#+[^\n]*|\[[^\]\n]{1,80}\]|[-=*_~]{3,})\s*$/;
+    const nsEmpty = t => !t.replace(/<\/?\p{L}[^>]*>/gu, '').split('\n').filter(l => !NS_HEAD.test(l)).join('\n').trim();
+    async function nsDigest(copy) {
+        const bots = await nsBotTexts();
+        const cuts = bots.flatMap(b => b.ts.map(t => ({ b, t }))).sort((x, y) => y.t.length - x.t.length);
+        const msgs = [], blocks = [], hit = new Set();
+        let chatN = 0, botN = 0;
+        for (const m of copy) {
+            if (m.memo) { chatN++; msgs.push({ role: m.role, segs: [{ k: 'cut', lb: '채팅', t: nsNorm(m.text) }] }); continue; }
+            const segs = [{ k: 'raw', t: nsNorm(m.text) }];
+            for (const { b, t } of cuts) {
+                const n = nsCut(segs, t, b.lb);
+                if (n) { botN += n; hit.add(b); }
+            }
+            const [cn, bn] = nsLineCut(segs, bots.priv ?? []);
+            chatN += cn;
+            botN += bn;
+            msgs.push({ role: m.role, segs });
+        }
+        const probes = bots.filter(b => !hit.has(b) && b.probe);
+        const resOf = t => probes.find(b => t.startsWith(b.probe))?.lb ?? '';
+        msgs.forEach((m, mi) => {
+            if (copy[mi].memo) return;
+            const paras = m.segs.flatMap(sg => sg.k === 'raw' ? sg.t.split(/\n{2,}/) : [null]);
+            let buf = null, tag = null;
+            const flush = () => {
+                const t = buf?.trim();
+                if (t && !nsEmpty(t)) blocks.push({ id: blocks.length, role: m.role, mi, text: t, res: resOf(t) });
+                buf = null;
+                tag = null;
+            };
+            for (const p of paras) {
+                if (p === null) { flush(); continue; }
+                if (!p.trim()) continue;
+                buf = buf == null ? p : buf + '\n\n' + p;
+                const open = !tag && p.trim().match(/^<([A-Za-z][\w-]*)[^>]*>/);
+                if (open && !open[0].endsWith('/>') && !p.includes(`</${open[1]}>`)) tag = open[1];
+                if (tag && !p.includes(`</${tag}>`)) continue;
+                if (/^#+ [^\n]*$/.test(p.trim()) || /^\[[^\]\n]{1,80}\]$/.test(p.trim())) continue;
+                flush();
+            }
+            flush();
+        });
+        ns.cap = { msgs, blocks, chatN, botN, msgN: copy.length, at: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) };
+        ns.pick = new Set(blocks.filter(b => !b.res).map(b => b.id));
+        ns.open.delete('raw');
+        ns.open.delete('adv');
+        ns.err = '';
+        ns.view = 'pick';
+    }
+    async function nsBack() {
+        clearTimeout(ns.timer);
+        clearTimeout(ns.back);
+        ns.timer = ns.back = 0;
+        if (!ns.got) return;
+        await ns.work;
+        ns.got = false;
+        ns.mute = Date.now() + 10000;
+        const mode = ns.rail === 'asset' ? 'asset' : ns.rail === 'talk' ? 'talk' : 'imagine';
+        try {
+            if (ui.root?.isConnected) { if (ui.home || ui.mode !== mode) goMode(mode); }
+            else await openPanel({ mode });
+            if (mode === 'asset') ui.atab = 'make';
+            else if (mode === 'talk') ui.ttab = 'ready';
+            else ui.tab = 'ready';
+            renderNow();
+        } catch (error) {
+            console.warn(LOG, 'nsfw back', error);
+        }
+    }
+    function nsBody(rail, ctl = {}) {
+        const R = NS_RAILS[rail] ?? NS_RAILS.illust;
+        const redraw = () => (ctl.render ?? renderNow)();
+        const close = () => (ctl.close ?? redraw)();
+        const s = st.set.nsfw ?? {};
+        const det = (key, cls, summary, ...kids) => h('details', {
+            class: cls, open: ns.open.has(key),
+            ontoggle: e => { if (e.target.open) ns.open.add(key); else ns.open.delete(key); },
+        }, h('summary', null, summary), ...kids);
+        const link = (label, onclick, disabled) => h('button', { class: 'np-link', type: 'button', disabled, onclick }, label);
+        const start = () => { Object.assign(ns, { armed: true, rail, view: 'wait', cap: null, err: '' }); redraw(); };
+        const skip = () => { Object.assign(ns, { armed: false, view: '', cap: null, err: '' }); nsSet({ st: 'skip' }); close(); };
+        const info = det('info', 'np-info', 'ⓘ 가져오지 않는 것', h('ul', null,
+            h('li', null, '봇 설명 · 로어북 · 봇 글로벌노트 · 페르소나 · 작가 노트 · 채팅은 빼고, 프리셋 글만 가져옵니다.'),
+            h('li', null, '지금 고른 프리셋을 가져옵니다. 다른 프리셋을 쓰려면 리수에서 먼저 바꾸세요.'),
+            h('li', null, '가져온 글은 삽화 · 애드 에셋 · 대화 준비가 함께 씁니다.')));
+
+        const nsOne = (i, text) => h('div', { class: 'np-one' }, h('span', { class: 'np-n' }, `${i} / 3`), h('b', null, text));
+
+        if (ns.view === 'wait') return [
+            h('div', { class: 'np-wait' },
+                h('div', { class: 'np-wait-hd' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), h('b', null, '채팅을 기다리는 중입니다')),
+                nsOne(2, '리수에서 NSFW · 탈옥 토글을 모두 켜고, 아무 봇에게나 채팅을 하나 보냅니다.'),
+                h('ul', null,
+                    h('li', null, '채팅이 도착하면 이곳으로 다시 돌아옵니다.'),
+                    h('li', null, '아무 봇이나 괜찮습니다. 봇 글은 이매진이 알아서 뺍니다.'),
+                    h('li', null, '채팅은 하나만 보내면 됩니다. 단체 채팅은 피하세요.'),
+                    h('li', null, '봇 답변은 평소처럼 옵니다.'))),
+            h('div', { class: 'ix-acts' },
+                h('button', { class: 'ix-btn main', type: 'button', onclick: () => closePanel() }, '채팅으로 가기'),
+                link('취소', () => { Object.assign(ns, { armed: false, view: '' }); redraw(); })),
+        ];
+
+        if (ns.view === 'pick' && ns.cap) {
+            const cap = ns.cap;
+            const pre = cap.blocks.filter(b => !b.res), res = cap.blocks.filter(b => b.res);
+            const picked = cap.blocks.filter(b => ns.pick.has(b.id));
+            const joined = picked.map(b => b.text).join('\n\n');
+            const row = b => {
+                const { ti, pv } = nsTitle(b);
+                const on = ns.pick.has(b.id);
+                return h('label', { class: 'np-it' + (on ? '' : ' off') },
+                    h('input', { class: 'np-ck', type: 'checkbox', checked: on, onchange: e => { if (e.target.checked) ns.pick.add(b.id); else ns.pick.delete(b.id); redraw(); } }),
+                    h('span', { class: 'np-it-tx' },
+                        h('b', { class: 'np-ti' }, ti),
+                        h('span', { class: 'np-sub' }, `${NS_ROLE[b.role] ?? b.role} · ${b.text.length.toLocaleString()}자 · 요청 ${b.mi + 1}번째 글${b.res ? ` · 「${b.res}」 글과 앞부분이 같음` : ''}`),
+                        pv ? h('span', { class: 'np-pv' }, pv) : null));
+            };
+            const use = () => {
+                const all = cap.blocks.map(b => ({ id: b.id, text: b.text, role: b.role, mi: b.mi, res: b.res || '', title: nsTitle(b).ti }));
+                ns.data = { blocks: all, pick: all.filter(b => ns.pick.has(b.id)).map(b => b.id), at: cap.at, chatN: cap.chatN, botN: cap.botN, msgN: cap.msgN };
+                save('nc:nsfw', ns.data);
+                Object.assign(ns, { view: '', cap: null, err: '' });
+                nsSet({ st: 'used' });
+                close();
+            };
+            const marks = mi => res.filter(b => b.mi === mi).map(b => b.text);
+            const paint = (t, ms) => {
+                const m = ms.find(x => t.includes(x));
+                if (!m) return t;
+                const i = t.indexOf(m);
+                return [t.slice(0, i), h('mark', null, m), paint(t.slice(i + m.length), ms)];
+            };
+            const raw = cap.msgs ? det('raw', 'raw-box', '받은 요청 원문 보기 (뺀 글은 줄을 그어 표시)',
+                h('pre', { class: 'rq' }, cap.msgs.map((m, mi) => [
+                    h('span', { class: 'rq-role' }, `[${m.role}]`),
+                    m.segs.map(sg => sg.k === 'cut' ? h('del', null, h('span', { class: 'rq-lb' }, `${sg.lb} · 뺌`), sg.t) : paint(sg.t, marks(mi))),
+                ]))) : null;
+            const adv = det('adv', 'np-adv', '고급 설정 · 넣을 글 직접 고르기',
+                pre.length ? h('div', { class: 'np-total' },
+                    h('span', null, '프리셋 글 ', h('b', null, `${picked.length}개`), ' · ', h('b', null, `${joined.length.toLocaleString()}자`)),
+                    h('span', { class: 'ix-hint', style: 'margin:0' }, `채팅 · 페르소나 · 봇 글은 뺐습니다. 「다음」을 누르면 ${R.model}에 요청할 때마다 함께 보냅니다.`)) : null,
+                h('div', { class: 'np-lead' },
+                    h('p', null, cap.msgs ? `요청 메시지 ${cap.msgN}개에서 채팅 ${cap.chatN}곳과 봇 · 페르소나 글 ${cap.botN}곳을 뺐습니다. ` : '', '넣을 글만 체크해 두세요.'),
+                    h('span', { class: 'np-bulk' },
+                        link('전체 선택', () => { for (const b of pre) ns.pick.add(b.id); redraw(); }, pre.every(b => ns.pick.has(b.id))),
+                        link('전체 해제', () => { ns.pick.clear(); redraw(); }, !ns.pick.size))),
+                pre.length ? h('div', { class: 'np-list' }, pre.map(row)) : null,
+                res.length ? det('more', 'np-more', `봇 글일 수 있는 조각 ${res.length}개 (빼 둠)`,
+                    h('p', null, '시각 · 무작위 값이 들어 있어 봇 글과 똑같이 맞지 않은 문단입니다. 프리셋 글이라면 체크하세요.'),
+                    res.map(row)) : null,
+                det('joined', 'raw-box', '합친 글 보기', h('pre', null, joined || '(고른 글이 없습니다)')),
+                raw);
+            return [
+                h('p', { class: 'np-got' }, `✓ ${cap.at} 채팅에서 요청을 받았습니다`),
+                cap.msgs && pre.length ? nsOne(3, '아래 「다음」을 누르면 끝납니다.') : null,
+                pre.length ? null : h('p', { class: 'ix-hint', style: 'margin:0' }, '프리셋 글을 찾지 못했습니다. NSFW · 탈옥 토글을 켰는지 확인하고 다시 가져와 주세요.'),
+                h('div', { class: 'ix-acts' },
+                    h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', disabled: !picked.length, onclick: use }, '다음'),
+                    link('다시 가져오기', start),
+                    link('건너뛰기 (안 씀)', skip)),
+                adv,
+            ];
+        }
+
+        if (s.st === 'used' && ns.data) {
+            const got = nsPicked();
+            const repick = () => {
+                const d = ns.data;
+                ns.cap = { msgs: null, blocks: d.blocks, chatN: d.chatN, botN: d.botN, msgN: d.msgN, at: d.at };
+                ns.pick = new Set(d.pick);
+                ns.rail = rail;
+                ns.view = 'pick';
+                ns.open.add('adv');
+                redraw();
+            };
+            return [
+                h('div', { class: 'cf-card' },
+                    h('div', { class: 'cf-row sw' },
+                        h('div', { class: 'cf-tx' }, h('b', null, R.tgLabel), h('p', null, `${R.tgDesc} 끄면 글은 남겨 두고 보내지만 않습니다.`)),
+                        toggle(!!s.on?.[rail], () => { nsSet({ on: { ...s.on, [rail]: !s.on?.[rail] } }); redraw(); })),
+                    h('div', { class: 'cf-row col' },
+                        h('div', { class: 'cf-tx' }, h('b', null, `가져온 글 ${got.length}개 · ${got.reduce((n, b) => n + b.text.length, 0).toLocaleString()}자`)))),
+                h('div', { class: 'ix-acts' },
+                    h('button', { class: 'ix-btn', type: 'button', onclick: start }, '다시 가져오기'),
+                    link('안 씀으로 바꾸기', skip)),
+                h('p', { class: 'np-share' }, '가져온 글은 삽화 · 애드 에셋 · 대화 준비가 함께 씁니다. 스위치는 준비마다 따로 켜고 끕니다.'),
+                det('uadv', 'np-adv', '고급 설정',
+                    h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn', type: 'button', onclick: repick }, '넣을 글 직접 고르기'))),
+            ];
+        }
+
+        return [
+            ns.err ? h('div', { class: 'ix-msg err', style: 'margin:0 0 10px' }, ns.err) : null,
+            h('p', { class: 'np-desc' }, '쓰고 있는 프리셋에서 NSFW · 탈옥 글을 가져와, 이매진이 ', h('b', null, R.model), '에 요청할 때 함께 보냅니다. 가져오지 않으면 이매진 자체 지시만 씁니다.'),
+            nsOne(1, '아래 「프롬프트 가져오기」를 누릅니다.'),
+            h('div', { class: 'ix-acts' },
+                h('button', { class: 'ix-btn main', type: 'button', onclick: start }, '프롬프트 가져오기'),
+                s.st === 'skip' ? null : link('건너뛰기 (안 씀)', skip)),
+            info,
+        ];
     }
 
     const HIDE_DECL = 'display:none!important;--nc-hide:1;';
@@ -3608,7 +4023,7 @@ Output a single JSON object only:
 body.ix-on{margin:0;min-height:100vh;overflow-x:clip;color:#2b2f36;font:15px/1.55 ${FONT};padding:30px 16px 48px;box-sizing:border-box;background:rgba(0,0,0,.62)}
 html:has(body.ix-on){background:transparent;overflow-y:scroll}
 .ix{--paper:#fff;--paper2:#f6f7f9;--paper3:#eceef2;--line:#dbe5f0;--line2:#c3d1e2;--ink:#1f2d45;--muted:#6d7c95;--accent:#2b95f0;--accent2:#1d5bc4;--soft:#e9f5ff;--bad:#d0453b;--good:#14b386;--co:#ff6b5e;--ease-out:cubic-bezier(.2,.8,.2,1);
-  position:relative;box-sizing:border-box;max-width:1200px;min-height:720px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;min-width:0;color:var(--ink);font-family:${FONT};word-break:keep-all;overflow-wrap:anywhere;background:var(--paper);border-radius:14px;overflow:clip;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  position:relative;box-sizing:border-box;max-width:1200px;min-height:calc(100vh - 78px);min-height:calc(100dvh - 78px);margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;min-width:0;color:var(--ink);font-family:${FONT};word-break:keep-all;overflow-wrap:anywhere;background:var(--paper);border-radius:14px;overflow:clip;box-shadow:0 30px 80px rgba(0,0,0,.5)}
 .ix *{box-sizing:border-box}
 body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix.vn-on{grid-template-rows:minmax(0,1fr);height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:480px}
@@ -3624,71 +4039,107 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix-chip.bad{color:#fff;background:var(--bad)}
 .ix .ix-x{flex:none;display:grid;place-items:center;width:28px;height:28px;padding:0;font-size:1.1rem;line-height:1;color:#fff;background:#d0453b;border:1px solid #e0675e}
 .ix .ix-x:hover{background:#b3362d}
-.ix-band{display:flex;flex-direction:column;gap:16px;min-width:0;padding:14px 20px 0 28px;color:#fff;background:linear-gradient(115deg,#1d5bc4,#2b95f0 58%,#62bdff)}
-.ix-band.m-imagine{--mc:#7a6cff}
-.ix-band.m-asset{--mc:#17b897}
-.ix-band.m-voice{--mc:#2b95f0}
-.ix-band.m-talk{--mc:#ff6b5e}
-.ix-top{display:flex;align-items:center;gap:10px 18px;min-width:0}
-.ix-word{flex:none;font:italic 900 25px/1 "Segoe UI","Arial Black",Arial,sans-serif;letter-spacing:.6px;color:#fff}
-.ix-mos{display:flex;gap:12px;flex:1 1 auto;min-width:0}
-.ix .ix-mo{flex:0 1 230px;display:flex;align-items:center;gap:12px;min-width:0;height:56px;padding:0 14px;text-align:left;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);border-radius:12px;transition:background .15s,box-shadow .2s var(--ease-out),transform .2s var(--ease-out)}
-.ix .ix-mo:hover:not(:disabled):not(.on){background:rgba(255,255,255,.24);transform:translateY(-1px)}
-.ix .ix-mo:disabled{opacity:.5;cursor:not-allowed}
-.ix-mo .bx{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.2)}
-.ix-mo .bx .hi{width:20px;height:20px}
-.ix-mo .t{display:flex;flex-direction:column;min-width:0}
-.ix-mo b{display:flex;align-items:center;gap:6px;font-size:16px;font-weight:900;line-height:1.25;white-space:nowrap}
-.ix-mo small{margin-top:1px;overflow:hidden;font-size:11.5px;line-height:1.3;opacity:.8;white-space:nowrap;text-overflow:ellipsis}
-.ix .ix-mo.m-imagine{--mc:#7a6cff}
-.ix .ix-mo.m-asset{--mc:#17b897}
-.ix .ix-mo.m-voice{--mc:#2b95f0}
-.ix .ix-mo.m-talk{--mc:#ff6b5e}
-.ix .ix-mo.on{color:#1f2d45;background:#fff;border-color:#fff;box-shadow:0 8px 20px rgba(0,0,0,.15)}
-.ix-mo.on .bx{color:#fff;background:var(--mc)}
-.ix-mo.on small{color:var(--mc);opacity:1;font-weight:800}
-.ix-led{flex:none;width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.35)}
+/* 5.2.0: 프로그램 안 띠(R안). 윗줄은 ⌂ 홈 · 프로그램 이름 상자 · 상태(불 + 글) · 오른쪽 묶음(칩 · Anlas · 업데이트 · ×), 아랫줄은 폴더 탭.
+   띠 색은 그 프로그램 색(--mc)으로 만든다. color-mix 를 모르는 브라우저는 앞의 파란 그라데이션을 쓴다 */
+.ix-band{--mc:#2b95f0;display:flex;flex-direction:column;gap:8px;min-width:0;padding:10px 12px 0 14px;color:#fff;background:linear-gradient(115deg,#1d5bc4,#2b95f0 58%,#62bdff);background:linear-gradient(115deg,color-mix(in srgb,var(--mc) 78%,#0b1a3a),var(--mc) 60%,color-mix(in srgb,var(--mc) 65%,#fff))}
+.ix-band.m-imagine,.ix-app.m-imagine{--mc:#7a6cff}
+.ix-band.m-asset,.ix-app.m-asset{--mc:#17b897}
+.ix-band.m-voice,.ix-app.m-voice{--mc:#ff6b5e}
+.ix-band.m-talk,.ix-app.m-talk{--mc:#2b95f0}
+.ix-top{display:flex;align-items:center;gap:8px;height:38px;min-width:0}
+.ix .ix-pg{flex:none;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px 0 10px;font-size:15.5px;font-weight:900;line-height:1;color:#fff;white-space:nowrap;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:8px;cursor:default}
+.ix-pg .hi{width:18px;height:18px}
+.ix-stt{display:flex;align-items:center;gap:5px;min-width:0;padding-left:10px;margin-left:4px;overflow:hidden;font-size:12.5px;font-weight:600;opacity:.9;white-space:nowrap;border-left:1px solid rgba(255,255,255,.35)}
+.ix-stt span{overflow:hidden;text-overflow:ellipsis}
+.ix-led{flex:none;display:inline-block;width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.4)}
 .ix-led.lit{background:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,.25),0 0 6px rgba(74,222,128,.8)}
-.ix-mo.on .ix-led:not(.lit){background:#c3d1e2}
-.ix-tr{flex:none;display:flex;align-items:center;gap:8px;margin-left:auto}
-.ix-band .ix-chip{flex:0 1 auto;min-width:0;max-width:180px;overflow:hidden;height:30px;padding:0 12px;line-height:30px;white-space:nowrap;text-overflow:ellipsis;font-size:13px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);border-radius:15px}
-.ix .ix-band .ix-chip.run{color:#1d5bc4;background:#fff}
+.ix-tr{flex:none;display:flex;align-items:center;gap:7px;margin-left:auto;min-width:0;justify-content:flex-end}
+.ix .ix-band .ix-tr>.an-c,.ix .ix-tr>.ix-up{flex:none}
+.ix-band .ix-chip,.ix-htop .ix-chip{flex:0 1 auto;min-width:0;max-width:180px;overflow:hidden;height:27px;padding:0 11px;line-height:27px;white-space:nowrap;text-overflow:ellipsis;font-size:12px;font-weight:800;color:#fff;background:rgba(255,255,255,.18);border-radius:14px}
+.ix .ix-band .ix-chip.run,.ix .ix-htop .ix-chip.run{color:#1d5bc4;background:#fff}
 .ix .ix-band .ix-chip.ok{color:#fff;background:#14b386}
 .ix .ix-band .ix-chip.bad{color:#fff;background:#ff6b5e}
-.ix .ix-band .an-c{--an:#fff;--an-f:rgba(255,255,255,.28);height:30px;margin:0;padding:0 12px;font-size:13px;font-weight:800;color:rgba(255,255,255,.8);background-color:rgba(255,255,255,.16);border:0;border-radius:15px}
+.ix .ix-band .an-c{--an:#fff;--an-f:rgba(255,255,255,.28);height:27px;margin:0;padding:0 11px;font-size:12px;font-weight:800;color:rgba(255,255,255,.8);background-color:rgba(255,255,255,.18);border:0;border-radius:14px}
 .ix .ix-band .an-c b{color:#fff}
 .ix .ix-band .an-c b.lo{color:#ffd0cc}
 .ix .ix-band .an-c .an-sep{background:rgba(255,255,255,.35)}
 .ix .ix-band .an-c .lnk{color:#fff}
-.ix .ix-up{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;font-size:13px;font-weight:800;white-space:nowrap;color:#fff;background:rgba(255,255,255,.16);border:0;border-radius:15px}
+.ix .ix-up{display:inline-flex;align-items:center;gap:5px;height:27px;padding:0 11px;font-size:12px;font-weight:800;white-space:nowrap;color:#fff;background:rgba(255,255,255,.18);border:0;border-radius:14px}
+.ix-up .hi{width:15px;height:15px}
+.ix .ix-htop .ix-up{height:24px;padding:0 10px;font-size:12px;color:#1d5bc4;background:#fff;border-radius:12px}
 .ix .ix-up:hover,.ix .ix-up.on{color:#b45309;background:#fff}
 .md-dot{flex:none;width:8px;height:8px;border-radius:50%;background:#ffc93c;box-shadow:0 0 0 2px rgba(255,201,60,.3),0 0 6px rgba(255,201,60,.85)}
-.ix .ix-band .ix-x{flex:none;display:grid;place-items:center;width:34px;height:34px;padding:0;font-size:1.2rem;line-height:1;color:#1f2d45;background:#fff;border:0;border-radius:50%}
+.ix .ix-band .ix-x{flex:none;display:grid;place-items:center;width:32px;height:32px;padding:0;font-size:1.15rem;line-height:1;color:#1f2d45;background:#fff;border:0;border-radius:50%}
 .ix .ix-band .ix-x:hover{background:#e9f5ff}
+.ix .ix-band .ix-bk{flex:none;display:grid;place-items:center;width:32px;height:32px;padding:0;color:#1f2d45;background:#fff;border:0;border-radius:50%}
+.ix .ix-band .ix-bk:hover{background:#e9f5ff}
+.ix-bk .hi{width:17px;height:17px}
 .ix-fts{display:flex;align-items:flex-end;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
-.ix .ix-ftab{flex:none;display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 22px;white-space:nowrap;font-size:14px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);border:0;border-radius:12px 12px 0 0;transition:background .15s}
+.ix .ix-ftab{flex:none;display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 18px;white-space:nowrap;font-size:13px;font-weight:800;color:#fff;background:rgba(255,255,255,.16);border:0;border-radius:12px 12px 0 0;transition:background .15s}
 .ix .ix-ftab:hover:not(.on){background:rgba(255,255,255,.26)}
 .ix .ix-ftab.on{color:#1f2d45;background:var(--paper)}
-.ix .ix-ftab.sd{padding:0 16px;font-weight:700}
+.ix .ix-ftab.sd{padding:0 13px;font-weight:700}
 .ix-ftab.sd0{margin-left:auto}
 .ix-ftab .hi{width:15px;height:15px}
 .ix-ftab .cnt{padding:0 6px;font-style:normal;font-size:.7rem;font-weight:800;color:#fff;background:rgba(255,255,255,.24);border-radius:9px}
 .ix-ftab.on .cnt{color:#fff;background:var(--mc)}
 /* 4.10.0: 음성 「대화하기」 말풍선 단추 (왼쪽 아래 모서리만 뾰족, 점 세 개가 천천히 움직인다) */
-.ix .ix-talk{flex:none;position:relative;display:inline-flex;align-items:center;gap:8px;height:34px;margin:0 0 4px 6px;padding:0 16px 0 12px;border:0;border-radius:17px 17px 17px 5px;font-size:13.5px;font-weight:800;white-space:nowrap;color:#fff;background:#ff6b5e;box-shadow:0 3px 0 #d9483c,0 10px 18px -6px rgba(120,20,10,.5);transition:transform .15s,box-shadow .15s}
+.ix .ix-talk{flex:none;position:relative;display:inline-flex;align-items:center;gap:8px;height:30px;margin:0 0 4px 6px;padding:0 16px 0 12px;border:0;border-radius:17px 17px 17px 5px;font-size:13.5px;font-weight:800;white-space:nowrap;color:#fff;background:#ff6b5e;box-shadow:0 3px 0 #d9483c,0 10px 18px -6px rgba(120,20,10,.5);transition:transform .15s,box-shadow .15s}
 .ix-dots{display:inline-flex;gap:3px}
-.ix-dots b{width:5px;height:5px;border-radius:50%;background:#fff;animation:ix-dot 1.3s ease-in-out infinite}
+.ix-dots b{width:5px;height:5px;border-radius:50%;background:currentColor;animation:ix-dot 1.3s ease-in-out infinite}
 .ix-dots b:nth-child(2){animation-delay:.18s}
 .ix-dots b:nth-child(3){animation-delay:.36s}
 @keyframes ix-dot{0%,70%,100%{opacity:.45;transform:translateY(0)}35%{opacity:1;transform:translateY(-3px)}}
 .ix .ix-talk:hover{transform:translateY(-2px);box-shadow:0 5px 0 #d9483c,0 14px 22px -6px rgba(120,20,10,.55)}
 .ix .ix-talk:active{transform:translateY(2px);box-shadow:0 1px 0 #d9483c,0 4px 10px -4px rgba(120,20,10,.5)}
-.ix-sep{flex:none;width:1px;height:22px;margin:0 2px 9px 8px;align-self:flex-end;background:rgba(255,255,255,.35)}
+/* 5.2.0: 띠가 프로그램 색이라 대화 띠(산호색)에서 말풍선이 묻힌다. 띠 안에서는 흰 바탕에 프로그램 색 글씨로 쓴다 */
+.ix .ix-band .ix-talk{color:var(--mc);background:#fff;box-shadow:0 3px 0 rgba(0,0,0,.16),0 8px 14px -6px rgba(0,0,0,.35)}
+.ix .ix-band .ix-talk:hover{box-shadow:0 5px 0 rgba(0,0,0,.16),0 12px 18px -6px rgba(0,0,0,.4)}
+.ix .ix-band .ix-talk:active{box-shadow:0 1px 0 rgba(0,0,0,.16),0 4px 10px -4px rgba(0,0,0,.35)}
+.ix-sep{flex:none;width:1px;height:20px;margin:0 2px 8px 8px;align-self:flex-end;background:rgba(255,255,255,.35)}
 @media (prefers-reduced-motion:reduce){.ix-dots b{animation:none;opacity:.8}}
-/* 4.10.0: 여는 중 화면. 띠 · 모드 카드 · 폴더 탭 자리를 같은 꼴의 빈 칸으로 먼저 그린다 */
+/* 5.2.0: 런치패드 홈. 패널을 열면 흐린 바탕 위에 프로그램 아이콘 네 개를 띄운다. 아이콘을 누르면 그 자리에서 프로그램 화면이 커지며 열린다 */
+.ix.home-on{grid-template-rows:minmax(0,1fr);height:calc(100vh - 78px);height:calc(100dvh - 78px);min-height:520px}
+.ix-home{position:relative;overflow:hidden;min-height:0;color:#fff}
+.ix-wall{position:absolute;inset:0;background:radial-gradient(60% 70% at 15% 20%,#7a6cff 0,transparent 60%),radial-gradient(55% 60% at 85% 25%,#62bdff 0,transparent 60%),radial-gradient(70% 70% at 70% 95%,#ff9a8b 0,transparent 55%),linear-gradient(150deg,#1d5bc4,#2b95f0 55%,#8fd0ff);filter:blur(28px) saturate(1.2);transform:scale(1.15)}
+.ix-dim{position:absolute;inset:0;background:rgba(10,20,40,.18)}
+.ix-htop{position:absolute;top:14px;left:18px;right:14px;z-index:2;display:flex;align-items:center;gap:8px;min-width:0}
+.ix-word{flex:none;font:italic 900 18px/1 "Segoe UI","Arial Black",sans-serif;letter-spacing:.04em;text-shadow:0 1px 3px rgba(0,0,0,.25)}
+.ix-htop .r{display:flex;align-items:center;gap:6px;min-width:0;margin-left:auto}
+.ix .ix-htop .ix-x{flex:none;display:grid;place-items:center;width:30px;height:30px;padding:0;font-size:1.05rem;line-height:1;color:#1f2d45;background:#fff;border:0;border-radius:50%}
+.ix .ix-htop .ix-x:hover{background:#e9f5ff}
+.ix-srch{position:absolute;top:62px;left:50%;z-index:2;display:flex;align-items:center;gap:7px;width:240px;max-width:calc(100% - 32px);height:32px;padding:0 11px;transform:translateX(-50%);background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:9px}
+.ix-srch .hi{flex:none;width:14px;height:14px;opacity:.85}
+.ix .ix-srch input{flex:1;min-width:0;height:100%;padding:0;font:600 13px/1 ${FONT};color:#fff;background:none;border:0;outline:0}
+.ix .ix-srch input::placeholder{color:rgba(255,255,255,.75)}
+.ix-srch:focus-within{background:rgba(255,255,255,.26);border-color:rgba(255,255,255,.55)}
+.ix-grid{position:absolute;inset:120px 30px 70px;z-index:1;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:28px 36px}
+.ix .ix-app{display:flex;flex-direction:column;align-items:center;gap:9px;width:130px;padding:0;color:#fff;background:none;border:0;transition:transform .15s,opacity .15s}
+.ix .ix-app:hover:not(:disabled){transform:scale(1.06)}
+.ix .ix-app:focus-visible{outline:2px solid #fff;outline-offset:6px;border-radius:12px}
+.ix .ix-app.hide{opacity:.15;pointer-events:none}
+.ix .ix-app:disabled{opacity:.5}
+.ix-app .ico{display:grid;place-items:center;width:104px;height:104px;border-radius:27px;background:linear-gradient(160deg,#9ad2ff,var(--mc) 55%,#145fa8);background:linear-gradient(160deg,color-mix(in srgb,var(--mc) 70%,#fff),var(--mc) 55%,color-mix(in srgb,var(--mc) 80%,#000));box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 6px 14px -6px rgba(0,0,0,.45)}
+.ix-app .ico .hi{width:52%;height:52%;color:#fff}
+.ix-app b{font-size:15px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.ix-app b{display:flex;align-items:center;gap:6px}
+.ix-app b .ix-led{width:8px;height:8px;background:#9ca3af;box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+.ix-app b .ix-led.lit{background:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,.25),0 0 6px rgba(74,222,128,.8)}
+.ix-home .ix-grid.sk{gap:28px 60px}
+/* 5.2.1: 홈 여는 중 화면의 진행 막대 · TIP. 어두운 바탕이라 밝은 글자로 쓴다 */
+.ix-hboot{position:absolute;left:16px;right:16px;bottom:34px;z-index:2}
+.ix-hboot .ix-open-bar{max-width:240px;height:6px;margin:0 auto;border:0;border-radius:6px;background:rgba(255,255,255,.22)}
+.ix-hboot .ix-open-bar .fi{border-radius:6px;background:#fff}
+.ix-hboot .ix-tip{margin-top:14px;color:rgba(255,255,255,.92);text-shadow:0 1px 3px rgba(0,0,0,.3)}
+.ix-hboot .ix-tip b{border-radius:5px;color:#1f2d45;background:#fff;text-shadow:none}
+@keyframes ix-zoom{from{opacity:0;transform:scale(.18)}to{opacity:1;transform:none}}
+.ix.ix-zoom{animation:ix-zoom .28s cubic-bezier(.2,.8,.2,1) both;transform-origin:var(--zo,50% 50%)}
+@media (prefers-reduced-motion:reduce){.ix.ix-zoom{animation:none}}
+/* 4.10.0: 여는 중 화면. 띠 · 런치패드 아이콘 · 폴더 탭 자리를 같은 꼴의 빈 칸으로 먼저 그린다 */
 .ix-sk{display:block;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);position:relative;overflow:hidden}
-.ix-sk.mo{flex:0 1 230px;min-width:0;height:56px;border-radius:12px}
-.ix-sk.ft{flex:none;width:92px;height:40px;border-radius:12px 12px 0 0;border-bottom:0}
+.ix-sk.pg{flex:none;width:104px;height:34px;border-radius:8px}
+.ix-sk.ft{flex:none;width:80px;height:36px;border-radius:12px 12px 0 0;border-bottom:0}
+.ix-sk.ap{width:76px;height:76px;border-radius:20px}
 .ix-sk::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.25) 50%,transparent 80%);transform:translateX(-100%);animation:ix-shine 1.6s ease-in-out infinite}
 .ix-boot{max-width:460px;margin:28px auto 0;padding:30px 22px;border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:0 1px 2px rgba(31,45,69,.06),0 8px 20px -10px rgba(31,45,69,.28)}
 .ix-boot .ix-open-bar{height:10px;border:0;border-radius:10px;background:#e9eff7}
@@ -3809,8 +4260,12 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .lb-tip{font-size:.76rem;color:#c7cdd6}
 .lb-x{position:absolute;top:10px;right:10px;width:38px;height:38px;padding:0;font-size:1.2rem;line-height:1;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);cursor:pointer}
 .lb-x:hover{background:rgba(255,255,255,.25)}
-/* 캐릭터 카드 — 접힌 머리줄로 한 사람씩 구분하고, 누르면 펼쳐 고친다. 왼쪽 띠 · 동그라미 색이 그 사람의 색이다 */
-.cc{background:#fff;border:1px solid var(--line);border-left:4px solid var(--cc,var(--accent))}
+/* 캐릭터 카드 — 접힌 머리줄로 한 사람씩 구분하고, 누르면 펼쳐 고친다. 테두리 왼쪽 · 동그라미 색이 그 사람의 색이다 */
+.cc{background:linear-gradient(#fff,#fff) padding-box,linear-gradient(90deg,var(--cc,var(--accent)) 0,color-mix(in srgb,var(--cc,var(--accent)) 35%,var(--line)) 45%,var(--line) 80%) border-box;border:2px solid transparent}
+/* 5.2.0: 왼쪽 4px 띠 대신 2px 테두리가 왼쪽 그 사람의 색에서 오른쪽 회색으로 바뀐다. 안쪽 모서리(14 - 2 = 12px)에 맞춰 머리줄 · 바닥줄 바탕을 둥글린다 */
+.ix .cc-hd{border-radius:12px 12px 0 0}
+.ix .cc:not(.open)>.cc-hd{border-radius:12px}
+.ix .cc-ft{border-radius:0 0 12px 12px}
 .cc+.cc{margin-top:12px}
 .cc-hd{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer;user-select:none}
 .cc-hd:hover{background:var(--paper2)}
@@ -4110,6 +4565,63 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ans .raw-box{margin:0 12px 12px}
 .raw-box summary{width:max-content;color:var(--accent);cursor:pointer}
 .raw-box pre{max-height:220px;overflow:auto;margin:4px 0 0;padding:6px 8px;font:.72rem/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;color:var(--ink);background:var(--paper3);border:1px solid var(--line)}
+/* 5.1.0: 준비 › NSFW 프롬프트 추가 (세 레일 공통). 둥근 모서리는 .ix 층에서 */
+.np-desc{font-size:.88rem;line-height:1.7}
+.np-desc b{color:var(--accent2)}
+.np-do{margin:12px 0 0;padding:12px 16px 12px 34px;font-size:.84rem;line-height:1.8;background:var(--paper2);border:1px solid var(--line)}
+.np-one{display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:12px 16px;font-size:.9rem;line-height:1.6;background:var(--paper2);border:1px solid var(--line)}
+.np-one .np-n{flex:none;padding:2px 9px;font-size:.74rem;font-weight:700;color:var(--accent2);background:var(--soft);border-radius:999px}
+.np-wait .np-one{margin-top:10px;background:#fff}
+.np-wait{padding:16px 18px;background:var(--soft);border:1px solid #bfe0fb}
+.np-wait-hd{display:flex;align-items:center;gap:10px}
+.np-wait-hd b{font-size:.95rem;color:var(--accent2)}
+.np-wait .dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--accent);animation:np-pulse 1.4s ease-in-out infinite}
+@keyframes np-pulse{50%{opacity:.25}}
+.np-wait .np-do{margin-top:10px;background:#fff}
+.np-wait ul{margin:10px 0 0;padding-left:20px;font-size:.76rem;line-height:1.7;color:var(--muted)}
+.np-got{margin:0 0 12px;padding:7px 12px;font-size:.8rem;font-weight:700;color:var(--good);background:#f1faf4;border:1px solid #a7d8b9}
+.ix .np-link{min-height:28px;padding:2px 4px;font-size:.8rem;font-weight:600;color:var(--accent2);background:none;border:0;text-decoration:underline;text-underline-offset:3px}
+.ix .np-link:disabled{color:var(--muted);text-decoration:none;cursor:default;opacity:.6}
+.np-lead{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:4px 12px;margin:0 0 8px;font-size:.84rem;line-height:1.6}
+.np-lead p{flex:1 1 280px}
+.np-bulk{display:flex;gap:8px}
+.np-list{overflow:hidden;background:#fff;border:1px solid var(--line)}
+.np-it{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-top:1px solid var(--line);cursor:pointer}
+.np-it:first-child{border-top:0}
+.np-it:hover{background:#fafcff}
+.np-it.off{background:var(--paper2)}
+.np-it.off .np-ti,.np-it.off .np-pv{color:var(--muted)}
+.np-ck{flex:none;width:20px;height:20px;margin:1px 0 0;accent-color:var(--accent);cursor:pointer}
+.np-it-tx{display:block;flex:1 1 0;min-width:0}
+.np-ti{display:block;overflow:hidden;font-size:.88rem;line-height:1.45;white-space:nowrap;text-overflow:ellipsis}
+.np-sub{display:block;margin-top:2px;font-size:.72rem;color:var(--muted)}
+.np-pv{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:5px 0 0;font-size:.76rem;line-height:1.55;white-space:pre-line;color:#4b5563}
+.np-more{margin:8px 0 0;background:#fff;border:1px dashed var(--line2)}
+.np-more>summary{padding:10px 14px;font-size:.78rem;color:var(--muted);cursor:pointer}
+.np-more>p{padding:0 14px 8px;font-size:.74rem;line-height:1.6;color:var(--muted)}
+.np-more .np-it{border-top:1px dashed var(--line)}
+.np-total{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:12px 0 0;padding:10px 12px;font-size:.84rem;background:var(--paper2);border:1px solid var(--line)}
+.np-total b{color:var(--accent2)}
+.np-adv{margin:14px 0 0;background:#fff;border:1px solid var(--line)}
+.np-adv>summary{padding:10px 14px;font-size:.8rem;color:var(--accent2);cursor:pointer}
+.np-adv[open]>summary{border-bottom:1px solid var(--line)}
+.np-adv>*:not(summary){margin-left:14px;margin-right:14px}
+.np-adv>:last-child{margin-bottom:14px}
+.np-adv .np-lead{margin-top:12px}
+.np-adv>.raw-box{margin-top:10px}
+.np-total .raw-box{flex-basis:100%;margin:0}
+.np-info{margin:14px 0 0;font-size:.76rem;color:var(--muted)}
+.np-info>summary{width:max-content;cursor:pointer;color:var(--accent2)}
+.np-info ul{margin:6px 0 0;padding:8px 12px 8px 28px;line-height:1.7;background:#fffaf3;border-left:3px solid #f0b37a}
+.np-picked{margin:4px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)}
+.np-share{margin:12px 0 0;font-size:.74rem;color:var(--muted)}
+.rq{margin:0;padding:8px 10px;font:.72rem/1.55 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;background:var(--paper3);border:1px solid var(--line);max-height:320px;overflow:auto}
+.rq-role{display:block;margin:8px 0 2px;font-weight:700;color:var(--accent2)}
+.rq-role:first-child{margin-top:0}
+.rq del{color:#9aa8bd;text-decoration-color:#d0453b}
+.rq-lb{display:inline-block;margin:0 4px 0 0;padding:0 5px;font:700 .66rem/1.6 "Malgun Gothic",sans-serif;color:#fff;background:#d0453b;text-decoration:none}
+.rq mark{color:inherit;background:#fff3c4}
+@media (max-width:600px){.np-wait{padding:12px}.np-do{padding-left:28px}}
 .ix code{font:.72rem ui-monospace,Consolas,monospace;background:var(--paper3);padding:0 3px}
 .no{flex:none;padding:1px 7px;font-size:.72rem;font-weight:700;color:#fff;background:#3a3e47}
 .no.new{background:var(--accent)}
@@ -4177,7 +4689,12 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
   .cc-sec{padding:10px}
   .ix-pane{padding:12px}
   .sz-bar{margin:16px -12px -12px;padding:10px 12px}
-  .ix-band{padding:10px 10px 0 12px}
+  .ix-band{padding:7px 8px 0 10px}
+  body.ix-on:has(.ix.home-on){padding-top:12px;padding-bottom:12px}
+  .ix.home-on{height:calc(100vh - 24px);height:calc(100dvh - 24px);min-height:460px}
+  .ix-grid{inset:110px 14px 60px;gap:22px 18px}
+  .ix .ix-app{width:120px}
+  .ix-app .ico{width:92px;height:92px;border-radius:24px}
   .ix .ix-ftab{padding:0 14px}
   .ix .ix-ftab.sd{padding:0 10px}
   .ix-ftab.sd .hi{display:none}
@@ -4214,6 +4731,9 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix .dz-op,.ix .as-t,.ix .acnt .cn{border-radius:12px}
 .ix .cf-seg{border-radius:20px;overflow:hidden}
 .ix .ab,.ix .sz-bar{border-radius:12px}
+.ix .np-one,.ix .np-do,.ix .np-wait,.ix .np-list,.ix .np-more,.ix .np-total,.ix .np-adv{border-radius:12px}
+.ix .np-got,.ix .rq{border-radius:8px}
+.ix .rq-lb{border-radius:4px}
 .ix .dlg{border-radius:16px;overflow:clip}
 .ix .ab,.ix .sz-bar{margin:18px 0 0;border:1px solid var(--line);box-shadow:0 10px 24px -14px rgba(31,45,69,.45)}
 /* 4.3.0: 선만 있는 상자는 바탕과 구분이 안 돼 그림자를 넣는다 (고른 칸의 안쪽 테두리 그림자는 그대로 둔다) */
@@ -4222,7 +4742,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 
 /* 4.1.0: 삽화 · 애드 에셋 준비 탭을 음성 준비 탭과 같은 「단계 레일 + 판」으로 그린다 (railSteps) */
 .ix-pane.rl-pane{display:flex;flex-direction:column}
-.ix .rl{--sky:#2b95f0;--skl:#e9f5ff;--mut:#6d7c95;--ln:#dbe5f0;--ok:#14b386;flex:1 1 auto;display:flex;gap:22px;align-items:stretch;min-width:0}
+.ix .rl{--sky:#2b95f0;--skl:#e9f5ff;--mut:#6d7c95;--ln:#dbe5f0;--ok:#14b386;--ink2:#1f2d45;--co:#ff6b5e;flex:1 1 auto;display:flex;gap:22px;align-items:stretch;min-width:0}
 .ix .rl .vz-steps{flex:none;align-self:flex-start;width:262px}
 /* 4.2.0: 준비 순서는 상자 없이 원과 세로선으로 잇는다 (옛 .sp 타임라인 · 견본 ui_ready_linear_sample_1) */
 .ix .rl .vz-steps h3{display:flex;justify-content:space-between;margin:0 0 14px;font-size:13px;font-weight:800;color:var(--ink)}
@@ -4237,6 +4757,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix .rl .vz-st span{display:block;min-width:0}
 .ix .rl .vz-st b{display:block;overflow:hidden;font-size:14px;line-height:1.3;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
 .ix .rl .vz-st small{display:block;overflow:hidden;margin-top:2px;font-size:11.5px;color:var(--mut);white-space:nowrap;text-overflow:ellipsis}
+.ix .rl .vz-st .vz-sh{display:none}
 .ix .rl .vz-st:hover:not(:disabled) b{color:var(--sky);text-decoration:underline;text-underline-offset:3px}
 .ix .rl .vz-st.done i{color:#fff;background:var(--ok);border-color:var(--ok)}
 .ix .rl .vz-st.done small{color:var(--ok);font-weight:700}
@@ -4247,13 +4768,31 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .ix .rl .vz-st.lock small{color:#b3bfd0}
 .ix .rl .vz-st.on:not(.cur) i{box-shadow:0 0 0 5px rgba(43,149,240,.22)}
 .ix .rl .vz-st.on b{color:var(--sky)}
-.ix .rl .vz-intro{margin:4px 2px 0;font-size:12px;line-height:1.55;color:var(--mut)}
+.ix .rl .vz-ft{display:flex;align-items:center;gap:12px;margin-top:22px}
+.ix .rl .vz-note{flex:1 1 auto;margin:0;font-size:12.5px;color:var(--mut)}
+.ix .rl .vz-back{height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
+.ix .rl .vz-back:disabled{opacity:.45;cursor:not-allowed}
+.ix .rl .vz-cta{height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
+.ix .rl .vz-cta:hover:not(:disabled){transform:translateY(-2px)}
+.ix .rl .vz-cta:disabled{opacity:.45;cursor:not-allowed}
+.ix .rl .in-lead{margin:10px 0 20px;font-size:15px;line-height:1.7;color:var(--ink2)}
+.ix .rl .in-flow{display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;align-items:stretch;gap:0}
+.ix .rl .in-card{display:flex;flex-direction:column;gap:10px;padding:14px;background:#f8fbff;border:1px solid var(--ln);border-radius:12px}
+.ix .rl .in-card svg{display:block;width:100%;height:auto;border-radius:8px;background:#fff}
+.ix .rl .in-card b{font-size:13.5px}
+.ix .rl .in-card b em{display:inline-grid;place-items:center;width:20px;height:20px;margin-right:6px;font-style:normal;font-size:11px;font-weight:900;color:#fff;background:var(--sky);border-radius:50%}
+.ix .rl .in-card p{margin:0;font-size:12.5px;line-height:1.55;color:var(--mut)}
+.ix .rl .in-arr{display:grid;place-items:center;color:#a9b8cc;font-size:20px;font-weight:900}
+@media (max-width:860px){.ix .rl .in-flow{grid-template-columns:1fr}.ix .rl .in-arr{transform:rotate(90deg);height:26px}}
 .ix .rl .vz-pn{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;padding:22px 26px;background:#fff;border:1px solid var(--ln);border-radius:16px}
 .ix .rl .vz-hd{display:flex;align-items:center;gap:10px}
 .ix .rl .vz-tg{flex:none;display:inline-flex;align-items:center;height:26px;padding:0 10px;font-size:12px;font-weight:900;color:var(--sky);background:var(--skl);border-radius:13px}
 .ix .rl .vz-pn h2{min-width:0;font-size:22px;font-weight:900;color:var(--ink)}
 .ix .rl .vz-hd .lnk{margin-left:auto;font-size:12.5px}
 .ix .rl .vz-bd{flex:1 1 auto;min-width:0;margin-top:18px}
+/* 5.2.0: 완료 카드만 띄울 때는 판 상자 없이 둔다 (railSteps bare) */
+.ix .rl .vz-fin{flex:1 1 auto;min-width:0}
+.ix .rl .vz-fin>.vz-bd{margin-top:0}
 .ix .rl .dz{gap:12px}
 .ix .rl .dz-op{flex-direction:row;align-items:center;gap:14px;min-height:92px;padding:12px 16px;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s}
 .ix .rl .dz-op:hover:not(:disabled){border-color:var(--sky)}
@@ -4273,21 +4812,29 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
   .ix .rl{flex-direction:column;gap:14px}
   .ix .rl .vz-steps{align-self:stretch;display:flex;flex-wrap:wrap;align-items:flex-start;width:100%}
   .ix .rl .vz-steps h3{flex:0 0 100%;margin:0 0 10px}
-  .ix .rl .vz-steps>.vz-st{flex:1 1 30px;display:flex;justify-content:center;min-width:0;min-height:0;padding:0}
+  /* 5.2.0: 원만 남기던 꼴을 바꿔, 원 아래에 짧은 이름과 지금 값을 적는다. 고칠 단계를 눌러 보지 않고 찾는다 */
+  .ix .rl .vz-steps>.vz-st{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;min-height:0;padding:0 2px 6px;border-radius:10px}
   .ix .rl .vz-st::before{left:calc(50% + 15px);right:calc(15px - 50%);top:14px;bottom:auto;width:auto;height:2px}
-  .ix .rl .vz-st i{position:relative}
-  .ix .rl .vz-st span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-  .ix .rl .vz-intro{display:none}
+  .ix .rl .vz-st i{position:relative;flex:none}
+  .ix .rl .vz-st span{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:100%;text-align:center}
+  .ix .rl .vz-st b{display:none}
+  .ix .rl .vz-st .vz-sh{display:block;max-width:100%;overflow:hidden;font-size:12px;font-style:normal;font-weight:800;line-height:1.2;color:var(--ink);white-space:nowrap;text-overflow:ellipsis}
+  .ix .rl .vz-st small{max-width:100%;margin:0;font-size:11px;line-height:1.2}
+  .ix .rl .vz-st.lock .vz-sh{color:#9aa8bd}
+  .ix .rl .vz-st.on{background:var(--skl)}
+  .ix .rl .vz-st.on .vz-sh,.ix .rl .vz-st:hover:not(:disabled) .vz-sh{color:var(--sky)}
   .ix .rl .vz-pn{padding:18px 18px}
   .ix .rl .dz{grid-template-columns:1fr}
 }
 @media (max-width:600px){
-  .ix{min-height:0}
+  .ix{min-height:calc(100vh - 58px);min-height:calc(100dvh - 58px)}
   .ix-pane{padding:14px 12px 16px}
-  .ix-band{gap:12px;padding:10px 10px 0 12px}
+  .ix-band{padding:7px 8px 0 10px}
   .ix .rl .vz-pn{padding:16px 14px;border-radius:14px}
   .ix .rl .vz-pn h2{font-size:19px}
   .ix .rl .vz-hd{flex-wrap:wrap}
+  .ix .rl .vz-st small{display:none}
+  .ix .rl .vz-st .vz-sh{font-size:10.5px}
   .ix .rl .ix-acts .ix-btn.main{width:100%}
 }
 @media (max-width:420px){
@@ -4325,7 +4872,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     }
 
     let voice = null;
-    const ui = { root: null, mode: 'imagine', tab: 'ready', atab: 'make', vtab: 'ready', ttab: 'ready', side: '', lastTab: null, animAt: 0, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
+    const ui = { root: null, home: false, homeQ: '', mode: 'imagine', tab: 'ready', atab: 'make', vtab: 'ready', ttab: 'ready', side: '', lastTab: null, animAt: 0, reopen: 0, galFilter: 'all', menu: '', galLimit: 30, readyAt: 0, scan: null, files: null, newId: '' };
     const galCount = () => { const v = st.view; return v ? Object.values(v.recs).filter(r => r.chat === v.chatKey).reduce((n, r) => n + (r.images?.length ?? 0), 0) : 0; };
     const TABS = [
         ['ready', () => ['준비', st.view?.hasKey && setupDone() ? h('em', { class: 'cnt' }, '✓') : null]],
@@ -4348,16 +4895,25 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         const scroller = doc.scrollingElement ?? doc.documentElement;
         const keep = scroller.scrollTop;
         if (vMode(ui.mode) && !voice) ui.mode = 'imagine';
+        const lb = ui.root.querySelector(':scope > .lb');
+        if (ui.home) {
+            ui.root.classList.remove('vn-on');
+            ui.root.classList.add('home-on');
+            ui.lastTab = 'home';
+            ui.root.replaceChildren(...[renderHome(), lb].filter(Boolean));
+            scroller.scrollTop = keep;
+            return;
+        }
+        ui.root.classList.remove('home-on');
         const now = ui.side ? 'side' + ui.side : ui.mode === 'voice' ? 'voice' + ui.vtab : ui.mode === 'talk' ? 'talk' + ui.ttab : ui.mode === 'asset' ? 'asset' + ui.atab : 'imagine' + ui.tab;
         const anim = ui.lastTab !== now;
         ui.lastTab = now;
         if (ui.side === 'upd' && !updOn()) ui.side = '';
-        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'talk' ? voice.pane(ui.ttab === 'talk' ? 'talk' : 'tready') : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset())) : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady());
+        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'talk' ? voice.pane(ui.ttab === 'talk' ? 'talk' : 'tready') : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset(), 'asset')) : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady(), 'illust');
         if (anim) ui.animAt = Date.now();
         const ae = Date.now() - ui.animAt;
         if (ae < 1000) { pane.classList.add('anim'); pane.style.setProperty('--ae', -ae + 'ms'); }
-        const lb = ui.root.querySelector(':scope > .lb');
-        const vn = ui.mode === 'talk' && ui.ttab === 'talk' && !ui.side;
+        const vn = ui.mode === 'talk' && ui.ttab === 'talk' && !ui.side && !voice?.talkListOn?.();
         ui.root.classList.toggle('vn-on', vn);
         ui.root.replaceChildren(...[vn ? null : renderHead(), pane, vn ? null : renderFoot(), lb].filter(Boolean));
         scroller.scrollTop = keep;
@@ -4396,21 +4952,29 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         voice: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
         mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/>',
         talk: '<path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/>',
+        home: '<path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9v11h13V9"/>',
+        back: '<path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/>',
+        search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
     };
     function headIcon(k) {
         const el = h('span', { class: 'hi', 'aria-hidden': 'true' });
         el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + HEAD_ICON[k] + '</svg>';
         return el;
     }
+    function goBack() {
+        if (ui.side) goMode(ui.mode); else goHome();
+    }
     function renderHead() {
         const voiceOn = vMode(ui.mode);
         const chip = voiceOn ? voice.chipText() : chipOf();
+        const { lit, tip } = modeInfo();
+        const label = MODES.find(([m]) => m === ui.mode)?.[1] ?? '';
         const v = st.view, asset = ui.mode === 'asset';
         const an = !voiceOn && !ui.side && v?.hasKey && (asset ? ui.atab === 'make' && !v.group && !!acAst() : ui.tab === 'ready') ? nlChip(asset) : null;
         return h('header', { class: 'ix-band m-' + ui.mode },
             h('div', { class: 'ix-top' },
-                h('span', { class: 'ix-word' }, 'IMAGINE'),
-                modeCards(),
+                h('button', { class: 'ix-pg', type: 'button', title: `${label} 화면`, onclick: () => { if (ui.side) goMode(ui.mode); } }, headIcon(ui.mode), label),
+                h('span', { class: 'ix-stt', title: tip[ui.mode] }, h('i', { class: 'ix-led' + (lit[ui.mode] ? ' lit' : ''), 'aria-hidden': 'true' }), h('span', null, tip[ui.mode])),
                 h('span', { class: 'ix-tr' },
                     chip?.[0] ? h('span', { class: 'ix-chip ' + chip[1], title: chip[0] }, chip[0]) : null,
                     an,
@@ -4418,6 +4982,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                         type: 'button', class: 'ix-up' + (ui.side === 'upd' ? ' on' : ''), title: `새 버전 v${upd.latest}`, 'aria-label': `업데이트 · 새 버전 v${upd.latest}`,
                         onclick: () => { ui.side = 'upd'; ui.menu = ''; acs.menu = ''; renderNow(); },
                     }, headIcon('upd'), '업데이트', h('i', { class: 'md-dot', 'aria-hidden': 'true' })) : null,
+                    h('button', { class: 'ix-bk', type: 'button', title: ui.side ? `${label} 화면으로` : '홈으로', 'aria-label': '뒤로가기', onclick: goBack }, headIcon('back')),
                     h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))),
             renderNav());
     }
@@ -4428,7 +4993,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         return h('nav', { class: 'ix-fts', role: 'tablist', 'aria-label': ({ voice: '음성 화면', talk: '대화 화면', asset: '애드 에셋 화면' })[m] ?? '삽화 화면' },
             tabs.map(([id, label]) => talk && id === 'talk'
                 ? [h('span', { class: 'ix-sep', 'aria-hidden': 'true' }),
-                    h('button', { class: 'ix-talk', type: 'button', onclick: () => { ui.ttab = 'talk'; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); } },
+                    h('button', { class: 'ix-talk', type: 'button', onclick: () => { voice?.talkList?.(); ui.ttab = 'talk'; ui.side = ''; ui.menu = ''; acs.menu = ''; renderNow(); } },
                         h('span', { class: 'ix-dots', 'aria-hidden': 'true' }, h('b'), h('b'), h('b')), '대화하기')]
                 : tab(!ui.side && cur === id, label(), () => {
                     if (m === 'voice') ui.vtab = id; else if (talk) ui.ttab = id; else if (asset) ui.atab = id; else ui.tab = id;
@@ -4978,7 +5543,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             /^(heterochromia|ahoge|bangs|sidelocks|ponytail|twintails|braid|hair bun|bob cut)$/,
         ];
         const HAIR_EYE_RE = /^(?!detail(ed)? |beautiful detail(ed)? )[a-z -]+ (hair|eyes)$/;
-        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', '4koma', '2koma', 'speech bubble', 'english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
+        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', '4koma', '2koma', 'speech bubble', 'tailless speech bubble', 'english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
         const norm = s => s.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
         const coreOf = raw => norm(raw.replace(/^[{[]+/, '').replace(/[}\]]+$/, ''));
         const isSubject = c => SUBJECT_RE.some(r => r.test(c)) || HAIR_EYE_RE.test(c);
@@ -5451,7 +6016,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             ...(p.id === ui.newId ? { style: `animation-delay:-${Math.max(0, Date.now() - (ui.newAt || 0))}ms` } : {}),
             onclick: edit ? () => edit.pick(p.id)
                 : asset ? () => { st.set = { ...st.set, acPresetId: p.id }; saveSet(); after?.(); renderNow(); }
-                : () => { st.presetId = p.id; savePresets(); setStep('preset'); after?.(); renderNow(); },
+                : () => { st.presetId = p.id; savePresets(); after?.(); renderNow(); },
         }, h('div', { class: 'ps-th' }, BUILTIN_THUMB[p.id] ? h('img', { src: BUILTIN_THUMB[p.id], alt: '' })
             : p.thumb ? h('img', { src: p.thumb, alt: '' })
             : p.thumbPath ? h('img', { 'data-path': p.thumbPath, alt: '' })
@@ -5467,9 +6032,59 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         return best;
     }
 
-    const intro = (name, text) => h('p', { class: 'ix-intro' }, h('b', null, name + ':'), text);
+    const introBody = (() => {
+        const bubble = (x, y, w, lines, fill = '#eef3f9') => `<rect x="${x}" y="${y}" width="${w}" height="${12 + lines * 9}" rx="8" fill="${fill}"/>` +
+            Array.from({ length: lines }, (_, i) => `<rect x="${x + 9}" y="${y + 8 + i * 9}" width="${(w - 18) * (i === lines - 1 ? .6 : 1)}" height="4" rx="2" fill="#c3cfde"/>`).join('');
+        const face = (cx, cy, r, hair) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffe1cc"/><path d="M${cx - r} ${cy} a${r} ${r} 0 0 1 ${2 * r} 0 q-${r} -${r * .5} -${2 * r} 0z" fill="${hair}"/><circle cx="${cx - r * .35}" cy="${cy + r * .15}" r="${r * .1}" fill="#1f2d45"/><circle cx="${cx + r * .35}" cy="${cy + r * .15}" r="${r * .1}" fill="#1f2d45"/>`;
+        const wave = (x, y, color, n = 9) => Array.from({ length: n }, (_, i) => { const hh = [6, 14, 22, 12, 26, 16, 8, 18, 10][i % 9]; return `<rect x="${x + i * 7}" y="${y - hh / 2}" width="4" height="${hh}" rx="2" fill="${color}"/>`; }).join('');
+        const scene = () => `<rect x="0" y="0" width="120" height="70" rx="6" fill="#bfe0ff"/><circle cx="96" cy="18" r="9" fill="#ffd36b"/><path d="M0 52 L30 34 L52 48 L78 28 L120 54 V70 H0z" fill="#6cc29b"/>` + face(46, 40, 11, '#5b3b2a');
+        const APPS = {
+            illust: { lead: '봇 답변이 올 때마다 그 장면을 NovelAI 로 그려 답변 안에 넣습니다. 만화 컷이나 한 장 그림 가운데 하나로 그립니다.',
+                flow: [
+                    ['봇이 답변합니다', '평소처럼 채팅하면 됩니다. 답변이 다 오면 이매진이 장면을 읽습니다.',
+                        `<svg viewBox="0 0 160 100">${face(22, 26, 12, '#3b2f5c')}${bubble(42, 14, 108, 4)}${bubble(10, 64, 92, 2, '#e9f5ff')}</svg>`],
+                    ['모델이 그림 지시를 씁니다', '고른 분석 모델이 인물 · 복장 · 장소 · 카메라를 NovelAI 프롬프트로 바꿉니다.',
+                        `<svg viewBox="0 0 160 100"><rect x="14" y="12" width="132" height="76" rx="8" fill="#1f2d45"/><text x="24" y="32" fill="#7cc4ff" font-size="9" font-family="monospace">1girl, solo,</text><text x="24" y="46" fill="#ffd36b" font-size="9" font-family="monospace">school uniform,</text><text x="24" y="60" fill="#9fe3c4" font-size="9" font-family="monospace">rooftop, sunset,</text><text x="24" y="74" fill="#c9b8ff" font-size="9" font-family="monospace">from side ▍</text></svg>`],
+                    ['답변 안에 그림이 들어갑니다', '다 그린 그림은 그 답변 위에 붙습니다. 그림 위 버튼으로 다시 그리거나 고칠 수 있습니다.',
+                        `<svg viewBox="0 0 160 100"><g transform="translate(20 6) scale(1)">${scene()}</g>${bubble(20, 80, 120, 1)}<rect x="104" y="10" width="30" height="12" rx="6" fill="#fff" opacity=".9"/><text x="108" y="19" font-size="7" fill="#2b95f0" font-weight="700">🎨 다시</text></svg>`],
+                ] },
+            asset: { lead: '봇 인물의 복장 · 감정별 그림을 한 번에 그려 봇 에셋에 넣습니다. 로어북에도 적어 두어, 봇이 답변에서 알맞은 그림을 꺼내 씁니다.',
+                flow: [
+                    ['인물과 복장을 고릅니다', '등장인물을 분석해 생김새와 복장을 찾아 둡니다. 그릴 인물 · 복장만 고르면 됩니다.',
+                        `<svg viewBox="0 0 160 100">${face(40, 40, 18, '#3b2f5c')}<rect x="22" y="62" width="36" height="26" rx="6" fill="#8b6cf0"/>${face(112, 40, 18, '#c0573f')}<rect x="94" y="62" width="36" height="26" rx="6" fill="#f2a33a"/><circle cx="58" cy="22" r="8" fill="#14b386"/><path d="M54 22l3 3 5-6" stroke="#fff" stroke-width="2" fill="none"/></svg>`],
+                    ['감정별로 한꺼번에 그립니다', '웃음 · 화남 · 슬픔처럼 감정마다 한 장씩, 복장마다 한 벌씩 그려 봇 에셋에 넣습니다.',
+                        `<svg viewBox="0 0 160 100">${[0, 1, 2, 3].map(i => [0, 1].map(j => `<rect x="${12 + i * 36}" y="${10 + j * 44}" width="32" height="38" rx="5" fill="${j ? '#fff4e2' : '#efeaff'}"/>${face(28 + i * 36, 30 + j * 44, 10, j ? '#c0573f' : '#3b2f5c')}<path d="M${23 + i * 36} ${36 + j * 44} q5 ${[4, -3, -2, 3][i]} 10 0" stroke="#1f2d45" stroke-width="1.5" fill="none"/>`).join('')).join('')}</svg>`],
+                    ['봇이 알맞은 그림을 꺼냅니다', '로어북 · 글로벌노트에 에셋 이름을 적어 둡니다. 봇은 장면에 맞는 감정 그림을 답변에 넣습니다.',
+                        `<svg viewBox="0 0 160 100"><rect x="12" y="12" width="44" height="54" rx="6" fill="#efeaff"/>${face(34, 34, 12, '#3b2f5c')}<path d="M28 42 q6 5 12 0" stroke="#1f2d45" stroke-width="1.5" fill="none"/>${bubble(64, 14, 84, 4)}<rect x="12" y="74" width="136" height="16" rx="5" fill="#e9f5ff"/><text x="20" y="85" font-size="8" fill="#2b95f0" font-family="monospace">{{img::nc_mina_smile}}</text></svg>`],
+                ] },
+            voice: { lead: '봇 답변을 인물마다 다른 목소리로 읽어 줍니다. 답변 아래 버튼으로 목소리를 만들고, 만든 뒤에는 언제든 다시 들을 수 있습니다.',
+                flow: [
+                    ['답변을 대사로 나눕니다', '답변에서 누가 어떤 말을 했는지 읽어, 나레이션과 인물 대사를 나눕니다.',
+                        `<svg viewBox="0 0 160 100">${bubble(10, 10, 140, 2)}<rect x="10" y="40" width="6" height="22" rx="3" fill="#8b6cf0"/>${bubble(22, 40, 110, 1, '#efeaff')}<rect x="10" y="68" width="6" height="22" rx="3" fill="#f2a33a"/>${bubble(22, 68, 90, 1, '#fff4e2')}</svg>`],
+                    ['인물마다 목소리를 붙입니다', '인물마다 구글 TTS 목소리를 하나씩 정해 둡니다. 성별 · 나이에 맞게 처음 값을 골라 줍니다.',
+                        `<svg viewBox="0 0 160 100">${face(26, 30, 14, '#3b2f5c')}${wave(50, 30, '#8b6cf0')}${face(26, 72, 14, '#c0573f')}${wave(50, 72, '#f2a33a')}<text x="118" y="34" font-size="9" fill="#8b6cf0" font-weight="700">미나</text><text x="118" y="76" font-size="9" fill="#f2a33a" font-weight="700">준호</text></svg>`],
+                    ['답변 아래에서 듣습니다', '답변 아래 「생성」을 누르면 목소리를 만들고, 다 만들면 「읽기」로 바뀝니다.',
+                        `<svg viewBox="0 0 160 100">${bubble(10, 10, 140, 4)}<rect x="10" y="66" width="70" height="22" rx="11" fill="#fff" stroke="#dbe5f0"/><path d="M22 72 v10 l8-5z" fill="#2b95f0"/><text x="36" y="81" font-size="10" fill="#1f2d45" font-weight="700">읽기</text>${wave(88, 77, '#2b95f0', 8)}</svg>`],
+                ] },
+            talk: { lead: '봇 인물과 그림 · 목소리가 있는 화면에서 바로 대화합니다. 말을 건넬 때마다 무대 그림이 바뀌고, 답은 인물의 목소리로 들을 수 있습니다.',
+                flow: [
+                    ['말을 건넵니다', '대화 화면 아래 칸에 말을 쓰면, 고른 모델이 인물의 말투로 답을 만듭니다.',
+                        `<svg viewBox="0 0 160 100">${bubble(60, 12, 90, 2, '#e9f5ff')}${bubble(10, 44, 100, 2)}<rect x="10" y="76" width="140" height="16" rx="8" fill="#fff" stroke="#dbe5f0"/><rect x="132" y="79" width="14" height="10" rx="5" fill="#ff6b5e"/></svg>`],
+                    ['무대 그림이 바뀝니다', '답마다 그 순간의 표정 · 자세로 무대 그림을 다시 그립니다. 에셋이 있으면 바로 꺼내 씁니다.',
+                        `<svg viewBox="0 0 160 100"><rect x="10" y="8" width="140" height="84" rx="8" fill="#2a3550"/><rect x="10" y="62" width="140" height="30" rx="0" fill="#3d4a6b"/>${face(80, 44, 20, '#3b2f5c')}<rect x="60" y="64" width="40" height="28" rx="8" fill="#8b6cf0"/><path d="M73 52 q7 6 14 0" stroke="#1f2d45" stroke-width="1.8" fill="none"/></svg>`],
+                    ['목소리로 답을 듣습니다', '음성과 같은 TTS 키를 쓰면 답이 인물의 목소리로 나옵니다. 무대 아래 「TTS」로 켜고 끕니다.',
+                        `<svg viewBox="0 0 160 100">${face(30, 46, 18, '#3b2f5c')}${wave(58, 46, '#ff6b5e', 9)}<rect x="56" y="74" width="48" height="16" rx="8" fill="#ffe8e5"/><text x="66" y="85" font-size="9" fill="#ff6b5e" font-weight="800">TTS 켬</text></svg>`],
+                ] },
+        };
+        return app => {
+            const { lead, flow } = APPS[app];
+            const el = h('div', { class: 'in-flow' });
+            el.innerHTML = flow.map(([t, p, svg], i) => `<div class="in-card">${svg}<b><em>${i + 1}</em>${t}</b><p>${p}</p></div>`).join('<div class="in-arr">›</div>');
+            return [h('p', { class: 'in-lead' }, lead), el];
+        };
+    })();
 
-    function railSteps(pane) {
+    function railSteps(pane, app) {
         const secs = [...pane.children].filter(el => el.matches('section.sp'));
         if (!secs.length) return pane;
         const state = el => el.classList.contains('cur') ? 'cur' : el.classList.contains('done') ? 'done' : 'lock';
@@ -5478,62 +6093,98 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         const shown = secs.find(el => state(el) === 'cur' && filled(el)) ?? secs.find(el => state(el) === 'cur') ?? [...secs].reverse().find(filled) ?? secs[secs.length - 1];
         const at = secs.indexOf(shown);
         const doneN = secs.filter(el => state(el) === 'done').length;
+        const SHORT = { '삽화 소개': '소개', '애드 에셋 소개': '소개', '분석 모델 고르기': '분석', 'NovelAI 키 넣기': '키', '만화로 그릴까요, 삽화로 그릴까요?': '만화/삽화', 'NSFW 프롬프트 추가': 'NSFW', '감정 에셋 확인': '감정', '글로벌노트': '노트', '애드 에셋': '그리기' };
+        const short = name => SHORT[name] ?? name.replace(/\s+(고르기|넣기|추가|확인)$/, '');
         const check = () => { const i = h('i', null); i.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'; return i; };
-        const introEl = [...pane.children].find(el => el.classList.contains('ix-intro'));
+        const seen = !!st.set.introSeen?.[app];
+        const showIntro = !seen || ui.intro === app;
+        const leaveIntro = () => { ui.intro = null; if (!seen) { st.set = { ...st.set, introSeen: { ...st.set.introSeen, [app]: true } }; saveSet(); } };
+        const iname = `${app === 'asset' ? '애드 에셋' : '삽화'} 소개`;
+        const total = secs.length + 1;
         const rail = h('aside', { class: 'vz-steps', 'aria-label': '준비 단계' },
-            h('h3', null, '준비 순서', h('span', null, `${doneN} / ${secs.length} 완료`)),
+            h('h3', null, '준비 순서', h('span', null, `${doneN + (seen ? 1 : 0)} / ${total} 완료`)),
+            h('button', {
+                class: `vz-st ${showIntro ? 'cur on' : 'done'}`, type: 'button', 'aria-current': showIntro ? 'step' : null,
+                title: iname, onclick: () => { ui.intro = app; renderNow(); },
+            }, seen && !showIntro ? check() : h('i', null, 1), h('span', null, h('b', null, iname), h('em', { class: 'vz-sh' }, short(iname)), h('small', null, showIntro ? '지금 여기' : '완료'))),
             secs.map((el, i) => {
                 const s = state(el), ch = lnk(el, '변경');
                 const sum = el.querySelector('.sp-sum')?.textContent ?? '';
                 const name = el.querySelector('.sp-hd b')?.textContent ?? '';
-                const small = i === at && s !== 'done' ? '지금 여기' : s === 'done' ? sum || '완료' : s === 'cur' ? '진행 중' : '잠김';
+                const here = !showIntro && i === at;
+                const small = here && s !== 'done' ? '지금 여기' : s === 'done' ? sum || '완료' : s === 'cur' ? '진행 중' : '잠김';
                 return h('button', {
-                    class: `vz-st ${s}${i === at ? ' on' : ''}`, type: 'button', disabled: !ch && i !== at, 'aria-current': i === at ? 'step' : null,
-                    title: ch ? `${name} · 눌러서 다시 고칩니다` : null, onclick: () => ch?.click(),
-                }, s === 'done' ? check() : h('i', null, i + 1), h('span', null, h('b', null, name), h('small', null, small)));
-            }),
-            introEl ? h('p', { class: 'vz-intro' }, introEl.textContent) : null);
+                    class: `vz-st ${s}${here ? ' on' : ''}`, type: 'button', disabled: !ch && i !== at, 'aria-current': here ? 'step' : null,
+                    title: ch ? `${name} · 눌러서 다시 고칩니다` : name, onclick: () => { leaveIntro(); if (i === at) renderNow(); else ch?.click(); },
+                }, s === 'done' ? check() : h('i', null, i + 2), h('span', null, h('b', null, name), h('em', { class: 'vz-sh' }, short(name)), h('small', null, small)));
+            }));
+        const first = secs[0];
+        if (showIntro) {
+            const pn = h('section', { class: 'vz-pn' },
+                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `1 / ${total} 단계`), h('h2', null, app === 'asset' ? '애드 에셋이란?' : '삽화란?')),
+                h('div', { class: 'vz-bd' }, introBody(app)),
+                h('div', { class: 'vz-ft' },
+                    h('p', { class: 'vz-note' }, '준비는 언제든 이 화면에서 다시 고칠 수 있습니다.'),
+                    h('button', { class: 'vz-cta', type: 'button', onclick: () => { leaveIntro(); renderNow(); } }, '준비 시작하기')));
+            const vz = h('div', { class: 'vz rl' }, rail, pn);
+            first.replaceWith(vz);
+            for (const el of [...pane.children]) if (el !== vz) el.remove();
+            pane.classList.add('rl-pane');
+            return pane;
+        }
         const title = shown.querySelector('.sp-hd b')?.textContent ?? '';
         const fin = state(shown) === 'done' && doneN === secs.length;
-        const pn = h('section', { class: 'vz-pn' },
-            h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, fin ? '준비 끝' : `${at + 1} / ${secs.length} 단계`), h('h2', null, title), lnk(shown, '완료')));
+        const bare = fin && [...shown.querySelector('.sp-bd').childNodes].some(el => el.classList?.contains('fn-card'));
+        const pn = bare ? h('div', { class: 'vz-fin' }) : h('section', { class: 'vz-pn' },
+            h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, fin ? '준비 끝' : `${at + 2} / ${total} 단계`), h('h2', null, title)));
         const body = h('div', { class: 'vz-bd' });
-        const first = secs[0];
         const vz = h('div', { class: 'vz rl' }, rail, pn);
+        const nx = shown.querySelector('.sp-bd [data-next]');
+        if (nx) { const box = nx.parentElement; nx.remove(); if (box?.classList.contains('ix-acts') && !box.children.length) box.remove(); }
         const before = [], after = [];
         let past = false;
         for (const el of [...pane.children]) {
-            if (el === introEl) { el.remove(); continue; }
             if (el.matches('section.sp')) { past = true; continue; }
             (past ? after : before).push(el);
         }
         body.append(...before, ...shown.querySelector('.sp-bd').childNodes, ...after);
         pn.append(body);
+        if (!bare && !shown.classList.contains('end')) {
+            const label = at === secs.length - 2 ? '준비 끝내기' : '다음 단계로';
+            let cta = nx;
+            if (cta) { cta.className = 'vz-cta'; if (cta.dataset.next !== 'keep') cta.textContent = label; }
+            else { const ok = lnk(shown, '완료'); cta = h('button', { class: 'vz-cta', type: 'button', disabled: !ok, onclick: () => ok?.click() }, label); }
+            const prev = at > 0 ? lnk(secs[at - 1], '변경') : null;
+            pn.append(h('div', { class: 'vz-ft' },
+                h('p', { class: 'vz-note' }, '고른 값은 바로 저장됩니다.'),
+                h('button', { class: 'vz-back', type: 'button', disabled: at > 0 && !prev, onclick: () => { if (at > 0) prev?.click(); else { ui.intro = app; renderNow(); } } }, '이전'),
+                cta));
+        }
         first.replaceWith(vz);
         for (const el of secs) el.remove();
         pane.classList.add('rl-pane');
         return pane;
     }
     const llmName = k => k === 'model' ? '메인' : '보조';
-    const llmCards = (key, onpick) => h('div', { class: 'dz', role: 'radiogroup' },
+    const llmCards = (key) => h('div', { class: 'dz', role: 'radiogroup' },
         [['model', '🧠', '메인 모델', '리수 설정 › 메인 모델로 보냅니다'], ['submodel', '⚡', '보조 모델', '리수 설정 › 보조 모델로 보냅니다']].map(([k, em, name, desc]) => {
             const on = (st.set[key] === 'model' ? 'model' : 'submodel') === k;
             return h('button', {
                 class: 'dz-op' + (on ? ' sel' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false',
-                onclick: () => { st.set = { ...st.set, [key]: k }; setStep(key); onpick(); renderNow(); },
+                onclick: () => { st.set = { ...st.set, [key]: k }; saveSet(); renderNow(); },
             }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
         }));
     function renderReady() {
         const v = st.view;
-        const pane = h('section', { class: 'ix-pane' }, intro('삽화', '봇 답변이 올 때마다 그 장면을 NovelAI 로 그려 답변 안에 넣습니다. 만화 컷이나 한 장 그림으로 그립니다.'));
+        const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
-        const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count];
+        const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count, !!st.set.nsfw?.st && !nsWant('illust')];
         const cur = done.indexOf(false);
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
         if (v.hasKey) void acAnlas();
-        const END = 7;
+        const END = 8;
         const step = (n, title, sum, body) => {
             const state = n === END ? (cur < 0 ? 'done' : 'lock') : stateOf(n - 1);
             let bd = null;
@@ -5551,29 +6202,32 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 h('div', { class: 'sp-bd' }, bd));
         };
         add(pane,
-            step(1, 'LLM 모델 고르기', `${llmName(st.set.llm)} 모델`, () => [
-                llmCards('llm', () => { ui.reopen = 0; }),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다. 기본은 보조 모델이고, 카드를 누르면 다음 단계로 넘어갑니다. 애드 에셋은 애드 에셋 › 준비에서 따로 고릅니다.')]),
+            step(1, '분석 모델 고르기', `${llmName(st.set.llm)} 모델`, () => [
+                llmCards('llm'),
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다. 기본은 보조 모델이고, 카드를 고른 뒤 「다음 단계로」를 누릅니다. 애드 에셋은 애드 에셋 › 준비에서 따로 고릅니다.'),
+                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('llm'); ui.reopen = 0; renderNow(); } }, '다음'))]),
             step(2, 'NovelAI 키 넣기', '키 저장됨', () => [
                 keyBox(ui.reopen === 2),
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 로 시작하는 키를 넣으세요.')]),
             step(3, 'NAI 모델 고르기', modelName(st.set.model), () => [
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋 › 준비의 NAI 모델과 같은 값입니다. 애드 에셋도 이 모델로 그립니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
-                ui.reopen === 3 && su.model ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('model'); ui.reopen = 0; renderNow(); } }, '이 모델로 다음'))]),
-            step(4, '만화로 그릴까요, 삽화로 그릴까요?', kindName(), () => h('div', { class: 'dz', role: 'radiogroup' },
+                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('model'); ui.reopen = 0; renderNow(); } }, '이 모델로 다음'))]),
+            step(4, '만화로 그릴까요, 삽화로 그릴까요?', kindName(), () => [h('div', { class: 'dz', role: 'radiogroup' },
                 [['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']].map(([k, em, name, desc]) => {
-                    const on = !!su.kind && st.set.kind === k;
+                    const on = st.set.kind === k;
                     return h('button', {
                         class: 'dz-op' + (on ? ' sel' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false',
-                        onclick: () => { st.set = { ...st.set, kind: k }; setStep('kind'); ui.reopen = 0; renderNow(); },
+                        onclick: () => { st.set = { ...st.set, kind: k }; saveSet(); renderNow(); },
                     }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
-                }))),
+                })),
+                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('kind'); ui.reopen = 0; renderNow(); } }, '다음'))]),
             step(5, '그림체 고르기', preset().name || '이름 없음', () => { const t = SA.tailParts(); return [
-                presetGrid(() => { ui.reopen = 0; }, null, false, t.head), t.tray,
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 누르면 그 그림체로 다음 단계로 넘어갑니다. 그림체를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '그림체 탭'), '을 여세요.'),
-                ui.reopen === 5 && su.preset ? null : h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 그림체로 다음'))]; }),
-            step(6, '장 수 고르기', countLabel(), () => renderCountStep(su)),
+                presetGrid(null, null, false, t.head), t.tray,
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 고른 뒤 「다음 단계로」를 누릅니다. 그림체를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => { ui.side = 'style'; renderNow(); } }, '그림체 탭'), '을 여세요.'),
+                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 그림체로 다음'))]; }),
+            step(6, '장 수 고르기', countLabel(), () => [renderCountStep(su), h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('count'); ui.reopen = 0; renderNow(); } }, '다음'))]),
+            step(7, 'NSFW 프롬프트 추가', nsfwSum('illust'), () => nsBody('illust', { close: () => { ui.reopen = 0; renderNow(); } })),
             step(END, '완료', recipe(), () => renderReadyEnd()));
         add(pane, renderReadyBar());
         return pane;
@@ -5583,7 +6237,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 
     function renderCountStep(su) {
         const rnd = randomCount();
-        const pick = (patch, keep = false) => { st.set = { ...st.set, ...patch }; setStep('count'); ui.reopen = keep ? 6 : 0; renderNow(); };
+        const pick = patch => { st.set = { ...st.set, ...patch }; saveSet(); renderNow(); };
         const own = !rnd && ![1, 2, 3, 4].includes(countNow());
         const numIn = (value, label, sel, onSet) => h('input', {
             class: 'cf-num' + (sel ? ' sel' : ''), type: 'text', inputmode: 'numeric', value: value == null ? '' : String(value), placeholder: '직접 입력', 'aria-label': label,
@@ -5603,16 +6257,16 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 h('div', { class: 'cf-tx' }, h('b', null, '한 번에 몇 장을 그릴까요?'),
                     h('p', null, `장마다 답변 속 다른 장면을 고릅니다. 장마다 NAI 요청이 하나씩 갑니다. 직접 입력은 ${COUNT_MAX}장까지 됩니다.`)),
                 h('div', { class: 'cf-pickbox' },
-                    seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장'], ['random', '범위']], !su.count ? null : rnd ? 'random' : countNow(),
-                        v => v === 'random' ? pick({ countMode: 'random' }, true) : pick({ countMode: 'fixed', count: v })),
-                    h('label', { class: 'cf-ownbox' }, numIn(own ? countNow() : null, '장 수 직접 입력', own && !!su.count, v => pick({ countMode: 'fixed', count: v })), h('span', null, '장')))),
+                    seg([[1, '1장'], [2, '2장'], [3, '3장'], [4, '4장'], ['random', '범위']], rnd ? 'random' : countNow(),
+                        v => v === 'random' ? pick({ countMode: 'random' }) : pick({ countMode: 'fixed', count: v })),
+                    h('label', { class: 'cf-ownbox' }, numIn(own ? countNow() : null, '장 수 직접 입력', own, v => pick({ countMode: 'fixed', count: v })), h('span', null, '장')))),
             rnd ? h('div', { class: 'cf-row' },
                 h('div', { class: 'cf-tx' }, h('b', null, '범위'),
                     h('p', null, '답변을 그릴 때마다 최소와 최대 사이에서 장 수를 무작위로 하나 고릅니다. 최소가 최대보다 크면 두 값을 바꿔 씁니다.')),
                 h('div', { class: 'cf-pickbox' },
-                    h('label', { class: 'cf-ownbox' }, h('span', null, '최소'), numIn(lo, '범위 최소 장 수', true, v => pick({ countMin: v }, true)), h('span', null, '장')),
+                    h('label', { class: 'cf-ownbox' }, h('span', null, '최소'), numIn(lo, '범위 최소 장 수', true, v => pick({ countMin: v })), h('span', null, '장')),
                     h('span', { 'aria-hidden': 'true' }, '~'),
-                    h('label', { class: 'cf-ownbox' }, h('span', null, '최대'), numIn(hi, '범위 최대 장 수', true, v => pick({ countMax: v }, true)), h('span', null, '장')))) : null);
+                    h('label', { class: 'cf-ownbox' }, h('span', null, '최대'), numIn(hi, '범위 최대 장 수', true, v => pick({ countMax: v })), h('span', null, '장')))) : null);
     }
 
     function renderReadyEnd() {
@@ -5638,7 +6292,8 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             h('ul', { class: 'fn-ck' },
                 li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `그림체 ${preset().name || '이름 없음'}`),
                 li(`봇 답변마다 ${countLabel()}을 그립니다`, randomCount() && n > 1 ? '답변마다 장 수를 새로 고르고, 장마다 다른 장면' : n > 1 ? '장마다 다른 장면' : ''),
-                li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`)),
+                li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`),
+                li(finLine('illust'))),
             h('div', { class: 'cf-row sw' },
                 h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 그리기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 이 설정대로 그립니다 (다시 굴리기 포함).')),
                 toggle(st.set.auto, () => setVal('auto', !st.set.auto))),
@@ -5649,14 +6304,14 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     function renderReadyBar() {
         const v = st.view;
         const su = st.set.setup ?? {};
-        const n = [su.llm, v.hasKey, su.model, su.kind, su.preset, su.count].filter(Boolean).length;
+        const n = [su.llm, v.hasKey, su.model, su.kind, su.preset, su.count, st.set.nsfw?.st].filter(Boolean).length;
         let cls = '', text;
+        if (setupDone() && !st.busy && !st.lore && v.hasKey && !lastFail()) return null;
         if (st.busy || st.lore) { cls = 'wait'; text = `${(st.busy ?? st.lore).label}…`; }
-        else if (!su.llm) text = 'LLM 모델을 고르면 다음 단계가 열립니다.';
+        else if (!su.llm) text = '분석 모델을 고르면 다음 단계가 열립니다.';
         else if (!v.hasKey) { cls = 'err'; text = 'NAI 키를 넣어야 그릴 수 있습니다.'; }
-        else if (!setupDone()) text = `6단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
+        else if (!setupDone()) text = `7단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
         else if (lastFail()) { cls = 'err'; text = '그리지 못한 답변이 있습니다.'; }
-        else { cls = 'ok'; text = `✓ 준비됨 · ${recipe()} · 자동 그리기 ${st.set.auto ? '켜짐' : '꺼짐'}`; }
         return h('div', { class: 'ab' }, h('span', { class: 'ab-tx ' + cls }, text));
     }
 
@@ -6090,7 +6745,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             renderNow();
             void (async () => {
                 try {
-                    if (!v.group) await rereadLore();
+                    if (!v.group) await rereadLore(voice.castLlm(), 'illust');
                     if (!q.stop) await voice.castRun();
                 } finally { if (ui.castSeq === q) ui.castSeq = null; renderNow(); }
             })();
@@ -6234,10 +6889,10 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         return pane;
     }
 
-    async function rereadLore(llm = st.set.llm) {
+    async function rereadLore(llm = st.set.llm, rail = 'illust') {
         const v = st.view;
         if (!v || v.group || st.lore || st.busy?.lore) return null;
-        const busy = { label: '로어북 읽는 중', lore: true, llm, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, key: '', ls: 0, lsAt: Date.now(), chaId: v.chaId };
+        const busy = { label: '로어북 읽는 중', lore: true, llm, rail, at: Date.now(), stage: 0, i: 0, n: 0, stop: false, key: '', ls: 0, lsAt: Date.now(), chaId: v.chaId };
         busy.halt = new Promise(resolve => { busy.onStop = resolve; });
         let finish;
         busy.done = new Promise(resolve => { finish = resolve; });
@@ -6326,22 +6981,18 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         }));
         sync();
         const tail = SA.tailParts();
-        const toIllust = () => {
-            ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; ui.menu = ''; acs.menu = '';
-            if (st.set.setup?.preset && !st.busy) ui.reopen = 5;
-            renderNow();
-        };
-        const toAsset = () => {
-            const v = st.view, a = v && !v.group ? acAst() : null;
-            ui.mode = 'asset'; ui.atab = 'make'; ui.side = ''; ui.menu = ''; acs.menu = '';
-            if (a && a.step > 5) { acs.reopen = 5; acs.reopenCha = v.chaId; acs.llmOpen = false; acs.trErr = ''; acs.msg = ''; }
-            renderNow();
-            void acAnlas();
-        };
+        const useIl = ui.mode !== 'asset', useAc = ui.mode !== 'imagine';
+        const ilOn = st.presetId === cur.id, acOn = st.set.acPresetId === cur.id;
+        const toIllust = h('button', {
+            class: 'ix-btn', type: 'button', disabled: ilOn || st.busy,
+            title: ilOn ? '이미 삽화 그림체입니다' : st.busy ? '그리는 중에는 바꿀 수 없습니다' : '',
+            onclick: () => { st.presetId = cur.id; savePresets(); setStep('preset'); renderNow(); },
+        }, '삽화 그림체로');
+        const toAsset = h('button', {
+            class: 'ix-btn', type: 'button', disabled: acOn, title: acOn ? '이미 애드 에셋 그림체입니다' : '',
+            onclick: () => { st.set = { ...st.set, acPresetId: cur.id }; saveSet(); renderNow(); },
+        }, '애드 에셋 그림체로');
         add(pane,
-            h('div', { class: 'ix-acts', style: 'margin:0 0 14px' },
-                h('button', { class: 'ix-btn sm', type: 'button', onclick: toIllust }, '삽화 그림체 변경'),
-                h('button', { class: 'ix-btn sm', type: 'button', onclick: toAsset }, '애드 에셋 그림체 변경')),
             h('h2', { class: 'sub', style: 'margin-top:0' }, '그림체 목록', h('small', null, '누른 그림체를 아래에서 고칩니다 · 카드 그림은 그 그림체로 마지막에 그린 것 (내장 그림체와 이미지 첨부로 넣은 그림체는 고정)')),
             presetGrid(null, { cur, pick: id => { ui.styleId = id; renderNow(); } }, false, tail.head), tail.tray,
             h('div', { class: 'ix-acts' },
@@ -6360,6 +7011,8 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                         st.presets.push(p); ui.styleId = p.id; savePresets(); renderNow();
                     },
                 }, '복제'),
+                useIl ? toIllust : null,
+                useAc ? toAsset : null,
                 builtinOf(cur) && !isBuiltinAsIs(cur) ? armButton('기본값으로', '한 번 더 누르면 되돌립니다', () => {
                     const b = builtinOf(cur);
                     Object.assign(cur, { name: b.name, pos: b.pos, neg: b.neg });
@@ -6448,14 +7101,14 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                     '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
                     keyBox(true)));
         const gDraw = grp('그리기',
-                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · LLM 모델 · NAI 모델은 ', toReady, '에서, 그림체는 그림체 탭에서 바꿉니다. 애드 에셋의 LLM 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe())),
+                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · 분석 모델 · NAI 모델은 ', toReady, '에서, 그림체는 그림체 탭에서 바꿉니다. 애드 에셋의 분석 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe())),
                 row('sw', '답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
-                    '끄면 답변 아래 「이미지 생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
+                    '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
                     toggle(s.auto, () => setVal('auto', !s.auto))),
                 row('col', '해상도', '모든 그림이 이 크기로 나옵니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                     seg(SIZE_OPTS, sizeNow(), v => setVal('size', v))),
                 s.kind !== 'illust' ? row('sw', '말풍선', '답변에 있는 대사를 말풍선으로 넣습니다.',
-                    '대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 말풍선에는 위치를 지정하지 않습니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
+                    '대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 칸 끝에 「char1’s text: 대사」로 붙고(원작 인물은 원작 태그), 나레이션은 칸 하나에 「Text: 대사」로 들어갑니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
                     toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))) : null,
                 row('sw', '유저 인풋 우선', '유저 입력이 부른 장면을 먼저 그립니다.',
                     '유저 입력은 이 설정과 상관없이 늘 참고로 보냅니다. 켜면 첫 장(만화 한 장이면 첫 컷)은 유저 입력이 그리는 순간이고, 나머지는 그 반응입니다. 유저 입력이 다른 인물의 행동을 지시해도 그 장면을 그립니다. 첫 컷 대사는 유저 입력에서 옮길 수 있습니다. 답변과 어긋나면 답변을 따릅니다. 바로 앞이 유저 입력이 아니면(첫 메시지 · 이어 쓰기) 끈 것과 같습니다.',
@@ -6466,10 +7119,13 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 그림체가 「이매진 그림체」일 때만 동작합니다.',
                     null,
                     toggle(s.dynamic !== false, () => setVal('dynamic', s.dynamic === false))),
-                dynMinRow());
+                dynMinRow(),
+                row('sw', '다시 그려도 기존 그림 남기기', '다시 그리거나 씬 재구성해도 옛 그림을 봇 에셋에서 지우지 않습니다. 답변에는 새 그림만 보이고, 옛 그림은 삽화 목록의 「지운 답변」 필터에서 보거나 지울 수 있습니다.',
+                    null,
+                    toggle(!!s.keepOld, () => setVal('keepOld', !s.keepOld))));
         const gChat = grp('채팅 속 그림',
-                row('', '「이미지 생성」 버튼', '봇 답변 아래에 두는 버튼입니다. 누르면 씬 재구성으로 그립니다. 모델이 그 답변의 장면부터 다시 고르고(「씬 재구성 중」) 이어서 그립니다(「그리는 중」). 이미 그림이 있어도 같습니다.',
-                    '「안 씀」이면 자동 그리기와 이 창의 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에 누르면 이 창의 삽화 › 준비를 엽니다.',
+                row('', '답변 아래 버튼', '봇 답변 아래에 두는 알약 버튼입니다. 「생성」을 누르면 씬 재구성으로 그립니다. 모델이 그 답변의 장면부터 다시 고르고 이어서 그립니다. 이미 그림이 있어도 같습니다. 음성 키가 있으면 같은 알약에 읽기(스피커)가 붙고, 보관한 소리가 있으면 ↻(새로 만들기)도 붙습니다. 만들거나 트는 중에 같은 칸을 누르면 멈춥니다.',
+                    '「안 씀」이면 알약을 두지 않고 자동 그리기 · 자동 읽기와 이 창의 「삽화 목록」 탭으로만 씁니다. 삽화 › 준비를 마치기 전에 「생성」을 누르면 이 창의 삽화 › 준비를 엽니다.',
                     seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.ubtn, v => setVal('ubtn', v))),
                 sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.', PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
                 sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.', MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v)),
@@ -6509,7 +7165,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                     null,
                     toggle(s.vars, () => setVal('vars', !s.vars))));
         const gAsset = grp('모델 · 그림체',
-            h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '애드 에셋의 LLM 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다. 초상화 크기는 공통 「채팅 속 그림」의 가로 길이를 따릅니다.')));
+            h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '애드 에셋의 분석 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다. 초상화 크기는 공통 「채팅 속 그림」의 가로 길이를 따릅니다.')));
         const SECS = {
             common: ['공통', [gKey, gChat, gHead, gSave]],
             cast: ['등장인물 분석', [gCast]],
@@ -6552,7 +7208,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         listen(doc, 'focusout', () => { if (!ptrDown) flush(); });
     }
     function closePanel() {
-        if (vMode(ui.mode)) voice?.onClose();
+        if (vMode(ui.mode) && !ui.home) voice?.onClose();
         acs.edit = null;
         acs.pe = null;
         ui.root?.remove();
@@ -6625,10 +7281,18 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         ensureStyle();
         ui.root ??= h('div', { class: 'ix', role: 'dialog', 'aria-label': '이매진' });
         if (!ui.root.isConnected) doc.body.append(ui.root);
-        ui.root.replaceChildren(
-            h('header', { class: 'ix-band m-' + (opts?.mode ?? ui.mode) }, h('div', { class: 'ix-top' }, h('span', { class: 'ix-word' }, 'IMAGINE'),
-                h('span', { class: 'ix-mos', 'aria-hidden': 'true' }, h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' }), h('span', { class: 'ix-sk mo' })),
-                h('span', { class: 'ix-tr' }, h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))),
+        ui.home = !opts?.mode;
+        ui.root.classList.remove('vn-on', 'ix-zoom');
+        ui.root.classList.toggle('home-on', ui.home);
+        const x = () => h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×');
+        if (ui.home) ui.root.replaceChildren(
+            h('section', { class: 'ix-home', 'aria-busy': 'true' },
+                h('span', { class: 'ix-wall', 'aria-hidden': 'true' }), h('span', { class: 'ix-dim', 'aria-hidden': 'true' }),
+                h('div', { class: 'ix-htop' }, h('span', { class: 'ix-word' }, 'IMAGINE'), h('span', { class: 'r' }, x())),
+                h('div', { class: 'ix-grid sk', 'aria-hidden': 'true' }, MODES.map(() => h('span', { class: 'ix-sk ap' }))),
+                h('div', { class: 'ix-hboot' }, h('div', { class: 'ix-open-bar', role: 'progressbar', 'aria-label': '여는 중' }, h('div', { class: 'fi' })), tipRow())));
+        else ui.root.replaceChildren(
+            h('header', { class: 'ix-band m-' + opts.mode }, h('div', { class: 'ix-top' }, h('span', { class: 'ix-sk pg' }), h('span', { class: 'ix-tr' }, x())),
                 h('nav', { class: 'ix-fts', 'aria-hidden': 'true' }, h('span', { class: 'ix-sk ft' }), h('span', { class: 'ix-sk ft' }))),
             h('section', { class: 'ix-pane' }, h('div', { class: 'ix-empty ix-boot' }, h('b', null, '여는 중입니다'), '잠시만 기다려 주세요.',
                 h('div', { class: 'ix-open-bar', role: 'progressbar', 'aria-label': '여는 중' }, h('div', { class: 'fi' })), tipRow())));
@@ -6648,23 +7312,21 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         ui.side = '';
         ui.menu = '';
         ui.reopen = 0;
+        ui.homeQ = '';
         if (opts?.mode) ui.mode = opts.mode;
-        if (vMode(ui.mode)) await voice?.onOpen().catch(error => console.warn(LOG, 'voice open', error));
+        if (vMode(ui.mode) && !ui.home) await voice?.onOpen().catch(error => console.warn(LOG, 'voice open', error));
         renderNow();
         void checkUpdate();
     }
 
+    const ICON_ART = '<path d="M5 3.5h14a2.5 2.5 0 0 1 2.5 2.5v9a2.5 2.5 0 0 1-2.5 2.5h-6.5l-4.5 4v-4H5A2.5 2.5 0 0 1 2.5 15V6A2.5 2.5 0 0 1 5 3.5z" fill="currentColor"/>'
+        + '<path d="M5.5 15l4-4.2 3 3 2-2 4 3.2z" fill="#2b95f0"/>'
+        + '<circle cx="15.6" cy="8" r="1.9" fill="#ffc93c"/>';
     const MENU_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
-        + '<text x="10" y="15.5" text-anchor="middle" font-size="17">🎨</text>'
+        + '<g transform="translate(-2,-2)">' + ICON_ART + '</g>'
         + '</svg>';
     const SIDE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
-        + '<g transform="translate(-2,-8.23)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-        + '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>'
-        + '<circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>'
-        + '<path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>'
-        + '</g>'
+        + '<g transform="translate(-2,-8.23)">' + ICON_ART + '</g>'
         + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
     const INBTN_ICON = SIDE_ICON.replace('width="20" height="20"', 'width="17" height="17"');
@@ -6718,24 +7380,27 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const PT_HIDE = imp({ display: 'none' });
     const PT_INLAY_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<div class="risu-inlay-image">(\s*)<img\b/g;
     const PT_IMG_RE = /(<div class="nc-pt nc-pt-c_[a-z0-9_]+" style="[^"]*">\s*)<img\b/g;
-    const GEN_TEXT = { idle: '이미지 생성', nokey: '이미지 생성 · NAI 키 필요' };
+    const GEN_TEXT = { idle: '생성', nokey: '생성 · NAI 키 필요' };
     const PILL_INK = 'var(--risu-theme-textcolor,#d7dbe6)';
     const PILL_BG = 'color-mix(in srgb,var(--risu-theme-textcolor,#d7dbe6) 6%,transparent)';
     const PILL_LINE = 'color-mix(in srgb,var(--risu-theme-textcolor,#d7dbe6) 22%,transparent)';
     const PILL_RUN = 'rgba(122,162,255,.55)';
-    const GEN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', width: 'max-content', minWidth: '8.8em', maxWidth: '100%', minHeight: '30px', margin: '8px 0 2px', padding: '3px 13px 3px 11px',
-        fontSize: '12.5px', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', borderRadius: '999px', userSelect: 'none', transition: 'filter .18s' };
+    const GEN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', width: 'max-content', minWidth: '5.6em', maxWidth: '100%', minHeight: '28px', margin: '0', padding: '3px 13px 3px 11px',
+        fontSize: '12.5px', lineHeight: '1.3', borderWidth: '0', borderStyle: 'solid', borderRadius: '0', userSelect: 'none', transition: 'filter .18s', whiteSpace: 'nowrap' };
     const GEN_LOOKS = {
-        idle: { color: PILL_INK, fontWeight: '600', background: PILL_BG, borderColor: PILL_LINE, opacity: '1', cursor: 'pointer' },
-        sub: { color: PILL_INK, fontWeight: '400', background: PILL_BG, borderColor: PILL_LINE, opacity: '1', cursor: 'default' },
-        off: { color: PILL_INK, fontWeight: '400', background: PILL_BG, borderColor: PILL_LINE, opacity: '.5', cursor: 'not-allowed' },
-        need: { color: PILL_INK, fontWeight: '400', background: PILL_BG, borderColor: PILL_LINE, opacity: '.55', cursor: 'pointer' },
-        run: { color: PILL_INK, fontWeight: '600', background: PILL_BG, borderColor: PILL_RUN, opacity: '1', cursor: 'pointer' },
-        bad: { color: '#fff', fontWeight: '600', background: '#b3261e', borderColor: '#8c1d18', opacity: '1', cursor: 'pointer' },
+        idle: { color: PILL_INK, fontWeight: '600', background: 'transparent', borderColor: PILL_LINE, opacity: '1', cursor: 'pointer' },
+        sub: { color: PILL_INK, fontWeight: '400', background: 'transparent', borderColor: PILL_LINE, opacity: '1', cursor: 'default' },
+        off: { color: PILL_INK, fontWeight: '400', background: 'transparent', borderColor: PILL_LINE, opacity: '.5', cursor: 'not-allowed' },
+        need: { color: PILL_INK, fontWeight: '400', background: 'transparent', borderColor: PILL_LINE, opacity: '.55', cursor: 'pointer' },
+        run: { color: PILL_INK, fontWeight: '600', background: 'rgba(92,132,240,.12)', borderColor: PILL_LINE, opacity: '1', cursor: 'pointer' },
+        bad: { color: '#fff', fontWeight: '600', background: '#b3261e', borderColor: PILL_LINE, opacity: '1', cursor: 'pointer' },
     };
+    const UNI_STYLE = imp({ display: 'flex', width: 'max-content', maxWidth: '100%', alignItems: 'stretch', minHeight: '30px', margin: '8px 0 2px', padding: '0', boxSizing: 'border-box',
+        borderWidth: '1px', borderStyle: 'solid', borderColor: PILL_LINE, borderRadius: '999px', background: PILL_BG, overflow: 'hidden' });
+    const UNI_HIDE = imp({ display: 'none' });
     const cssOf = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v).join(';');
     const cssImp = o => cssOf(Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v + ' !important'])));
-    const genStyle = (look, gauge = false) => cssImp({ ...GEN_BASE, display: look ? 'flex' : 'none', ...(look ? GEN_LOOKS[look] : {}), ...(gauge ? { position: 'relative', overflow: 'hidden' } : {}) });
+    const genStyle = (look, gauge = false, div = false) => cssImp({ ...GEN_BASE, display: look ? 'flex' : 'none', ...(look ? GEN_LOOKS[look] : {}), ...(div ? { borderWidth: '0 1px 0 0' } : {}), ...(gauge ? { position: 'relative', overflow: 'hidden' } : {}) });
     const PAUSE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="none" style="flex:none!important">'
         + '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
     const FILL_BLUE = 'rgba(92,132,240,.32)';
@@ -6748,7 +7413,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const lblStyle = left => imp({ position: 'absolute', left, right: '6px', top: '0', bottom: '0', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', overflow: 'hidden' });
     const gaugeLbl = (text, stopping) => (stopping ? '' : PAUSE_SVG) + `<span style="${LBL_TEXT}">${text}</span>`;
     const gaugeHtml = (pct, text, stopping) => `<span class="x-risu-nc-fill" style="${fillStyle(pct, stopping ? FILL_GREY : FILL_BLUE)}"></span>`
-        + `<span class="x-risu-nc-size" style="${sizeStyle('21px')}">${GEN_TEXT.idle}</span>`
+        + `<span class="x-risu-nc-size" style="${sizeStyle('21px')}">${text}</span>`
         + `<span class="x-risu-nc-lbl" style="${lblStyle('11px')}">${gaugeLbl(text, stopping)}</span>`;
     const FIG_RUN = imp({ position: 'relative', overflow: 'hidden', background: 'rgba(15,23,42,.9)' });
     const DEL_ARMED = imp({ background: 'rgba(220,38,38,.92)' });
@@ -6758,28 +7423,36 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const figGaugeHtml = (pct, text, act, sign) => `<span class="x-risu-nc-fill" style="${fillStyle(sign === 'wait' ? 0 : pct, sign === 'stop' ? FILL_GREY : FIG_FILL)}"></span>`
         + `<span class="x-risu-nc-size" style="${sizeStyle('16px')}">${ACT_LABEL[act]}</span>`
         + `<span class="x-risu-nc-lbl" style="${lblStyle('10px')}">${figLbl(text, sign)}</span>`;
-    function genHtml() {
-        if (st.set.ubtn === 'none' || rootDenied()) return '';
+    function genHtml(div = false) {
         const off = keyKnown === false;
-        return '{{#if {{and::{{equal::{{role}}::char}}::{{not::{{isfirstmsg}}}}}}}}'
-            + `<span class="nc-gen nc-at-{{chat_index}}" style="${genStyle(off ? 'need' : 'idle')}">${IMG_SVG}${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`
-            + '{{/if}}';
+        return `<span class="nc-gen nc-at-{{chat_index}}${div ? ' nc-gd' : ''}" style="${genStyle(off ? 'need' : 'idle', false, div)}">${IMG_SVG}${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`;
+    }
+    const IF_CHAR = '{{#if {{equal::{{role}}::char}}}}';
+    function uniHtml() {
+        if (rootDenied()) return '';
+        const slot = voice?.slot?.() ?? '';
+        const tail = slot ? IF_CHAR + slot + '{{/if}}' : '';
+        if (st.set.ubtn === 'none') return tail;
+        const tts = voice?.seg?.() ?? '';
+        const box = `<div class="nc-uni nc-uat-{{chat_index}}" style="${UNI_STYLE}">`;
+        const pill = tts
+            ? IF_CHAR + box + '{{#if {{not::{{isfirstmsg}}}}}}' + genHtml(true) + '{{/if}}' + tts + '</div>{{/if}}'
+            : '{{#if {{and::{{equal::{{role}}::char}}::{{not::{{isfirstmsg}}}}}}}}' + box + genHtml() + '</div>{{/if}}';
+        return pill + tail;
     }
     const RISU_ASSET_RE = /<div class="risu-inlay-image"><img src="([^"]*)" alt="\1" style="[^"]*"\/><\/div>\n?|<img src="([^"]*)" alt="\2" style="[^"]*"\/>|<video (?:controls autoplay|autoplay muted) loop><source src="[^"]*" type="video\/mp4"><\/video>\n?/g;
     const dropAssets = (text, on) => on ? text.replace(RISU_ASSET_RE, '') : text;
     async function ncDisplay(content) {
         if (typeof content !== 'string') return null;
         if (await retired()) return content;
-        const gen = genHtml();
-        const bar = voice?.bar() ?? '';
+        const gen = uniHtml();
         const hasFig = content.includes('nc-fig'), hasPt = content.includes('nc-pt');
         const needId = (st.set.assetOff.length > 0 && /risu-inlay-image|<img src="|<video /.test(content)) || (st.set.ptOff.length > 0 && hasPt);
         const chaId = needId ? await curChaId().catch(() => '') : '';
         const assetHide = !!chaId && st.set.assetOff.includes(chaId);
         if (!hasFig && !hasPt) {
             const rest = dropAssets(content, assetHide);
-            const tail = [gen, bar].filter(Boolean).join('\n\n');
-            return tail ? rest + '\n\n' + tail : rest === content ? null : rest;
+            return gen ? rest + '\n\n' + gen : rest === content ? null : rest;
         }
         const acts = st.set.tap && !rootDenied();
         const fs = figStyle();
@@ -6790,7 +7463,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             .replace(PT_RE, (m, name) => `<div class="nc-pt nc-pt-${name}" style="${ptHide ? PT_HIDE : fs}">`)
             .replace(PT_INLAY_RE, (m, head, sp) => `${head}<div class="risu-inlay-image" style="${WRAP_STYLE}">${sp}<img style="${IMG_STYLE}"`)
             .replace(PT_IMG_RE, (m, head) => `${head}<img style="${IMG_STYLE}"`);
-        return dropAssets(body, assetHide) + '\n\n' + gen + (bar ? '\n\n' + bar : '') + figCss(ptHide);
+        return dropAssets(body, assetHide) + '\n\n' + gen + figCss(ptHide);
     }
 
     const varValues = () => ({ nc_pc: st.set.pc, nc_mo: st.set.mo });
@@ -7113,8 +7786,10 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         root.tick = 0;
     }
 
+    const STAGE0 = { '로어북 읽는 중': '로어북 읽는 중', '등장인물 분석이 끝나기를 기다리는 중': '등장인물 분석 대기', '페르소나 다시 분석 중': '페르소나 분석 중', '영어 인물 키 정하는 중': '인물 키 정하는 중' };
+    const stage0 = label => STAGE0[label] ?? (/다시 시도 (\d+\/\d+)/.exec(label ?? '')?.[1] ? `장면 분석 재시도 ${/다시 시도 (\d+\/\d+)/.exec(label)[1]}` : '장면 분석 중');
     const runText = b => b.stage === 1 ? (b.n > 1 ? `그리기 ${b.i}/${b.n}` : '그리는 중') : b.stage === 2 ? '저장 중'
-        : b.job?.mode === 'draw' ? '그리는 중' : '씬 재구성 중';
+        : b.job?.mode === 'draw' ? '그리는 중' : stage0(b.label);
     function genState(idx, ci, chi, last) {
         if (!Number.isInteger(idx) || idx < 0 || (st.set.ubtn === 'last' && idx !== last)) return { sign: 'hide' };
         const here = o => !!o && o.ci === ci && o.chi === chi && o.idx === idx;
@@ -7144,9 +7819,30 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     }
     const genIdx = cls => { const m = /(?:^|\s)x-risu-nc-at-(-?\d+)(?:\s|$)/.exec(cls); return m ? Number(m[1]) : NaN; };
 
+    const uniIdx = cls => { const m = /(?:^|\s)x-risu-nc-uat-(-?\d+)(?:\s|$)/.exec(cls); return m ? Number(m[1]) : NaN; };
+    async function paintUni(d) {
+        const els = await d.querySelectorAll('.x-risu-nc-uni');
+        const n = await els.length();
+        if (!n) return;
+        const list = [];
+        for (let i = 0; i < n; i++) {
+            const el = await els.at(i);
+            const cls = String(await el.getClassName() ?? '');
+            list.push({ el, cls, idx: uniIdx(cls) });
+        }
+        const last = Math.max(-1, ...list.map(x => Number.isInteger(x.idx) ? x.idx : -1));
+        for (const { el, cls, idx } of list) {
+            const show = st.set.ubtn !== 'last' || idx === last;
+            const mark = show ? 'nc-u-on' : 'nc-u-off';
+            if (cls.split(/\s+/).some(c => c === mark || c === 'x-risu-' + mark)) continue;
+            if (!show || /(?:^|\s)(?:x-risu-)?nc-u-off(?:\s|$)/.test(cls)) await el.setStyleAttribute(show ? UNI_STYLE : UNI_HIDE);
+            await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-u-o(n|ff)$/.test(c)).concat(mark).join(' '));
+        }
+    }
     async function paintGen(force = false, live = false) {
         const d = root.doc;
         if (!root.on || !d || st.set.ubtn === 'none') return;
+        if (!live) await paintUni(d);
         const els = await d.querySelectorAll('.x-risu-nc-gen');
         const n = await els.length();
         if (!n) return;
@@ -7162,6 +7858,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         const last = Math.max(-1, ...list.map(x => Number.isInteger(x.idx) ? x.idx : -1));
         for (const { el, cls, idx } of list) {
             const g = genState(idx, ci, chi, last);
+            const div = /(?:^|\s)(?:x-risu-)?nc-gd(?:\s|$)/.test(cls);
             const mark = 'nc-s-' + g.sign;
             const same = cls.split(/\s+/).some(c => c === mark || c === 'x-risu-' + mark);
             if (same && !force && (g.sign !== 'run' || !live)) continue;
@@ -7170,7 +7867,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             if (!same || force) {
                 if (g.sign === 'hide') await el.setStyleAttribute(genStyle(null));
                 else {
-                    await el.setStyleAttribute(genStyle(g.look, !!g.gauge));
+                    await el.setStyleAttribute(genStyle(g.look, !!g.gauge, div));
                     await el.setInnerHTML(g.gauge ? gaugeHtml(pct, g.text, g.sign === 'stop') : (g.sign === 'wait' ? '' : IMG_SVG) + g.text);
                 }
                 await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-s-/.test(c)).concat(mark).join(' '));
@@ -7178,6 +7875,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             } else if (g.sign === 'run') {
                 await (await el.querySelector('.x-risu-nc-fill'))?.setStyle('width', pct + '%');
                 if (root.genText.get(idx) !== g.text) {
+                    await (await el.querySelector('.x-risu-nc-size'))?.setInnerHTML(g.text);
                     await (await el.querySelector('.x-risu-nc-lbl'))?.setInnerHTML(gaugeLbl(g.text, false));
                     root.genText.set(idx, g.text);
                 }
@@ -7413,14 +8111,15 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
         if (!needRoot()) return rootQueue(stopRoot);
         if (root.on) return rootQueue(placeButton);
         const reopen = !root.asked && ui.root?.isConnected;
+        const back = reopen && !ui.home ? ui.mode : '';
         if (reopen) closePanel();
         await rootQueue(startRoot);
-        if (reopen) await openPanel();
+        if (reopen) await openPanel(back ? { mode: back } : undefined);
         else renderNow();
     }
 
     async function openSettings() {
-        await openPanel();
+        await openPanel({ mode: 'imagine' });
         ui.tab = 'ready';
         ui.side = '';
         renderNow();
@@ -7695,27 +8394,18 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const AC_OKEY_RE = /^[a-z][a-z0-9]*$/;
     const acOutfitKey = (en, used) => acKeyFrom(tidy(String(en ?? '').split(',')[0]), used);
     const AC_CSS = `
-@media (max-width:1040px){
-  .ix-top{flex-wrap:wrap}
-  .ix-mos{order:3;flex:1 1 100%}
-  .ix .ix-mo{flex:1 1 0;height:50px;gap:10px;padding:0 10px}
-  .ix-sk.mo{flex:1 1 0;height:50px}
-}
 @media (max-width:600px){
-  .ix-word{font-size:21px}
-  .ix-mos{gap:6px}
-  .ix .ix-mo{gap:8px;padding:0 8px}
-  .ix-mo .bx{width:28px;height:28px}
-  .ix-mo .bx .hi{width:17px;height:17px}
-  .ix-mo b{font-size:14px}
-  .ix-mo small{display:none}
   .ix-band .ix-chip{max-width:110px}
+  .ix-stt{padding-left:7px}
+  .ix-stt span{display:none}
 }
 @media (max-width:420px){
-  .ix-mo .bx{display:none}
-  .ix .ix-mo{justify-content:center}
+  .ix-band .ix-chip{display:none}
   .ix .ix-up{padding:0 9px;font-size:0;gap:0}
   .ix .ix-up .hi{width:16px;height:16px}
+  /* 휴대폰 폭에서는 Anlas 칸의 「Anlas」·「할당량」 글을 숨기고 숫자만 남긴다 (× 가 띠 밖으로 밀려났다) */
+  .ix .ix-band .an-c{gap:5px;padding:0 8px;font-size:0}
+  .ix .ix-band .an-c b,.ix .ix-band .an-c .lnk{font-size:12px}
 }
 .as-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .as-t{position:relative;display:grid;min-width:0;background:#fff;border:1px solid var(--line2)}
@@ -8046,6 +8736,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     const acHas = () => acHave.get(st.view?.chaId) ?? new Map();
 
     const acs = {
+        nsOpen: false,
         run: null, edit: null, pe: null, asking: false, askErr: '', tr: false, msg: '', msgOk: false, cu: false, cuAt: 0, cuErr: '', cuNeed: false, cuH: '',
         an: null, anAt: 0, anBusy: false, anErr: '', anShow: false, anFlash: false, quota: null, anT0: 0,
         refs: new Map(), times: [], timer: 0, fail: new Map(), menu: '', who: '', outfit: '', adv: false, trErr: '', lw: 'all',
@@ -8056,6 +8747,11 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
     };
 
     const acCast = () => (st.view?.cast?.list ?? []).filter(e => e && e.on !== false);
+    function acFaceKeys(chaId) {
+        if (st.view?.chaId !== chaId) return [];
+        const a = acAst();
+        return acCast().map(e => ({ names: [e.name, ...(e.aliases ?? [])], keys: [e.key, a?.slugs?.[e.id], a?.enNames?.[e.name]].filter(Boolean) }));
+    }
     const acHue = e => AC_HUES[Math.max(0, acCast().indexOf(e)) % AC_HUES.length];
     function acPickedIds(a) {
         const list = acCast();
@@ -8669,7 +9365,7 @@ Rules:
                 `# PREVIOUS TAGS\n${ed.draft ?? acPrompt(a, e, emo)}`,
                 others ? `# OTHER EMOTIONS OF THIS CHARACTER\n${others}` : '',
             ].filter(Boolean).join('\n\n');
-            const res = parseJson(await requestModel(AC_REGEN_SYSTEM, user, true, st.set.acLlm), 'tags');
+            const res = parseJson(await requestModel(AC_REGEN_SYSTEM, user, true, st.set.acLlm, 'asset'), 'tags');
             const tags = tidy(isObj(res) ? res.tags : '').toLowerCase().slice(0, 200);
             if (!tags || !/^[\x20-\x7e]+$/.test(tags)) throw new Error('모델 답에서 영어 태그를 찾지 못했습니다.');
             if (acs.edit !== ed) return;
@@ -8704,7 +9400,7 @@ Rules:
             const cs = acPicked(a);
             const { text } = await acRace(t, botContext(char));
             const user = `${text}\n\n# CHARACTERS\n${cs.map(e => `- ${e.name}${e.aliases?.length ? ` (${e.aliases.join(', ')})` : ''}`).join('\n')}`;
-            const res = parseJson(await acRace(t, requestModel(AC_ASK_SYSTEM, user, true, st.set.acLlm)), 'specials');
+            const res = parseJson(await acRace(t, requestModel(AC_ASK_SYSTEM, user, true, st.set.acLlm, 'asset')), 'specials');
             if (!isObj(res)) throw new Error('모델 답에서 JSON 을 찾지 못했습니다.');
             const ascii = s => /^[\x20-\x7e]+$/.test(s);
             const usedO = new Set(['base', ...AC_OUTFIT_PRE.map(o => o[0]), ...a.extra.map(o => o.key)]);
@@ -8747,7 +9443,7 @@ Rules:
     };
     async function acTranslate(text, what, t) {
         if (/^[\x20-\x7e]+$/.test(text)) return { en: text.toLowerCase(), scene: text.toLowerCase(), icon: '' };
-        const res = parseJson(await acRace(t, requestModel(AC_TR_SYSTEM[what], text, true, st.set.acLlm)), 'en');
+        const res = parseJson(await acRace(t, requestModel(AC_TR_SYSTEM[what], text, true, st.set.acLlm, 'asset')), 'en');
         const en = tidy(res?.en).toLowerCase().slice(0, 300);
         if (!en || !/^[\x20-\x7e]+$/.test(en)) throw new Error('태그로 옮기지 못했습니다.');
         const scene = tidy(res?.scene).toLowerCase().slice(0, 40);
@@ -8773,7 +9469,7 @@ Rules:
         const raw = acCustomItems(a.customText).join(', ');
         if (!raw) throw new Error('감정을 하나 이상 적어 주세요. ' + AC_CUSTOM_EX);
         if (a.custom?.raw === raw && a.custom.emos.length) return a.custom.emos.length;
-        const res = parseJson(await requestModel(AC_CUSTOM_SYSTEM, raw, true, st.set.acLlm), 'emos');
+        const res = parseJson(await requestModel(AC_CUSTOM_SYSTEM, raw, true, st.set.acLlm, 'asset'), 'emos');
         const emos = acCleanEmos(res?.emos);
         if (!emos.length) throw new Error('모델이 감정을 태그로 옮기지 못했습니다. 다시 누르거나, 영어로 적어 주세요 (예: smile, crying, happy).');
         a.custom = { raw, emos };
@@ -8826,7 +9522,7 @@ Rules:
                 `# STYLE EXAMPLES (other cells of this character; match this tag style)\n${[...sps, ...emos].join('\n')}`,
                 `# SPECIAL SCENE TYPED BY USER\n${raw}`,
             ].filter(Boolean).join('\n\n');
-            const res = parseJson(await requestModel(AC_SP_SYSTEM, user, true, st.set.acLlm), 'en');
+            const res = parseJson(await requestModel(AC_SP_SYSTEM, user, true, st.set.acLlm, 'asset'), 'en');
             const en = tidy(isObj(res) ? res.en : '').toLowerCase().slice(0, 200);
             if (!en || !/^[\x20-\x7e]+$/.test(en)) throw new Error('no ascii tags');
             const sc = tidy(res.scene).toLowerCase().slice(0, 40);
@@ -8934,7 +9630,7 @@ Rules:
         const r = Number(st.loreRate?.[b.llm ?? st.set.llm]);
         return Math.round(Math.min(180, Math.max(8, r > 0 ? r * Math.max(1, (b.chars || 0) / 10000) : 30)));
     };
-    function modeCards() {
+    function modeInfo() {
         const nAst = acListNames(acAst()).length;
         const ptOff = !!st.view?.chaId && st.set.ptOff.includes(st.view.chaId);
         const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice?.lit?.(), talk: !!voice?.talkLit?.() };
@@ -8944,17 +9640,61 @@ Rules:
             voice: voice ? voice.status() : '쓸 수 없음',
             talk: voice ? voice.talkStatus() : '쓸 수 없음',
         };
-        return h('span', { class: 'ix-mos', role: 'tablist', 'aria-label': '모드' }, MODES.map(([m, label]) => {
-            const on = !ui.side && ui.mode === m;
-            return h('button', {
-                type: 'button', role: 'tab', class: 'ix-mo m-' + m + (on ? ' on' : ''), 'aria-selected': on ? 'true' : 'false',
-                disabled: vMode(m) && !voice, title: tip[m], 'aria-label': `${label} · ${tip[m]}`,
-                onclick: () => goMode(m),
-            }, h('span', { class: 'bx' }, headIcon(m)), h('span', { class: 't' }, h('b', null, label, h('i', { class: 'ix-led' + (lit[m] ? ' lit' : ''), 'aria-hidden': 'true' })), h('small', null, tip[m])));
-        }));
+        return { lit, tip };
+    }
+    function renderHome() {
+        const { lit, tip } = modeInfo();
+        const chip = chipOf();
+        const q = ui.homeQ.trim().toLowerCase();
+        const apps = MODES.map(([m, label]) => h('button', {
+            type: 'button', class: 'ix-app m-' + m + (!q || label.toLowerCase().includes(q) ? '' : ' hide'), 'data-nm': label,
+            disabled: vMode(m) && !voice, title: tip[m], 'aria-label': `${label} · ${tip[m]}`,
+            onclick: e => openProg(m, e.currentTarget),
+        }, h('span', { class: 'ico' }, headIcon(m)), h('b', null, h('i', { class: 'ix-led' + (lit[m] ? ' lit' : ''), 'aria-hidden': 'true' }), label)));
+        return h('section', { class: 'ix-home', 'aria-label': '이매진 홈' },
+            h('span', { class: 'ix-wall', 'aria-hidden': 'true' }), h('span', { class: 'ix-dim', 'aria-hidden': 'true' }),
+            h('div', { class: 'ix-htop' },
+                h('span', { class: 'ix-word' }, 'IMAGINE'),
+                h('span', { class: 'r' },
+                    chip?.[1] === 'run' ? h('span', { class: 'ix-chip run', title: chip[0] }, chip[0]) : null,
+                    updOn() ? h('button', {
+                        type: 'button', class: 'ix-up', title: `새 버전 v${upd.latest}`, 'aria-label': `업데이트 · 새 버전 v${upd.latest}`,
+                        onclick: () => { ui.home = false; ui.side = 'upd'; ui.menu = ''; acs.menu = ''; renderNow(); },
+                    }, headIcon('upd'), '업데이트', h('i', { class: 'md-dot', 'aria-hidden': 'true' })) : null,
+                    h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×'))),
+            h('label', { class: 'ix-srch' }, headIcon('search'), h('input', {
+                type: 'search', placeholder: '프로그램 검색', 'aria-label': '프로그램 검색', value: ui.homeQ,
+                oninput: e => {
+                    ui.homeQ = e.target.value;
+                    const k = ui.homeQ.trim().toLowerCase();
+                    for (const el of ui.root.querySelectorAll('.ix-app')) el.classList.toggle('hide', !!k && !el.dataset.nm.toLowerCase().includes(k));
+                },
+            })),
+            h('div', { class: 'ix-grid' }, apps));
+    }
+    function goHome() {
+        if (vMode(ui.mode) && !ui.home) voice?.onClose();
+        ui.home = true;
+        ui.side = ''; ui.menu = ''; acs.menu = '';
+        renderNow();
+    }
+    function openProg(m, el) {
+        let zo = '50% 50%';
+        const r = el?.getBoundingClientRect?.(), box = ui.root?.getBoundingClientRect?.();
+        if (r && box?.width && box.height) zo = `${((r.left + r.width / 2 - box.left) / box.width * 100).toFixed(1)}% ${((r.top + r.height / 2 - box.top) / box.height * 100).toFixed(1)}%`;
+        if (m === 'voice') ui.vtab = 'ready'; else if (m === 'talk') { ui.ttab = voice?.talkReady?.() ? 'talk' : 'ready'; if (ui.ttab === 'talk') voice?.talkList?.(); } else if (m === 'asset') ui.atab = 'make'; else ui.tab = 'ready';
+        goMode(m);
+        const root = ui.root;
+        if (!root) return;
+        root.style.setProperty('--zo', zo);
+        root.classList.remove('ix-zoom');
+        void root.offsetWidth;
+        root.classList.add('ix-zoom');
+        root.addEventListener('animationend', () => root.classList.remove('ix-zoom'), { once: true });
     }
     function goMode(m) {
-        const was = ui.mode;
+        const was = ui.home ? '' : ui.mode;
+        ui.home = false;
         if (vMode(was) && !vMode(m)) voice?.onClose();
         ui.mode = m;
         ui.side = ''; ui.menu = ''; acs.menu = '';
@@ -8976,7 +9716,7 @@ Rules:
 
     function renderAsset() {
         const v = st.view;
-        const pane = h('section', { class: 'ix-pane' }, intro('애드 에셋', '봇 인물의 복장 · 감정별 그림을 한 번에 그려 봇 에셋에 넣고, 로어북에 적어 봇이 답변에서 꺼내 쓰게 합니다.'));
+        const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         if (v.group) return add(pane, h('div', { class: 'ix-empty' }, h('b', null, '그룹 채팅에서는 애드 에셋을 쓸 수 없습니다'), '봇 하나의 채팅에서 열어 주세요.'));
         const ptOff = st.set.ptOff.includes(v.chaId);
@@ -9003,13 +9743,14 @@ Rules:
         add(pane, h('section', { class: `sp ${llmCur ? 'cur' : 'done'}` },
             h('div', { class: 'sp-hd' },
                 h('span', { class: 'sp-n' }, llmCur ? 1 : '✓'),
-                h('b', null, 'LLM 모델 고르기'),
+                h('b', null, '분석 모델 고르기'),
                 llmCur ? null : h('span', { class: 'sp-sum' }, `${llmName(st.set.acLlm)} 모델`),
                 llmCur || acs.run ? null : h('button', { class: 'lnk', type: 'button', onclick: () => { acs.llmOpen = true; acs.reopen = 0; acs.menu = ''; renderNow(); } }, '변경'),
                 llmDone && acs.llmOpen ? h('button', { class: 'lnk', type: 'button', onclick: () => { acs.llmOpen = false; renderNow(); } }, '완료') : null),
             h('div', { class: 'sp-bd' }, llmCur ? [
-                llmCards('acLlm', () => { acs.llmOpen = false; }),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '등장인물 분석 · 감정 태그 · 커스텀 감정을 맡길 모델입니다. 기본은 보조 모델이고, 카드를 누르면 다음 단계로 넘어갑니다. 삽화는 삽화 › 준비에서 따로 고릅니다.')] : null)));
+                llmCards('acLlm'),
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '등장인물 분석 · 감정 태그 · 커스텀 감정을 맡길 모델입니다. 기본은 보조 모델이고, 카드를 고른 뒤 「다음 단계로」를 누릅니다. 삽화는 삽화 › 준비에서 따로 고릅니다.'),
+                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('acLlm'); acs.llmOpen = false; renderNow(); } }, '다음'))] : null)));
         if (!llmDone) return add(pane, h('p', { class: 'ix-hint' }, '앞 단계를 마치면 열립니다.'));
         if (!v.hasKey) return add(pane, h('p', { class: 'ix-hint' }, '애드 에셋은 NovelAI 키가 있어야 그릴 수 있습니다.'), keyBox(true));
         const a = acAst();
@@ -9019,7 +9760,7 @@ Rules:
         const loreTry = lb?.label.match(/다시 시도 \d+\/\d+/)?.[0];
         const reread = async () => {
             acs.loreRes = null;
-            acs.loreRes = await rereadLore(st.set.acLlm);
+            acs.loreRes = await rereadLore(st.set.acLlm, 'asset');
             renderNow();
         };
         const loreRow = () => [
@@ -9037,7 +9778,7 @@ Rules:
         const noSp = a.count === 1;
         const hasSp = a.count !== 1 && a.count !== 'custom';
         if (noSp && a.step === 4) a.step = 5;
-        const shown = n => (noSp && n > 4 ? n - 1 : n) + 1;
+        const shown = n => (noSp && n > 4 ? n - 1 : n) + 1 + (n === 8 ? 1 : 0);
         const cs = acPicked(a), os = acOutfits(a), emos = acEmos(a), sp = acSpecial(a);
         const plan = acPlan(a), have = acHas(), left = plan.filter(t => !have.has(t.name));
         if (run) { a.step = 8; acs.reopen = 0; }
@@ -9055,6 +9796,7 @@ Rules:
         const reopen = n => {
             acs.reopen = n;
             acs.llmOpen = false;
+            acs.nsOpen = false;
             acs.reopenCha = v.chaId;
             acs.menu = '';
             acs.trErr = '';
@@ -9092,13 +9834,14 @@ Rules:
         const nextBtn = (disabled, label = '다음') => {
             const n = bodyN;
             if (n === ro && !disabled && label === '다음') return null;
-            return h('div', { class: 'ix-acts' }, h('button', { class: 'ix-btn main', type: 'button', disabled, onclick: () => next(n) }, label));
+            return h('div', { class: 'ix-acts' }, h('button', { 'data-next': label === '다음' || label === '완료' ? '1' : 'keep', class: 'ix-btn main', type: 'button', disabled, onclick: () => next(n) }, label));
         };
         const hint = (...kids) => h('p', { class: 'ix-hint', style: 'margin:0 0 10px' }, ...kids);
         const step = (n, title, sum, body) => {
             if (n === 4 && noSp) return null;
             const at = noCast ? 1 : a.step;
-            const s = n === ro ? 'cur' : n < at ? 'done' : n === at ? 'cur' : 'lock';
+            let s = n === ro ? 'cur' : n < at ? 'done' : n === at ? 'cur' : 'lock';
+            if (n === 8 && s === 'cur' && !st.set.nsfw?.st && !run && !fin) s = 'lock';
             let bd = null;
             if (s === 'cur') { bodyN = n; bd = body(); bodyN = 0; }
             const look = n === 8 && fin && s === 'cur' ? 'done' : s;
@@ -9500,6 +10243,20 @@ Rules:
         };
 
         const total = acTotal(a);
+        const nsStep = () => {
+            const open = !noCast && a.step >= 8;
+            const cur = open && (!st.set.nsfw?.st || acs.nsOpen || nsWant('asset'));
+            const s = !open ? 'lock' : cur ? 'cur' : 'done';
+            const done = !!st.set.nsfw?.st && !nsWant('asset');
+            return h('section', { class: `sp ${s}` },
+                h('div', { class: 'sp-hd' },
+                    h('span', { class: 'sp-n' }, s === 'done' ? '✓' : shown(7) + 1),
+                    h('b', null, 'NSFW 프롬프트 추가'),
+                    s === 'done' ? h('span', { class: 'sp-sum' }, nsfwSum('asset')) : null,
+                    s === 'done' && !run ? h('button', { class: 'lnk', type: 'button', onclick: () => { acs.nsOpen = true; acs.reopen = 0; acs.llmOpen = false; acs.menu = ''; renderNow(); } }, '변경') : null,
+                    cur && acs.nsOpen && done ? h('button', { class: 'lnk', type: 'button', onclick: () => { acs.nsOpen = false; renderNow(); } }, '완료') : null),
+                h('div', { class: 'sp-bd' }, cur ? nsBody('asset', { close: () => { acs.nsOpen = false; renderNow(); } }) : null));
+        };
         add(pane,
             step(1, '인물 고르기', `${cs.map(e => e.name).join(' · ')} · ${cs.length}명`, noCast ? sNoCast : sPick),
             step(2, '복장 고르기', acOutfitLabel(a), sOutfit),
@@ -9508,6 +10265,7 @@ Rules:
             step(5, '그림체 고르기', `${acPreset().name} · ${tidy(a.view.split(',')[0]) || '시점 없음'}`, sArtist),
             step(6, 'NAI 모델 고르기', `${modelName(st.set.model)} · 레퍼런스 ${a.ref ? '켬' : '끔'}`, sModel),
             step(7, '글로벌노트', ptOff ? '꺼 둠' : a.gnEdited ? '직접 고친 글' : '자동으로 쓴 글', sNote),
+            nsStep(),
             step(8, '애드 에셋', !left.length && plan.length ? `${plan.length}장 완료` : '', sRun),
             refCheck && !noCast && a.step >= 8 ? h('div', { class: 'rc-bar' },
                 h('button', { class: 'ix-btn main', type: 'button', disabled: busyElse || acs.cu, onclick: () => acStart(a, left) },
@@ -9841,8 +10599,8 @@ Rules:
         ['gemini-2.5-pro-tts', '2.5 Pro'],
         ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
     ];
-    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, talkModel: 'submodel', talkSpeak: true, talkLink: false, setup: 0, talkSetup: 0,
-        talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100 };
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'submodel', talkSpeak: true, talkLink: true, setup: 0, talkSetup: 0,
+        talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai' };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
     const STYLE_MAX = 300;
     const DEF_BOT = { narrator: 'Aoede', narrStyle: '라디오 아나운서처럼 또렷하고 안정된 목소리로, 알맞은 속도로 읽어 주세요.', talkStyle: '장면의 감정에 맞게, 연기하듯 자연스럽게 말해 주세요.', voices: {} };
@@ -9888,7 +10646,12 @@ Rules:
         st.set.t46 = true;
         if (!st.set.t48 && Number(st.set.keep) === 30) st.set.keep = 300;
         st.set.t48 = true;
+        if (!st.set.t52) st.set.talkLink = true;
+        st.set.t52 = true;
         if (!st.set.t50) { if (Number(st.set.setup) >= 5) st.set.talkSetup = 3; st.set.setup = Math.min(Number(st.set.setup) || 0, 4); st.set.t50 = true; }
+        if (!st.set.t51) { if (Number(st.set.talkSetup) >= 3) st.set.talkSetup = 4; st.set.t51 = true; }
+        if (!st.set.t53) { for (const k of ['setup', 'talkSetup']) { const n = Number(st.set[k]) || 0; st.set[k] = n === 0 ? 0 : n + 2; } st.set.t53 = true; }
+        if (!st.set.t54) { const n = Number(st.set.talkSetup) || 0; if (n >= 4) st.set.talkSetup = n + 1; st.set.t54 = true; }
     }
     async function botOf(chaId) {
         if (st.bots.has(chaId)) return st.bots.get(chaId);
@@ -9945,7 +10708,7 @@ Rules:
     const tok = { id: '', value: '', exp: 0 };
     async function accessToken() {
         const sa = await account();
-        if (!sa) throw new Error('키가 없습니다. 이매진 › 음성 › 준비 › 「JSON 파일 선택」으로 서비스 계정 키를 등록해 주세요.');
+        if (!sa) throw new Error('키가 없습니다. 이매진 › 음성 · 대화 › 준비 › 「JSON 파일 선택」으로 서비스 계정 키를 등록해 주세요.');
         const now = Math.floor(Date.now() / 1000);
         if (tok.value && tok.id === sa.id && tok.exp - 300 > now) return { token: tok.value, project: sa.project };
         if (!globalThis.crypto?.subtle?.sign) throw new Error('이 환경에서는 서명 기능(crypto.subtle)을 쓸 수 없습니다. 리수를 https 또는 localhost 주소로 열어 주세요.');
@@ -10237,7 +11000,7 @@ Rules:
         return last;
     }
     async function askModel(messages, mode = st.set.split === 'model' ? 'model' : 'submodel') {
-        const res = await api.runLLMModel({ mode, messages, allowPlugins: true });
+        const res = await selfLLM({ mode, messages, allowPlugins: true });
         if (!res || res.type === 'fail') throw new Error(String(res?.result || '모델 요청이 실패했습니다.'));
         return noThink(res.type === 'streaming' ? await readStream(res.result) : res.type === 'multiline' ? res.result.map(x => x[1]).join('\n') : String(res.result ?? ''));
     }
@@ -10639,7 +11402,7 @@ Rules:
             const out = await guard(askModel([
                 { role: 'system', content: CAST_SYSTEM },
                 { role: 'user', content: `MAIN CHARACTER (the bot): ${w.char.name ?? ''}\nUSER NAME (the player, leave out): ${user || '(unknown)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}\n\nSTORY:\n${botContextOf(w.char, w.chat, entries, user)}` },
-            ], 'model'));
+            ], st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
             if (run.stop) throw stopError();
             step(3);
             const list = parseCast(out, user);
@@ -10650,7 +11413,7 @@ Rules:
             await saveBot(chaId, bot);
             const p = await guard(personaOf());
             personaFail.delete(chaId + '|' + p.sig);
-            await guard(ensurePersona(chaId, bot, p, 'model'));
+            await guard(ensurePersona(chaId, bot, p, st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
             if (job) void castMainLines(w, bot, user, entries, q => q, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
             else try { step(4); await castMainLines(w, bot, user, entries, guard, (i, n) => { run.part = [i, n]; onStage(4); }, () => run.stop); } catch (error) { if (run.stop) throw error; console.warn(LOG, 'main lines', error); }
             return list.length;
@@ -10694,14 +11457,40 @@ Rules:
     const getAudio = k => local ? local.getItem('gt_audio_' + k).catch(() => null) : null;
 
     const TALK_MAX = 200, TALK_TURNS = 30, TALK_CTX = 9000;
-    const TALK_FOLDER = '제미니 TTS 대화', TALK_TAG = '제미니 대화 · ';
-    const MAIN_TAG = '제미니 본편 · ', MAIN_CHUNK = 16000, MAIN_KEEP = 8000, MAIN_CTX = 3000;
-    const talks = new Map();
-    function talkOf(chaId) {
-        if (!talks.has(chaId)) talks.set(chaId, api.pluginStorage.getItem('gt:talk:' + chaId).catch(() => null).then(v => v && typeof v === 'object' && !Array.isArray(v) ? v : {}));
-        return talks.get(chaId);
+    const TALK_FOLDER = '이매진 대화', TALK_TAG = '제미니 대화 · ';
+    const TALK_FOLDER_OLD = '제미니 TTS 대화';
+    function talkFolderOf(lore) {
+        const folder = lore.find(e => e?.mode === 'folder' && (e.comment === TALK_FOLDER || e.comment === TALK_FOLDER_OLD));
+        if (folder) folder.comment = TALK_FOLDER;
+        return folder;
     }
-    const saveTalk = (chaId, t) => api.pluginStorage.setItem('gt:talk:' + chaId, t).catch(error => console.warn(LOG, 'save talk', error));
+    function castKeys(entries, names) {
+        const want = new Set(names.map(n => String(n).trim().toLowerCase()).filter(Boolean));
+        const keys = [];
+        for (const e of entries ?? []) {
+            if (!e || e.mode === 'folder' || e.useRegex || /^(이매진|제미니 대화|제미니 본편) · /.test(String(e.comment ?? ''))) continue;
+            const ks = String(e.key ?? '').split(',').map(k => k.trim()).filter(Boolean);
+            if (!want.has(String(e.comment ?? '').trim().toLowerCase()) && !ks.some(k => want.has(k.toLowerCase()))) continue;
+            for (const k of ks) if (!keys.includes(k)) keys.push(k);
+        }
+        return keys;
+    }
+    const MAIN_TAG = '제미니 본편 · ', MAIN_CHUNK = 16000, MAIN_KEEP = 8000, MAIN_CTX = 3000;
+    const isMainLore = e => !!e && e.mode !== 'folder' && String(e.comment ?? '').startsWith(MAIN_TAG);
+    const mainTried = new Set();
+    const talks = new Map();
+    function talkOf(tk, ci) {
+        const chaId = String(tk).split('|')[0];
+        if (!talks.has(tk)) talks.set(tk, (async () => {
+            const had = await api.pluginStorage.getItem('gt:talk:' + tk).catch(() => null);
+            const v = await adoptOld('gt:talk:' + tk, 'gt:talk:' + chaId);
+            if (!v || Array.isArray(v)) return {};
+            if (!isObj(had) && Number.isInteger(ci)) for (const [name, log] of Object.entries(v)) if (log?.length) talkLoreSoon(tk, ci, name);
+            return v;
+        })());
+        return talks.get(tk);
+    }
+    const saveTalk = (tk, t) => api.pluginStorage.setItem('gt:talk:' + tk, t).catch(error => console.warn(LOG, 'save talk', error));
     function talkPush(t, name, r, text, tone = '') {
         const log = t[name] ??= [];
         log.push(tone ? { r, t: text, tone, at: Date.now() } : { r, t: text, at: Date.now() });
@@ -10718,6 +11507,149 @@ Rules:
             rest.push(n);
         }
         return [main, ...rest.map((n, i) => [n, i]).sort((a, b) => last(b[0]) - last(a[0]) || a[1] - b[1]).map(x => x[0])];
+    }
+    const FACE_IMG = /^(png|jpe?g|webp|gif|avif|bmp)$/;
+    const FACE_EXT_RE = /\.(png|jpe?g|webp|gif|avif|bmp)$/i;
+    const FACE_BG = /^(bg|cg|b)[_\s]/i;
+    const FACE_BASE = /(^|[_\s-])(default|neutral|normal|base|idle|기본|평소|무표정)(?=[_\s.-]|$)/;
+    function facePool(char) {
+        const list = [];
+        const add = (x, src) => {
+            const name = String(x?.[0] ?? '').trim(), path = x?.[1];
+            if (!name || !path || FACE_BG.test(name) || /^nc_/i.test(name)) return;
+            const ext = String(x?.[2] ?? '').toLowerCase() || name.match(/\.(\w+)$/)?.[1]?.toLowerCase() || 'png';
+            if (!FACE_IMG.test(ext)) return;
+            list.push({ name, low: name.toLowerCase().replace(FACE_EXT_RE, '').replace(/\s+/g, '_'), path, src });
+        };
+        for (const x of char?.emotionImages ?? []) add(x, 'emo');
+        for (const x of char?.additionalAssets ?? []) add(x, 'add');
+        return { list, bot: char?.image || '' };
+    }
+    function stagePool(char) {
+        const list = [];
+        const add = (x, src) => {
+            const name = String(x?.[0] ?? '').trim(), path = x?.[1];
+            if (!name || !path || /^nc_/i.test(name)) return;
+            const ext = String(x?.[2] ?? '').toLowerCase() || name.match(/\.(\w+)$/)?.[1]?.toLowerCase() || 'png';
+            if (!FACE_IMG.test(ext)) return;
+            list.push({ name, low: name.toLowerCase().replace(FACE_EXT_RE, '').replace(/\s+/g, '_'), path, src });
+        };
+        for (const x of char?.emotionImages ?? []) add(x, 'emo');
+        for (const x of char?.additionalAssets ?? []) add(x, 'add');
+        return { list, bot: char?.image || '' };
+    }
+    function assetFind(raw, pool) {
+        const norm = x => String(x ?? '').trim().toLowerCase().replace(FACE_EXT_RE, '').replace(/\s+/g, '_');
+        let want = String(raw ?? '').trim().replace(/^\{\{\s*\w+\s*::\s*|\s*\}\}$/g, '');
+        want = want.replace(/^[`"'“”「」『』]+|[`"'“”「」『』]+$/g, '').replace(/^\[(emotion|asset)\]\s*/i, '').trim();
+        if (!want) return null;
+        return pool.find(f => f.name === want) ?? pool.find(f => f.name.toLowerCase() === want.toLowerCase()) ?? pool.find(f => f.low === norm(want)) ?? null;
+    }
+    const faceVary = s => { const b = String(s ?? '').trim().toLowerCase().replace(/\s+/g, '_'); return [...new Set([b, b.replace(/-/g, '')])].filter(x => x.length > 1); };
+    function faceAt(low, key) {
+        for (let i = low.indexOf(key); i >= 0; i = low.indexOf(key, i + 1)) {
+            const end = low[i + key.length];
+            if ((i === 0 || /[_\s-]/.test(low[i - 1])) && (!/[a-z0-9]$/.test(key) || !end || !/[a-z0-9]/.test(end))) return i;
+        }
+        return -1;
+    }
+    const FACE_SYSTEM = `You match characters to the portrait image assets of a roleplay bot.
+You get CHARACTERS (one per line: name | aliases | English keys) and ASSETS (one exact asset name per line, tagged [emotion] or [asset]).
+For every character pick the ONE asset that shows that character's face in a default, neutral or idle look. When a character has several assets (expressions, outfits, poses), choose the default one: prefer names with default, neutral, normal, base, idle, 기본, 평소 or 무표정, otherwise the plainest one.
+Rules:
+- An asset belongs to a character when its name holds that character's name, alias or English key, in any language or romanization (e.g. 최유진 = choi_you-jin = yujin). Asset names like c_<key>_... belong to the character with that key.
+- Characters can share a family name (choi_min-jun and choi_you-jin are different people). Never give one person an asset that names someone else.
+- [emotion] assets whose name holds no person (just an emotion such as smile or angry) belong to the FIRST character (the bot itself).
+- An asset name that only describes a background, item or scene is nobody's face.
+- Write each asset name exactly as listed, character for character. Use "" when no asset fits a character.
+Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
+    const faceAsking = new Set();
+    function faceSig(v, names) {
+        const ext = host.faceKeys?.(v.chaId) ?? [];
+        return hash(JSON.stringify([names.map(n => [n, v.bot.voices[n]?.aliases ?? []]), ext.map(e => [e.names, e.keys]), (v.faces?.list ?? []).map(f => f.name).sort()]));
+    }
+    async function talkFaceAsk(v, names) {
+        const pool = v.faces?.list ?? [];
+        if (!v.bot.castAt || cast || !pool.length || names.length < 1) return;
+        const sig = faceSig(v, names);
+        const tag = v.chaId + ':' + sig;
+        if (v.bot.faceAi?.sig === sig || faceAsking.has(tag)) return;
+        faceAsking.add(tag);
+        const ext = host.faceKeys?.(v.chaId) ?? [];
+        const keysOf = n => {
+            const lows = new Set([n, ...(v.bot.voices[n]?.aliases ?? [])].map(x => String(x).trim().toLowerCase()));
+            return [...new Set(ext.filter(e => e.names.some(x => lows.has(String(x ?? '').trim().toLowerCase()))).flatMap(e => e.keys))];
+        };
+        const line = n => `${n} | ${(v.bot.voices[n]?.aliases ?? []).join(', ') || '-'} | ${keysOf(n).join(', ') || '- (no key: match by name or romanization)'}`;
+        const own = new Set(names.flatMap(keysOf));
+        const others = ext.filter(e => !e.keys.some(k => own.has(k))).map(e => `${e.names.filter(Boolean).join(', ')} | ${e.keys.join(', ')}`);
+        const user = [
+            'CHARACTERS (the first one is the bot itself):', ...names.map(line),
+            ...(others.length ? ['', 'OTHER PEOPLE (not in the list; never give their assets to anyone):', ...others] : []),
+            '', 'ASSETS:', ...pool.map(f => `[${f.src === 'emo' ? 'emotion' : 'asset'}] ${f.name}`),
+        ].join('\n');
+        try {
+            const out = await askModel([{ role: 'system', content: FACE_SYSTEM }, { role: 'user', content: user }], st.set.castLlm === 'submodel' ? 'submodel' : 'model');
+            let j = null;
+            const a = out.indexOf('{'), b = out.lastIndexOf('}');
+            if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
+            const got = j?.faces && typeof j.faces === 'object' ? j.faces : null;
+            if (!got) throw new Error('얼굴 매칭 답을 읽지 못했습니다.');
+            v.bot.faceAi = { sig, map: faceMap(got, names, pool) };
+            await saveBot(v.chaId, v.bot);
+            if (ui.view?.chaId === v.chaId) render();
+        } catch (error) { console.warn(LOG, 'talk faces', error); }
+    }
+    function faceMap(got, names, pool) {
+        const map = {};
+        for (const n of names) {
+            const raw = got[n] ?? Object.entries(got).find(([k]) => k.trim().toLowerCase() === n.toLowerCase())?.[1];
+            if (raw == null) continue;
+            const f = assetFind(raw, pool);
+            map[n] = f ? f.name : '';
+        }
+        return map;
+    }
+    function talkFaces(v, names) {
+        const out = new Map();
+        const pool = v.faces?.list ?? [];
+        const ext = host.faceKeys?.(v.chaId) ?? [];
+        const parts = k => String(k).toLowerCase().split(/[_\s-]+/).filter(p => p.length >= 3);
+        const used = new Set();
+        const people = names.map(n => {
+            const own = [n, ...(v.bot.voices[n]?.aliases ?? [])];
+            const lows = new Set(own.map(x => String(x).trim().toLowerCase()));
+            const mine = ext.filter(e => e.names.some(x => lows.has(String(x ?? '').trim().toLowerCase())));
+            mine.forEach(e => used.add(e));
+            const full = mine.flatMap(e => e.keys);
+            return { full: [...own, ...full], bits: full.flatMap(parts) };
+        });
+        const rest = ext.filter(e => !used.has(e)).map(e => ({ full: [...e.names, ...e.keys], bits: e.keys.flatMap(parts) }));
+        const owners = new Map();
+        [...people, ...rest].forEach((x, i) => new Set(x.bits).forEach(b => owners.set(b, (owners.get(b) ?? 0) + 1)));
+        const keysOf = x => [...new Set([...x.full, ...x.bits.filter(b => owners.get(b) === 1)].flatMap(faceVary))];
+        const keys = [...people, ...rest].map(keysOf);
+        const ai = v.bot.faceAi?.map;
+        if (ai) {
+            names.forEach((n, i) => { const path = pool.find(f => f.name === ai[n])?.path || (i === 0 ? v.faces?.bot : ''); if (path) out.set(n, path); });
+            return out;
+        }
+        const got = names.map(() => []);
+        for (const f of pool) {
+            let who = -1, pos = Infinity, len = 0;
+            keys.forEach((ks, i) => ks.forEach(k => {
+                const p = faceAt(f.low, k);
+                if (p >= 0 && (p < pos || (p === pos && k.length > len))) { who = i; pos = p; len = k.length; }
+            }));
+            if (who >= names.length) continue;
+            if (who < 0 && f.src === 'emo') who = 0;
+            if (who >= 0) got[who].push(f);
+        }
+        names.forEach((n, i) => {
+            const path = (got[i].find(f => FACE_BASE.test(f.low)) ?? got[i][0])?.path || (i === 0 ? v.faces?.bot : '');
+            if (path) out.set(n, path);
+        });
+        return out;
     }
     function talkContext(char, name, rec, entries, user, main, persona = '') {
         const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char?.name ?? '').replace(/\{\{user\}\}/gi, user || 'User');
@@ -10737,7 +11669,7 @@ Rules:
         const mine = hits.length ? `## About ${name} (lorebook)\n${hits.join('\n\n')}` : '';
         let s = (main ? [...bot, mine] : [mine, ...bot]).filter(Boolean).join('\n\n');
         if (s.length > TALK_CTX) s = s.slice(0, TALK_CTX) + '\n…(truncated)';
-        const said = (entries ?? []).find(e => e && e.mode !== 'folder' && e.comment === MAIN_TAG + name);
+        const said = (entries ?? []).findLast(e => e && e.mode !== 'folder' && e.comment === MAIN_TAG + name);
         if (said) {
             let body = String(said.content ?? '').split('\n').slice(1).join('\n').trim();
             if (body.length > MAIN_CTX) { body = body.slice(-MAIN_CTX); body = '…\n' + body.slice(body.indexOf('\n') + 1); }
@@ -10746,19 +11678,35 @@ Rules:
         const me = String(persona ?? '').trim();
         return me ? `${s}${s ? '\n\n' : ''}## ${user || 'User'} (user persona)\n${me.slice(0, PERSONA_MAX)}` : s;
     }
-    function talkSystem(name, user, style, ctx) {
+    function talkSystem(name, user, style, ctx, pool = null) {
+        const ast = pool?.length ? pool : null;
+        const tone = `the first line is TONE: followed by one short direction for the voice actor on how ${name} says this reply (feeling, volume, speed), written as a polite request in the language of the reply, e.g. "TONE: 조용히 속삭이는 듯이 말해 주세요".`;
+        const form = ast ? `${tone} The second line is ASSET: followed by the one asset name from ASSETS to show on screen with this reply, e.g. "ASSET: ${ast[0].name}".` : tone;
+        const list = ast ? `
+
+ASSETS (${ast.length}; one exact asset name per line, tagged [emotion] or [asset]):
+${ast.map(f => `[${f.src === 'emo' ? 'emotion' : 'asset'}] ${f.name}`).join('\n')}
+Asset rules:
+- The ASSET name must be copied exactly from the ASSETS list, character for character, without the [emotion] or [asset] tag. Never make up a name that is not in the list.
+- Prefer an asset that shows ${name}. Pick it from ${name}'s facial expression in this reply and the situation; change it when the mood changes, and keep an outfit or place until the conversation changes it.
+- Use an asset without ${name} (a background, a scene or another person) only when no asset of ${name} fits.` : '';
         return `You are ${name}, in a private one-on-one conversation with ${user}, outside the main story.
 Stay fully in character: your personality, way of speaking and what you know come from PROFILE. Who ${user} is comes from the user persona in PROFILE, and your relationship with ${user} comes from both.
 Rules:
-- Write the reply in this form: the first line is TONE: followed by one short direction for the voice actor on how ${name} says this reply (feeling, volume, speed), written as a polite request in the language of the reply, e.g. "TONE: 조용히 속삭이는 듯이 말해 주세요". From the next line on, write only the words ${name} says next.
-- No narration, no actions in asterisks or brackets, no name prefix, no quotation marks around the reply.
+- Write the reply in this form: ${form} From the next line on, write only the words ${name} says out loud, as dialogue: wrap every spoken line in double quotes, one quoted line per line, e.g. "어서 와요."
+- Everything outside the double quotes is deleted, so write no narration, actions, thoughts or name prefix outside them.
 - Never write ${user}'s lines. Never mention being an AI, a model or a roleplay.
-- Reply in the language ${user} writes in.${style ? `\n- Your voice and manner: ${style}` : ''}
+- Reply in the language ${user} writes in.${style ? `\n- Your voice and manner: ${style}` : ''}${list}
 
 PROFILE:
 ${ctx || '(none)'}`;
     }
+    const TALK_QUOTE_RE = /["“]([^"“”\n]{1,600})["”]|「([^」\n]{1,600})」|『([^』\n]{1,600})』/g;
     function talkClean(out, name, rec) {
+        const said = [...noThink(out).matchAll(TALK_QUOTE_RE)].map(m => talkCleanOne(m[1] ?? m[2] ?? m[3], name, rec)).filter(Boolean);
+        return said.length ? said.join('\n') : talkCleanOne(out, name, rec);
+    }
+    function talkCleanOne(out, name, rec) {
         let s = noThink(out).replace(/\*[^*\n]{1,200}\*/g, ' ');
         s = plain(s);
         for (const n of [name, ...(rec?.aliases ?? [])]) s = s.replace(new RegExp('^\\s*' + reEsc(n) + '\\s*[:：]\\s*', 'i'), '');
@@ -10769,53 +11717,77 @@ ${ctx || '(none)'}`;
         return s;
     }
     const TONE_RE = /^[ \t]*(?:TONE|톤|말투)[ \t]*[:：][ \t]*(.+)$/im;
-    async function talkAsk(system, log, name, rec) {
+    const ASSET_RE = /^[ \t]*(?:ASSET|IMAGE|에셋)[ \t]*[:：][ \t]*(.+)$/im;
+    const ASSET_TAG_RE = /\{\{\s*(?:image|img|asset|emotion|raw)\s*::\s*([^}]+?)\s*\}\}/gi;
+    async function talkAsk(system, log, name, rec, pool = null) {
         const msgs = [];
         for (const m of log.slice(-TALK_TURNS)) {
             const role = m.r === 'u' ? 'user' : 'assistant';
             if (!msgs.length && role === 'assistant') continue;
-            const t = role === 'assistant' && m.tone ? `TONE: ${m.tone}\n${m.t}` : m.t;
+            const said = role === 'assistant' ? String(m.t ?? '').split('\n').map(x => x.trim()).filter(Boolean).map(x => `"${x}"`).join('\n') : m.t;
+            const t = role === 'assistant' ? [m.tone ? `TONE: ${m.tone}` : '', pool && m.img?.asset ? `ASSET: ${m.img.asset}` : '', said].filter(Boolean).join('\n') : said;
             const last = msgs[msgs.length - 1];
             if (last?.role === role) last.content += '\n' + t;
             else msgs.push({ role, content: t });
         }
-        const out = noThink(await askModel([{ role: 'system', content: system }, ...msgs], st.set.talkModel === 'model' ? 'model' : 'submodel'));
+        const ns = host.nsfwText('talk');
+        const out = noThink(await askModel([{ role: 'system', content: ns ? ns + '\n\n' + system : system }, ...msgs], st.set.talkModel === 'model' ? 'model' : 'submodel'));
         const tm = out.match(TONE_RE);
         const tone = tm ? tm[1].replace(/^["“「『(（\[]+|["”」』)）\]]+$/g, '').trim().slice(0, STYLE_MAX) : '';
-        const text = talkClean(tm ? out.replace(tm[0], '') : out, name, rec);
+        let body = tm ? out.replace(tm[0], '') : out;
+        let asset = '';
+        if (pool) {
+            const am = body.match(ASSET_RE);
+            const tags = [...body.matchAll(ASSET_TAG_RE)];
+            asset = assetFind(am?.[1] ?? tags[0]?.[1], pool)?.name ?? '';
+            if (am) body = body.replace(am[0], '');
+            body = body.replace(ASSET_TAG_RE, ' ');
+        }
+        const text = talkClean(body, name, rec);
         if (!spoken(text)) throw new Error('모델이 빈 답을 돌려주었습니다. 한 번 더 보내 보세요.');
-        return { text, tone };
+        return { text, tone, asset };
     }
     const loreWait = new Map();
     let loreJob = Promise.resolve(), loreShut = false;
-    function talkLoreSoon(chaId, ci, name, tries = 0) {
+    function talkLoreSoon(tk, ci, name, tries = 0) {
         if (loreShut) return;
-        const w = loreWait.get(chaId) ?? { ci, names: new Set(), timer: 0, tries: 0 };
+        const w = loreWait.get(tk) ?? { ci, names: new Set(), timer: 0, tries: 0 };
         w.ci = ci;
         w.tries = tries;
         w.names.add(name);
         clearTimeout(w.timer);
-        w.timer = setTimeout(() => void talkLoreFlush(chaId), 2000);
-        loreWait.set(chaId, w);
+        w.timer = setTimeout(() => void talkLoreFlush(tk), 2000);
+        loreWait.set(tk, w);
     }
-    function talkLoreFlush(chaId = null) {
+    function talkLoreFlush(tk = null) {
         for (const [id, w] of [...loreWait]) {
-            if (chaId != null && id !== chaId) continue;
+            if (tk != null && id !== tk) continue;
             clearTimeout(w.timer);
             loreWait.delete(id);
             loreJob = loreJob.then(() => talkLore(id, w.ci, [...w.names], w.tries)).catch(error => console.warn(LOG, 'talk lore', error));
         }
         return loreJob;
     }
-    async function talkLore(chaId, ci, names, tries = 0) {
-        const t = await talkOf(chaId);
+    async function talkLore(tk, ci, names, tries = 0) {
+        const chaId = String(tk).split('|')[0];
+        const t = await talkOf(tk);
         const bot = await botOf(chaId);
         const user = (await userName()) || 'User';
         const char = await api.getCharacterFromIndex(ci);
         if (!char || char.chaId !== chaId) return;
-        if (tries < 30 && char.chats?.some(c => c?.isStreaming)) { for (const name of names) talkLoreSoon(chaId, ci, name, tries + 1); return; }
-        const lore = Array.isArray(char.globalLore) ? char.globalLore : [];
-        let folder = lore.find(e => e?.mode === 'folder' && e.comment === TALK_FOLDER);
+        if (tries < 30 && char.chats?.some(c => c?.isStreaming)) { for (const name of names) talkLoreSoon(tk, ci, name, tries + 1); return; }
+        const chat = (char.chats ?? []).find((c, i) => c && talkKeyOf(chaId, c, i) === tk);
+        if (!chat) return;
+        const glore = Array.isArray(char.globalLore) ? char.globalLore : [];
+        if (glore.some(e => e?.mode !== 'folder' && String(e?.comment ?? '').startsWith(TALK_TAG))) {
+            const keep = glore.filter(e => !(e?.mode !== 'folder' && String(e?.comment ?? '').startsWith(TALK_TAG)));
+            const gf = talkFolderOf(keep);
+            if (gf && !keep.some(e => e !== gf && e?.folder === gf.key)) keep.splice(keep.indexOf(gf), 1);
+            char.globalLore = keep;
+        }
+        const lore = Array.isArray(chat.localLore) ? chat.localLore : [];
+        let folder = talkFolderOf(lore);
+        const own = [...lore, ...(char.globalLore ?? [])];
         for (const name of names) {
             const log = t[name] ?? [];
             const at = lore.findIndex(e => e?.comment === TALK_TAG + name && e.mode !== 'folder');
@@ -10825,21 +11797,25 @@ ${ctx || '(none)'}`;
                 lore.push(folder);
             }
             const rec = bot.voices[name];
+            const keys = st.set.talkLink ? castKeys(own, [name, ...(rec?.aliases ?? [])]) : [];
             const ent = {
-                key: st.set.talkLink ? [name, ...(rec?.aliases ?? [])].join(', ') : '', secondkey: '', insertorder: 100, comment: TALK_TAG + name,
+                key: keys.join(', '), secondkey: '', insertorder: 100, comment: TALK_TAG + name,
                 content: `[${name} · ${user} 대화 기록]\n` + log.map(m => `${m.r === 'u' ? user : name}: ${m.t}`).join('\n'),
-                mode: 'normal', alwaysActive: false, selective: false, useRegex: false, folder: folder.key,
+                mode: 'normal', alwaysActive: !!st.set.talkLink && !keys.length, selective: false, useRegex: false, folder: folder.key,
             };
             if (at >= 0) lore[at] = { ...lore[at], ...ent };
             else lore.push(ent);
         }
         if (folder && !lore.some(e => e !== folder && e?.folder === folder.key)) lore.splice(lore.indexOf(folder), 1);
-        char.globalLore = lore;
+        chat.localLore = lore;
         await api.setCharacterToIndex(ci, char);
     }
     async function castMainLines(w, bot, user, entries, guard, onPart, stopped) {
         const char = w?.char, chaId = char?.chaId;
         if (!chaId || !w.chat) return;
+        const chi = Number.isInteger(w.chi) ? w.chi : await api.getCurrentChatIndex();
+        const tk = talkKeyOf(chaId, w.chat, chi);
+        mainTried.add(tk);
         const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char.name ?? '').replace(/\{\{user\}\}/gi, user || 'User');
         const fm = Number(w.chat.fmIndex ?? -1);
         const first = fm >= 0 ? char.alternateGreetings?.[fm] ?? char.firstMessage : char.firstMessage;
@@ -10892,18 +11868,21 @@ ${ctx || '(none)'}`;
                 if (tries >= 30 || !ch.chats?.some(c => c?.isStreaming)) break;
                 await new Promise(r => setTimeout(r, 2000));
             }
-            const lore = (Array.isArray(ch.globalLore) ? ch.globalLore : []).filter(e => !(e && e.mode !== 'folder' && String(e.comment ?? '').startsWith(MAIN_TAG)));
-            let folder = lore.find(e => e?.mode === 'folder' && e.comment === TALK_FOLDER);
-            const own = [...lore, ...(entries ?? [])].filter(e => e && e.mode !== 'folder' && !e.useRegex && !/^(이매진|제미니 대화|제미니 본편) · /.test(String(e.comment ?? '')));
+            const chat = (ch.chats ?? []).find((c, i) => c && talkKeyOf(chaId, c, i) === tk);
+            if (!chat) return;
+            const glore = Array.isArray(ch.globalLore) ? ch.globalLore : [];
+            if (glore.some(isMainLore)) {
+                const keep = glore.filter(e => !isMainLore(e));
+                const gf = talkFolderOf(keep);
+                if (gf && !keep.some(e => e !== gf && e?.folder === gf.key)) keep.splice(keep.indexOf(gf), 1);
+                ch.globalLore = keep;
+            }
+            const lore = (Array.isArray(chat.localLore) ? chat.localLore : []).filter(e => !isMainLore(e));
+            let folder = talkFolderOf(lore);
+            const own = [...lore, ...(ch.globalLore ?? []), ...(entries ?? [])];
             for (const [name, list] of lines) {
                 if (!list.length) continue;
-                const names = new Set([name, ...(bot.voices[name]?.aliases ?? [])].map(n => String(n).trim().toLowerCase()).filter(Boolean));
-                const keys = [];
-                for (const e of own) {
-                    const ks = String(e.key ?? '').split(',').map(k => k.trim()).filter(Boolean);
-                    if (!names.has(String(e.comment ?? '').trim().toLowerCase()) && !ks.some(k => names.has(k.toLowerCase()))) continue;
-                    for (const k of ks) if (!keys.includes(k)) keys.push(k);
-                }
+                const keys = castKeys(own, [name, ...(bot.voices[name]?.aliases ?? [])]);
                 let body = list.map(t => `${name}: ${t}`).join('\n');
                 if (body.length > MAIN_KEEP) { body = body.slice(-MAIN_KEEP); body = body.slice(body.indexOf('\n') + 1); }
                 if (!folder) {
@@ -10913,7 +11892,7 @@ ${ctx || '(none)'}`;
                 lore.push({ key: keys.join(', '), secondkey: '', insertorder: 100, comment: MAIN_TAG + name, content: `[${name} · 본편 대사]\n${body}`, mode: 'normal', alwaysActive: !keys.length, selective: false, useRegex: false, folder: folder.key });
             }
             if (folder && !lore.some(e => e !== folder && e?.folder === folder.key)) lore.splice(lore.indexOf(folder), 1);
-            ch.globalLore = lore;
+            chat.localLore = lore;
             await api.setCharacterToIndex(ci, ch);
         });
         loreJob = job.catch(error => console.warn(LOG, 'main lines lore', error));
@@ -11019,6 +11998,7 @@ ${ctx || '(none)'}`;
         for (const j of T.voices) j.stop = true;
         T.voices.clear();
         T.voicing.clear();
+        T.voiceQ.length = 0;
         talkStop();
     }
     function talkPlayWait(data, k) {
@@ -11038,6 +12018,19 @@ ${ctx || '(none)'}`;
     }
     function talkMark() {
         ui.root?.querySelectorAll('.vn-pb[data-k]').forEach(talkMarkOne);
+        ui.root?.querySelectorAll('.vn-di.vr[data-k]').forEach(talkMarkRe);
+    }
+    function talkMarkRe(x) {
+        const k = Number(x.dataset.k), g = ui.talk.voicing.get(k);
+        x.classList.toggle('run', !!g);
+        if (g) { x.style.setProperty('--d', g.sec.toFixed(2) + 's'); x.style.setProperty('--e', -((Date.now() - g.t0) / 1000).toFixed(2) + 's'); }
+        else { x.style.removeProperty('--d'); x.style.removeProperty('--e'); }
+        const t = g ? '목소리 만들기 멈추기' : x.disabled ? x.title : '이 답의 목소리 다시 만들기';
+        x.title = t;
+        x.setAttribute('aria-label', t);
+        x.querySelector('i')?.replaceChildren(talkIcon(g ? 'halt' : 'redo'));
+        const sp = x.querySelector(':scope > span');
+        if (sp) sp.textContent = g ? '멈춤' : '다시';
     }
 
     async function where() {
@@ -11073,6 +12066,8 @@ ${ctx || '(none)'}`;
         if (busy || !jobs.length) return;
         busy = jobs.shift();
         const job = busy;
+        job.t0 = Date.now();
+        const tick = setInterval(() => { if (root.on) void rootQueue(() => paint(false, true)); }, 700);
         try {
             await makeAudio(job);
             failed.delete(job.k);
@@ -11086,6 +12081,7 @@ ${ctx || '(none)'}`;
                 await rootQueue(() => showSlot(job.idx, `<div style="${imp({ color: '#fca5a5', fontSize: '.75rem', lineHeight: '1.4', margin: '2px 0 4px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' })}">⚠ ${esc(failed.get(job.k))}</div>`));
             }
         } finally {
+            clearInterval(tick);
             busy = null;
             paintSoon(true);
             void runNext();
@@ -11099,7 +12095,7 @@ ${ctx || '(none)'}`;
             try {
                 const char = await api.getCharacterFromIndex(job.ci);
                 const chat = await api.getChatFromIndex(job.ci, job.chi);
-                if (char?.chaId === job.chaId) await analyzeCast({ ci: job.ci, char, chat }, n => { job.note = CAST_STAGE[n]; paintSoon(true); }, job);
+                if (char?.chaId === job.chaId) await analyzeCast({ ci: job.ci, chi: job.chi, char, chat }, n => { job.note = CAST_STAGE[n]; paintSoon(true); }, job);
             } catch (error) {
                 if (!error?.stop) console.warn(LOG, 'cast', error);
             }
@@ -11124,6 +12120,7 @@ ${ctx || '(none)'}`;
         paintSoon(true);
         const pcm = [];
         for (const r of reqs) {
+            job.reqAt = Date.now();
             pcm.push(await synthReq(r, job));
             job.done++;
             paintSoon(true);
@@ -11188,35 +12185,71 @@ ${ctx || '(none)'}`;
     const SPK_SVG = ico(15, '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>');
     const PLAY_SVG = ico(13, '<path d="M7 4.5v15l12-7.5z"/>', true);
     const RE_SVG = ico(14, '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>');
-    const TTS_ICON = { idle: SPK_SVG, need: SPK_SVG, have: PLAY_SVG };
+    const STOP_SVG = ico(12, '<rect x="6" y="6" width="12" height="12" rx="1.5"/>', true);
+    const TTS_ICON = { idle: SPK_SVG, need: SPK_SVG, have: PLAY_SVG, play: STOP_SVG, bad: SPK_SVG };
     const BAR_STYLE = imp({ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', margin: '8px 0 2px' });
     const RE_LOOK = { ...BTN_BASE, minWidth: '30px', padding: '3px 7px' };
-    function btnHtml() {
+    const SEG_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', minWidth: '40px', minHeight: '28px', margin: '0', padding: '3px 12px',
+        fontSize: '12.5px', lineHeight: '1.3', borderWidth: '0', borderStyle: 'solid', borderColor: PILL_LINE, borderRadius: '0', background: 'transparent', color: PILL_INK,
+        userSelect: 'none', cursor: 'pointer', transition: 'filter .18s', position: 'relative', overflow: 'hidden', whiteSpace: 'nowrap' };
+    const SEG_LOOKS = {
+        idle: { fontWeight: '600', opacity: '1' },
+        have: { fontWeight: '600', opacity: '1', color: '#4fbf8f', background: 'rgba(80,200,150,.1)' },
+        run: { fontWeight: '600', opacity: '1', background: 'rgba(92,132,240,.12)' },
+        wait: { fontWeight: '400', opacity: '.75' },
+        need: { fontWeight: '400', opacity: '.55' },
+        bad: { fontWeight: '600', opacity: '1', color: '#fff', background: '#b3261e' },
+    };
+    const RE_SEG = { ...SEG_BASE, minWidth: '34px', padding: '3px 10px', borderWidth: '0 0 0 1px' };
+    function segHtml() {
         if (rootDenied() || keyKnown !== true) return '';
-        return '{{#if {{equal::{{role}}::char}}}}'
-            + `<div class="nc-tts-bar" style="${BAR_STYLE}">`
-            + `<span class="nc-tts-btn nc-tts-at-{{chat_index}}" style="${imp({ ...BTN_BASE, display: 'flex', ...LOOKS.idle })}">${SPK_SVG}읽기</span>`
-            + `<span class="nc-tts-re nc-tts-at-{{chat_index}}" title="새로 만들기" style="${imp({ ...RE_LOOK, display: 'none' })}">${RE_SVG}</span>`
-            + '</div>'
-            + `<div class="nc-tts-slot nc-tts-at-{{chat_index}}" style="${imp({ display: 'block', margin: '4px 0 2px', maxWidth: '100%' })}"></div>`
-            + '{{/if}}';
+        return `<span class="nc-tts-btn nc-tts-at-{{chat_index}}" title="읽기" style="${imp({ ...SEG_BASE, display: 'flex', ...SEG_LOOKS.idle })}">${SPK_SVG}생성</span>`
+            + `<span class="nc-tts-re nc-tts-at-{{chat_index}}" title="새로 만들기" style="${imp({ ...RE_SEG, display: 'none' })}">${RE_SVG}</span>`;
     }
+    function slotHtml() {
+        if (rootDenied() || keyKnown !== true) return '';
+        return `<div class="nc-tts-slot nc-tts-at-{{chat_index}}" style="${imp({ display: 'block', margin: '0', maxWidth: '100%' })}"></div>`;
+    }
+    function btnHtml() {
+        const seg = segHtml();
+        return seg ? '{{#if {{equal::{{role}}::char}}}}' + `<div class="nc-tts-bar" style="${BAR_STYLE}">` + seg + '</div>' + slotHtml() + '{{/if}}' : '';
+    }
+    function ttsPct(j) {
+        const now = Date.now();
+        if (!j.total) return 25 * (1 - Math.exp(-(now - (j.t0 ?? now)) / 20000));
+        const part = j.done < j.total ? 0.9 * (1 - Math.exp(-(now - (j.reqAt ?? now)) / 12000)) : 0;
+        return Math.min(99, 25 + 75 * (j.done + part) / j.total);
+    }
+    let playing = null;
+    function wavSec(b64) {
+        try {
+            const h = atob(b64.slice(0, 64));
+            const rate = (h.charCodeAt(28) | h.charCodeAt(29) << 8 | h.charCodeAt(30) << 16 | h.charCodeAt(31) << 24) >>> 0;
+            return rate > 0 ? Math.max(0, (b64.length * 3 / 4 - 44) / rate) : 0;
+        } catch { return 0; }
+    }
+    function endPlay() {
+        clearTimeout(playing?.timer);
+        playing = null;
+    }
+    const runTexts = new Map();
     function stateOf(w, idx, chaId) {
         const j = jobAt(w.ci, w.chi, idx);
         if (j && j === busy) {
-            if (j.stop) return { sign: 'run', text: '⏳ 멈추는 중', look: 'run' };
-            return { sign: 'run', text: j.note ? `⏳ ${j.note}` : j.total ? `⏳ 만드는 중 ${j.done}/${j.total}` : '⏳ 준비 중', look: 'run' };
+            if (j.stop) return { sign: 'stop', text: '멈추는 중', look: 'run', gauge: true, job: j };
+            return { sign: 'run', text: j.note || (j.total ? `만드는 중 ${j.done}/${j.total}` : '준비 중'), look: 'run', gauge: true, job: j };
         }
-        if (j) return { sign: 'wait', text: '⏳ 기다리는 중', look: 'wait' };
-        if (keyKnown === false) return { sign: 'need', text: '키 필요', look: 'need' };
+        if (j) return { sign: 'wait', text: '기다리는 중', look: 'wait' };
+        if (keyKnown === false) return { sign: 'hide' };
         const msg = msgOf(w, idx);
         if (!msg) return { sign: 'hide' };
         const k = keyOf(chaId, msg);
-        if (failed.has(k)) return { sign: 'bad', text: '⚠ 다시 시도', look: 'bad', k };
-        if (cached.has(k)) return { sign: 'have', text: '다시 듣기', look: 'have', k, re: true };
-        return { sign: 'idle', text: '읽기', look: 'idle', k };
+        if (playing && playing.ci === w.ci && playing.chi === w.chi && playing.idx === idx && playing.k === k) return { sign: 'play', text: '멈춤', look: 'have', k, re: true };
+        if (failed.has(k)) return { sign: 'bad', text: '다시 시도', look: 'bad', k };
+        if (cached.has(k)) return { sign: 'have', text: '읽기', look: 'have', k, re: true };
+        return { sign: 'idle', text: '생성', look: 'idle', k };
     }
-    async function paint(force = false) {
+    async function paint(force = false, live = false) {
         const d = root.doc;
         if (!root.on || !d) return;
         const els = await d.querySelectorAll('.x-risu-nc-tts-btn');
@@ -11228,21 +12261,34 @@ ${ctx || '(none)'}`;
             const cls = String(await el.getClassName() ?? '');
             list.push({ el, cls, idx: idxOf(cls), fresh: !/(?:^|\s)(?:x-risu-)?nc-tts-s-/.test(cls) });
         }
-        if (!force && !list.some(x => x.fresh)) return;
+        if (!force && !list.some(x => x.fresh) && !(live && busy)) return;
         const w = await where();
         const chaId = w.char?.chaId ?? '';
         for (const { el, cls, idx } of list) {
             const g = Number.isInteger(idx) ? stateOf(w, idx, chaId) : { sign: 'hide' };
-            const mark = 'nc-tts-s-' + g.sign + (g.text ? '-' + hash(g.text).slice(0, 6) : '');
-            if (!force && cls.split(/\s+/).includes(mark)) continue;
-            if (g.sign === 'hide') await el.setStyleAttribute(imp({ ...BTN_BASE, display: 'none' }));
+            const mark = 'nc-tts-s-' + g.sign + (g.text && !g.gauge ? '-' + hash(g.text).slice(0, 6) : '');
+            const pct = g.gauge ? Math.round(ttsPct(g.job) * 10) / 10 : 0;
+            if (!force && cls.split(/\s+/).includes(mark)) {
+                if (live && g.sign === 'run') {
+                    await (await el.querySelector('.x-risu-nc-fill'))?.setStyle('width', pct + '%');
+                    if (runTexts.get(idx) !== g.text) {
+                        await (await el.querySelector('.x-risu-nc-size'))?.setInnerHTML(esc(g.text));
+                        await (await el.querySelector('.x-risu-nc-lbl'))?.setInnerHTML(gaugeLbl(esc(g.text), false));
+                        runTexts.set(idx, g.text);
+                    }
+                }
+                continue;
+            }
+            if (live) continue;
+            if (g.sign === 'hide') await el.setStyleAttribute(imp({ ...SEG_BASE, display: 'none' }));
             else {
-                await el.setStyleAttribute(imp({ ...BTN_BASE, display: 'flex', ...LOOKS[g.look] }));
-                await el.setInnerHTML((TTS_ICON[g.sign] ?? '') + esc(g.text));
+                await el.setStyleAttribute(imp({ ...SEG_BASE, display: 'flex', ...SEG_LOOKS[g.look] }));
+                await el.setInnerHTML(g.gauge ? gaugeHtml(pct, esc(g.text), g.sign === 'stop') : (TTS_ICON[g.sign] ?? '') + (g.text ? esc(g.text) : ''));
+                if (g.gauge) runTexts.set(idx, g.text);
             }
             await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-tts-s-/.test(c)).concat(mark).join(' '));
             const re = await (await el.getParent())?.querySelector('.x-risu-nc-tts-re');
-            await re?.setStyleAttribute(imp({ ...RE_LOOK, display: g.re ? 'flex' : 'none' }));
+            await re?.setStyleAttribute(imp({ ...RE_SEG, display: g.re ? 'flex' : 'none' }));
         }
     }
     function paintSoon(force = false) {
@@ -11281,8 +12327,25 @@ ${ctx || '(none)'}`;
                 const el = await slots.at(i);
                 if (idxOf(String(await el.getClassName() ?? '')) !== idx && await el.querySelector('audio')) await el.setInnerHTML('');
             }
-            await showSlot(idx, `<audio controls autoplay preload="auto" src="data:audio/wav;base64,${data}" style="${imp({ display: 'block', width: '100%', maxWidth: '440px', height: '36px' })}"></audio>`);
+            await showSlot(idx, `<audio autoplay preload="auto" src="data:audio/wav;base64,${data}" style="${imp({ display: 'none' })}"></audio>`);
         });
+        endPlay();
+        const w = await where();
+        const me = { ci: w.ci, chi: w.chi, idx, k, timer: 0 };
+        me.timer = setTimeout(() => {
+            if (playing !== me) return;
+            playing = null;
+            void rootQueue(() => showSlot(idx, ''));
+            paintSoon(true);
+        }, (wavSec(data) || 60) * 1000 + 400);
+        playing = me;
+        paintSoon(true);
+    }
+    async function stopPlay() {
+        const p = playing;
+        endPlay();
+        if (p) await rootQueue(() => showSlot(p.idx, ''));
+        paintSoon(true);
     }
 
     const taps = new Map();
@@ -11311,6 +12374,7 @@ ${ctx || '(none)'}`;
         if (doubleTap(act + ':' + idx)) return;
         try {
             const w = await where();
+            if (act === 'go' && playing && playing.ci === w.ci && playing.chi === w.chi && playing.idx === idx) { await stopPlay(); return; }
             const j = jobAt(w.ci, w.chi, idx);
             if (j) {
                 if (j === busy) j.stop = true;
@@ -11330,6 +12394,7 @@ ${ctx || '(none)'}`;
         if (!msg) return;
         const chaId = w.char?.chaId ?? '';
         const k = keyOf(chaId, msg);
+        if (playing?.idx === idx && playing.ci === w.ci && playing.chi === w.chi) endPlay();
         if (re) await dropAudio(k);
         else if (cached.has(k)) {
             try { await play(idx, k); return; } catch (error) { console.warn(LOG, 'play', error); }
@@ -11376,6 +12441,7 @@ ${ctx || '(none)'}`;
     }
     async function stopRoot() {
         root.on = false;
+        endPlay();
         clearTimeout(root.timer);
         root.timer = 0;
         try { await root.observer?.disconnect(); } catch {}
@@ -11698,7 +12764,7 @@ ${ctx || '(none)'}`;
         return el;
     }
     const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, tstep: 0, dup: false, readyAt: 0,
-        talk: { chaId: null, name: null, draft: '', busy: '', err: null, voices: new Set(), voicing: new Map(), playing: '', confirm: null, view: '', sel: null, draw: null, pop: false, tick: 0, hud: false } };
+        talk: { chaId: null, tk: null, name: null, list: true, draft: '', busy: '', err: null, edit: null, voices: new Set(), voicing: new Map(), voiceQ: [], drawQ: [], playing: '', confirm: null, view: '', sel: null, draw: null, pre: null, cmsg: null, tick: 0, hud: false } };
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
@@ -11762,11 +12828,15 @@ ${ctx || '(none)'}`;
         const id = setInterval(() => { if (!el.isConnected || cast !== run) clearInterval(id); else paintCast(el, run); }, 500);
         return el;
     }
-    function paintCast(el, run) {
-        if (!run) return;
+    function castState(run) {
         const t = Date.now() - run.at;
         const pct = [5, 5 + Math.round(25 * Math.min(1, lib.page / Math.max(lib.pages, 1))), Math.min(90, 30 + Math.round(60 * t / 30000)), 95, 95 + Math.round(4 * (run.part?.[0] ?? 0) / Math.max(run.part?.[1] ?? 1, 1))][run.stage];
         const text = ['로어북을 읽는 중입니다', `목소리 목록을 받는 중입니다 · ${lib.page} / 약 ${lib.pages}쪽`, `모델이 인물을 정리하는 중입니다 · ${Math.floor(t / 1000)}초`, '목소리 표에 적는 중입니다', `본편 대사를 모으는 중입니다 · ${run.part?.[0] ?? 0} / ${run.part?.[1] ?? 0}`][run.stage];
+        return { pct: pct ?? 0, text: text ?? '' };
+    }
+    function paintCast(el, run) {
+        if (!run) return;
+        const { pct, text } = castState(run);
         const [a, b] = el.firstChild.children;
         a.textContent = text;
         b.textContent = pct + '%';
@@ -11774,25 +12844,84 @@ ${ctx || '(none)'}`;
         el.setAttribute('aria-valuenow', String(pct));
     }
     async function castClick() {
+        const done = (text, ok) => {
+            ui.msg = text;
+            ui.ok = ok;
+            if (talkBoxEl()) { ui.talk.cmsg = { text, ok, at: Date.now() }; render(); } else render();
+            const pb = ui.root?.querySelector('.vn-pick .vn-pkb');
+            if (pb) { pb.textContent = text; pb.classList.toggle('err', !ok); }
+        };
         if (cast) {
             cast.cancel();
             cast = null;
-            ui.msg = '등장인물 분석을 멈췄습니다.';
-            ui.ok = true;
-            render();
+            done('등장인물 분석을 멈췄습니다.', true);
             return;
         }
+        ui.talk.cmsg = null;
         try {
             const w = await where();
             if (!w.char?.chaId || w.char.chaId !== ui.view?.chaId) throw new Error('창을 연 뒤 다른 봇으로 바뀌었습니다. 창을 닫고 다시 열어 주세요.');
             ui.msg = '';
-            const n = await analyzeCast(w, () => { const el = doc.querySelector('.gt-cast-load'); if (el) paintCast(el, cast); else render(); });
-            ui.msg = `인물 ${n}명을 읽었습니다. 목소리 · 지시문을 확인해 보세요.`;
-            ui.ok = true;
+            const n = await analyzeCast(w, () => { const el = doc.querySelector('.gt-cast-load'); if (el) paintCast(el, cast); else if (talkBoxEl()) talkBox(); else if (ui.root?.querySelector('.vn-pick')) talkPickTick(); else render(); });
+            done(`인물 ${n}명을 읽었습니다. 목소리 · 지시문을 확인해 보세요.`, true);
         } catch (error) {
-            if (!error?.stop) { ui.msg = String(error?.message ?? error); ui.ok = false; }
+            if (!error?.stop) done(String(error?.message ?? error), false);
+            else render();
         }
-        render();
+    }
+    function talkBoxEl() {
+        return !host.ui.home && host.ui.mode === 'talk' && host.ui.ttab === 'talk' && !host.ui.side ? ui.root?.querySelector('.vn:not(.vn-none) .vn-box') ?? null : null;
+    }
+    let talkBoxId = 0;
+    function talkBox() {
+        const box = talkBoxEl();
+        const v = ui.view;
+        const run = v && cast?.chaId === v.chaId ? cast : null;
+        if (!box) { clearInterval(talkBoxId); talkBoxId = 0; return; }
+        const ta = box.querySelector('.tk-ta');
+        const send = box.querySelector('.vn-send');
+        let chip = box.querySelector('.vn-chip');
+        if (run) {
+            const { pct, text } = castState(run);
+            box.classList.add('run');
+            box.style.setProperty('--p', pct + '%');
+            if (!chip) {
+                chip = h('span', { class: 'vn-chip', role: 'progressbar', 'aria-label': '등장인물 분석', 'aria-valuemin': '0', 'aria-valuemax': '100' });
+                box.insertBefore(chip, box.firstChild);
+            }
+            chip.textContent = `📖 ${pct}%`;
+            chip.setAttribute('aria-valuenow', String(pct));
+            if (ta) { ta.disabled = true; ta.placeholder = `등장인물 분석 · ${text}`; }
+            if (!talkBoxId) talkBoxId = setInterval(talkBox, 500);
+        } else {
+            box.classList.remove('run');
+            box.style.removeProperty('--p');
+            chip?.remove();
+            if (ta) { ta.disabled = false; if (ta.dataset.ph) ta.placeholder = ta.dataset.ph; }
+            clearInterval(talkBoxId);
+            talkBoxId = 0;
+        }
+        if (send) {
+            const stop = !!run;
+            if (send.classList.contains('stop') !== stop) {
+                send.classList.toggle('stop', stop);
+                send.setAttribute('aria-label', stop ? '등장인물 분석 멈추기' : '보내기');
+                send.replaceChildren(talkIcon(stop ? 'halt' : 'send', 2.6));
+            }
+            send.disabled = !stop && !!ui.talk.busy;
+        }
+    }
+    function talkCmsg() {
+        const c = ui.talk.cmsg;
+        const box = talkBoxEl();
+        if (!box) return;
+        let el = box.parentNode.querySelector('.vn-cmsg');
+        const show = c && (!c.ok || Date.now() - c.at < 6000);
+        if (!show) { el?.remove(); return; }
+        if (!el) { el = h('p', { class: 'vn-cmsg', role: 'status' }); box.after(el); }
+        el.className = 'vn-cmsg ' + (c.ok ? 'ok' : 'err');
+        el.textContent = c.text;
+        if (c.ok) setTimeout(() => { if (ui.talk.cmsg === c) { ui.talk.cmsg = null; talkCmsg(); } }, 6000 - (Date.now() - c.at) + 50);
     }
     const talkPersonaAt = new Map();
     function talkAutoCast(v) {
@@ -11800,14 +12929,25 @@ ${ctx || '(none)'}`;
         if (!v.bot.castAt) {
             if (castTried.has(v.chaId)) return;
             castTried.add(v.chaId);
-            ui.talk.pop = 'auto';
-            setTimeout(async () => { await castClick(); if (ui.talk.pop === 'auto') { ui.talk.pop = false; talkPaint(); } }, 0);
+            setTimeout(() => void castClick(), 0);
             return;
         }
+        talkMainSoon(v);
         if (st.set.split === 'off' || Date.now() - (talkPersonaAt.get(v.chaId) ?? 0) < 30000) return;
         talkPersonaAt.set(v.chaId, Date.now());
         personaOf().then(p => (!p.sig || v.bot.voices[canonName(v.bot, p.name)]?.persona === p.sig) ? false : ensurePersona(v.chaId, v.bot, p))
             .then(ok => { if (ok) talkPaint(); }).catch(error => console.warn(LOG, 'talk persona', error));
+    }
+    function talkMainSoon(v) {
+        if (mainTried.has(v.tk) || cast || ns.armed) return;
+        mainTried.add(v.tk);
+        void (async () => {
+            const w = await where();
+            if (w.char?.chaId !== v.chaId || talkKeyOf(v.chaId, w.chat, w.chi) !== v.tk) { mainTried.delete(v.tk); return; }
+            if ((w.chat?.localLore ?? []).some(isMainLore)) return;
+            const entries = (await Promise.resolve(api.getCurrentLorebookEntries()).catch(() => [])) ?? [];
+            await castMainLines(w, v.bot, await userName(), entries, q => q, () => {}, () => !!cast);
+        })().catch(error => { mainTried.delete(v.tk); console.warn(LOG, 'main lines', error); });
     }
     function pickPanel() {
         const p = ui.pick;
@@ -11872,7 +13012,7 @@ ${ctx || '(none)'}`;
         try {
             const w = await where();
             const chaId = w.char?.chaId;
-            ui.view = chaId ? { chaId, ci: w.ci, name: w.char.name ?? '', bot: await botOf(chaId), talk: await talkOf(chaId), user: await userName() } : null;
+            ui.view = chaId ? { chaId, tk: talkKeyOf(chaId, w.chat, w.chi), ci: w.ci, name: w.char.name ?? '', bot: await botOf(chaId), talk: await talkOf(talkKeyOf(chaId, w.chat, w.chi), w.ci), user: await userName(), faces: facePool(w.char), stage: stagePool(w.char) } : null;
         } catch {
             ui.view = null;
         }
@@ -11923,17 +13063,21 @@ ${ctx || '(none)'}`;
                         : '글로만 대화합니다. 무대 아래 「다시 듣기」를 누르면 그 말만 들을 수 있습니다.')),
                     seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '본편에 대화 알리기'), h('p', null, st.set.talkLink
-                        ? '대화 기록 항목에 인물 이름과 별명을 키로 넣습니다. 본편 이야기에 그 이름이 나오면 대화 기록이 함께 들어가, 봇이 대화에서 나눈 말을 기억합니다. 그만큼 입력 토큰이 늘어납니다.'
-                        : '대화 기록은 봇 로어북의 「' + TALK_FOLDER + '」 폴더에 저장만 하고, 키를 비워 두어 본편 이야기에는 들어가지 않습니다.')),
-                    seg([['off', '끔 (기본)'], ['on', '켬']], st.set.talkLink ? 'on' : 'off', id => {
+                        ? '대화 기록 항목에 그 인물의 로어북 키를 그대로 넣고, 키가 없으면 항상 켜짐으로 둡니다. 본편 이야기에 그 인물이 나오면 대화 기록이 함께 들어가, 봇이 대화에서 나눈 말을 기억합니다. 그만큼 입력 토큰이 늘어납니다.'
+                        : '대화 기록은 채팅 로어북의 「' + TALK_FOLDER + '」 폴더에 저장만 하고, 키를 비워 두어 본편 이야기에는 들어가지 않습니다.')),
+                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkLink ? 'on' : 'off', id => {
                         set('talkLink', id === 'on');
                         const v = ui.view;
-                        if (v) for (const [name, log] of Object.entries(v.talk)) if (log?.length) talkLoreSoon(v.chaId, v.ci, name);
+                        if (v) for (const [name, log] of Object.entries(v.talk)) if (log?.length) talkLoreSoon(v.tk, v.ci, name);
                     })),
-                row('본편 대사 개수', '등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 「' + TALK_FOLDER + '」 폴더에 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
+                row('본편 대사 개수', '등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 그 채팅의 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모읍니다. 분석한 봇의 다른 채팅은 대화 화면을 처음 열 때 그 채팅 것만 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 10, value: st.set.talkMain, onchange: e => { const n = Number(e.target.value); set('talkMain', e.target.value !== '' && Number.isFinite(n) ? Math.max(0, Math.min(2000, Math.round(n))) : DEF_SET.talkMain); } }), '개'))),
             group('대화 그림', '모든 봇 공통',
                 h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 작가는 바뀌지 않습니다. 대화 그림의 종류 · 작가 · 해상도는 대화 › 준비에서 고릅니다.')),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그림 방식'), h('p', null, st.set.talkImgSrc === 'asset'
+                        ? '대화 모델이 봇의 그림 에셋 이름을 모두 받아 답마다 하나를 골라 무대에 겁니다. 자동 그리기 · 그릴 때 설정은 쓰지 않습니다.'
+                        : '답의 장면을 NovelAI 로 그려 무대에 겁니다.')),
+                    seg([['nai', 'NovelAI (기본)'], ['asset', '봇 에셋']], st.set.talkImgSrc, id => set('talkImgSrc', id))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 그리기'), h('p', null, st.set.talkAuto
                         ? '답이 오면 그 장면을 NovelAI 로 그려 대화 화면 위쪽 무대에 겁니다. 한 장마다 Anlas 를 씁니다.'
                         : '무대에 마우스를 올려 「그리기」를 누를 때만 그립니다.')),
@@ -12028,16 +13172,22 @@ ${ctx || '(none)'}`;
         ];
     }
 
-    const talkHue = name => parseInt(hash(String(name)).slice(0, 4), 16) % 360;
     const talkTime = at => new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    function talkAgo(at) {
+        if (!at) return '';
+        const m = Math.floor((Date.now() - at) / 60000);
+        return m < 1 ? '방금' : m < 60 ? `${m}분 전` : m < 1440 ? `${Math.floor(m / 60)}시간 전` : m < 10080 ? `${Math.floor(m / 1440)}일 전` : new Date(at).toLocaleDateString();
+    }
     const TALK_SVG = {
         back: '<path d="M15 5l-7 7 7 7"/>',
         plus: '<path d="M12 5v14M5 12h14"/>',
         x: '<path d="M6 6l12 12M18 6L6 18"/>',
+        book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/>',
         speaker: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
         mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/>',
         play: '<path d="M8 5v14l11-7z" fill="currentColor"/>',
         halt: '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>',
+        pic: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="9" cy="9.5" r="1.8"/><path d="M4 18l5.5-5.5 4 4 2.5-2.5L20 18"/>',
         image: '<path d="M3 4h18v16H3z"/><circle cx="8.5" cy="9" r="1.6"/><path d="M21 15l-5-5L5 20"/>',
         trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',
         send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
@@ -12057,7 +13207,8 @@ ${ctx || '(none)'}`;
     }
     function talkMarkOne(x) {
         const T = ui.talk, k = Number(x.dataset.k);
-        const play = k === T.playing, load = !play && T.voicing.has(k), wait = !play && !load && talkQ.some(q => q.k === k);
+        const play = k === T.playing, load = !play && T.voicing.has(k), queued = !play && !load && T.voiceQ.some(q => q.at === k);
+        const wait = !play && !load && (queued || talkQ.some(q => q.k === k));
         x.classList.toggle('play', play);
         x.classList.toggle('load', load);
         x.classList.toggle('wait', wait);
@@ -12072,25 +13223,18 @@ ${ctx || '(none)'}`;
         turn?.classList.toggle('play', play);
         turn?.classList.toggle('load', load);
         turn?.classList.toggle('wait', wait);
-        x.setAttribute('aria-label', play ? '멈추기' : load ? '목소리 만드는 중' : wait ? '앞 목소리가 끝나면 재생' : '이 답 듣기');
+        x.setAttribute('aria-label', play ? '멈추기' : load ? '목소리 만드는 중' : queued ? '앞 목소리를 다 만들면 만들기 시작' : wait ? '앞 목소리가 끝나면 재생' : '이 답 듣기');
         x.replaceChildren(talkIcon(play ? 'halt' : 'play'));
     }
     function talkTop(v, name) {
-        const T = ui.talk;
-        const mine = cast?.chaId === v.chaId;
         const names = talkCast(v);
+        const last = (v.talk[name] ?? []).findLast(m => m.img?.path);
         return h('div', { class: 'vn-top' },
-            h('div', { class: 'vn-cast', role: 'group', 'aria-label': '대화 상대' },
-                h('div', { class: 'vn-ch' }, `대화 상대 ${names.length}명`),
-                names.map((n, i) => h('button', { class: n === name ? 'vn-av on' : 'vn-av', type: 'button', style: `--h:${talkHue(n)}`, title: i === 0 ? `${n} (봇)` : n, 'aria-pressed': String(n === name), onclick: () => talkPick(n) },
-                    h('i', { 'aria-hidden': 'true' }, [...String(n).trim()][0] ?? '?'), h('span', null, n), i === 0 ? h('em', null, '봇') : null)),
-                h('button', { class: T.pop ? 'pa on' : 'pa', type: 'button', title: '등장인물 분석', 'aria-expanded': String(!!T.pop), onclick: () => { T.pop = !T.pop; talkPaint(); } }, talkIcon('plus', 2.4), '분석')),
-            T.pop ? h('div', { class: 'vn-pop' }, h('b', null, '등장인물 분석'),
-                h('button', { class: mine ? 'gt-b sm main' : 'gt-b sm', type: 'button', disabled: !!cast && !mine, onclick: () => void castClick() }, mine ? '■ 분석 멈추기' : '📖 등장인물 분석'),
-                mine ? castLoad(cast) : null,
-                msgBox()) : null,
-            h('div', { class: 'vn-tr' }, host.anlas(),
-                h('button', { class: 'vn-back', type: 'button', 'aria-label': '대화 준비로 돌아가기', onclick: () => { host.ui.ttab = 'ready'; render(); } }, talkIcon('back', 2.4), '준비', h('small', null, '로')),
+            h('div', { class: 'vn-who', title: name },
+                h('i', { class: 'ph', 'aria-hidden': 'true' }, talkIcon('pic', 1.8), last ? h('img', { 'data-path': last.img.path, alt: '' }) : null),
+                h('span', null, name), name === names[0] ? h('em', null, '봇') : null),
+            h('div', { class: 'vn-tr' },
+                h('button', { class: 'vn-back', type: 'button', title: '대화 상대 목록으로', 'aria-label': '대화 상대 목록으로', onclick: talkToList }, talkIcon('back', 2.4)),
                 h('button', { class: 'vn-x', type: 'button', 'aria-label': '창 닫기', onclick: () => host.closePanel() }, talkIcon('x', 2.4))));
     }
     function talkPct(job) {
@@ -12104,12 +13248,17 @@ ${ctx || '(none)'}`;
             const { pct } = talkPct(ui.talk.draw.job);
             ui.root.querySelectorAll('.vn-dpct').forEach(x => { x.textContent = ` · 그리는 중 ${pct}%`; });
             ui.root.querySelectorAll('.vn-thumb.dr i').forEach(x => { x.style.width = pct + '%'; });
+            ui.root.querySelectorAll('.vn-di.run.dr').forEach(x => { x.style.setProperty('--p', pct + '%'); });
         }, 1000);
     }
     function talkSrc(log) {
         const T = ui.talk;
         const i = T.view ? log.findIndex(m => m.at === T.view) : -1;
-        return (i >= 0 && log.slice(0, i + 1).findLast(m => m.img?.path)) || log.findLast(m => m.img?.path) || null;
+        return (i >= 0 && log[i]) || log.findLast(m => m.img?.path) || null;
+    }
+    function talkPending(name, at) {
+        const T = ui.talk;
+        return (T.draw?.name === name && T.draw.at === at) || (T.pre?.name === name && T.pre.at === at) || T.drawQ.some(q => q.name === name && q.at === at);
     }
     function talkScene(v, name) {
         const T = ui.talk;
@@ -12119,33 +13268,42 @@ ${ctx || '(none)'}`;
         const noKey = keyKnown === false;
         const speak = st.set.talkSpeak && !noKey;
         const auto = st.set.talkAuto && st.set.talkWhen !== 'manual';
+        const assetMode = st.set.talkImgSrc === 'asset';
         const lastC = log.findLast(m => m.r === 'c');
         const kids = [];
-        if (src) {
-            const [w, ht] = host.SIZES[src.img.size] ?? host.SIZES.wide;
-            kids.push(h('img', { class: 'vn-blur', 'data-path': src.img.path, alt: '' }),
-                h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': src.img.path, alt: `${name}와의 대화 장면`, style: `aspect-ratio:${w}/${ht}` }));
+        const shown = src?.r === 'c' && !src.img?.path && talkPending(name, src.at) ? log.slice(0, log.indexOf(src)).findLast(m => m.img?.path) ?? src : src;
+        if (shown?.img?.path) {
+            const [w, ht] = host.SIZES[shown.img.size] ?? host.SIZES.wide;
+            kids.push(h('img', { class: 'vn-blur', 'data-path': shown.img.path, alt: '' }),
+                h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': shown.img.path, alt: `${name}와의 대화 장면`, style: shown.img.kind === 'asset' ? null : `aspect-ratio:${w}/${ht}` }));
+        } else if (src) {
+            kids.push(h('div', { class: 'vn-noimg', role: 'img', 'aria-label': '그림이 없는 말' }, talkIcon('pic', 1.4)));
         } else {
             kids.push(h('div', { class: 'vn-hello' }, h('span', { class: 'vn-big', 'aria-hidden': 'true' }, [...String(name).trim()][0] ?? '?'), h('b', null, name),
-                h('p', null, drawing ? '첫 장면을 그리는 중입니다.' : auto ? '말을 보내면 답이 온 장면을 이 자리에 그립니다.' : '아래 도구 줄의 「그리기」를 누르면 마지막 답의 장면을 그립니다. 도구 줄은 무대에 마우스를 올리거나 무대를 누르면 나옵니다.')));
+                h('p', null, assetMode ? '말을 보내면 답에 맞는 봇 에셋을 이 자리에 겁니다.' : drawing ? '첫 장면을 그리는 중입니다.' : auto ? '말을 보내면 답이 온 장면을 이 자리에 그립니다.' : '아래 도구 줄의 「그리기」를 누르면 마지막 답의 장면을 그립니다. 도구 줄은 무대에 마우스를 올리거나 무대를 누르면 나옵니다.')));
         }
         const di = (cls, icon, label, title, onclick, extra = {}) => h('button', { class: 'vn-di' + (cls ? ' ' + cls : ''), type: 'button', title, 'aria-label': title, onclick, ...extra },
             h('i', null, talkIcon(icon)), h('span', null, label));
         const grp = (label, list) => list.length ? h('div', { class: 'vn-dg', role: 'group', 'aria-label': label }, h('b', null, label), h('div', null, list)) : null;
         const acts = [];
-        if (src && !drawing) {
+        if (src?.img?.path && !drawing) {
             const cf = T.confirm === 'img:' + src.at;
             acts.push(di('', 'zoom', '크게', '크게 보기', () => void host.showBig(src.img.path)));
-            if (src.img.req) acts.push(di('', 'redo', '다시', '이 장면 다시 그리기', () => void talkArt(v, name, src, 'redo', false), { disabled: !!T.draw }));
+            if (src.img.req && !assetMode) acts.push(di('', 'redo', '다시', '이 장면 다시 그리기', () => void talkArt(v, name, src, 'redo', false), { disabled: !!T.draw }));
             acts.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 그림을 지웁니다' : '그림 지우기', () => talkDropImg(v, name, src)));
         }
-        if (drawing) acts.push(di('', 'halt', '멈추기', '그리기 멈추기', () => T.draw?.job?.cancel?.()));
-        if (lastC && !lastC.img?.path && !T.draw) acts.push(di('', 'brush', '그리기', '마지막 답의 장면 그리기', () => void talkArt(v, name, lastC, 'new', false)));
+        if (drawing && T.draw.redo) acts.push(di('run dr', 'halt', '멈춤', '다시 그리기 멈추기', () => T.draw?.job?.cancel?.(), { style: `--p:${talkPct(T.draw.job).pct}%` }));
+        else if (drawing) acts.push(di('', 'halt', '멈추기', '그리기 멈추기', () => T.draw?.job?.cancel?.()));
+        const pickC = src?.r === 'c' && !src.img?.path ? src : null;
+        const drawC = pickC ?? lastC;
+        if (drawC && !drawC.img?.path && !T.draw && !assetMode) acts.push(di('', 'brush', '그리기', pickC && pickC !== lastC ? '이 답의 장면 그리기' : '마지막 답의 장면 그리기', () => void talkArt(v, name, drawC, 'new', false)));
         const vt = src?.r === 'c' ? src : lastC;
         const voc = [];
         if (vt) {
             const cf = T.confirm === 'aud:' + vt.at;
-            voc.push(di('', 'redo', '다시', noKey ? '키가 없어 목소리를 만들 수 없습니다' : '이 답의 목소리 다시 만들기', () => void talkRevoice(v, name, vt), { disabled: noKey }));
+            const re = di('vr', 'redo', '다시', noKey ? '키가 없어 목소리를 만들 수 없습니다' : '이 답의 목소리 다시 만들기', () => void talkRevoice(v, name, vt), { disabled: noKey, 'data-k': vt.at });
+            talkMarkRe(re);
+            voc.push(re);
             voc.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 이 답의 목소리를 지웁니다' : '이 답의 목소리 지우기', () => void talkDropVoice(v, name, vt)));
         }
         const wipe = [];
@@ -12154,23 +13312,24 @@ ${ctx || '(none)'}`;
             wipe.push(di('warn' + (cf ? ' cf' : ''), 'bubx', cf ? '한 번 더' : '전체삭제', cf ? '한 번 더 누르면 대화를 전부 지웁니다' : '대화 전부 지우기', () => void talkClear(v, name)));
         }
         kids.push(h('div', { class: 'vn-dock', role: 'toolbar', 'aria-label': '대화 도구' },
+            h('span', { class: 'vn-an' }, host.anlas()),
             di('vc' + (speak ? ' on' : ''), speak ? 'speaker' : 'mute', noKey ? '키 없음' : 'TTS',
-                noKey ? '음성 › 준비에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
+                noKey ? '음성 · 대화 › 준비에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
                 () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) talkQuiet(); talkPaint(); },
                 { disabled: noKey, 'aria-pressed': String(speak) }),
-            di(auto ? 'on' : '', 'image', '자동', auto ? '입력마다 그리기 끄기' : '말을 보낼 때마다 답의 장면을 NAI 로 그립니다', () => {
+            assetMode ? null : di(auto ? 'on' : '', 'image', '자동', auto ? '입력마다 그리기 끄기' : '말을 보낼 때마다 답의 장면을 NAI 로 그립니다', () => {
                 if (auto) st.set.talkAuto = false;
                 else { st.set.talkAuto = true; if (st.set.talkWhen === 'manual') st.set.talkWhen = 'every'; }
                 void saveSet();
                 talkPaint();
             }, { 'aria-pressed': String(auto) }),
-            h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }),
-            [['illust', '삽화'], ['comic', '만화']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
+            assetMode ? null : h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }),
+            assetMode ? null : [['illust', '삽화'], ['comic', '만화']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
                 id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
                 () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(talkKindNow() === id) })),
             acts.length || voc.length || wipe.length ? h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }) : null,
             grp('그림', acts), grp('음성', voc), wipe));
-        return h('div', { class: 'vn-stage', style: `--h:${talkHue(name)}`, onpointerup: talkHud }, kids);
+        return h('div', { class: 'vn-stage', onpointerup: talkHud }, kids);
     }
     function talkHud(e) {
         if (e.pointerType === 'mouse' || e.target.closest('button,.vn-dock')) return;
@@ -12181,34 +13340,35 @@ ${ctx || '(none)'}`;
     function talkFeed(v, name) {
         const T = ui.talk;
         const log = v.talk[name] ?? [];
-        const src = talkSrc(log);
-        const hue = `--h:${talkHue(name)}`;
         const kids = [];
         const del = m => T.busy === name && m === log.at(-1) ? null
-            : h('button', { class: 'vn-del', type: 'button', title: '이 말 지우기', 'aria-label': '이 말 지우기', onclick: () => talkDropMsg(v, name, m.at) }, '지우기');
+            : [h('button', { class: 'vn-del vn-ed', type: 'button', title: '이 말 고치기', 'aria-label': '이 말 고치기', onclick: () => talkEdit(m) }, '편집'),
+                h('button', { class: 'vn-del', type: 'button', title: '이 말 지우기', 'aria-label': '이 말 지우기', onclick: () => talkDropMsg(v, name, m.at) }, '지우기')];
         const sel = m => T.sel === m.at ? ' sel' : '';
         for (const m of log) {
+            const editing = T.edit?.at === m.at;
             if (m.r === 'u') {
-                kids.push(h('div', { class: 'vn-me' + sel(m), 'data-at': m.at, onclick: talkSel }, h('p', null, m.t), h('div', { class: 'vn-me-ft' }, del(m), h('time', null, talkTime(m.at)))));
+                kids.push(h('div', { class: 'vn-me' + sel(m), 'data-at': m.at, onclick: talkSel }, editing ? talkEditBox(v, name, m) : h('p', null, m.t),
+                    editing ? null : h('div', { class: 'vn-me-ft' }, del(m), h('time', null, talkTime(m.at)))));
                 continue;
             }
             const drawing = T.draw?.name === name && T.draw.at === m.at;
             const pct = drawing ? talkPct(T.draw.job).pct : 0;
+            const queued = !drawing && T.drawQ.some(q => q.name === name && q.at === m.at);
             let thumb = null;
-            if (m.img?.path) thumb = h('button', { class: 'vn-thumb' + (src === m ? ' on' : '') + (drawing ? ' dr' : ''), type: 'button', title: '무대에 다시 걸기', 'aria-label': '이 그림을 무대에 걸기',
-                onclick: () => { T.view = m.at; talkPaint(); } }, h('img', { 'data-path': m.img.path, alt: '' }), drawing ? h('i', { style: `width:${pct}%` }) : null);
-            else if (drawing) thumb = h('span', { class: 'vn-thumb dr', 'aria-hidden': 'true' }, h('i', { style: `width:${pct}%` }));
+            if (m.img?.path) thumb = h('span', { class: 'vn-thumb' + (drawing ? ' dr' : ''), 'aria-hidden': 'true' }, talkIcon('pic', 1.8), h('img', { 'data-path': m.img.path, alt: '' }), drawing ? h('i', { style: `width:${pct}%` }) : null);
+            else if (drawing) thumb = h('span', { class: 'vn-thumb dr', 'aria-hidden': 'true' }, talkIcon('pic', 1.8), h('i', { style: `width:${pct}%` }));
             const pb = h('button', { class: 'vn-pb', type: 'button', 'data-k': m.at, 'data-ck': talkHash(v.chaId, name, m.t, m.tone), onclick: () => void talkReplay(v.chaId, name, m.t, m.at, m.tone) });
-            kids.push(h('div', { class: 'vn-turn' + (src === m ? ' view' : '') + sel(m), 'data-at': m.at, onclick: talkSel },
-                h('div', { class: 'vn-nm', style: hue }, thumb, h('b', null, name),
-                    h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · 그리는 중 ${pct}%`) : null), del(m)),
-                h('div', { class: 'vn-say' }, pb, h('p', { class: 'vn-t' }, m.t, m.tone ? h('small', { class: 'vn-tone' }, m.tone) : null))));
+            kids.push(h('div', { class: 'vn-turn' + sel(m), 'data-at': m.at, onclick: talkSel },
+                h('div', { class: 'vn-nm' }, thumb, h('b', null, name),
+                    h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · 그리는 중 ${pct}%`) : queued ? h('span', { class: 'vn-dpct' }, ' · 그림 대기') : null), editing ? null : del(m)),
+                h('div', { class: 'vn-say' }, pb, editing ? talkEditBox(v, name, m) : h('p', { class: 'vn-t' }, m.t))));
             talkMarkOne(pb);
         }
         const last = log.at(-1);
         if (!last) kids.push(h('div', { class: 'vn-empty' }, h('b', null, `${name}에게 먼저 말을 걸어 보세요.`),
-            h('p', { class: 'vn-sub' }, `리수 채팅에는 남지 않고, 봇 로어북의 「${TALK_FOLDER}」 폴더에 기록됩니다.`)));
-        else if (last.r === 'u' && T.busy === name) kids.push(h('div', { class: 'vn-turn' }, h('div', { class: 'vn-nm', style: hue }, h('b', null, name)),
+            h('p', { class: 'vn-sub' }, `리수 채팅 메시지에는 남지 않고, 이 채팅의 채팅 로어북 「${TALK_FOLDER}」 폴더에 기록됩니다.`)));
+        else if (last.r === 'u' && T.busy === name) kids.push(h('div', { class: 'vn-turn' }, h('div', { class: 'vn-nm' }, h('b', null, name)),
             h('span', { class: 'vn-dots', role: 'status', 'aria-label': `${name}이(가) 답을 쓰는 중` }, h('i'), h('i'), h('i'))));
         else if (last.r === 'u' && !T.busy) kids.push(h('div', { class: 'vn-retry' }, h('span', { class: 'vn-sub' }, '아직 답이 없습니다.'),
             h('button', { class: 'gt-b sm', type: 'button', onclick: () => void talkSend(true) }, '↻ 답 다시 받기')));
@@ -12229,19 +13389,13 @@ ${ctx || '(none)'}`;
     function talkShow() {
         const v = ui.view, T = ui.talk;
         const vn = ui.root?.querySelector('.vn:not(.vn-none)');
-        if (!v || !vn || host.ui.mode !== 'talk' || host.ui.ttab !== 'talk' || host.ui.side) return;
+        if (!v || !vn || host.ui.home || host.ui.mode !== 'talk' || host.ui.ttab !== 'talk' || host.ui.side) return;
         const stage = vn.querySelector('.vn-stage');
         if (stage) {
             const next = talkScene(v, T.name);
             talkKeep(vn)(next);
             stage.replaceWith(next);
         }
-        const src = talkSrc(v.talk[T.name] ?? []);
-        vn.querySelectorAll('.vn-turn[data-at]').forEach(t => {
-            const on = Number(t.dataset.at) === src?.at;
-            t.classList.toggle('view', on);
-            t.querySelector('.vn-thumb')?.classList.toggle('on', on);
-        });
         host.loadThumbs();
     }
     function paneTalk() {
@@ -12258,17 +13412,19 @@ ${ctx || '(none)'}`;
         talkAutoCast(v);
         if (T.draw && !T.tick) talkTick();
         const stage = 60;
-        setTimeout(() => { const lg = ui.root?.querySelector('.vn-log'); if (lg) lg.scrollTop = lg.scrollHeight; }, 0);
+        setTimeout(() => { const lg = ui.root?.querySelector('.vn-log'); if (lg) lg.scrollTop = lg.scrollHeight; talkBox(); talkCmsg(); }, 0);
+        const ph = window.innerWidth > 600 ? 'Enter 보내기, Shift+Enter 줄 바꾸기' : '';
+        const casting = cast?.chaId === v.chaId;
         return [h('div', { class: 'vn' + (T.hud ? ' hud' : ''), style: `--stage:${stage}%` },
             talkScene(v, name),
             talkTop(v, name),
             talkFeed(v, name),
             h('div', { class: 'vn-bot' }, h('div', { class: 'vn-in' },
                 h('div', { class: 'vn-box' },
-                    h('textarea', { class: 'tk-ta', rows: 1, placeholder: window.innerWidth > 600 ? `${name}에게 말하기 · Enter 보내기, Shift+Enter 줄 바꾸기` : `${name}에게 말하기`, 'aria-label': '메시지', value: T.draft,
-                        oninput: e => { T.draft = e.target.value; talkGrow(e.target); },
+                    h('textarea', { class: 'tk-ta', rows: 1, placeholder: ph, 'data-ph': ph, 'aria-label': '메시지', value: T.draft, disabled: casting,
+                        oninput: e => { T.draft = e.target.value; talkGrow(e.target); if (T.cmsg && !T.cmsg.ok) { T.cmsg = null; talkCmsg(); } },
                         onkeydown: e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); void talkSend(false); } } }),
-                    h('button', { class: 'tk-send vn-send', type: 'button', 'aria-label': '보내기', disabled: !!T.busy, onclick: () => void talkSend(false) }, talkIcon('send', 2.6))))))];
+                    h('button', { class: 'tk-send vn-send', type: 'button', 'aria-label': '보내기', disabled: !!T.busy, onclick: () => void (cast?.chaId === v.chaId ? castClick() : talkSend(false)) }, talkIcon('send', 2.6))))))];
     }
     function talkGrow(el) {
         el.style.height = 'auto';
@@ -12277,7 +13433,7 @@ ${ctx || '(none)'}`;
     function talkPaint() {
         const v = ui.view;
         const vn = ui.root?.querySelector('.vn:not(.vn-none)');
-        if (!v || !vn || host.ui.mode !== 'talk' || host.ui.ttab !== 'talk' || host.ui.side) return;
+        if (!v || !vn || host.ui.home || host.ui.mode !== 'talk' || host.ui.ttab !== 'talk' || host.ui.side) return;
         const name = ui.talk.name;
         const keep = talkKeep(vn);
         const stage = vn.querySelector('.vn-stage');
@@ -12287,9 +13443,9 @@ ${ctx || '(none)'}`;
             stage.replaceWith(next);
         }
         const top = vn.querySelector('.vn-top');
-        if (top && !top.contains(doc.activeElement)) top.replaceWith(talkTop(v, name));
+        if (top && !top.contains(doc.activeElement)) { const nt = talkTop(v, name); keep(nt); top.replaceWith(nt); }
         const lg = vn.querySelector('.vn-log');
-        if (lg) {
+        if (lg && !(ui.talk.edit && lg.querySelector('.vn-edit')?.contains(doc.activeElement))) {
             const count = el => el.querySelectorAll('.vn-me,.vn-turn').length;
             const errOf = el => el.querySelector('.vn-err')?.textContent || '';
             const end = lg.scrollHeight - lg.scrollTop - lg.clientHeight < 40;
@@ -12302,34 +13458,37 @@ ${ctx || '(none)'}`;
         }
         const send = vn.querySelector('.tk-send');
         if (send) send.disabled = !!ui.talk.busy;
+        talkBox();
         host.loadThumbs();
     }
     async function talkArt(v, name, entry, mode, quiet) {
         const T = ui.talk;
-        const later = () => { if (quiet && entry) T.next = { v, name, at: entry.at }; };
-        if (!entry) return;
+        const later = () => { if (quiet && entry) talkArtWait(v, name, entry.at); };
+        if (!entry || st.set.talkImgSrc === 'asset') return;
         if (T.draw) return later();
         const at = entry.at;
         let key = '';
+        T.pre = { name, at };
         try { key = await host.naiKey(); } catch (error) { console.warn(LOG, 'talk art key', error); }
+        if (T.pre?.at === at) T.pre = null;
         if (!key) {
             if (!quiet) { T.err = { name, text: 'NAI 키가 없어 그릴 수 없습니다. 삽화 › 준비에서 키를 넣어 주세요.' }; talkPaint(); }
+            T.drawQ.length = 0;
             return;
         }
         const log = v.talk[name] ?? [];
         const idx = log.findIndex(m => m.at === at);
-        if (idx < 0) return;
+        if (idx < 0) { talkArtNext(); return; }
         if (T.draw) return later();
-        if (T.next?.name === name && T.next.at === at) T.next = null;
         const redo = mode === 'redo' && !!entry.img?.req;
         const size = redo ? entry.img.size ?? st.set.talkSize : st.set.talkSize;
         const kind = redo ? entry.img.kind ?? entry.img.req.kind ?? 'illust' : talkKindNow();
-        const o = { ci: v.ci, chaId: v.chaId, name, log: log.slice(0, idx + 1), kind, size, preset: st.set.talkPreset };
+        const o = { ci: v.ci, chaId: v.chaId, tk: v.tk, name, log: log.slice(0, idx + 1), kind, size, preset: st.set.talkPreset };
         const job = {};
-        T.draw = { name, at, job };
+        T.draw = { name, at, job, redo: mode === 'redo' };
         if (T.err?.name === name) T.err = null;
         try {
-            const run = redo ? host.talkRedraw({ ...o, req: entry.img.req }, job) : host.talkDraw(o, job);
+            const run = host.talkDraw(o, job);
             talkPaint();
             talkTick();
             const out = await run;
@@ -12337,7 +13496,7 @@ ${ctx || '(none)'}`;
             if (cur) {
                 const old = cur.img?.path;
                 cur.img = { path: out.path, ext: out.ext, seed: out.seed, req: out.req, kind, size };
-                void saveTalk(v.chaId, v.talk);
+                void saveTalk(v.tk, v.talk);
                 if (old && old !== out.path) host.dropThumb(old);
             }
         } catch (error) {
@@ -12347,13 +13506,26 @@ ${ctx || '(none)'}`;
             }
         } finally {
             if (T.draw?.job === job) T.draw = null;
-            const nx = T.next;
-            if (!T.draw && nx) {
-                T.next = null;
-                const e = nx.v.talk[nx.name]?.find(m => m.at === nx.at);
-                if (e && !e.img?.path) setTimeout(() => void talkArt(nx.v, nx.name, e, 'new', true), 0);
-            }
+            talkArtNext();
             talkPaint();
+        }
+    }
+    function talkArtWait(v, name, at) {
+        const T = ui.talk;
+        if (T.drawQ.some(q => q.name === name && q.at === at)) return;
+        let i = T.drawQ.findIndex(q => q.at > at);
+        if (i < 0) i = T.drawQ.length;
+        T.drawQ.splice(i, 0, { v, name, at });
+        talkPaint();
+    }
+    function talkArtNext() {
+        const T = ui.talk;
+        while (!T.draw && T.drawQ.length) {
+            const q = T.drawQ.shift();
+            const e = q.v.talk[q.name]?.find(m => m.at === q.at);
+            if (!e || e.img?.path) continue;
+            void talkArt(q.v, q.name, e, 'new', true);
+            return;
         }
     }
     function talkDropImg(v, name, m) {
@@ -12368,13 +13540,13 @@ ${ctx || '(none)'}`;
         if (T.view === m.at) T.view = '';
         const path = m.img?.path;
         delete m.img;
-        void saveTalk(v.chaId, v.talk);
+        void saveTalk(v.tk, v.talk);
         if (path) host.dropThumb(path);
         talkPaint();
     }
     async function talkRevoice(v, name, m) {
         const T = ui.talk;
-        if (T.voicing.has(m.at)) return;
+        if (T.voicing.has(m.at)) { talkQuiet(); talkMark(); talkPaint(); return; }
         if (T.playing === m.at) talkQuiet();
         await dropAudio(talkHash(v.chaId, name, m.t, m.tone));
         talkMark();
@@ -12392,11 +13564,55 @@ ${ctx || '(none)'}`;
         for (const j of T.voices) if (j.at === m.at) { j.stop = true; T.voices.delete(j); }
         T.voicing.delete(m.at);
         for (let n = talkQ.length - 1; n >= 0; n--) if (talkQ[n].k === m.at) talkQ.splice(n, 1)[0].end(true);
+        T.voiceQ = T.voiceQ.filter(q => q.at !== m.at);
         if (T.playing === m.at) talkHalt();
         talkNext();
+        talkVoiceNext();
         await dropAudio(talkHash(v.chaId, name, m.t, m.tone));
         talkMark();
         talkPaint();
+    }
+    function talkEdit(m) {
+        const T = ui.talk;
+        T.edit = { at: m.at, text: String(m.t ?? '') };
+        T.sel = null;
+        talkPaint();
+        setTimeout(() => { const ta = ui.root?.querySelector('.vn-edit textarea'); if (ta) { talkGrow(ta); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }, 0);
+    }
+    function talkEditBox(v, name, m) {
+        const T = ui.talk;
+        const ta = h('textarea', { class: 'tk-ta', rows: 2, 'aria-label': '말 고치기', value: T.edit.text,
+            oninput: e => { T.edit.text = e.target.value; talkGrow(e.target); },
+            onkeydown: e => {
+                if (e.key === 'Escape') { e.preventDefault(); T.edit = null; talkPaint(); }
+                else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); void talkEditSave(v, name, m.at); }
+            } });
+        return h('div', { class: 'vn-edit', onclick: e => e.stopPropagation() }, ta,
+            h('div', { class: 'vn-edit-ft' },
+                h('button', { class: 'gt-b sm', type: 'button', onclick: () => { T.edit = null; talkPaint(); } }, '취소'),
+                h('button', { class: 'gt-b sm main', type: 'button', onclick: () => void talkEditSave(v, name, m.at) }, '저장')));
+    }
+    async function talkEditSave(v, name, at) {
+        const T = ui.talk;
+        const text = String(T.edit?.text ?? '').trim();
+        const m = (v.talk[name] ?? []).find(x => x.at === at);
+        T.edit = null;
+        if (!m || !text || text === m.t) { talkPaint(); return; }
+        const old = talkHash(v.chaId, name, m.t, m.tone);
+        if (m.r === 'c') {
+            for (const j of T.voices) if (j.at === at) { j.stop = true; T.voices.delete(j); }
+            T.voicing.delete(at);
+            for (let n = talkQ.length - 1; n >= 0; n--) if (talkQ[n].k === at) talkQ.splice(n, 1)[0].end(true);
+            T.voiceQ = T.voiceQ.filter(q => q.at !== at);
+            if (T.playing === at) talkHalt();
+            talkNext();
+            talkVoiceNext();
+        }
+        m.t = text;
+        void saveTalk(v.tk, v.talk);
+        talkPaint();
+        talkLoreSoon(v.tk, v.ci, name);
+        if (m.r === 'c') { await dropAudio(old).catch(() => {}); talkMark(); }
     }
     function talkDropMsg(v, name, at) {
         const T = ui.talk;
@@ -12407,17 +13623,87 @@ ${ctx || '(none)'}`;
         for (const j of T.voices) if (j.at === at) { j.stop = true; T.voices.delete(j); }
         T.voicing.delete(at);
         for (let n = talkQ.length - 1; n >= 0; n--) if (talkQ[n].k === at) talkQ.splice(n, 1)[0].end(true);
+        T.voiceQ = T.voiceQ.filter(q => q.at !== at);
         if (T.playing === at) talkHalt();
         talkNext();
+        talkVoiceNext();
+        T.drawQ = T.drawQ.filter(q => !(q.name === name && q.at === at));
         if (T.draw?.name === name && T.draw.at === at) T.draw.job?.cancel?.();
         const [m] = log.splice(i, 1);
         if (m.img?.path) host.dropThumb(m.img.path);
         if (T.view === at) T.view = '';
         if (T.confirm === 'img:' + at) T.confirm = null;
-        void saveTalk(v.chaId, v.talk);
+        void saveTalk(v.tk, v.talk);
         talkMark();
         talkPaint();
-        talkLoreSoon(v.chaId, v.ci, name);
+        talkLoreSoon(v.tk, v.ci, name);
+    }
+    function talkToList() {
+        const T = ui.talk;
+        T.list = true;
+        T.sel = null;
+        T.edit = null;
+        T.cmsg = null;
+        talkQuiet();
+        render();
+    }
+    let talkPickId = 0;
+    function paneTalkPick() {
+        const v = ui.view;
+        const T = ui.talk;
+        const names = talkCast(v);
+        const faces = talkFaces(v, names);
+        void host.acAnlas();
+        talkAutoCast(v);
+        void talkFaceAsk(v, names);
+        const mine = cast?.chaId === v.chaId;
+        setTimeout(talkPickTick, 0);
+        const lastAt = n => v.talk[n]?.at(-1)?.at ?? 0;
+        const lineOf = n => String(v.talk[n]?.at(-1)?.t ?? '').split('\n')[0];
+        const go = n => { if (cast?.chaId === v.chaId) return; T.list = false; if (T.name === n) render(); else talkPick(n); };
+        const face = (n, cls) => h('i', { class: cls, 'aria-hidden': 'true' },
+            [...String(n).trim()][0] ?? '?', faces.has(n) ? h('img', { 'data-path': faces.get(n), alt: '' }) : null);
+        const bot = n => n === names[0] ? h('em', null, '봇') : null;
+        const talked = names.filter(n => v.talk[n]?.length).sort((a, b) => lastAt(b) - lastAt(a));
+        const order = [...talked, ...names.filter(n => !v.talk[n]?.length)];
+        const run = mine ? castState(cast) : null;
+        const an = h('button', {
+            class: 'vn-ca' + (run ? ' run' : ''), type: 'button', disabled: !!cast && !mine, style: `--p:${run?.pct ?? 0}%`,
+            title: mine ? '등장인물 분석 멈추기' : '등장인물 재분석', onclick: () => void castClick(),
+        },
+            h('span', { class: 'vn-cai' }, talkIcon('redo', 2.2), talkIcon('book', 2)),
+            h('span', { class: 'vn-cat' },
+                h('b', { class: 'vn-pka' }, run ? `📖 ${run.pct}%` : '등장인물 재분석'),
+                h('small', { class: 'vn-pkb' }, run ? run.text : cast ? '다른 봇의 분석이 끝나면 쓸 수 있습니다' : '로어북에서 대화 상대를 찾습니다'),
+                h('span', { class: 'vn-cabar', 'aria-hidden': 'true' }, h('i'))),
+            h('span', { class: 'vn-stop' }, '멈추기'));
+        const row = (n, i) => {
+            const log = v.talk[n] ?? [];
+            const top = i === 0 && log.length > 0;
+            return h('button', { class: 'vn-it' + (top ? ' top' : '') + (n === T.name ? ' on' : ''), type: 'button', disabled: mine, role: 'listitem', onclick: () => go(n) },
+                h('span', { class: 'vn-fw' }, face(n, 'vn-ifc'), top ? h('span', { class: 'vn-dot', 'aria-hidden': 'true' }) : null),
+                h('span', { class: 'vn-itx' }, h('b', null, h('span', null, n), bot(n)), log.length && lineOf(n) ? h('p', null, lineOf(n)) : null),
+                h('span', { class: 'vn-ir' }, log.length ? [h('small', null, talkAgo(lastAt(n))), h('em', null, `${log.length}`)] : h('em', { class: 'new' }, '새 대화')));
+        };
+        return [h('div', { class: 'vn-pick' },
+            an,
+            order.length ? h('div', { class: 'vn-lh' }, h('b', null, '대화 상대'), h('span', null, `${order.length}명 · 최근 순`)) : null,
+            order.length ? h('div', { class: 'vn-lst', role: 'list' }, order.map(row)) : null)];
+    }
+    function talkPickTick() {
+        const el = ui.root?.querySelector('.vn-pick .vn-ca');
+        const run = ui.view && cast?.chaId === ui.view.chaId ? cast : null;
+        if (!el || !run) { clearInterval(talkPickId); talkPickId = 0; return; }
+        const { pct, text } = castState(run);
+        el.classList.add('run');
+        el.disabled = false;
+        el.title = '등장인물 분석 멈추기';
+        ui.root.querySelectorAll('.vn-pick .vn-it').forEach(b => { b.disabled = true; });
+        el.style.setProperty('--p', pct + '%');
+        const a = el.querySelector('.vn-pka'), b = el.querySelector('.vn-pkb');
+        if (a) a.textContent = `📖 ${pct}%`;
+        if (b) { b.textContent = text; b.classList.remove('err'); }
+        if (!talkPickId) talkPickId = setInterval(talkPickTick, 500);
     }
     function talkPick(name) {
         const T = ui.talk;
@@ -12427,7 +13713,8 @@ ${ctx || '(none)'}`;
         T.confirm = null;
         T.sel = null;
         T.view = '';
-        T.pop = false;
+        T.cmsg = null;
+        T.edit = null;
         talkQuiet();
         render();
     }
@@ -12447,30 +13734,40 @@ ${ctx || '(none)'}`;
         if (T.draw?.name === name) T.draw.job?.cancel?.();
         for (const m of v.talk[name] ?? []) if (m.img?.path) host.dropThumb(m.img.path);
         delete v.talk[name];
-        void host.talkForget?.(v.chaId, name);
-        if (T.next?.name === name) T.next = null;
+        void host.talkForget?.(v.tk, name);
+        T.drawQ = T.drawQ.filter(q => q.name !== name);
+        T.voiceQ = T.voiceQ.filter(q => q.name !== name);
         T.view = '';
-        void saveTalk(v.chaId, v.talk);
+        void saveTalk(v.tk, v.talk);
         talkPaint();
-        talkLoreSoon(v.chaId, v.ci, name);
+        talkLoreSoon(v.tk, v.ci, name);
     }
     async function talkSend(retry) {
         const T = ui.talk, v = ui.view;
         const name = T.name;
         const text = retry ? '' : T.draft.trim();
-        if (!v || !name || T.busy || (!retry && !text)) return;
+        if (!v || !name || T.busy || cast?.chaId === v.chaId || (!retry && !text)) return;
         const speak = st.set.talkSpeak && keyKnown !== false;
         if (speak) talkUnlock();
         T.busy = name;
+        const now = await where().catch(() => null);
+        if (now?.char?.chaId && talkKeyOf(now.char.chaId, now.chat, now.chi) !== v.tk) {
+            T.busy = '';
+            await onOpen();
+            if (ui.view?.chaId !== v.chaId) return render();
+            T.name = name;
+            T.err = { name, text: '리수 채팅이 바뀌어 지금 채팅의 대화를 열었습니다. 다시 보내 주세요.' };
+            return render();
+        }
         T.err = null;
         T.confirm = null;
         T.sel = null;
         if (!retry) {
             T.draft = '';
             const ta = ui.root?.querySelector('.tk-ta');
-            if (ta) { ta.value = ''; ta.style.height = ''; ta.focus(); }
+            if (ta) { ta.value = ''; ta.style.height = ''; if (window.matchMedia?.('(pointer: coarse)').matches) ta.blur(); else ta.focus(); }
             talkPush(v.talk, name, 'u', text);
-            void saveTalk(v.chaId, v.talk);
+            void saveTalk(v.tk, v.talk);
         }
         talkPaint();
         let reply = '';
@@ -12484,21 +13781,59 @@ ${ctx || '(none)'}`;
             const entries = await Promise.resolve(api.getCurrentLorebookEntries()).catch(() => []);
             const rec = v.bot.voices[name];
             const main = name === talkCast(v)[0];
-            const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt));
-            const got = await talkAsk(system, v.talk[name] ?? [], name, rec);
+            const assetMode = st.set.talkImgSrc === 'asset';
+            if (assetMode) v.stage = stagePool(w.char);
+            const pool = assetMode ? v.stage.list : null;
+            const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt), pool);
+            const got = await talkAsk(system, v.talk[name] ?? [], name, rec, pool);
             reply = got.text;
             talkPush(v.talk, name, 'c', got.text, got.tone);
-            void saveTalk(v.chaId, v.talk);
-            talkLoreSoon(v.chaId, w.ci, name);
+            if (assetMode) { const img = talkAssetImg(v, name, got.asset, pool); if (img) v.talk[name].at(-1).img = img; }
+            void saveTalk(v.tk, v.talk);
+            talkLoreSoon(v.tk, w.ci, name);
             if (!speak) T.view = '';
-            if (st.set.talkAuto && st.set.talkWhen === 'every') void talkArt(v, name, v.talk[name].at(-1), 'new', true);
+            if (!assetMode && st.set.talkAuto && st.set.talkWhen === 'every') void talkArt(v, name, v.talk[name].at(-1), 'new', true);
         } catch (error) {
             T.err = { name, text: '답을 받지 못했습니다. ' + String(error?.message ?? error) };
         }
         T.busy = '';
-        const here = () => ui.root?.isConnected && host.ui.mode === 'talk' && host.ui.ttab === 'talk' && !host.ui.side && T.name === name;
-        if (!reply || !speak || !st.set.talkSpeak || !here()) { talkPaint(); return; }
+        if (!reply || !speak || !st.set.talkSpeak || !talkHere(name)) { talkPaint(); return; }
         const entry = v.talk[name].at(-1);
+        if (T.voicing.size) { talkVoiceWait(v, name, entry.at); return; }
+        void talkVoiceGo(v, name, entry);
+    }
+    function talkAssetImg(v, name, asset, pool) {
+        const f = asset ? pool.find(x => x.name === asset) : null;
+        if (f) return { path: f.path, asset: f.name, kind: 'asset' };
+        const prev = (v.talk[name] ?? []).findLast(m => m.r === 'c' && m.img?.kind === 'asset' && pool.some(x => x.path === m.img.path));
+        if (prev) return { path: prev.img.path, asset: prev.img.asset ?? '', kind: 'asset' };
+        const path = talkFaces(v, talkCast(v)).get(name);
+        return path ? { path, asset: pool.find(x => x.path === path)?.name ?? '', kind: 'asset' } : null;
+    }
+    function talkHere(name) {
+        const T = ui.talk;
+        return ui.root?.isConnected && !host.ui.home && host.ui.mode === 'talk' && host.ui.ttab === 'talk' && !host.ui.side && !T.list && T.name === name;
+    }
+    function talkVoiceWait(v, name, at) {
+        const T = ui.talk;
+        if (T.voiceQ.some(q => q.at === at)) return;
+        let i = T.voiceQ.findIndex(q => q.at > at);
+        if (i < 0) i = T.voiceQ.length;
+        T.voiceQ.splice(i, 0, { v, name, at });
+        talkPaint();
+    }
+    function talkVoiceNext() {
+        const T = ui.talk;
+        while (!T.voicing.size && T.voiceQ.length) {
+            const q = T.voiceQ.shift();
+            const entry = q.v.talk[q.name]?.find(m => m.at === q.at);
+            if (!entry || !st.set.talkSpeak || keyKnown === false || !talkHere(q.name)) continue;
+            void talkVoiceGo(q.v, q.name, entry);
+        }
+        talkMark();
+    }
+    async function talkVoiceGo(v, name, entry) {
+        const T = ui.talk;
         const at = entry.at;
         const job = { stop: false, note: '', at };
         T.voices.add(job);
@@ -12508,8 +13843,8 @@ ${ctx || '(none)'}`;
             const data = await talkVoice(v.chaId, name, entry.t, job, entry.tone);
             if (job.stop) return;
             talkUnvoice(at, job);
-            talkMark();
-            if (!here()) return;
+            talkVoiceNext();
+            if (!talkHere(name)) return;
             if (!await talkPlayWait(data, at)) {
                 T.err = { name, text: '브라우저가 소리를 막았습니다. 답 옆 ▶ 버튼을 눌러 들어 주세요.' };
                 talkPaint();
@@ -12520,6 +13855,7 @@ ${ctx || '(none)'}`;
             T.voices.delete(job);
             talkUnvoice(at, job);
             talkNext();
+            talkVoiceNext();
         }
     }
     function talkUnvoice(k, job) {
@@ -12530,7 +13866,7 @@ ${ctx || '(none)'}`;
     async function talkReplay(chaId, name, text, k, tone) {
         const T = ui.talk;
         if (T.playing === k || T.voicing.has(k)) { talkQuiet(); return; }
-        if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. 음성 › 준비에서 키를 등록해 주세요.' }; talkPaint(); return; }
+        if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. 음성 · 대화 › 준비에서 키를 등록해 주세요.' }; talkPaint(); return; }
         talkUnlock();
         talkQuiet();
         const job = { stop: false, note: '', at: k };
@@ -12546,6 +13882,7 @@ ${ctx || '(none)'}`;
             T.voices.delete(job);
             talkUnvoice(k, job);
             talkNext();
+            talkVoiceNext();
         }
     }
 
@@ -12554,12 +13891,13 @@ ${ctx || '(none)'}`;
         cur.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 2l14 10-6.2 1.2L8.6 20z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>';
         return h('span', { class: 'vu-hit' }, ...kids, cur);
     }
-    function upStep(n, cap, sub, fig, alt, link) {
-        return h('div', { class: 'vu-step' },
+    function upStep(n, cap, sub, fig, alt, link, act) {
+        return h('div', { class: 'vu-step' + (fig ? '' : ' nofig') },
             h('div', { class: 'vu-cap' }, h('span', { class: 'vu-n' }, String(n)), h('div', null, h('b', null, cap), sub ? h('small', null, sub) : null,
                 link ? h('div', { class: 'vu-link' }, h('input', { class: 'vf-in', value: link, readOnly: true, onfocus: e => e.target.select() }),
-                    h('button', { class: 'gt-b sm', type: 'button', onclick: copyLink }, '주소 복사')) : null)),
-            h('div', { class: 'vu-fig', role: 'img', 'aria-label': alt }, fig));
+                    h('button', { class: 'gt-b sm', type: 'button', onclick: copyLink }, '주소 복사')) : null,
+                act ?? null)),
+            fig ? h('div', { class: 'vu-fig', role: 'img', 'aria-label': alt }, fig) : null);
     }
     function gcTop(project, hit) {
         const pill = h('span', { class: 'vg-pill' }, project, ' ▾');
@@ -12634,12 +13972,10 @@ ${ctx || '(none)'}`;
                     h('div', { class: 'vg-rad' }, h('b', null, '◉ JSON'), h('span', null, '○ P12')))),
             gcDraft());
     }
-    function figRisuPick() {
-        return h('div', { class: 'rs-pane' }, h('div', { class: 'rs-card' },
-            h('div', { class: 'rs-hd' }, '🎨 이매진 · 음성', h('i')),
-            h('div', { class: 'rs-tabs' }, h('span', { class: 'on' }, '준비'), h('span', null, '대화'), h('span', { style: 'margin-left:auto' }, '등장인물'), h('span', null, '목소리'), h('span', null, '설정')),
-            h('div', { class: 'rs-row' }, h('b', null, '서비스 계정 키'),
-                h('span', { style: 'display:inline-flex;gap:8px' }, upHit(h('span', { class: 'rs-btn' }, 'JSON 파일 선택')), h('span', { class: 'rs-btn l' }, '연결 확인')))));
+    function keyBox() {
+        return h('div', { class: 'vz-key' }, h('b', null, '서비스 계정 키 (.json)'),
+            h('p', null, '고른 키는 리수의 플러그인 설정(vertex_json 칸)에만 저장됩니다. 플러그인 버전을 바꾸면 리수가 이 칸을 비우니 다시 골라 주세요.'),
+            keyButtons(), msgBox());
     }
     function paneGuide() {
         const ask = h('div', { class: 'vz-q' }, h('b', null, '구글 버텍스 프로젝트가 이미 있나요?'),
@@ -12653,14 +13989,14 @@ ${ctx || '(none)'}`;
             figApi('Cloud Text-to-Speech API', 'Synthesizes natural-sounding speech by applying powerful neural network models.', API_PAGE), '주소창에 Cloud Text-to-Speech API 주소를 붙여 넣고 사용 버튼을 누르는 모습', API_PAGE];
         const account = '이름은 아무것이나 정하고(예: risu-tts), 역할은 「편집자」처럼 API를 쓸 수 있는 역할을 줍니다.';
         const key = '「만들기」를 누르면 .json 파일이 내려받아집니다. 이 파일은 비밀번호와 같으니 남에게 보내거나 올리지 마세요.';
-        const risu = '「연결되었습니다」가 나오면 끝입니다. 아래 「JSON 파일 선택」이 바로 그 버튼입니다.';
+        const risu = ['여기에 키 파일 넣기 → 「연결 확인」', '바로 앞 단계에서 내려받은 .json 파일을 아래 「JSON 파일 선택」으로 고르고 「연결 확인」을 누릅니다. 「연결되었습니다」가 나오면 끝입니다.', null, '', null, keyBox()];
         const steps = ui.gproj === 'have' ? [
             ['위쪽 「프로젝트 선택」에서 쓸 프로젝트 고르기', '이미 서비스 계정 키(.json)가 있으면 그 키를 만든 프로젝트를 고릅니다.', figPicker(true), '구글 버텍스 프로젝트 선택 창에서 쓰던 프로젝트를 고르는 모습'],
             vertex('쓸 프로젝트가'),
             tts(' 결제 계정이 연결되지 않았다면 이때 연결하라는 안내가 나옵니다.'),
             ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account + ' 그 프로젝트의 키(.json)가 이미 있으면 이 단계와 다음 단계를 건너뜁니다.', figAccount(), '서비스 계정 만들기 화면 (간략도)'],
             ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
-            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 › 준비의 JSON 파일 선택 버튼'],
+            risu,
         ] : [
             ['위쪽 「프로젝트 선택」 → 「새 프로젝트」', '구글 클라우드 콘솔(console.cloud.google.com)에 구글 계정으로 들어가서 누릅니다.', figPicker(false), '구글 버텍스 프로젝트 선택 창의 새 프로젝트 버튼'],
             ['프로젝트 이름을 정하고 「만들기」', '이름은 자유롭게 정합니다. 아래에 나온 프로젝트 ID는 나중에 바꿀 수 없습니다.', figNewProject(), '새 프로젝트 양식의 만들기 버튼'],
@@ -12669,13 +14005,13 @@ ${ctx || '(none)'}`;
             ['결제 계정 연결', '유료 API라서 결제 계정이 연결되어 있어야 소리가 만들어집니다. 「사용」을 누를 때 결제 연결을 요구하면 그 안내를 따라갑니다. 결제 수단 등록은 직접 하세요.', figBilling(), '결제 메뉴의 결제 계정 연결 버튼 (간략도)'],
             ['IAM 및 관리자 › 서비스 계정 › 「+ 서비스 계정 만들기」', account, figAccount(), '서비스 계정 만들기 화면 (간략도)'],
             ['만든 계정 › 「키」 탭 › 「키 추가」 › 「새 키 만들기」 › JSON', key, figKey(), '서비스 계정의 키 탭에서 JSON 키 만들기 (간략도)'],
-            ['이매진 › 음성 › 준비 › 「JSON 파일 선택」 → 「연결 확인」', risu, figRisuPick(), '이매진 음성 › 준비의 JSON 파일 선택 버튼'],
+            risu,
         ];
         return [ask,
             h('p', { class: 'gt-intro' }, h('b', null, ui.gproj === 'have' ? '있는 프로젝트로' : '처음부터'),
                 ui.gproj === 'have' ? 'API 사용 → 서비스 계정 → JSON 키 → 이매진 순서입니다. 노란 테두리가 누를 자리입니다.'
                     : '구글 계정 하나와 결제 수단이 필요합니다. 프로젝트 → API 사용 → 결제 연결 → 서비스 계정 → JSON 키 → 이매진 순서입니다. 노란 테두리가 누를 자리입니다.'),
-            h('div', { class: 'vu-steps' }, steps.map(([cap, sub, fig, alt, link], i) => upStep(i + 1, cap, sub, fig, alt, link)))];
+            h('div', { class: 'vu-steps' }, steps.map(([cap, sub, fig, alt, link, act], i) => upStep(i + 1, cap, sub, fig, alt, link, act)))];
     }
     function previewBar() {
         const pv = ui.preview;
@@ -12718,7 +14054,7 @@ ${ctx || '(none)'}`;
     function render() {
         if (!host.ui.root?.isConnected) return;
         const sd = host.ui.side;
-        if (sd ? !(sd === 'cast' || sd === 'set') : !(host.ui.mode === 'voice' || host.ui.mode === 'talk')) return;
+        if (host.ui.home || (sd ? !(sd === 'cast' || sd === 'set') : !(host.ui.mode === 'voice' || host.ui.mode === 'talk'))) return;
         const ae = doc.activeElement;
         const typing = ae?.classList?.contains('tk-ta') ? [ae.selectionStart, ae.selectionEnd] : null;
         const pk = doc.querySelector('.gt-pk-list')?.scrollTop;
@@ -12735,9 +14071,10 @@ ${ctx || '(none)'}`;
     }
     function pane(vtab) {
         if (!doc.getElementById('nc-voice-style')) doc.head.append(h('style', { id: 'nc-voice-style' }, CSS + WIZ_CSS));
-        const body = vtab === 'talk' ? paneTalk() : vtab === 'tready' ? paneTalkReady() : vtab === 'voices' ? paneVoices() : paneReady();
-        ui.root = h('div', { class: 'gt' + (ui.preview ? ' gt-pvon' : '') + (vtab === 'talk' ? ' gt-vn' : ''), role: 'tabpanel' },
-            h('div', { class: 'gt-pane' + (vtab === 'talk' ? ' talk' : '') }, body),
+        const scene = vtab === 'talk' && !(ui.talk.list && ui.view);
+        const body = vtab === 'talk' ? (scene ? paneTalk() : paneTalkPick()) : vtab === 'tready' ? paneTalkReady() : vtab === 'voices' ? paneVoices() : paneReady();
+        ui.root = h('div', { class: 'gt' + (vtab === 'talk' || vtab === 'tready' ? ' gt-talk' : '') + (ui.preview ? ' gt-pvon' : '') + (scene ? ' gt-vn' : ''), role: 'tabpanel' },
+            h('div', { class: 'gt-pane' + (scene ? ' talk' : '') }, body),
             previewBar());
         return ui.root;
     }
@@ -12748,7 +14085,7 @@ ${ctx || '(none)'}`;
         return el;
     }
 
-    const SETUP = [['키 넣기', '구글 서비스 계정 키'], ['TTS 모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기']];
+    const SETUP = [['음성 소개', '음성이란?'], ['분석 모델 고르기', '등장인물 분석 모델'], ['키 넣기', '구글 서비스 계정 키'], ['TTS 모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기']];
     const MODEL_DESC = {
         'gemini-3.8-flash-tts': ['가장 새 모델입니다. 라이브러리 목소리를 함께 씁니다.', true],
         'gemini-3.8-flash-lite-tts': ['3.8 의 가벼운 모델입니다.'],
@@ -12770,20 +14107,25 @@ ${ctx || '(none)'}`;
         ui.msg = '';
         render();
     }
+    function keyStep() {
+        return [
+            keyKnown === true ? h('p', { class: 'gt-msg ok vz-reg' }, ui.conn === false ? '키는 등록되어 있지만 연결 확인에 실패했습니다. 아래 안내로 API와 권한을 확인해 주세요.' : '키가 등록되어 있습니다. 「연결 확인」으로 소리가 만들어지는지 볼 수 있습니다.') : null,
+            keyKnown === true && !ui.gproj ? keyBox() : null,
+            h('div', { class: 'vz-guide' }, h('h3', null, 'TTS 초기설정'), paneGuide()),
+        ];
+    }
     function readyStep(n) {
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); paintSoon(true); };
-        if (n === 0) return [
-            keyKnown === true ? h('p', { class: 'gt-msg ok vz-reg' }, ui.conn === false ? '키는 등록되어 있지만 연결 확인에 실패했습니다. 아래 안내로 API와 권한을 확인해 주세요.' : '키가 등록되어 있습니다. 「연결 확인」으로 소리가 만들어지는지 볼 수 있습니다.') : null,
-            h('div', { class: 'vz-key' }, h('b', null, '서비스 계정 키 (.json)'),
-                h('p', null, '고른 키는 리수의 플러그인 설정(vertex_json 칸)에만 저장됩니다. 플러그인 버전을 바꾸면 리수가 이 칸을 비우니 다시 골라 주세요.'),
-                keyButtons(), msgBox()),
-            h('div', { class: 'vz-guide' }, h('h3', null, 'TTS 기능 추가 시작'), paneGuide()),
-        ];
-        if (n === 1) return [h('div', { class: 'vz-cards' }, MODELS.map(([id, label]) => wizCard(id, label, MODEL_DESC[id]?.[0] ?? '', st.set.model, val => set('model', val), MODEL_DESC[id]?.[1])))];
-        if (n === 2) return [h('div', { class: 'vz-cards' },
+        if (n === 0) return [host.introBody('voice')];
+        if (n === 1) return [h('div', { class: 'vz-cards' },
+            wizCard('model', '메인 모델', '대화 상대의 생김새 · 복장 · 말투를 로어북과 채팅에서 읽어 정리합니다. 인물을 더 정확히 읽습니다.', st.set.castLlm, val => set('castLlm', val), true),
+            wizCard('submodel', '보조 모델', '싸고 빠르지만 인물을 빠뜨리거나 생김새를 덜 읽을 수 있습니다.', st.set.castLlm, val => set('castLlm', val)))];
+        if (n === 2) return keyStep();
+        if (n === 3) return [h('div', { class: 'vz-cards' }, MODELS.map(([id, label]) => wizCard(id, label, MODEL_DESC[id]?.[0] ?? '', st.set.model, val => set('model', val), MODEL_DESC[id]?.[1])))];
+        if (n === 4) return [h('div', { class: 'vz-cards' },
             wizCard('talk', '대사만', '따옴표 안의 대사만 인물 목소리로 읽습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.', st.set.read, val => set('read', val), true),
             wizCard('all', '내레이션까지', '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.', st.set.read, val => set('read', val)))];
-        if (n === 3) return [h('div', { class: 'vz-cards' },
+        if (n === 5) return [h('div', { class: 'vz-cards' },
             wizCard('submodel', '보조 모델', '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', st.set.split, val => set('split', val), true),
             wizCard('model', '메인 모델', '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.split, val => set('split', val)),
             wizCard('off', '나누지 않음', '대사를 모두 봇 목소리로 읽습니다. 인물 지시문도 자동으로 쓰지 않습니다.', st.set.split, val => set('split', val)))];
@@ -12800,6 +14142,7 @@ ${ctx || '(none)'}`;
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
                     h('span', null, st.set.auto ? '봇 답변이 끝날 때마다 자동으로 읽어 줍니다.' : '자동 읽기가 꺼져 있으니, 봇 답변 아래 「🔊 읽기」를 눌러 들으세요.'))),
             h('ul', { class: 'fn-ck' },
+                li(st.set.castLlm === 'submodel' ? '등장인물은 보조 모델이 분석합니다' : '등장인물은 메인 모델이 분석합니다'),
                 li(`${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} 모델로 목소리를 만듭니다`),
                 li(st.set.read === 'all' ? '대사와 내레이션을 모두 읽습니다' : '따옴표 안의 대사만 읽습니다', st.set.read === 'all' ? '내레이션은 내레이션 목소리로' : '내레이션은 화자를 정할 때만 참고'),
                 li(split[st.set.split] ?? split.submodel)),
@@ -12814,34 +14157,35 @@ ${ctx || '(none)'}`;
         const done = setupOf();
         const n = Math.max(0, Math.min(SETUP.length, ui.step));
         const steps = h('aside', { class: 'vz-steps', 'aria-label': '준비 단계' },
-            h('h3', null, '준비 단계', h('span', null, `${done} / ${SETUP.length}`)),
+            h('h3', null, '준비 순서', h('span', null, `${done} / ${SETUP.length} 완료`)),
             SETUP.map(([title, sub], i) => {
                 const state = i === n ? 'cur' : i < done ? 'done' : i > done ? 'lock' : '';
                 return h('button', { class: 'vz-st ' + state, type: 'button', disabled: i > done, 'aria-current': i === n ? 'step' : null, onclick: () => { ui.step = i; ui.msg = ''; render(); } },
                     h('i', null, i < done && i !== n ? '✓' : String(i + 1)),
-                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 단계' : i < done ? '끝남' : sub)));
+                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 여기' : i < done ? '완료' : sub)));
             }),
             ui.dup ? h('p', { class: 'vz-dup' }, '따로 설치한 제미니 TTS 플러그인도 켜져 있습니다. 답변 아래 읽기 버튼이 두 벌 생기니 그쪽은 꺼 주세요.') : null);
         if (n >= SETUP.length) return [h('div', { class: 'vz' }, steps, h('div', { class: 'vz-fin' }, readyCard()))];
         const [title] = SETUP[n];
-        const desc = ['구글 클라우드에서 만든 서비스 계정 키를 고르면 음성을 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 음성 › 준비에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'][n];
-        const block = n === 0 && keyKnown !== true;
+        const desc = [null, '등장인물을 분석할 모델을 고릅니다. 메인 모델을 권합니다.', '구글 클라우드에서 만든 서비스 계정 키를 고르면 음성을 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 음성 › 준비에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'][n];
+        const block = n === 2 && keyKnown !== true;
         return [h('div', { class: 'vz' }, steps,
             h('section', { class: 'vz-pn' },
-                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `${n + 1} / ${SETUP.length} 단계`), h('h2', null, title)),
-                h('p', { class: 'vz-desc' }, desc),
+                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `${n + 1} / ${SETUP.length} 단계`), h('h2', null, n === 0 ? '음성이란?' : title)),
+                desc ? h('p', { class: 'vz-desc' }, desc) : null,
                 readyStep(n),
                 h('div', { class: 'vz-ft' },
-                    h('p', { class: 'vz-note' }, block ? '키를 고르면 다음 단계로 갈 수 있습니다.' : '고른 값은 바로 저장됩니다.'),
+                    h('p', { class: 'vz-note' }, block ? '키를 고르면 다음 단계로 갈 수 있습니다.' : n === 0 ? '준비는 언제든 이 화면에서 다시 고칠 수 있습니다.' : '고른 값은 바로 저장됩니다.'),
                     n > 0 ? h('button', { class: 'vz-back', type: 'button', onclick: () => { ui.step = n - 1; ui.msg = ''; render(); } }, '이전') : null,
-                    h('button', { class: 'vz-cta', type: 'button', disabled: block, onclick: () => setupNext(n) }, n === SETUP.length - 1 ? '준비 끝내기' : '다음 단계로')))) ];
+                    h('button', { class: 'vz-cta', type: 'button', disabled: block, onclick: () => setupNext(n) }, n === 0 ? '준비 시작하기' : n === SETUP.length - 1 ? '준비 끝내기' : '다음 단계로')))) ];
     }
     function go(vtab) {
         host.ui.vtab = vtab;
         render();
     }
 
-    const TSETUP = [['LLM 모델', '대화 답을 만들 모델'], ['그림', '종류 · 작가 · 해상도'], ['목소리', '듣기 켬/끔 · TTS 키']];
+    const TSETUP = [['대화 소개', '대화란?'], ['분석 모델 고르기', '등장인물 분석 모델'], ['대화 모델', '대화 답을 만들 모델'], ['그림 방식', 'NovelAI · 봇 에셋'], ['그림', '종류 · 작가 · 해상도'], ['목소리', 'TTS 키'], ['NSFW 프롬프트', '프리셋 NSFW · 탈옥 글']];
+    const talkAssetMode = () => st.set.talkImgSrc === 'asset';
     const talkSetupOf = () => Math.max(0, Math.min(TSETUP.length, Number(st.set.talkSetup) || 0));
     const talkReady = () => talkSetupOf() >= TSETUP.length;
     function talkSetupNext(n) {
@@ -12853,31 +14197,49 @@ ${ctx || '(none)'}`;
     }
     function talkStep(n) {
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); };
-        if (n === 0) return [h('div', { class: 'vz-cards' },
+        if (n === 0) return [host.introBody('talk')];
+        if (n === 1) return [h('div', { class: 'vz-cards' },
+            wizCard('model', '메인 모델', '대화 상대의 생김새 · 복장 · 말투를 로어북과 채팅에서 읽어 정리합니다. 인물을 더 정확히 읽습니다.', st.set.castLlm, val => set('castLlm', val), true),
+            wizCard('submodel', '보조 모델', '싸고 빠르지만 인물을 빠뜨리거나 생김새를 덜 읽을 수 있습니다.', st.set.castLlm, val => set('castLlm', val)))];
+        if (n === 2) return [h('div', { class: 'vz-cards' },
             wizCard('submodel', '보조 모델', '대화의 답을 보조 모델로 만듭니다. 싸고 빠릅니다. 한 번 보낼 때마다 요청 하나만 쓰고, 리수 채팅에는 아무것도 남기지 않습니다.', st.set.talkModel, val => set('talkModel', val), true),
             wizCard('model', '메인 모델', '말투가 어색하거나 인물을 잘 못 따라 할 때 고릅니다. 보조 모델보다 비싸고 느립니다.', st.set.talkModel, val => set('talkModel', val)))];
-        if (n === 1) return [
+        if (n === 3) {
+            const cnt = ui.view?.stage?.list?.length;
+            return [h('div', { class: 'vz-cards' },
+                wizCard('nai', 'NovelAI 로 그리기', '답의 장면을 NovelAI 로 새로 그려 무대에 겁니다. 만화 · 삽화와 작가를 고를 수 있습니다. 한 장마다 Anlas 를 씁니다.', st.set.talkImgSrc, val => set('talkImgSrc', val), true),
+                wizCard('asset', '봇 에셋 쓰기', `봇에 든 그림 에셋 중 답에 맞는 하나를 대화 모델이 골라 겁니다. Anlas 를 쓰지 않고 바로 바뀝니다.${cnt == null ? '' : cnt ? ` 지금 봇의 그림 에셋은 ${cnt}개입니다.` : ' 지금 봇에는 쓸 그림 에셋이 없습니다.'}`, st.set.talkImgSrc, val => set('talkImgSrc', val)))];
+        }
+        if (n === 4 && talkAssetMode()) {
+            const list = ui.view?.stage?.list ?? [];
+            return [
+                list.length
+                    ? h('div', { class: 'vf-card vz-asw' },
+                        h('p', { class: 'vz-asn' }, `대화 모델에게 이 ${list.length}개의 에셋 이름을 모두 보냅니다. 모델은 답마다 이 중 하나를 골라 무대에 겁니다. 이매진이 그린 그림(nc_)은 뺐습니다.`),
+                        h('div', { class: 'vz-asl' }, list.map(f => h('figure', { class: 'vz-asi', title: f.name },
+                            h('img', { 'data-path': f.path, alt: f.name, loading: 'lazy' }),
+                            h('figcaption', null, f.name)))))
+                    : h('div', { class: 'vf-card vz-asw' }, h('p', { class: 'vz-asn' }, ui.view ? '지금 봇에는 쓸 그림 에셋이 없습니다. 무대에는 인물의 얼굴 그림이나 봇 그림이 걸립니다. NovelAI 로 그리려면 앞 단계에서 바꿔 주세요.' : '봇 채팅을 열면 그 봇의 에셋 목록을 보여 드립니다.')),
+                h('div', { class: 'vf-card', style: 'margin-top:14px' },
+                    h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '무대 맞춤'), h('p', null, st.set.talkFit === 'cover'
+                            ? '그림을 무대에 꽉 채웁니다. 그림 위아래나 양옆이 조금 잘립니다.'
+                            : '그림 전체를 보여 줍니다. 남는 자리는 같은 그림을 흐리게 깔아 채웁니다.')),
+                        seg([['contain', '전체 보기 (추천)'], ['cover', '꽉 채우기']], st.set.talkFit, id => set('talkFit', id)))),
+            ];
+        }
+        if (n === 4) return [
             h('div', { class: 'vz-cards' },
-                wizCard('illust', '삽화', '답의 장면을 컷 없는 한 장 그림으로 그립니다.', talkKindNow(), val => set('talkKind', val), true),
-                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 삽화 설정을 따릅니다.', talkKindNow(), val => set('talkKind', val))),
+                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 삽화 설정을 따릅니다.', talkKindNow(), val => set('talkKind', val), true),
+                wizCard('illust', '삽화', '답의 장면을 컷 없는 한 장 그림으로 그립니다.', talkKindNow(), val => set('talkKind', val))),
             h('div', { class: 'vf-card', style: 'margin-top:14px' },
                 row('작가', '대화 그림에 쓸 작가(그림체)입니다. 「삽화 작가와 같게」는 삽화 › 준비에서 고른 작가를 따라갑니다.',
                     h('select', { class: 'vf-in', style: 'width:auto;max-width:220px', 'aria-label': '대화 그림 작가', onchange: e => set('talkPreset', e.target.value) },
                         [['', '삽화 작가와 같게'], ...host.presets().map(x => [x.id, x.name || '이름 없음'])].map(([id, label]) => h('option', { value: id, selected: id === st.set.talkPreset }, label)))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '해상도'), h('p', null, '대화 화면 무대는 가로로 넓어서 가로 그림이 가장 잘 맞습니다.')),
-                    seg([['wide', '가로 1216×832 (추천)'], ['wide2', '가로 1152×896'], ['square', '정사각 1024×1024'], ['tall2', '세로 896×1152'], ['tall', '세로 832×1216']], st.set.talkSize, id => set('talkSize', id)))),
+                    seg([['wide', '가로 1216×832 (추천)'], ['wide2', '가로 1152×896'], ['square', '정사각 1024×1024'], ['tall2', '세로 896×1152'], ['tall', '세로 832×1216']], st.set.talkSize, id => set('talkSize', id), 'grid'))),
         ];
-        const [chip, cls] = chipText();
-        return [
-            h('div', { class: 'vz-cards' },
-                wizCard('on', '목소리로 듣기', '답이 오면 그 인물의 목소리로 바로 읽어 줍니다. 대화 화면 무대 아래의 「TTS」 버튼으로도 바꿀 수 있습니다.', st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'), true),
-                wizCard('off', '글로만', '글로만 대화합니다. 무대 아래 「다시 듣기」를 누르면 그 말만 들을 수 있습니다.', st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'))),
-            h('div', { class: 'vz-key' }, h('b', null, 'TTS 키 · ', h('span', { class: 'gt-chip ' + cls }, chip)),
-                keyKnown === true
-                    ? h('p', null, '음성 › 준비에서 등록한 구글 키로 목소리를 만듭니다.')
-                    : h('p', null, '음성 › 준비에서 키를 넣으면 목소리로 들을 수 있습니다. 키가 없어도 글로는 대화할 수 있습니다.'),
-                keyKnown === true ? null : h('div', { class: 'gt-acts' }, h('button', { class: 'gt-b', type: 'button', onclick: () => { host.ui.vtab = 'ready'; host.goMode('voice'); } }, '음성 › 준비로 가기'))),
-        ];
+        if (n === TSETUP.length - 1) return [host.nsfwBody('talk', { close: () => talkSetupNext(TSETUP.length - 1), render })];
+        return keyStep();
     }
     function talkReadyCard() {
         const el = Date.now() - ui.readyAt, fresh = el < 1200;
@@ -12889,12 +14251,12 @@ ${ctx || '(none)'}`;
             h('div', { class: 'fn-top' }, ok,
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'), h('span', null, '봇과 로어북 인물에게 말을 걸 수 있습니다.'))),
             h('ul', { class: 'fn-ck' },
+                li(st.set.castLlm === 'submodel' ? '등장인물은 보조 모델이 분석합니다' : '등장인물은 메인 모델이 분석합니다'),
                 li(st.set.talkModel === 'model' ? '대화의 답은 메인 모델이 만듭니다' : '대화의 답은 보조 모델이 만듭니다'),
-                li(`${talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 작가 ${pr ? pr.name || '이름 없음' : '삽화 작가와 같게'}`),
-                li(st.set.talkSpeak ? (keyKnown === true ? '답을 목소리로 읽어 줍니다' : '목소리로 들으려면 음성 › 준비에서 키를 넣어야 합니다') : '글로만 대화합니다')),
+                li(talkAssetMode() ? '봇 에셋에서 답에 맞는 그림을 골라 겁니다' : `${talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 작가 ${pr ? pr.name || '이름 없음' : '삽화 작가와 같게'}`),
+                li(st.set.talkSpeak ? (keyKnown === true ? '답을 목소리로 읽어 줍니다' : '목소리로 들으려면 음성 · 대화 › 준비에서 키를 넣어야 합니다') : '글로만 대화합니다')),
             h('div', { class: 'fn-go' },
-                h('button', { class: 'ix-btn main', type: 'button', onclick: () => { host.ui.ttab = 'talk'; render(); } }, '💬 대화하기'),
-                h('button', { class: 'ix-btn', type: 'button', onclick: () => host.closePanel() }, '채팅으로 돌아가기')));
+                h('button', { class: 'ix-btn main', type: 'button', onclick: () => { ui.talk.list = true; host.ui.ttab = 'talk'; render(); } }, '💬 대화하기')));
     }
     function paneTalkReady() {
         const done = talkSetupOf();
@@ -12905,32 +14267,36 @@ ${ctx || '(none)'}`;
                 const state = i === n ? 'cur' : i < done ? 'done' : i > done ? 'lock' : '';
                 return h('button', { class: 'vz-st ' + state, type: 'button', disabled: i > done, 'aria-current': i === n ? 'step' : null, onclick: () => { ui.tstep = i; ui.msg = ''; render(); } },
                     h('i', null, i < done && i !== n ? '✓' : String(i + 1)),
-                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 단계' : i < done ? '끝남' : sub)));
+                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 여기' : i < done ? '완료' : i === 4 && talkAssetMode() ? '에셋 목록 · 무대 맞춤' : sub)));
             }));
         if (n >= TSETUP.length) return [h('div', { class: 'vz' }, steps, h('div', { class: 'vz-fin' }, talkReadyCard()))];
-        const desc = ['대화에서 인물의 답을 만들 모델을 고릅니다. 나중에 대화 › 준비에서 바꿀 수 있습니다.', '대화 화면 무대에 걸 그림의 종류 · 작가 · 해상도를 고릅니다. 삽화 설정은 바뀌지 않습니다.', '답을 목소리로 들을지 고릅니다. 목소리는 음성 › 준비에서 넣은 구글 키로 만듭니다.'][n];
+        const desc = [null, '등장인물을 분석할 모델을 고릅니다. 메인 모델을 권합니다.', '대화에서 인물의 답을 만들 모델을 고릅니다. 나중에 대화 › 준비에서 바꿀 수 있습니다.', '대화 화면 무대에 걸 그림을 어디서 가져올지 고릅니다.',
+            talkAssetMode() ? '봇 에셋 방식은 대화 모델이 아래 에셋 중 하나를 답마다 골라 무대에 겁니다. 봇 에셋은 바꾸지 않습니다.' : '대화 화면 무대에 걸 그림의 종류 · 작가 · 해상도를 고릅니다. 삽화 설정은 바뀌지 않습니다.',
+            '답을 목소리로 들으려면 구글 TTS 키가 필요합니다. 음성과 같은 키를 씁니다.', ''][n];
+        const hold = n === TSETUP.length - 1 && (!host.nsfwSt() || host.nsfwWant());
+        const block = n === 5 && keyKnown !== true;
         return [h('div', { class: 'vz' }, steps,
             h('section', { class: 'vz-pn' },
-                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `${n + 1} / ${TSETUP.length} 단계`), h('h2', null, TSETUP[n][0])),
-                h('p', { class: 'vz-desc' }, desc),
+                h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `${n + 1} / ${TSETUP.length} 단계`), h('h2', null, n === 0 ? '대화란?' : TSETUP[n][0])),
+                desc ? h('p', { class: 'vz-desc' }, desc) : null,
                 talkStep(n),
-                h('div', { class: 'vz-ft' },
-                    h('p', { class: 'vz-note' }, '고른 값은 바로 저장됩니다.'),
+                hold ? null : h('div', { class: 'vz-ft' },
+                    h('p', { class: 'vz-note' }, block ? '키를 등록하면 다음 단계로 갈 수 있습니다.' : n === 0 ? '준비는 언제든 이 화면에서 다시 고칠 수 있습니다.' : '고른 값은 바로 저장됩니다.'),
                     n > 0 ? h('button', { class: 'vz-back', type: 'button', onclick: () => { ui.tstep = n - 1; ui.msg = ''; render(); } }, '이전') : null,
-                    h('button', { class: 'vz-cta', type: 'button', onclick: () => talkSetupNext(n) }, n === TSETUP.length - 1 ? '준비 끝내기' : '다음 단계로')))) ];
+                    h('button', { class: 'vz-cta', type: 'button', disabled: block, onclick: () => talkSetupNext(n) }, n === 0 ? '준비 시작하기' : n === TSETUP.length - 1 ? '준비 끝내기' : '다음 단계로')))) ];
     }
     function status() {
         const n = setupOf();
         if (keyKnown === false) return '키를 넣어 주세요';
         if (n < SETUP.length) return `준비 ${n}/${SETUP.length}`;
-        return chipText()[0];
+        return chipText()[0] || '준비 완료';
     }
     function chipText() {
         if (ui.testing) return ['확인하는 중', 'run'];
         if (keyKnown === false) return ['키 없음', 'bad'];
         if (ui.conn === true) return ['연결됨', 'ok'];
         if (ui.conn === false) return ['연결 안 됨', 'bad'];
-        return ['키 등록됨', ''];
+        return ['', ''];
     }
     async function onOpen() {
         ui.msg = '';
@@ -12938,12 +14304,14 @@ ${ctx || '(none)'}`;
         ui.pick = null;
         await checkKey();
         await refreshView();
-        if (ui.talk.chaId !== ui.view?.chaId) Object.assign(ui.talk, { chaId: ui.view?.chaId, name: null, err: null, confirm: null, view: '' });
-        Object.assign(ui.talk, { pop: false });
+        if (ui.talk.tk !== ui.view?.tk) Object.assign(ui.talk, { chaId: ui.view?.chaId, tk: ui.view?.tk, name: null, err: null, confirm: null, view: '' });
+        Object.assign(ui.talk, { cmsg: null });
         ui.talk.voicing.clear();
+        ui.talk.voiceQ.length = 0;
         void talkRatesLoad();
-        ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : 0;
+        ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : Math.min(setupOf(), 2);
         ui.tstep = Math.min(talkSetupOf(), TSETUP.length);
+        if (host.nsfwWant()) ui.tstep = TSETUP.length - 1;
         try {
             const d = root.asked ? await rootDoc() : null;
             ui.dup = !!(d && await d.querySelector('[class*="x-risu-gt-at-"]'));
@@ -12996,6 +14364,12 @@ ${ctx || '(none)'}`;
 .gt .vz-pn h2{margin:0 0 0 10px;font-size:22px;font-weight:900;color:var(--ink2)}
 .gt .vz-desc{margin:8px 0 18px;font-size:13.5px;color:var(--mut)}
 .gt .vz-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gt .vz-asw{padding:14px 16px}
+.gt .vz-asn{margin:0 0 12px;font-size:13px;line-height:1.55;color:var(--mut)}
+.gt .vz-asl{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:10px;max-height:340px;overflow-y:auto}
+.gt .vz-asi{margin:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.gt .vz-asi img{width:100%;aspect-ratio:1;object-fit:cover;background:#eef2f7;border:1px solid var(--ln);border-radius:8px}
+.gt .vz-asi figcaption{font-size:11.5px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gt .vz-mc{position:relative;display:flex;align-items:center;gap:14px;min-height:92px;padding:12px 18px;text-align:left;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s}
 .gt .vz-mc:hover{border-color:var(--sky)}
 .gt .vz-rd{flex:none;width:22px;height:22px;background:#fff;border:2px solid #c3d1e2;border-radius:50%}
@@ -13005,14 +14379,27 @@ ${ctx || '(none)'}`;
 .gt .vz-rec{position:absolute;right:14px;top:12px;padding:2px 8px;font-size:11.5px;font-weight:900;color:var(--ink2);background:var(--sun);border-radius:6px}
 .gt .vz-mc.sel{background:var(--skl);border:2px solid var(--sky)}
 .gt .vz-mc.sel .vz-rd{border:6px solid var(--sky)}
+.gt .in-lead{margin:10px 0 20px;font-size:15px;line-height:1.7;color:var(--ink2)}
+.gt .in-flow{display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;align-items:stretch;gap:0}
+.gt .in-card{display:flex;flex-direction:column;gap:10px;padding:14px;background:#f8fbff;border:1px solid var(--ln);border-radius:12px}
+.gt .in-card svg{display:block;width:100%;height:auto;border-radius:8px;background:#fff}
+.gt .in-card b{font-size:13.5px}
+.gt .in-card b em{display:inline-grid;place-items:center;width:20px;height:20px;margin-right:6px;font-style:normal;font-size:11px;font-weight:900;color:#fff;background:var(--sky);border-radius:50%}
+.gt .in-card p{margin:0;font-size:12.5px;line-height:1.55;color:var(--mut)}
+.gt .in-arr{display:grid;place-items:center;color:#a9b8cc;font-size:20px;font-weight:900}
+@media (max-width:860px){.gt .in-flow{grid-template-columns:1fr}.gt .in-arr{transform:rotate(90deg);height:26px}}
 .gt .vz-ft{display:flex;align-items:center;gap:12px;margin-top:22px}
 .gt .vz-note{flex:1 1 auto;margin:0;font-size:12.5px;color:var(--mut)}
 .gt .vz-back{height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
 .gt .vz-cta{height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
 .gt .vz-cta:hover:not(:disabled){transform:translateY(-2px)}
+.gt.gt-talk .vz-cta{background:var(--sky);box-shadow:0 8px 18px -10px rgba(43,149,240,.8)}
 .gt .vz-cta:disabled{opacity:.45;cursor:not-allowed}
 .gt .vz-key{padding:14px 16px;margin:0 0 16px;background:var(--skl);border-radius:12px}
 .gt .vz-key b{font-size:14px;color:var(--ink2)}
+/* 5.3.0: 안내 마지막 단계 설명 아래의 키 상자. 그림 칸이 없으니 카드 아래 모서리를 둥글게 닫는다 */
+.gt .vu-cap .vz-key{margin:10px 0 0;background:#fff;border:1px solid var(--line2)}
+.gt .vu-step.nofig .vu-cap{border-bottom:0;border-radius:13px}
 .gt .vz-key p{margin:4px 0 10px;font-size:12.5px;line-height:1.5;color:var(--mut)}
 .gt .vz-guide h3{margin:4px 0 10px;font-size:15px;font-weight:900;color:var(--ink2)}
 .gt .vz-q{margin:0 0 14px}
@@ -13020,14 +14407,24 @@ ${ctx || '(none)'}`;
 /* 4.7.0: 「키가 등록되어 있습니다」는 왼쪽 줄 없이, 아래 키 상자와 띄운다 */
 .gt .gt-msg.vz-reg{margin:0 0 14px;border-left:1px solid var(--line)}
 @media (max-width:860px){
-  .gt .vz{flex-direction:column}
+  /* 5.2.0: 세로로 쌓을 때 flex-start 를 두면 완료 카드(vz-fin)가 글 길이만큼만 넓어져 음성 · 대화마다 폭이 달랐다. 삽화처럼 패널 폭을 채운다 */
+  .gt .vz{flex-direction:column;align-items:stretch}
   .gt .vz-steps{display:flex;flex-wrap:wrap;align-items:flex-start;width:100%}
   .gt .vz-steps h3{flex:0 0 100%;margin:0 0 10px}
-  .gt .vz-steps>.vz-st{flex:1 1 30px;display:flex;justify-content:center;min-width:0;min-height:0;padding:0}
+  /* 5.2.0: 삽화 준비 레일과 같이 원 아래에 단계 이름 · 상태를 적는다 (음성 · 대화 단계 이름은 이미 짧다) */
+  .gt .vz-steps>.vz-st{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;min-height:0;padding:0 2px 6px;border-radius:10px}
   .gt .vz-st::before{left:calc(50% + 15px);right:calc(15px - 50%);top:14px;bottom:auto;width:auto;height:2px}
-  .gt .vz-st i{position:relative}
-  .gt .vz-st span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .gt .vz-st i{position:relative;flex:none}
+  .gt .vz-st span{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:100%;text-align:center}
+  .gt .vz-st b,.gt .vz-st.cur b{max-width:100%;overflow:hidden;font-size:12px;font-weight:800;line-height:1.2;white-space:nowrap;text-overflow:ellipsis}
+  .gt .vz-st small{max-width:100%;margin:0;font-size:11px;line-height:1.2}
+  .gt .vz-st.cur{background:var(--skl)}
+  .gt .vz-st:hover:not(:disabled) b{text-decoration:none}
   .gt .vz-cards{grid-template-columns:1fr}
+}
+@media (max-width:600px){
+  .gt .vz-st small{display:none}
+  .gt .vz-st b,.gt .vz-st.cur b{font-size:10.5px}
 }
 /* 4.1.0: 음성 탭 나머지 화면도 견본 3의 색 · 둥근 모서리에 맞춘다 */
 .gt{--line:#dbe5f0;--line2:#c3d1e2;--line3:#9aa8bd;--ink:#1f2d45;--muted:#6d7c95;--accent:#2b95f0;--accent2:#1d5bc4;--accent-t:#1d5bc4;--soft:#e9f5ff;--good:#14b386;--head:#1d5bc4}
@@ -13038,6 +14435,11 @@ ${ctx || '(none)'}`;
 .gt .vf-card,.gt .rs-card,.gt .gt-pk,.gt .gt-pk-list,.gt .vz-pn,.gt .gt-msg{box-shadow:0 1px 2px rgba(31,45,69,.06),0 8px 20px -10px rgba(31,45,69,.28)}
 .gt .vz-mc:not(.sel){box-shadow:0 1px 2px rgba(31,45,69,.06),0 4px 12px -6px rgba(31,45,69,.22)}
 .gt .vf-seg{border-radius:20px;overflow:hidden}
+/* 5.3.0: 칸이 많아 한 줄에 다 안 들어가는 묶음(대화 해상도)은 둥근 띠가 두 줄로 깨지지 않게 칸마다 따로 테를 두른 격자로 놓는다 */
+.gt .vf-seg.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:6px;width:100%;border:0;border-radius:0;overflow:visible}
+.gt .vf-seg.grid button{min-height:38px;padding:6px 8px;border:1px solid var(--line2);border-radius:10px;white-space:normal;line-height:1.25}
+.gt .vf-seg.grid button:first-child{border-left:1px solid var(--line2)}
+.gt .vf-seg.grid button.sel{border-color:var(--accent)}
 .gt .gt-x{border-radius:50%}
 .gt .vz-fin{flex:1 1 auto;min-width:0}
 .gt .fn-go{display:flex;flex-wrap:wrap;gap:8px}
@@ -13048,40 +14450,90 @@ ${ctx || '(none)'}`;
 .gt .vn-row{display:flex;justify-content:center;gap:8px;margin-top:14px}
 .gt .vn-ic{display:inline-flex;flex:none}
 .gt .vn-ic svg{display:block;width:16px;height:16px}
-.gt .vn-stage{flex:0 0 var(--stage,60%);min-height:0;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 38%,hsl(var(--h,210) 42% 30%),#0f1a2e 72%)}
+.gt .vn-stage{flex:0 0 var(--stage,60%);min-height:0;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 38%,#2c4466,#0f1a2e 72%)}
 .gt .vn-blur{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(18px) brightness(.75);transform:scale(1.08)}
 .gt .vn-shot{position:absolute;left:50%;top:0;bottom:0;height:100%;width:auto;max-width:100%;object-fit:contain;transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 40px rgba(0,0,0,.45)}
 .gt .vn-shot.cover{left:0;right:0;width:100%;max-width:none;object-fit:cover;transform:none;box-shadow:none}
+.gt .vn-noimg{position:absolute;inset:0;display:grid;place-items:center;background:#e6edf5;color:#a3b3c8}
+.gt .vn-noimg>.vn-ic svg{width:72px;height:72px}
 .gt .vn-hello{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:64px 20px 72px;color:#fff;text-align:center}
-.gt .vn-big{display:grid;place-items:center;width:72px;height:72px;border-radius:50%;font-size:30px;font-weight:900;color:#fff;background:hsl(var(--h,210) 60% 52%);box-shadow:0 0 0 4px rgba(255,255,255,.18)}
+.gt .vn-big{display:grid;place-items:center;width:72px;height:72px;border-radius:50%;font-size:30px;font-weight:900;color:#fff;background:#8796ad;box-shadow:0 0 0 4px rgba(255,255,255,.18)}
 .gt .vn-hello b{font-size:19px;font-weight:900}
 .gt .vn-hello p{font-size:13px;opacity:.8}
 .gt .vn-top{display:contents}
-.gt .vn-back{display:flex;align-items:center;gap:4px;height:38px;padding:0 14px 0 10px;border-radius:21px;background:rgba(10,18,34,.62);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:13px;font-weight:800;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
-.gt .vn-back small{margin-left:4px;font-size:11px;font-weight:600;opacity:.7}
+/* 5.2.0: 뒤로가기는 닫기(.vn-x)와 같은 흰 원으로 맞춘다 */
+.gt .vn-back{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#fff;color:var(--ink2);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .gt .vn-cast{position:absolute;left:12px;top:12px;max-height:calc(var(--stage,60%) - 104px);z-index:4;display:flex;flex-direction:column;gap:4px;width:184px;padding:8px;border-radius:16px;background:rgba(10,18,34,.7);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
 .gt .vn-cast::-webkit-scrollbar{width:6px}
 .gt .vn-cast::-webkit-scrollbar-thumb{background:rgba(255,255,255,.28);border-radius:3px}
 .gt .vn-ch{flex:none;padding:2px 4px 4px;font-size:11px;font-weight:800;color:#9aa8bd}
 .gt .vn-av,.gt .vn-cast .pa{flex:none;display:flex;align-items:center;gap:7px;width:100%;min-height:34px;padding:4px 10px 4px 5px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;font-size:12.5px;font-weight:800;text-align:left;transition:background .15s}
 .gt .vn-av:hover{background:rgba(255,255,255,.2)}
-.gt .vn-av i{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-style:normal;font-size:11px;font-weight:900;color:#fff;background:hsl(var(--h) 60% 52%)}
+.gt .vn-av i{flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-style:normal;font-size:11px;font-weight:900;color:#fff;background:#9aa7ba}
 .gt .vn-av span{flex:1;min-width:0;line-height:1.3;overflow-wrap:anywhere}
+/* 5.2.0: 에셋 얼굴이 있으면 원 안을 그 그림으로 채운다. 불러오기 전(src 없음)에는 첫 글자가 보인다 */
+.gt .vn-av i{position:relative;overflow:hidden}
+.gt .vn-av i img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.gt .vn-av i img:not([src]){display:none}
 .gt .vn-av em{flex:none;padding:1px 5px;border-radius:6px;font-style:normal;font-size:9.5px;font-weight:900;color:var(--ink2);background:#ffc93c}
 .gt .vn-av.on{background:#fff;border-color:#fff;color:var(--ink2);box-shadow:0 0 0 2px rgba(43,149,240,.6)}
 .gt .vn-cast .pa{justify-content:center;gap:4px;border:1.5px dashed rgba(255,255,255,.45);background:transparent}
 .gt .vn-cast .pa .vn-ic svg{width:13px;height:13px}
 .gt .vn-cast .pa:hover{background:rgba(255,255,255,.12)}
 .gt .vn-cast .pa.on{background:#fff;border:1.5px solid #fff;color:var(--sky)}
-.gt .vn-pop{position:absolute;left:206px;top:12px;z-index:6;display:flex;flex-direction:column;gap:8px;width:290px;max-width:calc(100% - 28px);padding:12px;border-radius:14px;background:#fff;box-shadow:0 14px 34px rgba(0,0,0,.35)}
-.gt .vn-pop>b{font-size:13px;color:var(--ink2)}
-.gt .vn-pop .gt-msg{margin:0}
 .gt .vn-tr{position:absolute;right:14px;top:12px;z-index:5;display:flex;align-items:center;gap:8px}
-.gt .vn-tr .an-c{--an:#fff;--an-f:rgba(255,255,255,.28);height:30px;margin:0;padding:0 12px;font-size:13px;font-weight:800;color:rgba(255,255,255,.88);background-color:rgba(10,18,34,.62);border:1px solid rgba(255,255,255,.14);border-radius:15px;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
-.gt .vn-tr .an-c b{color:#fff}
-.gt .vn-tr .an-c b.lo{color:#ffd0cc}
-.gt .vn-tr .an-c .an-sep{background:rgba(255,255,255,.35)}
-.gt .vn-tr .an-c .lnk{color:#fff}
+.gt .vn-an{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);display:flex}
+.gt .vn-an .an-c{--an:var(--sky);--an-f:rgba(43,149,240,.18);height:24px;margin:0;padding:0 12px;border:0;border-radius:12px 12px 0 0;font-size:11.5px;font-weight:800;color:var(--ink2);background-color:rgba(255,255,255,.88);box-shadow:0 -4px 10px rgba(0,0,0,.18);backdrop-filter:blur(14px)}
+.gt .vn-an .an-c b{color:var(--ink2)}
+.gt .vn-an .an-c b.lo{color:#d0453b}
+.gt .vn-an .an-c .lnk{color:var(--sky)}
+.gt .vn-who{position:absolute;left:12px;top:12px;z-index:5;display:flex;align-items:center;gap:7px;max-width:calc(100% - 210px);padding:3px 12px 3px 3px;border-radius:99px;background:rgba(10,18,34,.62);border:1px solid rgba(255,255,255,.14);color:#fff;font-size:12.5px;font-weight:800;backdrop-filter:blur(6px);box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.gt .vn-who i,.gt .vn-pick .vn-ifc{position:relative;overflow:hidden;flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;font-style:normal;font-size:12px;font-weight:900;color:#fff;background:#9aa7ba}
+.gt .vn-who i img,.gt .vn-pick .vn-ifc img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.gt .vn-who i img:not([src]),.gt .vn-pick .vn-ifc img:not([src]){display:none}
+.gt .vn-who i.ph{color:#a3b3c8;background:#e6edf5}
+.gt .vn-who i.ph svg{width:16px;height:16px}
+.gt .vn-who i.ph img{object-position:50% 30%}
+.gt .vn-who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt .vn-who em,.gt .vn-pick b>em{flex:none;margin-left:4px;padding:1px 5px;border-radius:6px;font-style:normal;font-size:9.5px;font-weight:900;color:var(--ink2);background:#ffc93c;vertical-align:1px}
+.gt .vn-pick{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
+.gt .vn-ca{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border-radius:12px;border:1.5px dashed #a9cdf2;background:#f7fbff;color:var(--sky);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.gt .vn-ca:hover:not(:disabled),.gt .vn-ca:focus-visible{border-color:var(--sky);box-shadow:0 0 0 3px rgba(43,149,240,.15)}
+.gt .vn-ca:disabled{opacity:.5;cursor:default}
+.gt .vn-cai{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--skl)}
+.gt .vn-cai .vn-ic svg{width:17px;height:17px}
+.gt .vn-cai .vn-ic+.vn-ic,.gt .vn-ca.run .vn-cai .vn-ic:first-child{display:none}
+.gt .vn-ca.run .vn-cai .vn-ic+.vn-ic{display:grid}
+.gt .vn-cat{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
+.gt .vn-cat b{font-size:12.5px}
+.gt .vn-cat small{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt .vn-cat small.err{color:#d0453b}
+.gt .vn-cabar{display:none;height:5px;margin-top:4px;border-radius:3px;background:#d6e6f7;overflow:hidden}
+.gt .vn-cabar i{display:block;height:100%;width:var(--p,0%);border-radius:3px;background:linear-gradient(90deg,var(--sky),#62bdff);transition:width .4s}
+.gt .vn-stop{display:none;flex:none;padding:5px 10px;border-radius:8px;border:1px solid #a8d3ff;background:#fff;color:var(--sky);font-size:11.5px;font-weight:800}
+.gt .vn-ca.run{border-style:solid;border-color:var(--sky);background:var(--skl);color:var(--sky)}
+.gt .vn-ca.run:hover,.gt .vn-ca.run:focus-visible{box-shadow:0 0 0 3px rgba(43,149,240,.18)}
+.gt .vn-ca.run .vn-cai{background:#d6ecff}
+.gt .vn-ca.run :is(.vn-cabar,.vn-stop){display:block}
+.gt .vn-lh{display:flex;align-items:baseline;justify-content:space-between;margin:2px 4px -4px;font-size:12px;color:var(--mut)}
+.gt .vn-lh b{font-size:14px;font-weight:900;color:var(--ink2)}
+.gt .vn-lh span{font-weight:600}
+.gt .vn-lst{display:flex;flex-direction:column;border-radius:14px;border:1px solid var(--ln);overflow:hidden;background:#fff}
+.gt .vn-pick .vn-it:disabled{opacity:.5;cursor:not-allowed}
+.gt .vn-it{display:flex;gap:12px;align-items:center;width:100%;padding:11px 14px;border:0;border-top:1px solid #eef3f9;border-radius:0;background:#fff;font:inherit;color:var(--ink2);text-align:left;cursor:pointer}
+.gt .vn-it:first-child{border-top:0}
+.gt .vn-it:hover,.gt .vn-it:focus-visible{background:#f6f8fb}
+.gt .vn-fw{position:relative;flex:none}
+.gt .vn-dot{position:absolute;right:0;bottom:0;width:12px;height:12px;border-radius:50%;background:var(--ok);border:2px solid #fff}
+.gt .vn-pick .vn-ifc{width:48px;height:48px;border-radius:50%;font-size:18px}
+.gt .vn-itx{flex:1 1 auto;min-width:0}
+.gt .vn-itx b{display:flex;align-items:center;min-width:0;font-size:14px;font-weight:900}
+.gt .vn-itx b span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt .vn-itx p{margin:3px 0 0;font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt .vn-ir{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:5px;font-size:11px;color:var(--mut)}
+.gt .vn-ir small{font-size:11px}
+.gt .vn-ir em{min-width:20px;padding:1px 7px;border-radius:99px;font-style:normal;font-size:11px;font-weight:900;text-align:center;color:#fff;background:var(--sky)}
+.gt .vn-ir em.new{padding:1px 7px;border-radius:8px;font-size:10.5px;font-weight:800;color:var(--sky);background:var(--skl)}
 .gt .vn-x{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#fff;color:var(--ink2);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 /* 4.10.0: 무대 아래 가운데에 떠 있는 독. 아이콘 칸마다 아래 그림자가 있어 밝은 그림 위에서도 또렷하다 */
 .gt .vn-dock{position:absolute;left:0;right:0;bottom:14px;margin:0 auto;width:max-content;max-width:calc(100% - 20px);z-index:3;display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:6px;padding:7px 9px;border-radius:20px;background:rgba(255,255,255,.88);box-shadow:0 14px 34px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.6) inset;backdrop-filter:blur(14px)}
@@ -13094,6 +14546,11 @@ ${ctx || '(none)'}`;
 .gt .vn-di.warn:hover i,.gt .vn-di.cf i{color:#fff;background:#e0574c;box-shadow:0 2px 0 #a8342b}
 .gt .vn-di.cf{color:#d0453b}
 .gt .vn-di:disabled{opacity:.5;cursor:not-allowed}
+.gt .vn-di.run i{position:relative;overflow:hidden;isolation:isolate;color:#12324f;background:#dbeaf8}
+.gt .vn-di.run i::before{content:"";position:absolute;left:0;top:0;bottom:0;z-index:-1;background:linear-gradient(180deg,#7cc4ff,#4fb0ff)}
+.gt .vn-di.run.dr i::before{width:var(--p,0%);transition:width .8s linear}
+.gt .vn-di.run.vr i::before{width:0;animation:vn-fill var(--d,8s) linear var(--e,0s) forwards}
+.gt .vn-di.run{color:var(--sky)}
 .gt .vn-dg{display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 4px 0;border-radius:14px;background:rgba(43,149,240,.08)}
 .gt .vn-dg>b{font-size:9px;font-weight:900;letter-spacing:.06em;color:var(--ink2)}
 .gt .vn-dg>div{display:flex;gap:6px}
@@ -13102,12 +14559,13 @@ ${ctx || '(none)'}`;
 @media (hover:hover){.gt .vn-di:hover:not(:disabled){transform:translateY(-6px) scale(1.15)}}
 /* 4.7.0: 독 · 인물 목록은 바로 뜨지 않고 미끄러지며 천천히 뜬다.
    4.10.0: 호버는 마우스(pointer:fine)에서만 쓴다. 터치 화면은 호버가 풀리지 않으므로 무대를 눌러 .hud 로 켜고 끈다 */
-.gt .vn-dock,.gt .vn-cast,.gt .vn-tr .an-c{opacity:0;pointer-events:none;transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
-.gt .vn-cast{transform:translateX(-8px)}
+.gt .vn-dock,.gt .vn-cast,.gt .vn-who{opacity:0;pointer-events:none;transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
+.gt .vn-cast,.gt .vn-who{transform:translateX(-8px)}
 .gt .vn-dock{transform:translateY(10px)}
 /* 5.0.0: 분석 창이 열려 있으면 인물 목록만 띄운다(독은 감춘 채). 독은 키보드 포커스(:focus-visible)일 때만 붙잡는다. 전에는 누른 버튼에 남은 포커스로 독이 한동안 떠 있었다 */
-.gt .vn.hud :is(.vn-dock,.vn-cast,.vn-tr .an-c),.gt .vn:has(.vn-pop) .vn-cast,.gt .vn-dock:has(:focus-visible){opacity:1;transform:none;pointer-events:auto}
-@media (hover:hover) and (pointer:fine){.gt .vn:has(.vn-stage:hover,.vn-top>:hover,.vn-top :focus-visible) :is(.vn-dock,.vn-cast,.vn-tr .an-c){opacity:1;transform:none;pointer-events:auto}}
+/* 5.2.0: 왼쪽 위 이름표(.vn-who)도 독과 함께 호버 · .hud 때만 뜬다 */
+.gt .vn.hud :is(.vn-dock,.vn-cast,.vn-who),.gt .vn-dock:has(:focus-visible),.gt .vn-who:focus-visible{opacity:1;transform:none;pointer-events:auto}
+@media (hover:hover) and (pointer:fine){.gt .vn:has(.vn-stage:hover,.vn-top>:hover,.vn-top :focus-visible) :is(.vn-dock,.vn-cast,.vn-who){opacity:1;transform:none;pointer-events:auto}}
 .gt .vn-log{flex:1 1 auto;min-height:0;overflow-y:auto;background:linear-gradient(180deg,#f6faff,#fff);border-top:2px solid var(--sky)}
 .gt .vn-log::-webkit-scrollbar{width:10px}
 .gt .vn-log::-webkit-scrollbar-thumb{background:#c9d6e6;border-radius:5px;border:3px solid transparent;background-clip:padding-box}
@@ -13120,21 +14578,27 @@ ${ctx || '(none)'}`;
 .gt .vn-del{display:none;flex:none;height:24px;padding:0 10px;border:1.5px solid #f3c2c2;border-radius:12px;background:#fff;color:#d64545;font-size:11.5px;font-weight:600;line-height:1;white-space:nowrap;place-items:center;cursor:pointer;box-shadow:0 2px 0 #f0caca}
 .gt .vn-del:hover{background:#fdecec;border-color:#d64545}
 .gt .vn-me.sel .vn-del,.gt .vn-turn.sel .vn-del{display:grid}
+.gt .vn-del.vn-ed{border-color:#bcdcfb;color:#1d7fe0;box-shadow:0 2px 0 #cfe4fa}
+.gt .vn-del.vn-ed:hover{background:var(--skl);border-color:var(--sky)}
+.gt .vn-nm .vn-ed+.vn-del{margin-left:0}
+.gt .vn-edit{display:flex;flex-direction:column;gap:6px;width:100%;min-width:min(420px,70vw)}
+.gt .vn-edit .tk-ta{width:100%;min-height:60px;padding:9px 12px;border:1.5px solid var(--sky);border-radius:12px;background:#fff;font-size:14px;line-height:1.55;box-shadow:0 0 0 4px rgba(43,149,240,.12);resize:none}
+.gt .vn-edit-ft{display:flex;justify-content:flex-end;gap:6px}
+.gt .vn-say .vn-edit{flex:1}
 .gt .vn-nm .vn-del{margin-left:auto}
 .gt .vn-me.sel p{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--sky)}
 .gt .vn-turn.sel.sel{background:#eef6fe;box-shadow:inset 0 0 0 2px var(--sky)}
 .gt .vn-turn{display:flex;flex-direction:column;gap:8px;margin:0 -8px;padding:6px 8px;border-radius:12px;transition:background .2s}
 .gt .vn-nm{display:flex;align-items:center;gap:8px}
-.gt .vn-nm b{font-size:13px;font-weight:900;color:#fff;padding:3px 12px;border-radius:12px;background:hsl(var(--h) 60% 52%)}
+.gt .vn-nm b{font-size:13px;font-weight:900;color:var(--ink2)}
 .gt .vn-dpct{color:var(--sky);font-weight:700}
-.gt .vn-thumb{position:relative;flex:none;width:54px;height:37px;padding:0;border:0;border-radius:6px;overflow:hidden;background:#dceafa;box-shadow:0 0 0 2px #fff,0 0 0 3.5px #c9d6e6;cursor:pointer;transition:box-shadow .15s}
-.gt .vn-thumb img{display:block;width:100%;height:100%;object-fit:cover}
-.gt button.vn-thumb:hover,.gt .vn-thumb.on{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--sky)}
-.gt .vn-thumb.dr{box-shadow:0 0 0 2px #fff,0 0 0 3.5px #bfe0fb;cursor:default}
+.gt .vn-thumb{position:relative;flex:none;width:54px;height:37px;padding:0;border:0;border-radius:6px;overflow:hidden;background:#e6edf5}
+.gt .vn-thumb img{position:relative;display:block;width:100%;height:100%;object-fit:cover}
+.gt .vn-thumb img:not([src]){visibility:hidden}
+.gt .vn-thumb>.vn-ic{position:absolute;inset:0;display:grid;place-items:center;color:#a3b3c8}
+.gt .vn-thumb>.vn-ic svg{width:22px;height:22px}
 .gt .vn-thumb.dr img{filter:brightness(.55) saturate(.6)}
-.gt .vn-thumb i{position:absolute;left:0;top:0;bottom:0;background:rgba(43,149,240,.55);transition:width .8s linear}
-.gt span.vn-thumb i{background:var(--sky)}
-.gt .vn-turn.view{background:#eef6fe}
+.gt .vn-thumb i{position:absolute;left:0;top:0;bottom:0;background:rgba(43,149,240,.45);transition:width .8s linear}
 .gt .vn-say{display:flex;align-items:flex-start;gap:10px}
 .gt .vn-t{flex:1;min-width:0;margin:0;padding:1px 6px;border-radius:6px;font-family:"Gowun Batang","Nanum Myeongjo","Noto Serif KR",serif;font-size:16.5px;line-height:1.7;color:var(--ink2);white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
 .gt .vn-pb{position:relative;flex:none;width:30px;height:30px;margin-top:2px;padding:0;border-radius:50%;display:grid;place-items:center;overflow:hidden;isolation:isolate;border:1.5px solid #b9cde3;color:#7d93ad;background:#fff;box-shadow:0 2px 0 #c9d6e6;transition:border-color .15s,color .15s}
@@ -13145,7 +14609,7 @@ ${ctx || '(none)'}`;
 .gt .vn-pb.load::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;background:#9fd0f8;z-index:-1;animation:vn-fill var(--d,8s) linear var(--e,0s) forwards}
 @keyframes vn-fill{from{width:0}to{width:96%}}
 .gt .vn-pb.wait{border-color:var(--sky);border-style:dashed;color:var(--sky);background:var(--skl)}
-.gt .vn-pb.play{background:var(--sky);border-color:var(--sky);color:#fff;box-shadow:0 0 0 4px rgba(43,149,240,.18)}
+.gt .vn-pb.play,.gt .vn-turn:hover .vn-pb.play{background:var(--sky);border-color:var(--sky);color:#fff;box-shadow:0 0 0 4px rgba(43,149,240,.18)}
 .gt .vn-turn.play .vn-t{background:var(--skl);color:#14508a}
 .gt .vn-empty{display:flex;flex-direction:column;align-items:center;gap:6px;padding:24px 0;text-align:center}
 .gt .vn-empty b{font-family:"Gowun Batang","Nanum Myeongjo","Noto Serif KR",serif;font-size:17px;color:var(--ink2)}
@@ -13157,21 +14621,29 @@ ${ctx || '(none)'}`;
 .gt .vn-dots i:nth-child(2){animation-delay:.2s}
 .gt .vn-dots i:nth-child(3){animation-delay:.4s}
 @keyframes vn-dot{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-4px)}}
-.gt .vn-bot{flex:none;padding:12px 0;background:#fff;border-top:1px solid var(--ln);box-shadow:0 -10px 24px rgba(15,26,46,.06)}
+.gt .vn-bot{flex:none;padding:6px 0;background:#fff}
 .gt .vn-in{max-width:820px;margin:0 auto;padding:0 24px}
-.gt .vn-box{display:flex;align-items:flex-end;gap:10px;padding:5px 5px 5px 16px;border-radius:14px;border:1.5px solid var(--ln);background:#fff;transition:border-color .15s,box-shadow .15s}
+.gt .vn-box{display:flex;align-items:flex-end;gap:8px;padding:3px 3px 3px 14px;border-radius:12px;border:1.5px solid var(--ln);background:#fff;transition:border-color .15s,box-shadow .15s}
 .gt .vn-box:focus-within{border-color:var(--sky);box-shadow:0 0 0 4px rgba(43,149,240,.12)}
-.gt .vn-box .tk-ta,.gt .vn-box .tk-ta:focus,.gt .vn-box .tk-ta:focus-visible{flex:1 1 auto;min-height:0;padding:9px 0;border:0;border-radius:0;background:transparent;box-shadow:none;outline:none}
-.gt .vn-send{width:40px;height:40px;border-radius:12px;background:var(--co);box-shadow:0 6px 14px rgba(255,107,94,.35)}
-.gt .vn-send .vn-ic svg{width:20px;height:20px}
-.gt .vn-send:disabled{opacity:1;background:#f3c4bf;box-shadow:none}
+.gt .vn-box .tk-ta,.gt .vn-box .tk-ta:focus,.gt .vn-box .tk-ta:focus-visible{flex:1 1 auto;min-height:0;padding:5px 0;border:0;border-radius:0;background:transparent;box-shadow:none;outline:none}
+.gt .vn-send{width:32px;height:32px;border-radius:9px;background:var(--sky);box-shadow:0 3px 8px rgba(43,149,240,.3)}
+.gt .vn-send .vn-ic svg{width:16px;height:16px}
+.gt .vn-send:disabled{opacity:1;background:#b9dcfa;box-shadow:none}
+/* 5.2.0: 등장인물 분석 중에는 입력칸이 왼쪽부터 하늘색으로 차고(--p), 칩에 N%, 보내기 버튼은 ■ 멈추기 */
+.gt .vn-box.run{border-color:#bcdcfb;background:linear-gradient(90deg,var(--skl) var(--p,0%),#fff var(--p,0%))}
+.gt .vn-chip{flex:none;align-self:center;display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:99px;background:var(--sky);color:#fff;font-size:11.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gt .vn-box .tk-ta:disabled{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:not-allowed;background:transparent}
+.gt .vn-box .tk-ta:disabled::placeholder{color:#1d5bc4}
+.gt .vn-send.stop{background:var(--ink2);box-shadow:0 6px 14px rgba(15,26,46,.3)}
+.gt .vn-cmsg{margin:6px 4px 0;font-size:12.5px;font-weight:700}
+.gt .vn-cmsg.ok{color:#0f8a66}
+.gt .vn-cmsg.err{color:#d0453b}
 @media (max-width:600px){
-  .gt .vn-back{height:34px;padding:0 10px 0 6px}
-  .gt .vn-back small{display:none}
   .gt .vn-cast{left:8px;top:52px;max-height:calc(var(--stage,60%) - 120px);width:128px;padding:6px}
   .gt .vn-av,.gt .vn-cast .pa{min-height:32px;font-size:12px}
-  .gt .vn-pop{left:8px;top:52px}
   .gt .vn-tr{right:8px;top:8px;gap:6px}
+  .gt .vn-who{left:8px;top:8px;max-width:calc(100% - 180px)}
+  .gt .vn-pick .vn-ifc{width:42px;height:42px;font-size:16px}
   .gt .vn-dock{gap:4px;padding:6px 7px;bottom:10px}
   .gt .vn-di{width:30px}
   .gt .vn-di>span{display:none}
@@ -13179,7 +14651,7 @@ ${ctx || '(none)'}`;
   .gt .vn-vsep{margin:3px 1px}
   .gt .vn-col{padding:14px 12px 18px;gap:14px}
   .gt .vn-in{padding:0 10px}
-  .gt .vn-bot{padding:8px 0}
+  .gt .vn-bot{padding:5px 0}
   .gt .vn-me{max-width:85%}
   .gt .vn-t{font-size:15.5px}
 }
@@ -13190,16 +14662,17 @@ ${ctx || '(none)'}`;
     await checkKey();
     wantRoot();
     await syncListen();
-    return { pane, chipText, status, bar: btnHtml, onOpen, onClose, unload, ready: () => keyKnown === true && setupOf() >= SETUP.length,
+    return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), ready: () => keyKnown === true && setupOf() >= SETUP.length,
         lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false,
         talkReady, talkLit: () => talkReady() && !!st.set.talkAuto, talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
-        castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
+        castLlm: () => st.set.castLlm === 'submodel' ? 'submodel' : 'model', castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
         castPart, castProgress, castFoot, voiceMatch, voiceRows, voiceNames, setPart, castAutoRow, embed };
     }
 
     await loadPrefs();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkForget, naiKey, SIZES, presets: () => st.presets,
-        thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas }).catch(error => { console.error(LOG, 'voice', error); return null; });
+    await nsLoad();
+    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, introBody, nsfwWant: () => nsWant('talk'), nsfwSt: () => !!st.set.nsfw?.st, openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkForget, naiKey, SIZES, presets: () => st.presets,
+        thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeys: acFaceKeys }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
     const panelButtons = [];
@@ -13261,13 +14734,16 @@ ${ctx || '(none)'}`;
         if (outputOn) try { await api.removeRisuScriptHandler?.('output', onOutputText); } catch {}
         if (processOn) try { await api.removeRisuScriptHandler?.('process', stripProcess); } catch {}
         clearTimeout(settleTimer);
+        clearTimeout(ns.timer);
+        clearTimeout(ns.back);
+        ns.armed = false;
         clearInterval(acs.timer);
         if (acs.run) { acs.run.stop = true; acs.run.onStop(); }
         await rootStop;
         await voiceStop;
     });
     if (globalThis.__NC_TEST__ === true) {
-        globalThis.__NC_TEST__ = { voice: () => voice, st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, countLabel, countRange, rollCount, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete };
+        globalThis.__NC_TEST__ = { voice: () => voice, st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, countLabel, countRange, rollCount, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete, ns, nsCatch, nsDigest, nsBotTexts, nsCut, nsBody, nsBack, nsfwText, nsfwSum, finLine, nsTitle };
     }
     console.log(LOG, `v${VERSION} ready`);
 })().catch(error => {
