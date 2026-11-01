@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.4.0
+//@display-name 🎨 이매진 v5.4.2
 //@api 3.0
-//@version 5.4.0
+//@version 5.4.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.4.0';
+    const VERSION = '5.4.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -13791,7 +13791,7 @@ ${ctx || '(none)'}`;
             if (assetMode) { const img = talkAssetImg(v, name, got.asset, pool); if (img) v.talk[name].at(-1).img = img; }
             void saveTalk(v.tk, v.talk);
             talkLoreSoon(v.tk, w.ci, name);
-            if (!speak) T.view = '';
+            if (!speak || assetMode) T.view = '';
             if (!assetMode && st.set.talkAuto && st.set.talkWhen === 'every') void talkArt(v, name, v.talk[name].at(-1), 'new', true);
         } catch (error) {
             T.err = { name, text: '답을 받지 못했습니다. ' + String(error?.message ?? error) };
@@ -14393,7 +14393,6 @@ ${ctx || '(none)'}`;
 .gt .vz-back{height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
 .gt .vz-cta{height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
 .gt .vz-cta:hover:not(:disabled){transform:translateY(-2px)}
-.gt.gt-talk .vz-cta{background:var(--sky);box-shadow:0 8px 18px -10px rgba(43,149,240,.8)}
 .gt .vz-cta:disabled{opacity:.45;cursor:not-allowed}
 .gt .vz-key{padding:14px 16px;margin:0 0 16px;background:var(--skl);border-radius:12px}
 .gt .vz-key b{font-size:14px;color:var(--ink2)}
