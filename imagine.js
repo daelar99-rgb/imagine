@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.6.0
+//@display-name 🎨 이매진 v5.6.1
 //@api 3.0
-//@version 5.6.0
+//@version 5.6.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.6.0';
+    const VERSION = '5.6.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -53,6 +53,7 @@
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
     const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border';
+    const V2_STACK = '1.3::comic, 2koma, manga::, 1.3::2 panels stacked vertically, top panel and bottom panel, horizontal panel border::, white border';
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -1956,6 +1957,7 @@ Rules
                 chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
             });
         }
+        if (talkOv?.v2 && slots.length === 2) slots.forEach((sl, i) => { sl.prompt = `${i ? 'bottom panel' : 'top panel'},\n${sl.prompt}`; });
         for (const sl of slots) {
             sl.uc = joinTags(sl.uc, [...labels].filter(([k]) => !sl.keys.includes(k)).map(([, n]) => n));
             delete sl.keys;
@@ -1963,8 +1965,9 @@ Rules
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const single = slots.length === 1;
+        if (!single && talkOv?.v2) neg = joinTags(neg, 'side-by-side panels, vertical panel border');
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, !single && talkOv?.v2 ? '2koma' : '', dropNone(img.scene)),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : talkOv?.v2 ? V2_STACK : COMIC_TAGS, dropNone(img.scene)),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(slots.length, 2, talkOv?.v2 ? 2 : 4, 2),
             useCoords: false,
