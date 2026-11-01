@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.4.2
+//@display-name 🎨 이매진 v5.5.0
 //@api 3.0
-//@version 5.4.2
+//@version 5.5.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.4.2';
+    const VERSION = '5.5.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -915,7 +915,9 @@
                 first ??= v;
             }
         }
-        if (cut) throw askError('응답이 중간에 끊겨 JSON이 닫히지 않았습니다.', 'it was cut off before the JSON closed. Answer much shorter: fewer items and shorter strings');
+        if (cut) throw askError('응답이 중간에 끊겨 JSON이 닫히지 않았습니다.', want === 'cast'
+            ? 'it was cut off before the JSON closed. Keep every character, but write much shorter strings (fewer aliases, short tags)'
+            : 'it was cut off before the JSON closed. Answer much shorter: fewer items and shorter strings');
         if (first) return first;
         if (broken) throw askError(`응답의 JSON 문법이 깨져 있습니다 (${broken}).`, `its JSON could not be parsed: ${broken}`);
         throw askError(noJsonMessage(s), 'it contained no JSON object');
@@ -968,7 +970,7 @@
             const uniq = [...new Set(msgs)];
             if (lastError && !lastError.isStop) lastError.message = uniq.length > 1
                 ? msgs.map((m, i) => `${i + 1}번째: ${m}`).join(' / ')
-                : `${lastError.message} (${ASK_TRIES}번 시도)`;
+                : `${lastError.message} (${ASK_TRIES}회 시도)`;
             throw lastError;
         } finally {
             if (busy && label !== undefined) { busy.label = label; render(); }
@@ -1021,7 +1023,7 @@ ${COLOR_RULE}
 ${TAG_STYLE}`;
 
     const isIllust = () => (talkOv?.kind ?? st.set.kind) === 'illust';
-    const bubblesNow = () => !isIllust() && !!st.set.bubbles;
+    const bubblesNow = () => !isIllust() && !!(talkOv ? talkOv.bubbles : st.set.bubbles);
     const kindName = () => isIllust() ? '삽화' : '만화';
     const sizeNow = () => talkOv?.size ?? (SIZES[st.set.size] ? st.set.size : 'tall');
     const COUNT_MAX = 10;
@@ -1049,7 +1051,7 @@ ${TAG_STYLE}`;
     const PANEL_RULES = {
         one: `PANELS = 1 (one moment, no panel borders)
 - scene: the background and details only, in this order: "indoors" or "outdoors", then a simple place tag (e.g. "indoors, classroom"), then detail tags (lighting, time, weather, mood, background objects). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color; add only what this moment shows besides it. Danbooru tags plus up to 3 short sentences when tags alone cannot show the moment. No character appearance, no camera / framing (it goes in chars[].tags), no count tags (the app adds 1girl / 1boy counts itself), no names.
-- chars[].tags: Danbooru tags (a short phrase is fine for an action no tag covers), in this order: first expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then composition and pose (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — camera angle, pose, action; the gaze goes in chars[].gaze, not here). For interactions prefix tags with source#, target# or mutual# (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
+- chars[].tags: first a few Danbooru tags: expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then framing (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — then camera angle). Then the pose and action as 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, cowboy shot, from side, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". Name another character in the image only as @ followed by its chars[].name (e.g. "behind @boudica", "hugging @gojo from behind"), never a bare name; the app turns each @name into that character's label. For interactions also add source#, target# or mutual# tags (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
 - cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 3 or more, give each one a different cell (e.g. B3, C3 and D3 side by side; B3 and D3 on both sides of one at C4 in the middle; B4, D4 and C2 for one behind; A3, B3, D3 and E3 for four in a row). With 1 character write "C3": the app sends no position for a single character.`,
         comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
@@ -1057,7 +1059,7 @@ ${TAG_STYLE}`;
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 or more characters in one panel only when they physically interact (hug, handing something over, face to face).
   - who: every character in this panel (1 or more, no upper limit). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
-  - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: pose, action, gesture, expression and gaze. Use Danbooru tags, and words or short plain-English phrases, that show the exact moment, comma separated, about 10-30 words. E.g. "standing pose, arms crossed confidently, arrogant smug smile, looking down, one hand brushing her hair back". A character who speaks here gets "open mouth" or a speaking expression. No hair, eye, body or clothing tags: the app adds the looks from CAST.
+  - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: first a few Danbooru tags for the expression (e.g. "worried, open mouth"), then 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". A character who speaks here gets "open mouth" or a speaking expression. No hair color, eye color, body type or clothing tags: the app adds the looks from CAST.
   - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
   - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @key" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
 - Never use number words for panels (first, second, top panel...): the order of the panels array is the reading order.`,
@@ -1095,7 +1097,8 @@ ${TAG_STYLE}`;
   3. else that fighter fights bare-handed (a fighting stance, fists, a punch or kick; it does not have to land): its trail (e.g. "blue impact trail", "orange shockwave").
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
-    const panelRules = () => [isIllust() ? PANEL_RULES.one : PANEL_RULES.comic, askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
+    const comicRules = () => talkOv?.v2 ? PANEL_RULES.comic.replace('COMIC PAGE (2 to 4 panels, all drawn in this one image;', 'COMIC PAGE (1 or 2 panels stacked vertically, top then bottom, all drawn in this one portrait image;') : PANEL_RULES.comic;
+    const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
         const t = tidy(v).toLowerCase();
@@ -1170,6 +1173,7 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
+            : talkOv?.v2 ? '- panels: 1 or 2 entries per image, stacked vertically (panel 1 on top, panel 2 below). 1 for a single beat, 2 for setup → reaction. Never 3 or more.'
             : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
@@ -1846,6 +1850,10 @@ Rules
         }
         return out.join(',').trim().replace(/^,\s*|,\s*$/g, '');
     }
+    const splitAct = t => {
+        const parts = String(t ?? '').split(','), at = parts.findIndex(s => tidy(s).split(' ').length >= 5);
+        return at < 0 ? [String(t ?? ''), ''] : [parts.slice(0, at).join(','), parts.slice(at).map(tidy).filter(Boolean).join(', ')];
+    };
     const dropTags = (text, tokens) => String(text ?? '').split(',').filter(s => !tokens.includes(tagCore(s))).join(',').replace(/,\s*,/g, ',');
     const GAZE_RE = /^(looking (?!back\b)|eye contact$|staring\b|gazing\b|closed eyes$|eyes closed$)/;
     const isGazeTag = s => GAZE_RE.test(tagCore(s));
@@ -1860,7 +1868,7 @@ Rules
         return SAY_RE.test(s.slice(s.lastIndexOf('\n') + 1)) ? `${s.replace(/\s+$/, '')} ` : `${s.replace(/[,\s]+$/, '')}, `;
     };
     const LABEL_RE = /^(?:char\d+|[^:\n,+()]+ \([^)\n]+\)):/m;
-    const addToLine = (line, add, whole = line) => /\s\+\s/.test(whole) || LABEL_RE.test(whole) ? withTags(line, add) : joinTags(line, add);
+    const addToLine = (line, add, whole = line) => /\s\+\s/.test(whole) || LABEL_RE.test(whole) ? [tidy(line), withTags(add)].filter(Boolean).join(TAG_JOIN) : joinTags(line, add);
     function addBeforeText(prompt, add) {
         const s = String(prompt ?? ''), at = s.search(SAY_RE);
         if (!tidy(add)) return s;
@@ -1883,7 +1891,7 @@ Rules
     function checkLang(images, text) {
         const src = flatText(text);
         for (const img of images) {
-            if (CJK_RE.test(String(img.scene ?? '')) || (Array.isArray(img.chars) ? img.chars : []).some(c => CJK_RE.test(String(c?.tags ?? ''))))
+            if (CJK_RE.test(String(img.scene ?? '')) || (Array.isArray(img.chars) ? img.chars : []).some(c => CJK_RE.test(String(c?.tags ?? '').replace(/@[^\s,']+/g, ''))))
                 console.warn(LOG, 'prompt is not English', img.title, img.scene);
             for (const b of Array.isArray(img.bubbles) ? img.bubbles : [])
                 if (tidy(b?.text) && !src.includes(flatText(b.text))) console.warn(LOG, 'bubble is not verbatim', b.text);
@@ -1910,7 +1918,7 @@ Rules
         const kindOf = x => x.e ? x.type : x.name;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
-            if (slots.length >= 4) break;
+            if (slots.length >= (talkOv?.v2 ? 2 : 4)) break;
             const who = [];
             for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
                 const e = findCast(cast, name);
@@ -1931,9 +1939,11 @@ Rules
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = line && who.length ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-            const sayWho = sayAt >= 0 ? labelOf(who[sayAt]) : '';
-            const say = line ? `${sayWho ? `${sayWho}'s text` : 'Text'}: ${line} ` : '';
-            const personLine = k => `${labelOf(who[k])}: ${[mergeTags(kindOf(who[k]), idents[k], acts[k]).join(TAG_JOIN), k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+            const say = line ? `speech bubble with Text: ${line} ` : '';
+            const personLine = k => {
+                const [tg, prose] = splitAct(acts[k]);
+                return `${labelOf(who[k])}: ${[mergeTags(kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+            };
             const lines = [who.length ? `${head},` : '', cam ? `${cam},` : ''].filter(Boolean);
             if (who.length) {
                 for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
@@ -1954,9 +1964,9 @@ Rules
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const single = slots.length === 1;
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, !single && talkOv?.v2 ? '2koma' : '', dropNone(img.scene)),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: single ? 1 : clampInt(slots.length, 2, 4, 2),
+            slots, w, h, panels: single ? 1 : clampInt(slots.length, 2, talkOv?.v2 ? 2 : 4, 2),
             useCoords: false,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
@@ -2005,7 +2015,7 @@ Rules
         const at = line.search(SAY_RE);
         const head = at < 0 ? line : line.slice(0, at), tail = at < 0 ? '' : line.slice(at);
         const j = /\s\+\s/.test(line) ? TAG_JOIN : ' with ';
-        const out = head.split(',').map(part => part.split(/\s+(?:with|\+)\s+/)
+        const out = head.split(',').map(part => part.split(j === TAG_JOIN ? /\s+\+\s+/ : /\s+(?:with|\+)\s+/)
             .map(a => /::|\([^)]*\)/.test(a) ? a.trim() : a.replace(COLOR_RE, '').replace(/\s+/g, ' ').trim()).filter(a => a && !BARE_RE.test(a) && a !== '+').join(j)).filter(Boolean).join(', ');
         if (tail) return out ? `${out}${j}${tail}` : tail;
         const end = head.match(/,[ \t]*$/)?.[0];
@@ -2086,20 +2096,23 @@ Rules
         const withGaze = (c, tags) => {
             if (!one) return tags;
             const gaze = dropViewer(c.gaze);
-            if (gaze) return joinTags(dropGaze(tags), gaze);
+            if (gaze) { const [tg, prose] = splitAct(dropGaze(tags)); return joinTags(tg, gaze, prose); }
             if (chars.length >= 2 && !hasGaze(tags)) return joinTags(tags, 'looking at another');
             return tags;
         };
+        const ilRefs = chars.flatMap(({ c, e }, i) => [...new Set([tidy(c?.name), e?.name, e?.key, ...(e?.keys ?? [])])].filter(Boolean)
+            .map(n => [n, tidy(e?.canon) || `char${i + 1}`])).sort((a, b) => b[0].length - a[0].length);
+        const ilRef = t => ilRefs.reduce((r, [n, k]) => r.replace(new RegExp(`@${escapeRe(n)}`, 'gi'), k), String(t ?? '')).replace(/@(?=\S)/g, '');
         const slots = chars.map(({ c, e, monster }) => {
             if (monster) {
                 const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
-                return { prompt: withGaze(c, dropViewer(c.tags)), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type: 'monster', name: tidy(c.name) || 'monster' };
+                return { prompt: withGaze(c, dropViewer(ilRef(c.tags))), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type: 'monster', name: tidy(c.name) || 'monster' };
             }
             const type = e?.type ?? (['girl', 'boy', 'other'].includes(c.type) ? c.type : 'girl');
             const ident = e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k))
                 : identTags(type, c.look, k => isNone(slotVal(k, c[k])) ? '' : slotVal(k, c[k]), k => isNone(slotVal(k, c[k])));
             if (tidy(e?.canon)) ident.splice(1, 0, tidy(e.canon));
-            const tags = one ? withGaze(c, dropViewer(dropNone(c.tags))) : '';
+            const tags = one ? withGaze(c, dropViewer(dropNone(ilRef(c.tags)))) : '';
             const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
             return { prompt: mergeTags(ident, tags).join(', '), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type, name: e?.name ?? tidy(c.name) };
         });
@@ -2642,24 +2655,26 @@ Rules
     }
     function talkJob(job, plan) {
         const I = ilAvg('img', acAvg(IL_IMG_SEC));
-        Object.assign(job, { stop: false, stage: 0, step: null, steps: 28, at: Date.now(), label: '', est: { P: plan ? ilAvg(planKey(st.set.llm), 20) : 0, I, L: 0.65 * I, S: 0, n: 1 } });
+        Object.assign(job, { stop: false, stage: 0, step: null, steps: 28, at: Date.now(), label: '', est: { P: plan ? ilAvg(planKey(job.llm ?? st.set.llm), 20) : 0, I, L: 0.65 * I, S: 0, n: 1 } });
         job.halt = new Promise(resolve => { job.onStop = resolve; });
         job.cancel = () => { if (!job.stop) { job.stop = true; job.onStop?.(); } };
         job.progress = () => {
             const e = job.est, sec = Math.max(0, (Date.now() - job.at) / 1000);
-            const done = job.stage === 0 ? (e.P > 0 ? e.P * Math.min(0.97, sec / e.P) : 0) : e.P + ilImgPart(job, e, sec);
-            return { done, total: e.P + e.I };
+            const done = job.stage === 0 ? (e.P > 0 ? e.P * Math.min(0.97, sec / e.P) : 0) : e.P + ((job.i ?? 1) - 1) * e.I + ilImgPart(job, e, sec);
+            return { done, total: e.P + (e.n || 1) * e.I };
         };
         return job;
     }
     async function talkWith(o, job, fn) {
         if (job.stop) throw stopError();
         if (!(await naiKey())) throw new Error('NAI 키가 없습니다. 삽화 › 준비에서 넣어 주세요.');
-        talkOv = { kind: o.kind === 'comic' ? 'comic' : 'illust', size: SIZES[o.size] ? o.size : 'wide', preset: st.presets.some(p => p.id === o.preset) ? o.preset : '' };
+        const v2 = o.kind === 'comic2';
+        talkOv = { kind: o.kind === 'comic' || v2 ? 'comic' : 'illust', v2, size: v2 ? 'tall' : SIZES[o.size] ? o.size : 'wide', preset: st.presets.some(p => p.id === o.preset) ? o.preset : st.presets[0]?.id ?? '', bubbles: o.bubbles !== false };
         try { return await fn(); } finally { talkOv = null; }
     }
-    async function talkNai(job, req) {
+    async function talkNai(job, req, i = 1) {
         job.stage = 1;
+        job.i = i;
         job.at = Date.now();
         job.step = null;
         const seed = randSeed();
@@ -2683,7 +2698,11 @@ Rules
         return { path, ext, seed, req };
     }
     function talkDraw(o, job) {
+        job.rail = 'talk';
+        job.llm = o.llm === 'model' || o.llm === 'submodel' ? o.llm : st.set.llm;
         talkJob(job, true);
+        const v2 = o.kind === 'comic2';
+        if (v2) job.est.n = 2;
         return inQueue(() => talkWith(o, job, async () => {
             const char = await api.getCharacterFromIndex(o.ci);
             if (!char || char.chaId !== o.chaId) throw new Error('대화 중인 봇을 찾지 못했습니다.');
@@ -2737,8 +2756,10 @@ Rules
             const sc = sceneCast(cast.list, `${o.name}\n${sceneText(chat, idx, input)}`);
             console.log(LOG, 'talk scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
             const user = comicUser(char, chat, idx, cast, state, st.persona?.name, input, false, null, '', sc)
-                + `\n\n# TALK SCENE\nThis is a one-on-one spoken conversation between ${st.persona?.name || 'User'} and ${o.name}. Draw the moment of the target message as 1 image${isIllust() ? '' : ' (one comic page)'} with ${o.name} as the main subject.`;
-            const plan = await askJson(comicSystem(false, !!input, false, false, 1), user, 'images',
+                + `\n\n# TALK SCENE\nThis is a one-on-one spoken conversation between ${st.persona?.name || 'User'} and ${o.name}. ${v2
+                    ? `Draw the moment of the target message as 2 images: two portrait comic pages shown side by side, image 1 on the left and image 2 on the right, in story order (image 2 continues right after image 1). Each page has 1 or 2 panels stacked vertically, top then bottom. ${o.name} is the main subject.`
+                    : `Draw the moment of the target message as 1 image${isIllust() ? '' : ' (one comic page)'} with ${o.name} as the main subject.`}`;
+            const plan = await askJson(comicSystem(false, !!input, false, false, v2 ? 2 : 1), user, 'images',
                 v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.', job);
             if (job.stop) throw stopError();
             if (sc.rest.length && Array.isArray(plan?.state?.cast)) plan.state.cast = plan.state.cast.filter(raw => !sc.rest.includes(findCast(cast, raw?.name)));
@@ -2746,12 +2767,17 @@ Rules
             const fresh = await resolveUnknown(char, plan, cast, state, here);
             if (job.stop) throw stopError();
             if (applyState(plan, cast, state, fresh, null) || fresh.size || fresh.changed) await saveCast(chaId, cast);
-            let img = (Array.isArray(plan.images) ? plan.images : []).find(x => x && typeof x === 'object');
-            if (!img) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
-            if (tidy(plan.genre) && !tidy(img.genre)) img = { ...img, genre: plan.genre };
-            checkLang([img], plainText(msgs[idx].data, 8000));
-            if (job.est.P) ilPush(planKey(st.set.llm), (Date.now() - job.at) / 1000);
-            const out = await talkNai(job, buildReq(img, cast, state));
+            const imgs = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object').slice(0, v2 ? 2 : 1)
+                .map(img => tidy(plan.genre) && !tidy(img.genre) ? { ...img, genre: plan.genre } : img);
+            if (!imgs.length) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
+            checkLang(imgs, plainText(msgs[idx].data, 8000));
+            if (job.est.P) ilPush(planKey(job.llm), (Date.now() - job.at) / 1000);
+            job.est.n = imgs.length;
+            const out = await talkNai(job, buildReq(imgs[0], cast, state), 1);
+            if (imgs[1]) {
+                const out2 = await talkNai(job, buildReq(imgs[1], cast, state), 2);
+                Object.assign(out, { path2: out2.path, ext2: out2.ext, seed2: out2.seed, req2: out2.req });
+            }
             all[o.name] = state;
             await Promise.resolve(api.pluginStorage.setItem(talkStateKey(tk), all)).catch(() => {});
             return out;
@@ -6759,7 +6785,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
             vm ? null : renderProgress(),
             st.err && ui.side === 'cast' ? h('div', { class: 'ix-msg err' }, st.err) : null);
         if (vm) { add(pane, voice.embed([...voice.castProgress(), ...voice.castPart()], true)); return pane; }
-        if (tm) add(pane, voice.embed(voice.castProgress(), true));
+        if (tm) add(pane, voice.embed(voice.castProgress(), true, 'gt-mid'));
         const matched = new Set();
         const voiceTail = () => {
             if (!tm) return null;
@@ -7096,6 +7122,21 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                     msg),
                 h('button', { class: 'cf-dev-go', type: 'button', onclick: go }, '깃허브 열기 ↗'));
         };
+        const shared = text => h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, text));
+        const genreRow = () => row('sw', '장르 태그', '모델이 그림마다 장르를 고르면 그 장르의 태그를 붙입니다.',
+                    null,
+                    toggle(s.genre !== false, () => setVal('genre', s.genre === false)));
+        const dynRow = () => row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 그림체가 「이매진 그림체」일 때만 동작합니다.',
+                    null,
+                    toggle(s.dynamic !== false, () => setVal('dynamic', s.dynamic === false)));
+        const ubtnRow = () => row('', '답변 아래 버튼', '봇 답변 아래에 두는 알약 버튼입니다. 「생성」을 누르면 씬 재구성으로 그립니다. 모델이 그 답변의 장면부터 다시 고르고 이어서 그립니다. 이미 그림이 있어도 같습니다. 음성 키가 있으면 같은 알약에 읽기(스피커)가 붙고, 보관한 소리가 있으면 ↻(새로 만들기)도 붙습니다. 만들거나 트는 중에 같은 칸을 누르면 멈춥니다.',
+                    '「안 씀」이면 알약을 두지 않고 자동 그리기 · 자동 읽기와 이 창의 「삽화 목록」 탭으로만 씁니다. 삽화 › 준비를 마치기 전에 「생성」을 누르면 이 창의 삽화 › 준비를 엽니다.',
+                    seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.ubtn, v => setVal('ubtn', v)));
+        const sizeRows = () => [
+                sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.', PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
+                sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.', MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v)),
+                h('div', { class: 'cf-row' }, h('div', { class: 'cf-tx' }, note('', '고른 크기는 봇의 기본 변수 nc_pc · nc_mo 에 적고 지금 채팅을 바로 다시 그려 반영합니다. 답변이 나오는 중이면 끝난 뒤에 다시 그립니다. 1.2.0 이하에서 넣은 그림은 그 답변을 다시 그려야 크기가 바뀝니다.')))];
+        const webpRow = () => row('sw', 'WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다. 삽화 · 애드 에셋 · 대화 그림에 함께 씁니다.', null, toggle(s.webp, () => setVal('webp', !s.webp)));
         const gKey = grp('NovelAI 키',
                 row('col', 'NAI API 키', 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 키를 넣습니다.',
                     '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
@@ -7108,28 +7149,20 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 row('col', '해상도', '모든 그림이 이 크기로 나옵니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                     seg(SIZE_OPTS, sizeNow(), v => setVal('size', v))),
                 s.kind !== 'illust' ? row('sw', '말풍선', '답변에 있는 대사를 말풍선으로 넣습니다.',
-                    '대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 칸 끝에 「char1’s text: 대사」로 붙고(원작 인물은 원작 태그), 나레이션은 칸 하나에 「Text: 대사」로 들어갑니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
+                    '대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 줄 끝에 「speech bubble with Text: 대사」로 붙습니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
                     toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))) : null,
                 row('sw', '유저 인풋 우선', '유저 입력이 부른 장면을 먼저 그립니다.',
                     '유저 입력은 이 설정과 상관없이 늘 참고로 보냅니다. 켜면 첫 장(만화 한 장이면 첫 컷)은 유저 입력이 그리는 순간이고, 나머지는 그 반응입니다. 유저 입력이 다른 인물의 행동을 지시해도 그 장면을 그립니다. 첫 컷 대사는 유저 입력에서 옮길 수 있습니다. 답변과 어긋나면 답변을 따릅니다. 바로 앞이 유저 입력이 아니면(첫 메시지 · 이어 쓰기) 끈 것과 같습니다.',
                     toggle(s.userFirst, () => setVal('userFirst', !s.userFirst))),
-                row('sw', '장르 태그', '모델이 그림마다 장르를 고르면 그 장르의 태그를 붙입니다.',
-                    null,
-                    toggle(s.genre !== false, () => setVal('genre', s.genre === false))),
-                row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 그림체가 「이매진 그림체」일 때만 동작합니다.',
-                    null,
-                    toggle(s.dynamic !== false, () => setVal('dynamic', s.dynamic === false))),
+                genreRow(),
+                dynRow(),
                 dynMinRow(),
                 row('sw', '다시 그려도 기존 그림 남기기', '다시 그리거나 씬 재구성해도 옛 그림을 봇 에셋에서 지우지 않습니다. 답변에는 새 그림만 보이고, 옛 그림은 삽화 목록의 「지운 답변」 필터에서 보거나 지울 수 있습니다.',
                     null,
                     toggle(!!s.keepOld, () => setVal('keepOld', !s.keepOld))));
         const gChat = grp('채팅 속 그림',
-                row('', '답변 아래 버튼', '봇 답변 아래에 두는 알약 버튼입니다. 「생성」을 누르면 씬 재구성으로 그립니다. 모델이 그 답변의 장면부터 다시 고르고 이어서 그립니다. 이미 그림이 있어도 같습니다. 음성 키가 있으면 같은 알약에 읽기(스피커)가 붙고, 보관한 소리가 있으면 ↻(새로 만들기)도 붙습니다. 만들거나 트는 중에 같은 칸을 누르면 멈춥니다.',
-                    '「안 씀」이면 알약을 두지 않고 자동 그리기 · 자동 읽기와 이 창의 「삽화 목록」 탭으로만 씁니다. 삽화 › 준비를 마치기 전에 「생성」을 누르면 이 창의 삽화 › 준비를 엽니다.',
-                    seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.ubtn, v => setVal('ubtn', v))),
-                sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.', PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
-                sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.', MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v)),
-                h('div', { class: 'cf-row' }, h('div', { class: 'cf-tx' }, note('', '고른 크기는 봇의 기본 변수 nc_pc · nc_mo 에 적고 지금 채팅을 바로 다시 그려 반영합니다. 답변이 나오는 중이면 끝난 뒤에 다시 그립니다. 1.2.0 이하에서 넣은 그림은 그 답변을 다시 그려야 크기가 바뀝니다.'))),
+                ubtnRow(),
+                sizeRows(),
                 row('sw', '이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '두 메뉴의 버튼은 그대로 있습니다.',
                     toggle(s.panelBtn, () => setVal('panelBtn', !s.panelBtn))),
                 s.kind === 'illust' ? row('', '다 그리면 스크롤', '삽화를 다 그린 뒤 채팅 화면을 옮길 자리입니다. 「마지막 채팅 맨 위」는 그림을 넣은 답변의 맨 위로, 「그린 그림」은 그 그림으로(여러 장이면 맨 위 그림) 갑니다. 「리수 기본」은 옮기지 않습니다.',
@@ -7142,14 +7175,15 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 row('col', '봇의 기존 그림 숨기기', '이 봇의 백그라운드 임베딩 · 정규식 · Lua 트리거에서 에셋 그림을 띄우는 곳을 모델이 찾아 숨기고, 메시지 · 첫 메시지에 바로 쓴 에셋 그림({{img::…}} 등)도 화면에서 지웁니다. 이 봇에만 적용됩니다. (봇 정규식이 복잡하면 적용되지 않을 수 있습니다)',
                     null,
                     hideControls()));
-        const gCast = grp('등장인물 분석',
-                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '📖 등장인물 분석과, 캐스트에 없는 인물을 로어북에서 다시 찾을 때 쓰는 제한입니다. 0 이나 빈칸이면 제한하지 않습니다.')),
-                voice ? voice.embed([voice.castAutoRow()]) : null,
+        const castGrp = auto => grp('등장인물 분석',
+                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '📖 등장인물 분석과, 캐스트에 없는 인물을 로어북에서 다시 찾을 때 쓰는 제한입니다. 0 이나 빈칸이면 제한하지 않습니다. 등장인물은 모든 앱이 함께 씁니다.')),
+                auto && voice ? voice.embed([voice.castAutoRow()]) : null,
                 limitRow('로어북 글자 수', '로어북이 이 글자 수를 넘으면 뒤쪽 항목은 보내지 않습니다.',
                     '로어북이 아주 길면 모델이 입력 길이 한도를 넘어 거절할 수 있습니다. 그럴 때 60000 같은 값을 넣습니다. 봇 설명 · 페르소나에는 따로 제한이 있습니다.',
                     'loreMax', '자'),
                 limitRow('인물 수', '모델이 중요한 인물부터 이 수만큼만 돌려줍니다.', '제한이 없으면 모델이 외모가 나오는 인물을 모두 돌려줍니다.', 'castMax', '명'));
         const gHead = grp('모델에게 주는 지시',
+                shared('삽화와 대화 그림의 연출 모델에 함께 보냅니다.'),
                 row('col', '프롬프트 맨 위', '장면 모델에게 보내는 지시문 맨 앞에 그대로 넣습니다.',
                     '로어북 읽기와 장면 고르기 모두에 들어가고, 기본 규칙과 부딪히면 이 글을 먼저 따르게 합니다. 비워 두면 보내지 않습니다.',
                     h('textarea', {
@@ -7160,25 +7194,28 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                 row('col', '프롬프트 맨 아래 (덧붙일 지시)', '요청 맨 끝에 덧붙입니다. 예) 배경을 자세히 / 코믹한 표정 위주로', null,
                     h('textarea', { class: 'cf-ta', style: 'min-height:64px', 'aria-label': '프롬프트 맨 아래', oninput: textSet('extra') }, s.extra)));
         const gSave = grp('저장',
-                row('sw', 'WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다.', null, toggle(s.webp, () => setVal('webp', !s.webp))),
+                webpRow(),
                 row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 열두 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
                     null,
                     toggle(s.vars, () => setVal('vars', !s.vars))));
         const gAsset = grp('모델 · 그림체',
-            h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '애드 에셋의 분석 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다. 초상화 크기는 공통 「채팅 속 그림」의 가로 길이를 따릅니다.')));
+            h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '애드 에셋의 분석 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다.')));
         const SECS = {
-            common: ['공통', [gKey, gChat, gHead, gSave]],
-            cast: ['등장인물 분석', [gCast]],
-            imagine: ['삽화', [gDraw, gBot]],
-            asset: ['애드 에셋', [gAsset]],
-            voice: ['음성', voice ? [voice.embed(voice.setPart('voice'), true)] : []],
-            talk: ['대화', voice ? [voice.embed(voice.setPart('talk'))] : []],
+            imagine: ['삽화', () => [gKey, gDraw, gChat, gBot, castGrp(false), gHead, gSave]],
+            asset: ['애드 에셋', () => [gKey, gAsset,
+                grp('초상화 크기', shared('삽화 그림과 같은 가로 길이를 씁니다.'), sizeRows()),
+                castGrp(false), grp('저장', webpRow())]],
+            voice: ['음성', () => voice ? [voice.embed(voice.setPart('voice'), true),
+                grp('채팅 속 버튼', shared('읽기 버튼은 삽화의 「생성」과 같은 알약에 붙습니다. 삽화 설정에도 같은 줄이 있습니다.'), ubtnRow()),
+                castGrp(true)] : []],
+            talk: ['대화', () => voice ? [voice.embed(voice.setPart('talk')), gKey,
+                grp('그림 공통', shared('삽화와 함께 쓰는 값입니다. 여기서 바꾸면 삽화에도 반영됩니다.'), genreRow(), dynRow(), dynMinRow()),
+                gHead, castGrp(true), grp('저장', webpRow())] : []],
         };
-        const order = [ui.mode, ...['common', 'cast', 'imagine', 'asset', 'voice', 'talk'].filter(m => m !== ui.mode)];
+        const sec = SECS[ui.mode] ?? SECS.imagine;
         add(pane,
-            order.filter(m => SECS[m]?.[1].length).map(m => [
-                h('div', { class: 'cf-sec' }, SECS[m][0], m === ui.mode ? h('small', null, '지금 모드') : null),
-                SECS[m][1]]),
+            h('div', { class: 'cf-sec' }, sec[0] + ' 설정', h('small', null, '이 앱의 설정만 보입니다')),
+            sec[1](),
             devRow(),
             st.sizeNote ? h('div', { class: 'sz-bar', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'sz-tx ' + st.sizeNote.cls }, st.sizeNote.text)) : null,
         );
@@ -10570,7 +10607,7 @@ Rules:
         Kore: 'A firm, mid-pitched female voice, steady and assertive. Suits strong-willed leaders and serious women.',
         Laomedeia: 'An upbeat, higher-pitched female voice, energetic and playful. Suits cheerful, bubbly girls.',
         Leda: 'A youthful, higher-pitched female voice, fresh and light. Suits teenage girls and young heroines.',
-        Pulcherrima: 'A forward, mid-pitched female voice, direct and projecting. Suits bold, outspoken women.',
+        Pulcherrima: 'A forward, mid-pitched voice listed as female but sounding masculine, direct and projecting. Suits boyish, androgynous or tomboyish characters.',
         Sulafat: 'A warm, mid-pitched female voice, kind and comforting. Suits caring, affectionate women.',
         Vindemiatrix: 'A gentle, mid-pitched female voice, soft-spoken and calm. Suits kind, quiet or graceful women.',
         Zephyr: 'A bright, higher-pitched female voice, sunny and energetic. Suits lively, optimistic young women.',
@@ -10591,6 +10628,7 @@ Rules:
         Umbriel: 'An easy-going, lower-middle male voice, relaxed and casual. Suits laid-back, gentle men.',
         Zubenelgenubi: 'A casual, lower-middle male voice, natural and conversational. Suits ordinary young men in everyday talk.',
     };
+    const BASE_NOTE = { Pulcherrima: '남성적' };
     const MALE = ['Achird', 'Algenib', 'Algieba', 'Alnilam', 'Charon', 'Enceladus', 'Fenrir', 'Iapetus', 'Orus', 'Puck', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar', 'Umbriel', 'Zubenelgenubi'];
     const MODELS = [
         ['gemini-3.8-flash-tts', '3.8 Flash'],
@@ -10600,7 +10638,8 @@ Rules:
         ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
     ];
     const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'submodel', talkSpeak: true, talkLink: true, setup: 0, talkSetup: 0,
-        talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai' };
+        talkAuto: true, talkWhen: 'every', talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai',
+        talkLlm: 'submodel', talkBubbles: true };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
     const STYLE_MAX = 300;
     const DEF_BOT = { narrator: 'Aoede', narrStyle: '라디오 아나운서처럼 또렷하고 안정된 목소리로, 알맞은 속도로 읽어 주세요.', talkStyle: '장면의 감정에 맞게, 연기하듯 자연스럽게 말해 주세요.', voices: {} };
@@ -10652,6 +10691,14 @@ Rules:
         if (!st.set.t51) { if (Number(st.set.talkSetup) >= 3) st.set.talkSetup = 4; st.set.t51 = true; }
         if (!st.set.t53) { for (const k of ['setup', 'talkSetup']) { const n = Number(st.set[k]) || 0; st.set[k] = n === 0 ? 0 : n + 2; } st.set.t53 = true; }
         if (!st.set.t54) { const n = Number(st.set.talkSetup) || 0; if (n >= 4) st.set.talkSetup = n + 1; st.set.t54 = true; }
+        if (!st.set.t55) {
+            const m = host.mainArt?.() ?? {};
+            if (!st.set.talkPreset && m.preset) st.set.talkPreset = m.preset;
+            st.set.talkLlm = m.llm === 'model' ? 'model' : 'submodel';
+            st.set.talkBubbles = m.bubbles !== false;
+            st.set.t55 = true;
+            void saveSet();
+        }
     }
     async function botOf(chaId) {
         if (st.bots.has(chaId)) return st.bots.get(chaId);
@@ -11182,8 +11229,6 @@ Rules:
         return { voice: r.voices.map(v => ({ speakerAlias: aliasOf.get(v), speakerId: v })), text, prompt, turns: r.turns };
     }
 
-    const LORE_MAX = 60000;
-    const CAST_MAX = 30;
     async function userName() {
         try {
             const v = String((await api.parseRisuChat?.('{{user}}')) ?? '').trim();
@@ -11243,13 +11288,13 @@ Rules:
             if (!body) continue;
             const keys = String(e.key ?? '').trim();
             lore +=`### ${String(e.comment ?? '').trim() || '(untitled)'}${keys ? ` (keys: ${keys})` : ''}\n${body}\n\n`;
-            if (lore.length > LORE_MAX) { lore = lore.slice(0, LORE_MAX) + '\n…(truncated)'; break; }
+            if (loreMaxNow() && lore.length > loreMaxNow()) { lore = lore.slice(0, loreMaxNow()) + '\n…(truncated)'; break; }
         }
         const part = (title, t, max) => { const x = clean(t); return x ? `## ${title}\n${x.slice(0, max)}` : ''; };
         return [`# BOT: ${char?.name ?? ''}`, part('Description', char?.desc, 12000), part('Personality', char?.personality, 3000), part('Scenario', char?.scenario, 3000),
             part('First message', first, 8000), lore.trim() ? `## Lorebook\n${lore.trim()}` : ''].filter(Boolean).join('\n\n');
     }
-    const CAST_SYSTEM = `You prepare the cast list for a text-to-speech reader of a roleplay story.
+    const CAST_SYSTEM = () => `You prepare the cast list for a text-to-speech reader of a roleplay story.
 Read STORY (the bot's description, first message and lorebook) and list every character who may speak in it.
 Reply with JSON only, no prose:
 {"cast":[{"name":"Name","aliases":["other name"],"gender":"female","voice":"voice id","style":"voice direction"}]}
@@ -11263,7 +11308,7 @@ Rules:
   Base it on the character's personality and role, not on one scene's mood. Do not quote lines or name other characters.
   Example: "20대 초반 여성. 맑고 약간 높은 음색에 말이 빠르다. 밝고 장난스럽지만 말끝을 살짝 끄는 버릇이 있다."
   Use "" for KNOWN SPEAKERS marked "has voice".
-- At most 30 people, the most important first.`;
+- ${castMaxNow() ? `At most ${castMaxNow()} people, the most important first.` : 'List every one of them, the most important first. Do not stop early: a long lorebook can have dozens of people.'}`;
     function parseCast(out, user) {
         let j = null, list = null;
         const a = out.indexOf('{'), b = out.lastIndexOf('}');
@@ -11273,6 +11318,8 @@ Rules:
             const c = out.indexOf('['), d = out.lastIndexOf(']');
             if (c >= 0 && d > c) try { list = JSON.parse(out.slice(c, d + 1)); } catch {}
         }
+        let cut = false;
+        if (!list) { list = castObjects(out); cut = true; }
         const clean = x => String(x ?? '').replace(/["“”「」『』]/g, '').trim().slice(0, 40);
         const lower = x => x.toLowerCase();
         const skip = n => !n || /^narrator$|^내레이션$|^나레이션$|^user$|^\{\{user\}\}$/i.test(n) || (user && lower(n) === lower(user));
@@ -11292,9 +11339,25 @@ Rules:
                 voice: String(x?.voice ?? '').trim(),
                 style: String(x?.style ?? '').replace(/\s+/g, ' ').trim().slice(0, STYLE_MAX),
             });
-            if (cast.length >= CAST_MAX) break;
+            if (castMaxNow() && cast.length >= castMaxNow()) break;
         }
+        cast.cut = cut;
         return cast;
+    }
+    function castObjects(out) {
+        const s = String(out ?? '');
+        const at = s.search(/"cast"\s*:\s*\[/);
+        const list = [];
+        let depth = 0, start = -1, str = false, esc = false;
+        for (let i = at < 0 ? 0 : s.indexOf('[', at) + 1; i < s.length; i++) {
+            const ch = s[i];
+            if (str) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') str = false; continue; }
+            if (ch === '"') str = true;
+            else if (ch === '{') { if (!depth++) start = i; }
+            else if (ch === '}' && depth > 0 && !--depth) { try { list.push(JSON.parse(s.slice(start, i + 1))); } catch {} }
+            else if (ch === ']' && !depth) break;
+        }
+        return list;
     }
     function mergeCast(bot, list, pool) {
         const byId = new Map(pool.map(v => [v.id.toLowerCase(), v]));
@@ -11375,6 +11438,7 @@ Rules:
     let cast = null;
     let castChanged = () => {};
     const castTried = new Set();
+    const CAST_ROUNDS = 4;
     const CAST_STAGE = ['로어북 읽는 중', '목소리 목록 받는 중', '등장인물 분석 중', '인물 정리 중', '본편 대사 모으는 중'];
     async function analyzeCast(w, onStage = () => {}, job = null) {
         const chaId = w?.char?.chaId;
@@ -11399,13 +11463,27 @@ Rules:
             const bot = await botOf(chaId);
             const pool = castPool(bot);
             step(2);
-            const out = await guard(askModel([
-                { role: 'system', content: CAST_SYSTEM },
-                { role: 'user', content: `MAIN CHARACTER (the bot): ${w.char.name ?? ''}\nUSER NAME (the player, leave out): ${user || '(unknown)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}\n\nSTORY:\n${botContextOf(w.char, w.chat, entries, user)}` },
-            ], st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
-            if (run.stop) throw stopError();
+            const story = botContextOf(w.char, w.chat, entries, user);
+            const list = [];
+            for (let round = 0; round < CAST_ROUNDS; round++) {
+                const have = list.flatMap(c => [c.name, ...c.aliases]);
+                const out = await guard(askModel([
+                    { role: 'system', content: CAST_SYSTEM() },
+                    { role: 'user', content: `MAIN CHARACTER (the bot): ${w.char.name ?? ''}\nUSER NAME (the player, leave out): ${user || '(unknown)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}\n\nSTORY:\n${story}`
+                        + (round ? `\n\nALREADY LISTED (your previous answer was cut off; do not repeat these people or their voices. List only the people still missing, or {"cast":[]} when none are left): ${list.map(c => c.name + (c.voice ? ` (voice ${c.voice})` : '')).join(', ')}` : '') },
+                ], st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
+                if (run.stop) throw stopError();
+                const got = parseCast(out, user);
+                const seen = new Set(have.map(n => n.toLowerCase()));
+                const fresh = got.filter(c => !seen.has(c.name.toLowerCase()));
+                list.push(...fresh);
+                if (!got.cut || !fresh.length || (castMaxNow() && list.length >= castMaxNow())) break;
+                run.part = [round + 2, CAST_ROUNDS];
+                step(2);
+            }
+            delete run.part;
+            if (castMaxNow()) list.splice(castMaxNow());
             step(3);
-            const list = parseCast(out, user);
             if (!list.length) throw new Error('모델이 인물을 하나도 돌려주지 않았습니다.');
             mergeCast(bot, list, pool);
             bot.castAt = Date.now();
@@ -11678,7 +11756,7 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
         const me = String(persona ?? '').trim();
         return me ? `${s}${s ? '\n\n' : ''}## ${user || 'User'} (user persona)\n${me.slice(0, PERSONA_MAX)}` : s;
     }
-    function talkSystem(name, user, style, ctx, pool = null) {
+    function talkSystem(name, user, style, ctx, pool = null, last = []) {
         const ast = pool?.length ? pool : null;
         const tone = `the first line is TONE: followed by one short direction for the voice actor on how ${name} says this reply (feeling, volume, speed), written as a polite request in the language of the reply, e.g. "TONE: 조용히 속삭이는 듯이 말해 주세요".`;
         const form = ast ? `${tone} The second line is ASSET: followed by the one asset name from ASSETS to show on screen with this reply, e.g. "ASSET: ${ast[0].name}".` : tone;
@@ -11689,7 +11767,8 @@ ${ast.map(f => `[${f.src === 'emo' ? 'emotion' : 'asset'}] ${f.name}`).join('\n'
 Asset rules:
 - The ASSET name must be copied exactly from the ASSETS list, character for character, without the [emotion] or [asset] tag. Never make up a name that is not in the list.
 - Prefer an asset that shows ${name}. Pick it from ${name}'s facial expression in this reply and the situation; change it when the mood changes, and keep an outfit or place until the conversation changes it.
-- Use an asset without ${name} (a background, a scene or another person) only when no asset of ${name} fits.` : '';
+- Use an asset without ${name} (a background, a scene or another person) only when no asset of ${name} fits.${last.length ? `
+- Avoid repeating recent assets. Your previous reply showed "${last[0]}"${last.length > 1 ? ` and the ones before it showed ${last.slice(1).map(x => `"${x}"`).join(', ')}` : ''}. Pick a different asset whenever another one fits the mood and the situation; use "${last[0]}" again only when no other asset fits at all.` : ''}` : '';
         return `You are ${name}, in a private one-on-one conversation with ${user}, outside the main story.
 Stay fully in character: your personality, way of speaking and what you know come from PROFILE. Who ${user} is comes from the user persona in PROFILE, and your relationship with ${user} comes from both.
 Rules:
@@ -12499,6 +12578,8 @@ ${ctx || '(none)'}`;
 .gt-msg.ok{color:var(--good-ink);border-left-color:var(--good);background:var(--good-soft)}
 .gt-msg audio{display:block;width:100%;margin-top:6px}
 .gt.gt-pvon{margin-bottom:110px}
+.gt.gt-emb.gt-mid.gt-pvon{margin-bottom:0}
+.ix-pane:has(.gt-mid.gt-pvon){padding-bottom:110px}
 .gt-pv{position:fixed;z-index:5;left:50%;bottom:12px;transform:translateX(-50%);box-sizing:border-box;width:min(748px,calc(100vw - 32px));padding:8px 12px 10px;font-size:.8rem;background:var(--card);border:1px solid var(--line2);border-left:4px solid var(--accent);box-shadow:0 10px 30px -10px var(--sh2)}
 .gt-pv-t{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
 .gt-pv-t b{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -12546,6 +12627,13 @@ ${ctx || '(none)'}`;
 .gt-pk-nm{font-size:.84rem;font-weight:700}
 .gt-pk-nm small{font-weight:400;font-size:.72rem;color:var(--muted)}
 .gt-pk-ds{font-size:.72rem;line-height:1.45;color:var(--muted)}
+.gt-pk-it.cur{background:var(--soft);background:color-mix(in srgb,var(--accent) 13%,transparent);box-shadow:inset 3px 0 0 var(--accent)}
+.gt-pk-it.last{background:rgba(245,158,11,.14);box-shadow:inset 3px 0 0 #d97706}
+.gt-pk-it.cur.last{box-shadow:inset 3px 0 0 var(--accent),inset 6px 0 0 #d97706}
+.gt-pk-it.cur .gt-pk-nm::after,.gt-pk-it.last .gt-pk-nm::after{margin-left:6px;padding:0 5px;font-size:.66rem;font-weight:700;color:#fff;vertical-align:1px}
+.gt-pk-it.cur .gt-pk-nm::after{content:'지금 쓰는 목소리';background:var(--accent)}
+.gt-pk-it.last .gt-pk-nm::after{content:'마지막으로 들음';background:#d97706}
+.gt-pk-it.cur.last .gt-pk-nm::after{content:'지금 쓰는 목소리 · 마지막으로 들음';background:linear-gradient(90deg,var(--accent),#d97706)}
 .gt-pk-none{padding:14px}
 .gt-pk-load{display:flex;flex-direction:column;gap:5px}
 .gt-pk-load-t{display:flex;justify-content:space-between;gap:8px;font-size:.76rem;color:var(--muted)}
@@ -12776,7 +12864,7 @@ ${ctx || '(none)'}`;
     function openPick(key, value, onchange) {
         if (ui.pick?.key === key) { ui.pick = null; render(); return; }
         const lang = isLib(value) ? value.slice(0, 2) : /^ja/i.test(st.set.lang) ? 'ja' : 'ko';
-        ui.pick = { key, onchange, lang, gender: '', accent: '', q: '' };
+        ui.pick = { key, onchange, lang, gender: '', accent: '', q: '', cur: value };
         render();
         if (!lib.busy && (!lib.voices || Date.now() - lib.at >= LIB_TTL)) void reloadLib(false);
     }
@@ -12792,15 +12880,15 @@ ${ctx || '(none)'}`;
         const q = p.q.trim().toLowerCase();
         const base = [...FEMALE, ...MALE].map(id => ({ id, name: id, gender: FEMALE.includes(id) ? 'female' : 'male', desc: BASE_DESC[id] ?? '', base: true, accent: '', cat: BASE_CAT }));
         const hits = [...(p.accent ? [] : base), ...(lib.voices ?? []).filter(v => v.lang === p.lang)].filter(v => (!p.gender || v.gender === p.gender) && (!p.accent || v.accent === p.accent)
-            && (!q || [v.name, v.cat, v.role, v.desc, v.id, v.base ? '' : accentKo(v.accent)].join(' ').toLowerCase().includes(q)));
+            && (!q || [v.name, v.cat, v.role, v.desc, v.id, v.base ? BASE_NOTE[v.id] ?? '' : accentKo(v.accent)].join(' ').toLowerCase().includes(q)));
         if (!hits.length) return [h('div', { class: 'gt-hint gt-pk-none' }, lib.voices ? '맞는 목소리가 없습니다.'
             : lib.busy ? '목록을 받으면 여기에 보입니다. 처음 한 번만 기다리면 되고, 그 뒤 하루 동안은 바로 열립니다.' : '목록이 아직 없습니다.')];
         const cats = [...new Set(hits.map(v => v.cat))].sort((a, b) => (b === BASE_CAT) - (a === BASE_CAT) || String(a).localeCompare(String(b)));
         const sex = { male: '남', female: '여', neutral: '중성' };
         return cats.map(c => h('div', { class: 'gt-pk-cat' }, h('b', null, `${c || '기타'} · ${hits.filter(v => v.cat === c).length}`),
-            hits.filter(v => v.cat === c).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(v => h('div', { class: 'gt-pk-it' },
+            hits.filter(v => v.cat === c).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(v => h('div', { class: 'gt-pk-it' + (v.id === p.cur ? ' cur' : '') + (v.id === ui.pvLast ? ' last' : ''), 'data-v': v.id },
                 h('button', { class: 'gt-pk-pick', type: 'button', title: v.id, onclick: () => { const fn = p.onchange; ui.pick = null; fn(v.id); render(); } },
-                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, v.base ? ` ${sex[v.gender]} · ${BASE_TRAIT[v.id] ?? ''}` : ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
+                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, v.base ? ` ${sex[v.gender]} · ${BASE_TRAIT[v.id] ?? ''}${BASE_NOTE[v.id] ? ' · ' + BASE_NOTE[v.id] : ''}` : ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
                     h('span', { class: 'gt-pk-ds' }, v.desc)),
                 h('button', { class: 'gt-b sm', type: 'button', title: '미리 듣기', 'data-pv': '', disabled: ui.preview?.busy, onclick: () => void preview(v.id, '') }, '▶')))));
     }
@@ -12831,7 +12919,7 @@ ${ctx || '(none)'}`;
     function castState(run) {
         const t = Date.now() - run.at;
         const pct = [5, 5 + Math.round(25 * Math.min(1, lib.page / Math.max(lib.pages, 1))), Math.min(90, 30 + Math.round(60 * t / 30000)), 95, 95 + Math.round(4 * (run.part?.[0] ?? 0) / Math.max(run.part?.[1] ?? 1, 1))][run.stage];
-        const text = ['로어북을 읽는 중입니다', `목소리 목록을 받는 중입니다 · ${lib.page} / 약 ${lib.pages}쪽`, `모델이 인물을 정리하는 중입니다 · ${Math.floor(t / 1000)}초`, '목소리 표에 적는 중입니다', `본편 대사를 모으는 중입니다 · ${run.part?.[0] ?? 0} / ${run.part?.[1] ?? 0}`][run.stage];
+        const text = ['로어북을 읽는 중입니다', `목소리 목록을 받는 중입니다 · ${lib.page} / 약 ${lib.pages}쪽`, `모델이 인물을 정리하는 중입니다${run.part ? ` · 이어 묻기 ${run.part[0]} / ${run.part[1]}` : ''} · ${Math.floor(t / 1000)}초`, '목소리 표에 적는 중입니다', `본편 대사를 모으는 중입니다 · ${run.part?.[0] ?? 0} / ${run.part?.[1] ?? 0}`][run.stage];
         return { pct: pct ?? 0, text: text ?? '' };
     }
     function paintCast(el, run) {
@@ -12987,6 +13075,9 @@ ${ctx || '(none)'}`;
     }
     async function preview(voice, prompt) {
         ui.preview = { voice, busy: true, src: '' };
+        ui.pvLast = voice;
+        doc.querySelectorAll('.gt-pk-it.last').forEach(el => el.classList.remove('last'));
+        doc.querySelectorAll('.gt-pk-it').forEach(el => { if (el.dataset.v === voice) el.classList.add('last'); });
         paintPreview();
         try {
             const text = /^ja-/.test(voice) ? 'こんにちは。この声で物語を読み上げますね。' : '안녕하세요. 이 목소리로 이야기를 읽어 드릴게요.';
@@ -13073,7 +13164,7 @@ ${ctx || '(none)'}`;
                 row('본편 대사 개수', '등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 그 채팅의 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모읍니다. 분석한 봇의 다른 채팅은 대화 화면을 처음 열 때 그 채팅 것만 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 10, value: st.set.talkMain, onchange: e => { const n = Number(e.target.value); set('talkMain', e.target.value !== '' && Number.isFinite(n) ? Math.max(0, Math.min(2000, Math.round(n))) : DEF_SET.talkMain); } }), '개'))),
             group('대화 그림', '모든 봇 공통',
-                h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 작가는 바뀌지 않습니다. 대화 그림의 종류 · 작가 · 해상도는 대화 › 준비에서 고릅니다.')),
+                h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 작가는 바뀌지 않습니다. 대화 그림의 종류 · 작가 · 연출 모델 · 말풍선 · 해상도는 대화 › 준비에서 고릅니다.')),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그림 방식'), h('p', null, st.set.talkImgSrc === 'asset'
                         ? '대화 모델이 봇의 그림 에셋 이름을 모두 받아 답마다 하나를 골라 무대에 겁니다. 자동 그리기 · 그릴 때 설정은 쓰지 않습니다.'
                         : '답의 장면을 NovelAI 로 그려 무대에 겁니다.')),
@@ -13193,13 +13284,14 @@ ${ctx || '(none)'}`;
         send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
         illust: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M6.5 20c.8-3.2 3-5 5.5-5s4.7 1.8 5.5 5"/>',
         comic: '<path d="M3 3h8v8H3zM13 3h8v5h-8zM3 13h8v8H3z"/><path d="M14 11h7v6h-3l-2 3v-3h-2z"/>',
+        comic2: '<path d="M3 3h8v18H3zM13 3h8v18h-8zM3 12h8M13 12h8"/>',
         zoom: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
         redo: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
         bubx: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M9 8l6 6M15 8l-6 6"/>',
         brush: '<path d="M18.5 3.5l2 2L10 16l-3 1 1-3z"/><path d="M4 21c2 0 3-1 3-3"/>',
     };
-    const TALK_KINDS = [['illust', '삽화 (기본)'], ['comic', '만화']];
-    const talkKindNow = () => st.set.talkKind === 'comic' ? 'comic' : 'illust';
+    const TALK_KINDS = [['illust', '삽화 (기본)'], ['comic', '만화'], ['comic2', '만화v2']];
+    const talkKindNow = () => st.set.talkKind === 'comic' || st.set.talkKind === 'comic2' ? st.set.talkKind : 'illust';
     function talkIcon(name, sw = 2) {
         const el = h('span', { class: 'vn-ic', 'aria-hidden': 'true' });
         el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${TALK_SVG[name]}</svg>`;
@@ -13239,14 +13331,16 @@ ${ctx || '(none)'}`;
     }
     function talkPct(job) {
         const { done, total } = job?.progress?.() ?? { done: 0, total: 0 };
-        return { done, total, pct: total > 0 ? Math.min(99, Math.round(done / total * 100)) : 0 };
+        const word = job?.stage === 0 && job.est?.P > 0 ? '분석 중' : '그리는 중';
+        return { done, total, word, pct: total > 0 ? Math.min(99, Math.round(done / total * 100)) : 0 };
     }
     function talkTick() {
         clearInterval(ui.talk.tick);
         ui.talk.tick = setInterval(() => {
             if (!ui.talk.draw || !ui.root?.isConnected) { clearInterval(ui.talk.tick); ui.talk.tick = 0; return; }
-            const { pct } = talkPct(ui.talk.draw.job);
-            ui.root.querySelectorAll('.vn-dpct').forEach(x => { x.textContent = ` · 그리는 중 ${pct}%`; });
+            const { pct, word } = talkPct(ui.talk.draw.job);
+            ui.root.querySelectorAll('.vn-dpct').forEach(x => { x.textContent = ` · ${word} ${pct}%`; });
+            ui.root.querySelectorAll('.vn-dfirst').forEach(x => { x.textContent = word === '분석 중' ? '첫 장면을 분석하는 중입니다.' : '첫 장면을 그리는 중입니다.'; });
             ui.root.querySelectorAll('.vn-thumb.dr i').forEach(x => { x.style.width = pct + '%'; });
             ui.root.querySelectorAll('.vn-di.run.dr').forEach(x => { x.style.setProperty('--p', pct + '%'); });
         }, 1000);
@@ -13274,13 +13368,17 @@ ${ctx || '(none)'}`;
         const shown = src?.r === 'c' && !src.img?.path && talkPending(name, src.at) ? log.slice(0, log.indexOf(src)).findLast(m => m.img?.path) ?? src : src;
         if (shown?.img?.path) {
             const [w, ht] = host.SIZES[shown.img.size] ?? host.SIZES.wide;
+            const shot = (path, alt) => h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': path, alt, style: shown.img.kind === 'asset' ? null : `aspect-ratio:${w}/${ht}` });
             kids.push(h('img', { class: 'vn-blur', 'data-path': shown.img.path, alt: '' }),
-                h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': shown.img.path, alt: `${name}와의 대화 장면`, style: shown.img.kind === 'asset' ? null : `aspect-ratio:${w}/${ht}` }));
+                shown.img.path2
+                    ? h('div', { class: 'vn-pair' }, shot(shown.img.path, `${name}와의 대화 장면 (왼쪽)`), shot(shown.img.path2, `${name}와의 대화 장면 (오른쪽)`))
+                    : shot(shown.img.path, `${name}와의 대화 장면`));
         } else if (src) {
             kids.push(h('div', { class: 'vn-noimg', role: 'img', 'aria-label': '그림이 없는 말' }, talkIcon('pic', 1.4)));
         } else {
-            kids.push(h('div', { class: 'vn-hello' }, h('span', { class: 'vn-big', 'aria-hidden': 'true' }, [...String(name).trim()][0] ?? '?'), h('b', null, name),
-                h('p', null, assetMode ? '말을 보내면 답에 맞는 봇 에셋을 이 자리에 겁니다.' : drawing ? '첫 장면을 그리는 중입니다.' : auto ? '말을 보내면 답이 온 장면을 이 자리에 그립니다.' : '아래 도구 줄의 「그리기」를 누르면 마지막 답의 장면을 그립니다. 도구 줄은 무대에 마우스를 올리거나 무대를 누르면 나옵니다.')));
+            const face = talkFaces(v, talkCast(v)).get(name);
+            kids.push(h('div', { class: 'vn-hello' }, h('span', { class: 'vn-big', 'aria-hidden': 'true' }, [...String(name).trim()][0] ?? '?', face ? h('img', { 'data-path': face, alt: '' }) : null), h('b', null, name),
+                h('p', drawing && !assetMode ? { class: 'vn-dfirst' } : null, assetMode ? '말을 보내면 답에 맞는 봇 에셋을 이 자리에 겁니다.' : drawing ? (talkPct(T.draw?.job).word === '분석 중' ? '첫 장면을 분석하는 중입니다.' : '첫 장면을 그리는 중입니다.') : auto ? '말을 보내면 답이 온 장면을 이 자리에 그립니다.' : '아래 도구 줄의 「그리기」를 누르면 마지막 답의 장면을 그립니다. 도구 줄은 무대에 마우스를 올리거나 무대를 누르면 나옵니다.')));
         }
         const di = (cls, icon, label, title, onclick, extra = {}) => h('button', { class: 'vn-di' + (cls ? ' ' + cls : ''), type: 'button', title, 'aria-label': title, onclick, ...extra },
             h('i', null, talkIcon(icon)), h('span', null, label));
@@ -13288,7 +13386,8 @@ ${ctx || '(none)'}`;
         const acts = [];
         if (src?.img?.path && !drawing) {
             const cf = T.confirm === 'img:' + src.at;
-            acts.push(di('', 'zoom', '크게', '크게 보기', () => void host.showBig(src.img.path)));
+            acts.push(di('', 'zoom', src.img.path2 ? '왼쪽' : '크게', src.img.path2 ? '왼쪽 장 크게 보기' : '크게 보기', () => void host.showBig(src.img.path)));
+            if (src.img.path2) acts.push(di('', 'zoom', '오른쪽', '오른쪽 장 크게 보기', () => void host.showBig(src.img.path2)));
             if (src.img.req && !assetMode) acts.push(di('', 'redo', '다시', '이 장면 다시 그리기', () => void talkArt(v, name, src, 'redo', false), { disabled: !!T.draw }));
             acts.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 그림을 지웁니다' : '그림 지우기', () => talkDropImg(v, name, src)));
         }
@@ -13324,8 +13423,8 @@ ${ctx || '(none)'}`;
                 talkPaint();
             }, { 'aria-pressed': String(auto) }),
             assetMode ? null : h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }),
-            assetMode ? null : [['illust', '삽화'], ['comic', '만화']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
-                id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
+            assetMode ? null : [['illust', '삽화'], ['comic', '만화'], ['comic2', '만화v2']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
+                id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : id === 'comic2' ? '다음 그림부터 세로 만화 두 장(장마다 1~2컷)을 좌우로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
                 () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(talkKindNow() === id) })),
             acts.length || voc.length || wipe.length ? h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }) : null,
             grp('그림', acts), grp('음성', voc), wipe));
@@ -13353,7 +13452,7 @@ ${ctx || '(none)'}`;
                 continue;
             }
             const drawing = T.draw?.name === name && T.draw.at === m.at;
-            const pct = drawing ? talkPct(T.draw.job).pct : 0;
+            const { pct, word } = drawing ? talkPct(T.draw.job) : { pct: 0, word: '' };
             const queued = !drawing && T.drawQ.some(q => q.name === name && q.at === m.at);
             let thumb = null;
             if (m.img?.path) thumb = h('span', { class: 'vn-thumb' + (drawing ? ' dr' : ''), 'aria-hidden': 'true' }, talkIcon('pic', 1.8), h('img', { 'data-path': m.img.path, alt: '' }), drawing ? h('i', { style: `width:${pct}%` }) : null);
@@ -13361,7 +13460,7 @@ ${ctx || '(none)'}`;
             const pb = h('button', { class: 'vn-pb', type: 'button', 'data-k': m.at, 'data-ck': talkHash(v.chaId, name, m.t, m.tone), onclick: () => void talkReplay(v.chaId, name, m.t, m.at, m.tone) });
             kids.push(h('div', { class: 'vn-turn' + sel(m), 'data-at': m.at, onclick: talkSel },
                 h('div', { class: 'vn-nm' }, thumb, h('b', null, name),
-                    h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · 그리는 중 ${pct}%`) : queued ? h('span', { class: 'vn-dpct' }, ' · 그림 대기') : null), editing ? null : del(m)),
+                    h('time', null, talkTime(m.at), drawing ? h('span', { class: 'vn-dpct' }, ` · ${word} ${pct}%`) : queued ? h('span', { class: 'vn-dpct' }, ' · 그림 대기') : null), editing ? null : del(m)),
                 h('div', { class: 'vn-say' }, pb, editing ? talkEditBox(v, name, m) : h('p', { class: 'vn-t' }, m.t))));
             talkMarkOne(pb);
         }
@@ -13481,9 +13580,9 @@ ${ctx || '(none)'}`;
         if (idx < 0) { talkArtNext(); return; }
         if (T.draw) return later();
         const redo = mode === 'redo' && !!entry.img?.req;
-        const size = redo ? entry.img.size ?? st.set.talkSize : st.set.talkSize;
         const kind = redo ? entry.img.kind ?? entry.img.req.kind ?? 'illust' : talkKindNow();
-        const o = { ci: v.ci, chaId: v.chaId, tk: v.tk, name, log: log.slice(0, idx + 1), kind, size, preset: st.set.talkPreset };
+        const size = kind === 'comic2' ? 'tall' : redo ? entry.img.size ?? st.set.talkSize : st.set.talkSize;
+        const o = { ci: v.ci, chaId: v.chaId, tk: v.tk, name, log: log.slice(0, idx + 1), kind, size, preset: st.set.talkPreset, llm: st.set.talkLlm, bubbles: st.set.talkBubbles !== false };
         const job = {};
         T.draw = { name, at, job, redo: mode === 'redo' };
         if (T.err?.name === name) T.err = null;
@@ -13494,10 +13593,11 @@ ${ctx || '(none)'}`;
             const out = await run;
             const cur = v.talk[name]?.find(m => m.at === at);
             if (cur) {
-                const old = cur.img?.path;
+                const old = [cur.img?.path, cur.img?.path2].filter(Boolean);
                 cur.img = { path: out.path, ext: out.ext, seed: out.seed, req: out.req, kind, size };
+                if (out.path2) Object.assign(cur.img, { path2: out.path2, ext2: out.ext2, seed2: out.seed2, req2: out.req2 });
                 void saveTalk(v.tk, v.talk);
-                if (old && old !== out.path) host.dropThumb(old);
+                for (const p of old) if (p !== out.path && p !== out.path2) host.dropThumb(p);
             }
         } catch (error) {
             if (!error?.isStop) {
@@ -13538,10 +13638,10 @@ ${ctx || '(none)'}`;
         }
         T.confirm = null;
         if (T.view === m.at) T.view = '';
-        const path = m.img?.path;
+        const paths = [m.img?.path, m.img?.path2].filter(Boolean);
         delete m.img;
         void saveTalk(v.tk, v.talk);
-        if (path) host.dropThumb(path);
+        for (const p of paths) host.dropThumb(p);
         talkPaint();
     }
     async function talkRevoice(v, name, m) {
@@ -13630,7 +13730,7 @@ ${ctx || '(none)'}`;
         T.drawQ = T.drawQ.filter(q => !(q.name === name && q.at === at));
         if (T.draw?.name === name && T.draw.at === at) T.draw.job?.cancel?.();
         const [m] = log.splice(i, 1);
-        if (m.img?.path) host.dropThumb(m.img.path);
+        for (const p of [m.img?.path, m.img?.path2]) if (p) host.dropThumb(p);
         if (T.view === at) T.view = '';
         if (T.confirm === 'img:' + at) T.confirm = null;
         void saveTalk(v.tk, v.talk);
@@ -13687,7 +13787,7 @@ ${ctx || '(none)'}`;
         };
         return [h('div', { class: 'vn-pick' },
             an,
-            order.length ? h('div', { class: 'vn-lh' }, h('b', null, '대화 상대'), h('span', null, `${order.length}명 · 최근 순`)) : null,
+            order.length ? h('div', { class: 'vn-lh' }, h('div', null, h('b', null, '대화 상대'), h('span', { class: 'vn-ln' }, '(새 채팅에서는 대화 내용이 초기화됩니다)')), h('span', null, `${order.length}명 · 최근 순`)) : null,
             order.length ? h('div', { class: 'vn-lst', role: 'list' }, order.map(row)) : null)];
     }
     function talkPickTick() {
@@ -13732,7 +13832,7 @@ ${ctx || '(none)'}`;
         T.sel = null;
         talkQuiet();
         if (T.draw?.name === name) T.draw.job?.cancel?.();
-        for (const m of v.talk[name] ?? []) if (m.img?.path) host.dropThumb(m.img.path);
+        for (const m of v.talk[name] ?? []) for (const p of [m.img?.path, m.img?.path2]) if (p) host.dropThumb(p);
         delete v.talk[name];
         void host.talkForget?.(v.tk, name);
         T.drawQ = T.drawQ.filter(q => q.name !== name);
@@ -13784,7 +13884,8 @@ ${ctx || '(none)'}`;
             const assetMode = st.set.talkImgSrc === 'asset';
             if (assetMode) v.stage = stagePool(w.char);
             const pool = assetMode ? v.stage.list : null;
-            const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt), pool);
+            const last = pool ? [...new Set((v.talk[name] ?? []).filter(m => m.r !== 'u' && m.img?.asset).map(m => m.img.asset).reverse())].slice(0, 3) : [];
+            const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt), pool, last);
             const got = await talkAsk(system, v.talk[name] ?? [], name, rec, pool);
             reply = got.text;
             talkPush(v.talk, name, 'c', got.text, got.tone);
@@ -14078,9 +14179,9 @@ ${ctx || '(none)'}`;
             previewBar());
         return ui.root;
     }
-    function embed(kids, main) {
+    function embed(kids, main, cls = '') {
         if (!doc.getElementById('nc-voice-style')) doc.head.append(h('style', { id: 'nc-voice-style' }, CSS + WIZ_CSS));
-        const el = h('div', { class: 'gt gt-emb' + (main && ui.preview ? ' gt-pvon' : '') }, kids, main ? previewBar() : null);
+        const el = h('div', { class: 'gt gt-emb' + (cls ? ' ' + cls : '') + (main && ui.preview ? ' gt-pvon' : '') }, kids, main ? previewBar() : null);
         if (main) ui.root = el;
         return el;
     }
@@ -14229,13 +14330,20 @@ ${ctx || '(none)'}`;
         }
         if (n === 4) return [
             h('div', { class: 'vz-cards' },
-                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 삽화 설정을 따릅니다.', talkKindNow(), val => set('talkKind', val), true),
+                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 아래 「말풍선」 칸에서 켜고 끕니다.', talkKindNow(), val => set('talkKind', val), true),
+                wizCard('comic2', '만화v2', '연출 한 번으로 세로 만화 두 장을 그려 무대에 왼쪽 · 오른쪽으로 겁니다. 장마다 컷은 1~2개이고 위아래로 쌓입니다. 크기는 세로 832×1216 으로 정해져 있고, NAI 요청은 두 번입니다.', talkKindNow(), val => set('talkKind', val)),
                 wizCard('illust', '삽화', '답의 장면을 컷 없는 한 장 그림으로 그립니다.', talkKindNow(), val => set('talkKind', val))),
             h('div', { class: 'vf-card', style: 'margin-top:14px' },
-                row('작가', '대화 그림에 쓸 작가(그림체)입니다. 「삽화 작가와 같게」는 삽화 › 준비에서 고른 작가를 따라갑니다.',
+                row('작가', '대화 그림에 쓸 작가(그림체)입니다. 삽화 › 준비의 작가와 따로 고릅니다.',
                     h('select', { class: 'vf-in', style: 'width:auto;max-width:220px', 'aria-label': '대화 그림 작가', onchange: e => set('talkPreset', e.target.value) },
-                        [['', '삽화 작가와 같게'], ...host.presets().map(x => [x.id, x.name || '이름 없음'])].map(([id, label]) => h('option', { value: id, selected: id === st.set.talkPreset }, label)))),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '해상도'), h('p', null, '대화 화면 무대는 가로로 넓어서 가로 그림이 가장 잘 맞습니다.')),
+                        host.presets().map((x, i) => h('option', { value: x.id, selected: x.id === st.set.talkPreset || (i === 0 && !host.presets().some(p => p.id === st.set.talkPreset)) }, x.name || '이름 없음')))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '연출 모델'), h('p', null, '답의 장면 · 구도 · 복장을 정해 NovelAI 프롬프트를 쓰는 모델입니다. 삽화의 연출 모델과 따로 고릅니다.')),
+                    seg([['submodel', '보조 모델 (추천)'], ['model', '메인 모델']], st.set.talkLlm === 'model' ? 'model' : 'submodel', id => set('talkLlm', id))),
+                talkKindNow() !== 'illust' ? h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '말풍선'), h('p', null, st.set.talkBubbles !== false
+                        ? '만화 컷에 대사 말풍선을 넣습니다.'
+                        : '말풍선 없이 그림만 그립니다.')),
+                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkBubbles !== false ? 'on' : 'off', id => set('talkBubbles', id === 'on'))) : null,
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '해상도'), h('p', null, talkKindNow() === 'comic2' ? '만화v2 는 세로 832×1216 두 장으로 정해져 있어 이 값을 쓰지 않습니다. 삽화 · 만화로 그릴 때 씁니다.' : '대화 화면 무대는 가로로 넓어서 가로 그림이 가장 잘 맞습니다.')),
                     seg([['wide', '가로 1216×832 (추천)'], ['wide2', '가로 1152×896'], ['square', '정사각 1024×1024'], ['tall2', '세로 896×1152'], ['tall', '세로 832×1216']], st.set.talkSize, id => set('talkSize', id), 'grid'))),
         ];
         if (n === TSETUP.length - 1) return [host.nsfwBody('talk', { close: () => talkSetupNext(TSETUP.length - 1), render })];
@@ -14246,14 +14354,14 @@ ${ctx || '(none)'}`;
         const ok = h('span', { class: 'fn-ok' + (fresh ? '' : ' still'), 'aria-hidden': 'true' });
         ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
         const li = tx => h('li', null, h('span', null, tx));
-        const pr = host.presets().find(x => x.id === st.set.talkPreset);
+        const pr = host.presets().find(x => x.id === st.set.talkPreset) ?? host.presets()[0];
         return h('div', { class: 'fn-card' + (fresh ? ' fn-rise' : ''), style: fresh ? `--fe:${el}ms` : null },
             h('div', { class: 'fn-top' }, ok,
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'), h('span', null, '봇과 로어북 인물에게 말을 걸 수 있습니다.'))),
             h('ul', { class: 'fn-ck' },
                 li(st.set.castLlm === 'submodel' ? '등장인물은 보조 모델이 분석합니다' : '등장인물은 메인 모델이 분석합니다'),
                 li(st.set.talkModel === 'model' ? '대화의 답은 메인 모델이 만듭니다' : '대화의 답은 보조 모델이 만듭니다'),
-                li(talkAssetMode() ? '봇 에셋에서 답에 맞는 그림을 골라 겁니다' : `${talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 작가 ${pr ? pr.name || '이름 없음' : '삽화 작가와 같게'}`),
+                li(talkAssetMode() ? '봇 에셋에서 답에 맞는 그림을 골라 겁니다' : `${talkKindNow() === 'comic2' ? '만화v2(세로 두 장)' : talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 작가 ${pr?.name || '이름 없음'} · 연출 ${st.set.talkLlm === 'model' ? '메인' : '보조'} 모델`),
                 li(st.set.talkSpeak ? (keyKnown === true ? '답을 목소리로 읽어 줍니다' : '목소리로 들으려면 음성 · 대화 › 준비에서 키를 넣어야 합니다') : '글로만 대화합니다')),
             h('div', { class: 'fn-go' },
                 h('button', { class: 'ix-btn main', type: 'button', onclick: () => { ui.talk.list = true; host.ui.ttab = 'talk'; render(); } }, '💬 대화하기')));
@@ -14453,6 +14561,9 @@ ${ctx || '(none)'}`;
 .gt .vn-blur{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(18px) brightness(.75);transform:scale(1.08)}
 .gt .vn-shot{position:absolute;left:50%;top:0;bottom:0;height:100%;width:auto;max-width:100%;object-fit:contain;transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 40px rgba(0,0,0,.45)}
 .gt .vn-shot.cover{left:0;right:0;width:100%;max-width:none;object-fit:cover;transform:none;box-shadow:none}
+.gt .vn-pair{position:absolute;inset:0;display:flex;justify-content:center;align-items:stretch;gap:6px}
+.gt .vn-pair .vn-shot{position:static;flex:0 1 auto;height:100%;width:auto;max-width:calc(50% - 3px);transform:none}
+.gt .vn-pair .vn-shot.cover{flex:1 1 0;width:auto;max-width:none;min-width:0;object-fit:cover}
 .gt .vn-noimg{position:absolute;inset:0;display:grid;place-items:center;background:#e6edf5;color:#a3b3c8}
 .gt .vn-noimg>.vn-ic svg{width:72px;height:72px}
 .gt .vn-hello{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:64px 20px 72px;color:#fff;text-align:center}
@@ -14474,6 +14585,9 @@ ${ctx || '(none)'}`;
 .gt .vn-av i{position:relative;overflow:hidden}
 .gt .vn-av i img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 20%}
 .gt .vn-av i img:not([src]){display:none}
+.gt .vn-big{position:relative;overflow:hidden}
+.gt .vn-big img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.gt .vn-big img:not([src]){display:none}
 .gt .vn-av em{flex:none;padding:1px 5px;border-radius:6px;font-style:normal;font-size:9.5px;font-weight:900;color:var(--ink2);background:#ffc93c}
 .gt .vn-av.on{background:#fff;border-color:#fff;color:var(--ink2);box-shadow:0 0 0 2px rgba(43,149,240,.6)}
 .gt .vn-cast .pa{justify-content:center;gap:4px;border:1.5px dashed rgba(255,255,255,.45);background:transparent}
@@ -14506,7 +14620,7 @@ ${ctx || '(none)'}`;
 .gt .vn-cat{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
 .gt .vn-cat b{font-size:12.5px}
 .gt .vn-cat small{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gt .vn-cat small.err{color:#d0453b}
+.gt .vn-cat small.err{color:#d0453b;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .gt .vn-cabar{display:none;height:5px;margin-top:4px;border-radius:3px;background:#d6e6f7;overflow:hidden}
 .gt .vn-cabar i{display:block;height:100%;width:var(--p,0%);border-radius:3px;background:linear-gradient(90deg,var(--sky),#62bdff);transition:width .4s}
 .gt .vn-stop{display:none;flex:none;padding:5px 10px;border-radius:8px;border:1px solid #a8d3ff;background:#fff;color:var(--sky);font-size:11.5px;font-weight:800}
@@ -14517,6 +14631,7 @@ ${ctx || '(none)'}`;
 .gt .vn-lh{display:flex;align-items:baseline;justify-content:space-between;margin:2px 4px -4px;font-size:12px;color:var(--mut)}
 .gt .vn-lh b{font-size:14px;font-weight:900;color:var(--ink2)}
 .gt .vn-lh span{font-weight:600}
+.gt .vn-lh .vn-ln{margin-left:6px}
 .gt .vn-lst{display:flex;flex-direction:column;border-radius:14px;border:1px solid var(--ln);overflow:hidden;background:#fff}
 .gt .vn-pick .vn-it:disabled{opacity:.5;cursor:not-allowed}
 .gt .vn-it{display:flex;gap:12px;align-items:center;width:100%;padding:11px 14px;border:0;border-top:1px solid #eef3f9;border-radius:0;background:#fff;font:inherit;color:var(--ink2);text-align:left;cursor:pointer}
@@ -14524,6 +14639,11 @@ ${ctx || '(none)'}`;
 .gt .vn-it:hover,.gt .vn-it:focus-visible{background:#f6f8fb}
 .gt .vn-fw{position:relative;flex:none}
 .gt .vn-dot{position:absolute;right:0;bottom:0;width:12px;height:12px;border-radius:50%;background:var(--ok);border:2px solid #fff}
+/* 5.5.0: 상대 줄에 마우스를 올리면 얼굴이 부드럽게 커진다. 1.4배면 48px 원이 줄 위아래 여백(11px) 안에 머문다 */
+.gt .vn-pick .vn-ifc{transition:transform .25s cubic-bezier(.2,.8,.3,1),box-shadow .25s ease;will-change:transform}
+.gt .vn-pick .vn-it:not(:disabled):hover .vn-ifc,.gt .vn-pick .vn-it:not(:disabled):focus-visible .vn-ifc{transform:scale(1.4);box-shadow:0 4px 14px rgba(15,23,42,.22)}
+.gt .vn-pick .vn-it:not(:disabled):hover .vn-dot{transform:translate(5px,5px)}
+.gt .vn-dot{transition:transform .25s cubic-bezier(.2,.8,.3,1)}
 .gt .vn-pick .vn-ifc{width:48px;height:48px;border-radius:50%;font-size:18px}
 .gt .vn-itx{flex:1 1 auto;min-width:0}
 .gt .vn-itx b{display:flex;align-items:center;min-width:0;font-size:14px;font-weight:900}
@@ -14670,7 +14790,7 @@ ${ctx || '(none)'}`;
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, introBody, nsfwWant: () => nsWant('talk'), nsfwSt: () => !!st.set.nsfw?.st, openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkForget, naiKey, SIZES, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, introBody, nsfwWant: () => nsWant('talk'), nsfwSt: () => !!st.set.nsfw?.st, mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkForget, naiKey, SIZES, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeys: acFaceKeys }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
