@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.21.0
+//@display-name 🎨 이매진 v5.21.1
 //@api 3.0
-//@version 5.21.0
+//@version 5.21.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.21.0';
+    const VERSION = '5.21.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -77,7 +77,6 @@
     const MAX_SLOTS = 6;
     const MAX_RECORDS = 200;
     const MAX_RECORDS_ALL = 800;
-    const KINDS = [['comic', '만화'], ['illust', '삽화']];
     const DEFAULT_SET = {
         model: 'nai-diffusion-4-5-full',
         auto: true,
@@ -3434,14 +3433,14 @@ ${t.user}` : null;
     }
 
     const NS_RAILS = {
-        illust: { model: '연출 모델', tgLabel: '연출 모델 요청에 넣기', tgDesc: '등장인물 생김새를 분석하고 장면 · 대사 · 복장을 정할 때 고른 글을 함께 보냅니다.' },
-        asset: { model: '연출 모델', tgLabel: '연출 모델 요청에 넣기', tgDesc: '등장인물 생김새를 분석하고 감정 에셋 프롬프트를 정할 때 고른 글을 함께 보냅니다.' },
-        talk: { model: '대화 모델', tgLabel: '대화 모델 요청에 넣기', tgDesc: '대화 답을 만들고, 대화 그림을 연출하고, 대화 등장인물을 분석할 때 고른 글을 함께 보냅니다. 목소리 분석에는 넣지 않습니다.' },
+        illust: { tgLabel: '연출 모델 요청에 넣기', tgDesc: '등장인물 생김새를 분석하고 장면 · 대사 · 복장을 정할 때 고른 글을 함께 보냅니다.' },
+        asset: { tgLabel: '연출 모델 요청에 넣기', tgDesc: '등장인물 생김새를 분석하고 감정 에셋 프롬프트를 정할 때 고른 글을 함께 보냅니다.' },
+        talk: { tgLabel: '대화 모델 요청에 넣기', tgDesc: '대화 답을 만들고, 대화 그림을 연출하고, 대화 등장인물을 분석할 때 고른 글을 함께 보냅니다. 목소리 분석에는 넣지 않습니다.' },
     };
     const NS_ROLE = { system: '시스템', user: '유저', assistant: '어시스턴트' };
     const NS_CHAT_MAX = 80;
     const NS_LINE_MIN = 10;
-    const ns = { armed: false, rail: '', view: '', cap: null, pick: new Set(), data: null, open: new Set(), got: false, mute: 0, timer: 0, back: 0, armT: 0, work: null, err: '', my: [] };
+    const ns = { armed: false, view: '', cap: null, pick: new Set(), data: null, open: new Set(), got: false, mute: 0, timer: 0, back: 0, armT: 0, work: null, err: '', my: [] };
     const NS_ARM_MAX = 600000;
     function nsArm(on) {
         clearTimeout(ns.armT);
@@ -3481,17 +3480,10 @@ ${t.user}` : null;
         if (!NS_RAILS[rail] || !s?.on?.[rail]) return '';
         return nsJoined();
     }
-    function nsfwSum(rail) {
-        const s = st.set.nsfw;
-        if (!s?.st) return '';
+    function nsfwSum(rail, full) {
         const c = nsCount();
-        if (!c.got && !c.my) return '안 씀';
-        return s.on?.[rail] ? `NSFW 글 ${c.got + c.my}개 넣음` : '꺼 둠';
-    }
-    function finLine(rail) {
-        const c = nsCount();
-        if (!c.got && !c.my) return 'NSFW 프롬프트 안 씀';
-        return st.set.nsfw?.on?.[rail] ? `NSFW 글 ${c.got + c.my}개 넣음` : 'NSFW 글 꺼 둠';
+        if (!c.got && !c.my) return full ? 'NSFW 프롬프트 안 씀' : '안 씀';
+        return st.set.nsfw?.on?.[rail] ? `NSFW 글 ${c.got + c.my}개 넣음` : full ? 'NSFW 글 꺼 둠' : '꺼 둠';
     }
     function nsSet(patch) {
         const was = setupDone();
@@ -3499,7 +3491,6 @@ ${t.user}` : null;
         saveSet();
         if (!was && setupDone()) ui.readyAt = Date.now();
     }
-    const nsWant = rail => !!ns.view && ns.rail === rail;
     function nsTitle(b) {
         const [first, ...rest] = b.text.split('\n');
         if (/^#+\s/.test(first)) return { ti: first.replace(/^#+\s*/, ''), pv: rest.join('\n').trim() };
@@ -3746,7 +3737,7 @@ ${t.user}` : null;
             ontoggle: e => { if (e.target.open) ns.open.add(key); else ns.open.delete(key); },
         }, h('summary', null, summary), ...kids);
         const link = (label, onclick, disabled) => h('button', { class: 'np-link', type: 'button', disabled, onclick }, label);
-        const start = () => { Object.assign(ns, { rail: 'prompt', view: 'wait', cap: null, err: '' }); nsArm(true); redraw(); };
+        const start = () => { Object.assign(ns, { view: 'wait', cap: null, err: '' }); nsArm(true); redraw(); };
         const cancel = () => { Object.assign(ns, { view: '', cap: null, err: '' }); nsArm(false); redraw(); };
         const row = (b, on, set) => {
             const { ti, pv } = nsTitle(b);
@@ -3758,10 +3749,9 @@ ${t.user}` : null;
                     pv ? h('span', { class: 'np-pv' }, pv) : null));
         };
         const nsOne = (i, text) => h('div', { class: 'np-one' }, h('span', { class: 'np-n' }, `${i} / 3`), h('b', null, text));
-        const mine = ns.view && ns.rail === 'prompt';
 
         let src;
-        if (mine && ns.view === 'wait') src = [
+        if (ns.view === 'wait') src = [
             h('div', { class: 'np-wait' },
                 h('div', { class: 'np-wait-hd' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), h('b', null, '채팅을 기다리는 중입니다')),
                 nsOne(2, '리수에서 NSFW · 탈옥 토글을 모두 켜고, 아무 봇에게나 채팅을 하나 보냅니다.'),
@@ -3773,7 +3763,7 @@ ${t.user}` : null;
                 h('button', { class: 'ix-btn main', type: 'button', onclick: () => closePanel() }, '채팅으로 가기'),
                 link('취소', cancel)),
         ];
-        else if (mine && ns.view === 'pick' && ns.cap) {
+        else if (ns.view === 'pick' && ns.cap) {
             const cap = ns.cap;
             const pre = cap.blocks.filter(b => !b.res), res = cap.blocks.filter(b => b.res);
             const picked = cap.blocks.filter(b => ns.pick.has(b.id));
@@ -4894,8 +4884,6 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .raw-box summary{width:max-content;color:var(--accent);cursor:pointer}
 .raw-box pre{max-height:220px;overflow:auto;margin:4px 0 0;padding:6px 8px;font:.72rem/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;color:var(--ink);background:var(--paper3);border:1px solid var(--line)}
 /* 5.1.0: 준비 › NSFW 프롬프트 추가 (세 레일 공통). 둥근 모서리는 .ix 층에서 */
-.np-desc{font-size:.88rem;line-height:1.7}
-.np-desc b{color:var(--accent2)}
 .np-do{margin:12px 0 0;padding:12px 16px 12px 34px;font-size:.84rem;line-height:1.8;background:var(--paper2);border:1px solid var(--line)}
 .np-one{display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:12px 16px;font-size:.9rem;line-height:1.6;background:var(--paper2);border:1px solid var(--line)}
 .np-one .np-n{flex:none;padding:2px 9px;font-size:.74rem;font-weight:700;color:var(--accent2);background:var(--soft);border-radius:999px}
@@ -6029,7 +6017,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             ];
             return { g, rows };
         }
-        const modelOf = src => (String(src).match(/NovelAI Diffusion (V[\d.]+(?: Furry)?)/i) || [])[1] || src || '알 수 없음';
         const posOf = m => m.v4_prompt?.caption?.base_caption ?? m.prompt ?? '';
         const negOf = m => m.v4_negative_prompt?.caption?.base_caption ?? m.uc ?? '';
         const josa = (s, withF, noF) => {
@@ -6570,7 +6557,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
-        const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count, !!st.set.nsfw?.st && !nsWant('illust')];
+        const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count, !!st.set.nsfw?.st];
         const cur = done.indexOf(false);
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
@@ -6684,7 +6671,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `그림체 ${preset().name || '이름 없음'}`),
                 li(`봇 답변마다 ${countLabel()}을 그립니다`, randomCount() && n > 1 ? '답변마다 장 수를 새로 고르고, 장마다 다른 장면' : n > 1 ? '장마다 다른 장면' : ''),
                 li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`),
-                li(finLine('illust'))),
+                li(nsfwSum('illust', true))),
             h('div', { class: 'cf-row sw' },
                 h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 그리기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 이 설정대로 그립니다 (다시 굴리기 포함).')),
                 toggle(st.set.auto, () => setVal('auto', !st.set.auto))),
@@ -7733,12 +7720,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
     const INBTN_ICON = SIDE_ICON.replace('width="20" height="20"', 'width="17" height="17"');
-    const DRAW_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-        + '<path d="M12 19l7-7 3 3-7 7-3-3z"/>'
-        + '<path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>'
-        + '<path d="M2 2l7.586 7.586"/>'
-        + '<circle cx="11" cy="11" r="2"/>'
-        + '</svg>';
 
     const imp = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v + '!important').join(';');
     function figStyle() {
@@ -7787,7 +7768,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     const PILL_INK = 'var(--risu-theme-textcolor,#d7dbe6)';
     const PILL_BG = 'color-mix(in srgb,var(--risu-theme-textcolor,#d7dbe6) 6%,transparent)';
     const PILL_LINE = 'color-mix(in srgb,var(--risu-theme-textcolor,#d7dbe6) 22%,transparent)';
-    const PILL_RUN = 'rgba(122,162,255,.55)';
     const GEN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', width: 'max-content', minWidth: '5.6em', maxWidth: '100%', minHeight: '28px', margin: '0', padding: '3px 13px 3px 11px',
         fontSize: '12.5px', lineHeight: '1.3', borderWidth: '0', borderStyle: 'solid', borderRadius: '0', userSelect: 'none', transition: 'filter .18s', whiteSpace: 'nowrap' };
     const GEN_LOOKS = {
@@ -10657,9 +10637,9 @@ Rules:
         const total = acTotal(a);
         const nsStep = () => {
             const open = !noCast && a.step >= 8;
-            const cur = open && (!st.set.nsfw?.st || acs.nsOpen || nsWant('asset'));
+            const cur = open && (!st.set.nsfw?.st || acs.nsOpen);
             const s = !open ? 'lock' : cur ? 'cur' : 'done';
-            const done = !!st.set.nsfw?.st && !nsWant('asset');
+            const done = !!st.set.nsfw?.st;
             return h('section', { class: `sp ${s}` },
                 h('div', { class: 'sp-hd' },
                     h('span', { class: 'sp-n' }, s === 'done' ? '✓' : shown(7) + 1),
@@ -12723,23 +12703,12 @@ ${art}
         return root.doc;
     }
 
-    const BTN_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', width: 'max-content', minHeight: '30px', padding: '3px 13px 3px 11px',
-        fontSize: '12.5px', lineHeight: '1.3', borderWidth: '1px', borderStyle: 'solid', borderRadius: '999px', borderColor: PILL_LINE, background: PILL_BG, color: PILL_INK, userSelect: 'none', cursor: 'pointer', transition: 'filter .18s' };
-    const LOOKS = {
-        idle: { fontWeight: '600', opacity: '1' },
-        have: { fontWeight: '600', opacity: '1', color: '#4fbf8f', borderColor: 'rgba(80,200,150,.5)', background: 'rgba(80,200,150,.1)' },
-        run: { fontWeight: '400', opacity: '1', borderColor: PILL_RUN, background: 'rgba(92,132,240,.18)' },
-        wait: { fontWeight: '400', opacity: '.75' },
-        need: { fontWeight: '400', opacity: '.55' },
-        bad: { fontWeight: '600', opacity: '1', color: '#fff', background: '#b3261e', borderColor: '#8c1d18' },
-    };
     const SPK_SVG = ico(15, '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>');
     const PLAY_SVG = ico(13, '<path d="M7 4.5v15l12-7.5z"/>', true);
     const RE_SVG = ico(14, '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>');
     const STOP_SVG = ico(12, '<rect x="6" y="6" width="12" height="12" rx="1.5"/>', true);
     const TTS_ICON = { idle: SPK_SVG, need: SPK_SVG, have: PLAY_SVG, play: STOP_SVG, bad: SPK_SVG };
     const BAR_STYLE = imp({ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', margin: '8px 0 2px' });
-    const RE_LOOK = { ...BTN_BASE, minWidth: '30px', padding: '3px 7px' };
     const SEG_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', minWidth: '40px', minHeight: '28px', margin: '0', padding: '3px 12px',
         fontSize: '12.5px', lineHeight: '1.3', borderWidth: '0', borderStyle: 'solid', borderColor: PILL_LINE, borderRadius: '0', background: 'transparent', color: PILL_INK,
         userSelect: 'none', cursor: 'pointer', transition: 'filter .18s', position: 'relative', overflow: 'hidden', whiteSpace: 'nowrap' };
@@ -13792,7 +13761,6 @@ ${art}
         bubx: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M9 8l6 6M15 8l-6 6"/>',
         brush: '<path d="M9.97 17.03 21.38 5.62a1 1 0 0 0-3-3L6.97 14.03"/><path d="M11 10l3 3"/><path d="M6.5 21A3.5 3.5 0 1 0 3 17.5a2.6 2.6 0 0 1-.7 1.8A1 1 0 0 0 3 21z"/>',
     };
-    const TALK_KINDS = [['illust', '삽화 (기본)'], ['comic', '만화'], ['comic2', '만화v2']];
     const talkKindNow = () => st.set.talkKind === 'comic' || st.set.talkKind === 'comic2' ? st.set.talkKind : 'illust';
     function talkIcon(name, sw = 2) {
         const el = h('span', { class: 'vn-ic', 'aria-hidden': 'true' });
@@ -14938,7 +14906,7 @@ Rules:
             talkAssetMode() ? '봇 에셋 방식은 대화 모델이 아래 에셋 중 하나를 답마다 골라 무대에 겁니다. 봇 에셋은 바꾸지 않습니다.' : '대화 화면 무대에 걸 그림의 종류 · NAI 모델 · 해상도를 고릅니다. 그림 연출은 대화 모델이 답과 함께 씁니다. 삽화 설정은 바뀌지 않습니다.',
             talkAssetMode() ? '' : '대화 그림에 쓸 그림체를 카드에서 고릅니다. 삽화 · 애드 에셋의 그림체와 따로 고릅니다. 그림체를 만들고 고치는 일은 그림체 탭에서 합니다.',
             '대화 목소리와 등장인물 분석은 음성 › 준비에서 고른 값을 그대로 씁니다.', ''][n];
-        const hold = n === TSETUP.length - 1 && (!host.nsfwSt() || host.nsfwWant());
+        const hold = n === TSETUP.length - 1 && !host.nsfwSt();
         const block = n === TGATE && (setupOf() < SETUP.length || keyKnown === false);
         return [h('div', { class: 'vz' }, steps,
             h('section', { class: 'vz-pn' },
@@ -14976,7 +14944,6 @@ Rules:
         void talkRatesLoad();
         ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : Math.min(setupOf(), 2);
         ui.tstep = Math.min(talkSetupOf(), TSETUP.length);
-        if (host.nsfwWant() && talkSetupOf() >= TSETUP.length - 1) ui.tstep = TSETUP.length - 1;
         try {
             const d = root.asked ? await rootDoc() : null;
             ui.dup = !!(d && await d.querySelector('[class*="x-risu-gt-at-"]'));
@@ -15370,7 +15337,7 @@ Rules:
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => st.set.talkReply, introBody, nsfwWant: () => nsWant('talk'), nsfwSt: () => !!st.set.nsfw?.st, mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => st.set.talkReply, introBody, nsfwSt: () => !!st.set.nsfw?.st, mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeys: acFaceKeys,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
