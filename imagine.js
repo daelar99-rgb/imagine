@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.21.1
+//@display-name 🎨 이매진 v5.22.0
 //@api 3.0
-//@version 5.21.1
+//@version 5.22.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.21.1';
+    const VERSION = '5.22.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5236,7 +5236,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     ];
     const SIDE_TABS = [['cast', '등장인물'], ['style', '그림체'], ['set', '설정']];
     const VTABS = [['ready', () => ['준비', voice?.ready?.() ? h('em', { class: 'cnt' }, '✓') : null]], ['voices', () => [headIcon('mic'), '목소리']]];
-    const TTABS = [['ready', () => ['준비', voice?.talkReady?.() ? h('em', { class: 'cnt' }, '✓') : null]], ['talk', () => '대화하기']];
+    const TTABS = [['ready', () => ['준비', voice?.talkReady?.() ? h('em', { class: 'cnt' }, '✓') : null]], ['list', () => ['대화 목록', voice?.talkCount?.() ? h('em', { class: 'cnt' }, String(voice.talkCount())) : null]], ['talk', () => '대화하기']];
     const PTABS = [['illust', '삽화'], ['comic', '만화'], ['asset', '애드 에셋'], ['voice', '음성'], ['talk', '대화'], ['nsfw', 'NSFW']];
     const MODES = [['imagine', '삽화'], ['asset', '애드 에셋'], ['voice', '음성'], ['talk', '대화'], ['prompt', '프롬프팅']];
     const vMode = m => m === 'voice' || m === 'talk';
@@ -5266,7 +5266,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const anim = ui.lastTab !== now;
         ui.lastTab = now;
         if (ui.side === 'upd' && !updOn()) ui.side = '';
-        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'talk' ? voice.pane(ui.ttab === 'talk' ? 'talk' : 'tready') : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset(), 'asset')) : ui.mode === 'prompt' ? renderPromptApp() : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady(), 'illust');
+        const pane = ui.side === 'cast' ? renderCast() : ui.side === 'style' ? renderStyle() : ui.side === 'set' ? renderSettings() : ui.side === 'upd' ? renderUpdatePage() : ui.mode === 'voice' ? voice.pane(ui.vtab) : ui.mode === 'talk' ? voice.pane(ui.ttab === 'talk' ? 'talk' : ui.ttab === 'list' ? 'tlist' : 'tready') : ui.mode === 'asset' ? (ui.atab === 'list' ? renderAssetList() : railSteps(renderAsset(), 'asset')) : ui.mode === 'prompt' ? renderPromptApp() : ui.tab === 'gallery' ? renderGallery() : railSteps(renderReady(), 'illust');
         if (anim) ui.animAt = Date.now();
         const ae = Date.now() - ui.animAt;
         if (ae < 1000) { pane.classList.add('anim'); pane.style.setProperty('--ae', -ae + 'ms'); }
@@ -12542,6 +12542,7 @@ ${art}
         void talkPlay(q.data, q.k, q.end);
     }
     function talkMark() {
+        if (talkListPaint()) return;
         ui.root?.querySelectorAll('.vn-pb[data-k]').forEach(talkMarkOne);
         ui.root?.querySelectorAll('.vn-di.vr[data-k]').forEach(talkMarkRe);
     }
@@ -13274,6 +13275,37 @@ ${art}
   .tk-log{padding:12px 10px 10px}
   .tk-col,.tk-line.me .tk-row{max-width:86%}
 }
+/* 5.22.0: 대화 목록 탭. 틀은 삽화 목록(ans · tile · menu · rz)을 그대로 쓰고, 여기에는 대화 목록에만 있는 칸을 둔다 */
+.gt .tl .gal-top .gt-hint{flex:1 1 220px;margin:0}
+.gt .tl-err{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 10px;font-size:.8rem;color:var(--bad-t);background:var(--bad-soft);border-left:3px solid var(--bad)}
+.gt .tl-err span{flex:1 1 auto}
+.gt .tl-who{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.gt .tl-who button{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:3px 10px 3px 4px;font-size:.8rem;color:var(--ink);background:var(--card);border:1px solid var(--line2);border-radius:16px;cursor:pointer}
+.gt .tl-who button.all{padding-left:10px}
+.gt .tl-who button:hover{background:var(--hover)}
+.gt .tl-who button.sel{color:#fff;background:var(--accent);border-color:var(--accent)}
+.gt .tl-who small{font-size:.72rem;opacity:.75}
+.gt .tl-fc{position:relative;overflow:hidden;flex:none;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-style:normal;font-size:11px;font-weight:700;color:#fff;background:var(--accent2)}
+.gt .tl-fc img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.gt .tl-fc img:not([src]){display:none}
+.gt .tl-bar{margin-bottom:12px}
+.gt .tl .nm{display:inline-flex;align-items:center;gap:6px;font-size:.84rem}
+.gt .tl .ans-st.dr{color:var(--accent);font-weight:700}
+.gt .tl .ans-st.vo{color:var(--accent-t)}
+.gt .tl .when{margin-left:auto;font-size:.72rem;color:var(--muted)}
+.gt .tl .ans-u{margin:6px 12px 0;padding:4px 8px;font-size:.78rem;color:var(--muted);background:var(--paper2);border-left:2px solid var(--line2);white-space:pre-wrap}
+.gt .tl .ans-u b{margin-right:4px;color:var(--ink)}
+.gt .tl .ans-tx{color:var(--ink);line-height:1.55;white-space:pre-wrap;cursor:pointer}
+.gt .tl .ans-tx.open{display:block;-webkit-line-clamp:unset}
+.gt .tl .ans-g{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.gt .tl .tile.wide img{aspect-ratio:3/2}
+.gt .tl .ans-f .gt-hint{margin:0}
+.gt .tl .gt-b.armed{color:#fff;background:var(--bad);border-color:var(--bad)}
+.gt .tl-more{display:flex;justify-content:center;margin-top:12px}
+@media (max-width:600px){
+  .gt .tl .ans-g{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .gt .tl .when{flex-basis:100%;margin-left:0}
+}
 /* 4.7.0: 움직임 줄이기 설정에서도 삽화 탭처럼 탭 애니메이션 · 호버 페이드를 보인다 (사용자 결정, 전체 끄기 규칙 삭제) */
 `;
     function h(tagName, props, ...children) {
@@ -13294,7 +13326,7 @@ ${art}
         return el;
     }
     const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, tstep: 0, dup: false, readyAt: 0,
-        talk: { chaId: null, tk: null, name: null, list: true, draft: '', busy: '', err: null, edit: null, voices: new Set(), voicing: new Map(), voiceQ: [], drawQ: [], playing: '', confirm: null, note: null, recast: '', view: '', sel: null, draw: null, pre: null, cmsg: null, tick: 0, hud: false } };
+        talk: { chaId: null, tk: null, name: null, list: true, draft: '', busy: '', err: null, edit: null, voices: new Set(), voicing: new Map(), voiceQ: [], drawQ: [], playing: '', confirm: null, note: null, recast: '', view: '', sel: null, draw: null, pre: null, cmsg: null, tick: 0, hud: false, lf: 'all', lwho: '', lmenu: '', lopen: new Set(), llimit: 30, lsig: '' } };
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
@@ -14008,6 +14040,7 @@ ${art}
         el.style.height = Math.min(el.scrollHeight, 132) + 'px';
     }
     function talkPaint() {
+        if (talkListPaint()) return;
         const v = ui.view;
         const vn = ui.root?.querySelector('.vn:not(.vn-none)');
         if (!v || !vn || host.ui.home || host.ui.mode !== 'talk' || host.ui.ttab !== 'talk' || host.ui.side) return;
@@ -14233,6 +14266,150 @@ Rules:
         talkMark();
         talkPaint();
         talkLoreSoon(v.tk, v.ci, name);
+    }
+    function talkListSig() {
+        const T = ui.talk;
+        const logs = Object.entries(ui.view?.talk ?? {}).map(([n, log]) => `${n}:${log.length}:${log.map(m => m.img?.path ?? '').join(',')}`).join(';');
+        return [T.draw?.name, T.draw?.at, T.pre?.at, T.playing, T.voicing.size, cached.size, T.busy, T.drawQ.length, T.err?.text, logs].join('|');
+    }
+    function talkListPaint() {
+        if (host.ui.home || host.ui.mode !== 'talk' || host.ui.ttab !== 'list' || host.ui.side) return false;
+        if (ui.root?.isConnected && talkListSig() !== ui.talk.lsig) render();
+        return true;
+    }
+    function paneTalkList() {
+        const v = ui.view;
+        const T = ui.talk;
+        if (!v) return h('div', { class: 'tl' }, h('div', { class: 'gt-empty' }, '열린 봇 채팅이 없습니다.'));
+        const asset = st.set.talkImgSrc === 'asset';
+        const all = [];
+        for (const [name, log] of Object.entries(v.talk ?? {})) {
+            log.forEach((m, i) => {
+                if (m.r !== 'c') return;
+                let u = null;
+                for (let j = i - 1; j >= 0; j--) { if (log[j].r === 'c') break; if (log[j].r === 'u') { u = log[j]; break; } }
+                all.push({ name, m, u });
+            });
+        }
+        all.sort((a, b) => a.m.at - b.m.at).forEach((x, i) => { x.no = i + 1; });
+        const cast = talkCast(v);
+        const names = [...cast.filter(n => all.some(x => x.name === n)), ...new Set(all.map(x => x.name).filter(n => !cast.includes(n)))];
+        if (T.lwho && !names.includes(T.lwho)) T.lwho = '';
+        const faces = talkFaces(v, names);
+        const nImg = all.reduce((n, x) => n + (x.m.img?.path ? (x.m.img.path2 ? 2 : 1) : 0), 0);
+        const nVoice = all.filter(x => cached.has(talkHash(v.chaId, x.name, x.m.t, x.m.tone))).length;
+        const mine = T.lwho ? all.filter(x => x.name === T.lwho) : all;
+        const nHas = mine.filter(x => x.m.img?.path).length;
+        const list = mine.filter(x => T.lf === 'all' || (T.lf === 'img') === !!x.m.img?.path).reverse();
+        const newest = all.at(-1);
+        const pick = f => { T.lf = f; T.llimit = 30; T.lmenu = ''; render(); };
+        const out = h('div', { class: 'tl' },
+            h('div', { class: 'gal-top' },
+                h('span', { class: 'gt-hint' }, `대화 상대 ${names.length}명 · 답 ${all.length}개 · 그림 ${nImg}장 · 목소리 ${nVoice}개 · `
+                    + (asset ? '그림 방식이 「봇 에셋」이라 새로 그리지 않습니다. 대화 › 준비에서 바꿀 수 있습니다.' : '「🎨 이미지 생성」은 대화 › 준비 설정대로 그립니다.'))),
+            T.err ? h('div', { class: 'tl-err', role: 'alert' }, h('span', null, (T.err.name ? T.err.name + ': ' : '') + T.err.text),
+                h('button', { class: 'gt-b sm', type: 'button', onclick: () => { T.err = null; render(); } }, '닫기')) : null);
+        if (!all.length) {
+            out.append(h('div', { class: 'gt-empty' }, h('b', null, '아직 나눈 대화가 없습니다.'),
+                h('button', { class: 'gt-b main', type: 'button', onclick: () => { host.ui.ttab = 'talk'; T.list = true; render(); } }, '💬 대화하기')));
+            T.lsig = talkListSig();
+            return out;
+        }
+        out.append(
+            names.length > 1 ? h('div', { class: 'tl-who', role: 'group' },
+                h('button', { class: 'all' + (!T.lwho ? ' sel' : ''), type: 'button', 'aria-pressed': String(!T.lwho), onclick: () => { T.lwho = ''; T.llimit = 30; T.lmenu = ''; render(); } }, '모두 ', h('small', null, String(all.length))),
+                names.map(n => h('button', { class: T.lwho === n ? 'sel' : null, type: 'button', 'aria-pressed': String(T.lwho === n), onclick: () => { T.lwho = T.lwho === n ? '' : n; T.llimit = 30; T.lmenu = ''; render(); } },
+                    tlFace(faces, n), n, h('small', null, String(all.filter(x => x.name === n).length))))) : null,
+            h('div', { class: 'tl-bar' }, seg([['all', `전체 ${mine.length}`], ['img', `그림 있음 ${nHas}`], ['none', `그림 없음 ${mine.length - nHas}`]], T.lf, pick)));
+        if (!list.length) out.append(h('div', { class: 'gt-empty' }, T.lf === 'img' ? '아직 그린 그림이 없습니다.' : '모든 답에 그림이 있습니다.'));
+        for (const x of list.slice(0, T.llimit)) out.append(talkListCard(v, x, faces, x === newest, asset));
+        if (list.length > T.llimit) out.append(h('div', { class: 'tl-more' },
+            h('button', { class: 'gt-b', type: 'button', onclick: () => { T.llimit += 30; render(); } }, `더 보기 (${list.length - T.llimit}개 남음)`)));
+        if (nImg) out.append(h('div', { class: 'rz' },
+            h('div', { class: 'rz-tx' }, h('b', null, '이 채팅의 대화 그림 모두 지우기'), h('span', null, `그림 ${nImg}장을 대화 기록에서 뺍니다. 답 글과 목소리는 남습니다.`)),
+            T.draw || T.pre ? h('button', { class: 'gt-b sm warn', type: 'button', disabled: true }, '그리는 중에는 지울 수 없습니다')
+                : host.armButton('모두 지우기', '한 번 더 누르면 지웁니다', () => talkListClear(v), 'gt-b sm warn', 'tl:clear')));
+        T.lsig = talkListSig();
+        return out;
+    }
+    const tlFace = (faces, n) => h('i', { class: 'tl-fc', 'aria-hidden': 'true' }, [...String(n).trim()][0] ?? '?', faces.has(n) ? h('img', { 'data-path': faces.get(n), alt: '' }) : null);
+    const TL_KIND = { illust: '삽화', comic: '만화', comic2: '만화v2' };
+    function talkListCard(v, x, faces, newest, asset) {
+        const T = ui.talk;
+        const { name, m, u } = x;
+        const key = name + '|' + m.at;
+        const img = m.img?.path ? m.img : null;
+        const drawing = (T.draw?.name === name && T.draw.at === m.at) || (T.pre?.name === name && T.pre.at === m.at);
+        const waiting = !drawing && T.drawQ.some(q => q.name === name && q.at === m.at);
+        const paths = img ? [img.path, img.path2].filter(Boolean) : [];
+        const voiced = cached.has(talkHash(v.chaId, name, m.t, m.tone));
+        const vo = T.playing === m.at ? '🔊 트는 중' : T.voicing.has(m.at) ? '🔊 만드는 중' : voiced ? '🔊 목소리' : '';
+        const open = T.lopen.has(key);
+        const mi = paths.findIndex((p, i) => T.lmenu === key + '#' + i);
+        const wide = (() => { const [w, ht] = host.SIZES[img?.size] ?? []; return w > ht; })();
+        const tile = (p, i) => h('div', { class: 'tile' + (wide ? ' wide' : '') },
+            h('button', { class: 'im', type: 'button', 'aria-label': '크게 보기', onclick: () => void host.showBig(img.path, img.path2 ?? '') }, h('img', { 'data-path': p, alt: name })),
+            h('div', { class: 'cap' },
+                h('div', null, h('b', null, paths.length > 1 ? `${name} · ${i ? '오른쪽' : '왼쪽'}` : name), h('span', null, TL_KIND[img.kind ?? img.req?.kind] ?? '그림')),
+                h('button', {
+                    class: 'more' + (mi === i ? ' on' : ''), type: 'button', 'aria-label': '그림 메뉴', 'aria-expanded': String(mi === i),
+                    onclick: () => { T.lmenu = mi === i ? '' : key + '#' + i; render(); },
+                }, '⋯')));
+        const art = h('article', { class: 'ans' + (mi >= 0 ? ' on' : '') },
+            h('div', { class: 'ans-h' },
+                h('span', { class: 'no' + (newest ? ' new' : '') }, `#${x.no}${newest ? ' 최신' : ''}`),
+                h('span', { class: 'nm' }, tlFace(faces, name), h('b', null, name)),
+                h('span', { class: 'ans-st' + (drawing ? ' dr' : img ? ' has' : '') }, drawing ? '🎨 그리는 중' : waiting ? '그림 대기' : img ? `그림 ${paths.length}장` : '그림 없음'),
+                vo ? h('span', { class: 'ans-st vo' }, vo) : null,
+                h('time', { class: 'when' }, talkAgo(m.at))),
+            u ? h('div', { class: 'ans-u' }, h('b', null, '나'), u.t) : null,
+            h('div', { class: 'ans-tx' + (open ? ' open' : ''), title: open ? '접기' : '펼치기', onclick: () => { open ? T.lopen.delete(key) : T.lopen.add(key); render(); } }, m.t || '(빈 답)'),
+            paths.length ? h('div', { class: 'ans-g' }, paths.map(tile)) : null,
+            mi >= 0 ? talkListMenu(v, name, m, asset) : null);
+        if (!paths.length) art.append(h('div', { class: 'ans-f' },
+            asset ? h('span', { class: 'gt-hint' }, '봇 에셋 방식에서는 새로 그리지 않습니다')
+                : [h('button', { class: 'gt-b sm main', type: 'button', disabled: !!(T.draw || T.pre), onclick: () => void talkArt(v, name, m, 'new') }, drawing ? '🎨 그리는 중' : '🎨 이미지 생성'),
+                    T.draw || T.pre ? h('span', { class: 'gt-hint' }, '다른 그림을 그리는 중입니다') : null]));
+        else art.append(h('div', { style: 'height:12px' }));
+        return art;
+    }
+    function talkListMenu(v, name, m, asset) {
+        const T = ui.talk;
+        const busy = !!(T.draw || T.pre);
+        const log = v.talk[name] ?? [];
+        const live = T.busy === name && log.at(-1) === m;
+        const sound = T.playing === m.at || T.voicing.has(m.at);
+        const voiced = cached.has(talkHash(v.chaId, name, m.t, m.tone));
+        return h('div', { class: 'menu', role: 'menu' },
+            h('div', { class: 'menu-h' }, '이 답의 그림'),
+            h('button', { type: 'button', role: 'menuitem', disabled: asset || busy, onclick: () => { T.lmenu = ''; void talkArt(v, name, m, m.img?.req ? 'redo' : 'new'); } },
+                '🔁 다시 그리기', h('small', null, asset ? '봇 에셋 방식에서는 그리지 않습니다' : busy ? '다른 그림을 그리는 중입니다' : '독에서 고른 종류로 이 답의 그림을 새로 뽑습니다')),
+            h('button', { type: 'button', role: 'menuitem', onclick: () => { T.lmenu = ''; void talkReplay(v.chaId, name, m.t, m.at, m.tone); } },
+                sound ? '⏹ 멈추기' : voiced ? '▶ 목소리 듣기' : '🔊 목소리 만들기', h('small', null, sound ? '트는 소리 · 만드는 목소리를 멈춥니다' : voiced ? '만들어 둔 목소리를 틉니다' : '이 답의 목소리를 만들어 틉니다')),
+            h('button', {
+                type: 'button', role: 'menuitem', onclick: () => {
+                    if (talkRunOf(v)) return;
+                    T.lmenu = '';
+                    host.ui.ttab = 'talk';
+                    T.list = false;
+                    T.name === name ? render() : talkPick(name);
+                },
+            }, '💬 이 대화로 가기', h('small', null, `${name}와의 대화 장면을 엽니다`)),
+            live ? h('button', { type: 'button', role: 'menuitem', class: 'del', disabled: true }, '🗑 이 답 지우기', h('small', null, '답을 만드는 중이라 지금은 지울 수 없습니다'))
+                : host.armButton(['🗑 이 답 지우기', h('small', null, '답 글과 그림을 지웁니다')], '한 번 더 누르면 지웁니다', () => { T.lmenu = ''; talkDropMsg(v, name, m.at); }, 'del', 'tl:' + name + '|' + m.at));
+    }
+    function talkListClear(v) {
+        const T = ui.talk;
+        if (T.draw || T.pre) return;
+        for (const log of Object.values(v.talk ?? {})) for (const m of log) {
+            if (!m.img) continue;
+            for (const p of [m.img.path, m.img.path2]) if (p) host.dropThumb(p);
+            delete m.img;
+        }
+        T.view = '';
+        T.lmenu = '';
+        void saveTalk(v.tk, v.talk);
+        render();
     }
     function talkToList() {
         const T = ui.talk;
@@ -14678,8 +14855,8 @@ Rules:
     function pane(vtab) {
         if (!doc.getElementById('nc-voice-style')) doc.head.append(h('style', { id: 'nc-voice-style' }, CSS + WIZ_CSS));
         const scene = vtab === 'talk' && !(ui.talk.list && ui.view);
-        const body = vtab === 'talk' ? (scene ? paneTalk() : paneTalkPick()) : vtab === 'tready' ? paneTalkReady() : vtab === 'voices' ? paneVoices() : paneReady();
-        ui.root = h('div', { class: 'gt' + (vtab === 'talk' || vtab === 'tready' ? ' gt-talk' : '') + (ui.preview ? ' gt-pvon' : '') + (scene ? ' gt-vn' : ''), role: 'tabpanel' },
+        const body = vtab === 'talk' ? (scene ? paneTalk() : paneTalkPick()) : vtab === 'tlist' ? paneTalkList() : vtab === 'tready' ? paneTalkReady() : vtab === 'voices' ? paneVoices() : paneReady();
+        ui.root = h('div', { class: 'gt' + (vtab === 'talk' || vtab === 'tready' || vtab === 'tlist' ? ' gt-talk' : '') + (ui.preview ? ' gt-pvon' : '') + (scene ? ' gt-vn' : ''), role: 'tabpanel' },
             h('div', { class: 'gt-pane' + (scene ? ' talk' : '') }, body),
             previewBar());
         return ui.root;
@@ -14937,7 +15114,7 @@ Rules:
         ui.pick = null;
         await checkKey();
         await refreshView();
-        if (ui.talk.tk !== ui.view?.tk) Object.assign(ui.talk, { chaId: ui.view?.chaId, tk: ui.view?.tk, name: null, err: null, confirm: null, view: '' });
+        if (ui.talk.tk !== ui.view?.tk) Object.assign(ui.talk, { chaId: ui.view?.chaId, tk: ui.view?.tk, name: null, err: null, confirm: null, view: '', lwho: '', lmenu: '' });
         Object.assign(ui.talk, { cmsg: null });
         ui.talk.voicing.clear();
         ui.talk.voiceQ.length = 0;
@@ -15326,7 +15503,7 @@ Rules:
     await checkKey();
     wantRoot();
     await syncListen();
-    return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), ready: () => keyKnown === true && setupOf() >= SETUP.length,
+    return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), talkCount: () => Object.values(ui.view?.talk ?? {}).reduce((n, log) => n + log.filter(m => m.r === 'c').length, 0), ready: () => keyKnown === true && setupOf() >= SETUP.length,
         lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false,
         talkReady, talkLit: () => talkReady(), talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
         castLlm: () => st.set.castLlm === 'submodel' ? 'submodel' : 'model', castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
@@ -15337,7 +15514,7 @@ Rules:
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => st.set.talkReply, introBody, nsfwSt: () => !!st.set.nsfw?.st, mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, goMode, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => st.set.talkReply, introBody, nsfwSt: () => !!st.set.nsfw?.st, mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, goMode, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeys: acFaceKeys,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
