@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.24.0
+//@display-name 🎨 이매진 v5.24.1
 //@api 3.0
-//@version 5.24.0
+//@version 5.24.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.24.0';
+    const VERSION = '5.24.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -11656,7 +11656,8 @@ Rules:
             if (/\{\{\s*#(if|if_pure|when|unless)\b/i.test(raw) && String((await api.parseRisuChat?.(raw)) ?? '').trim() === v) v = String((await api.parseRisuChat?.(unblock(raw))) ?? '').trim() || v;
             if (v !== '{{persona}}') prompt = plain(v.replace(/\{\{user\}\}/gi, name || 'User')).slice(0, PERSONA_MAX);
         } catch {}
-        return { name, prompt, sig: name ? hash(name + '\n' + prompt) : '' };
+        const raw = await rawPersona();
+        return { name, prompt, sig: name ? hash(name + '\n' + (raw.trim() || prompt)) : '' };
     }
     function botContextOf(char, chat, entries, user) {
         const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char?.name ?? '').replace(/\{\{user\}\}/gi, user || 'User');
@@ -11776,7 +11777,7 @@ Rules:
         if (!p?.name || !p.prompt || !p.sig) return Promise.resolve(false);
         if (bot.voices[canonName(bot, p.name)]?.persona === p.sig) return Promise.resolve(false);
         const tag = chaId + '|' + p.sig;
-        if (personaFail.has(tag)) return Promise.resolve(false);
+        if (personaFail.has(tag) || bot.personaNo?.[p.name] === p.sig) return Promise.resolve(false);
         if (personaRun.has(tag)) return personaRun.get(tag);
         const run = (async () => {
             try {
@@ -11803,12 +11804,14 @@ Rules:
                     else { delete bot.voices[key]; voice = voiceFor(bot, key, g); }
                 }
                 bot.voices[key] = { ...rec, voice, gender: g, style, persona: p.sig };
+                if (bot.personaNo) delete bot.personaNo[p.name];
                 delete bot.dirty;
                 await saveBot(chaId, bot);
                 return true;
             } catch (error) {
                 personaFail.add(tag);
                 console.warn(LOG, 'persona', error);
+                if (!/멈추|stop/i.test(String(error?.message ?? error))) { (bot.personaNo ??= {})[p.name] = p.sig; void saveBot(chaId, bot); }
                 return false;
             } finally {
                 personaRun.delete(tag);
@@ -11873,6 +11876,7 @@ Rules:
             await saveBot(chaId, bot);
             const p = await guard(personaOf());
             personaFail.delete(chaId + '|' + p.sig);
+            if (bot.personaNo) delete bot.personaNo[p.name];
             await guard(ensurePersona(chaId, bot, p, st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
             if (!st.set.talkSync) {  }
             else if (job) void castMainLines(w, bot, user, entries, q => q, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
@@ -13672,7 +13676,7 @@ ${art}
                     })),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '대화 싱크'), h('p', null, st.set.talkSync
                         ? '등장인물 분석 때와 분석한 봇의 다른 채팅을 대화 화면으로 처음 열 때, 모델이 본편 대사의 화자를 정해 인물마다 채팅 로어북에 모읍니다. 대화 상대가 본편 말투를 따라 합니다. 모델 요청이 늘어납니다.'
-                        : '본편 대사를 모으지 않습니다. 모델 요청이 없습니다. 이미 모은 본편 대사는 그대로 씁니다.')),
+                        : '본편 대사 모으기 요청을 보내지 않습니다. 이미 모은 본편 대사는 그대로 씁니다. 등장인물 분석 · 페르소나 목소리 분석은 따로 돕니다.')),
                     seg([['on', '켬'], ['off', '끔 (기본)']], st.set.talkSync ? 'on' : 'off', id => set('talkSync', id === 'on'))),
                 row('본편 대사 개수', '대화 싱크를 켰을 때, 등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 그 채팅의 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모읍니다. 분석한 봇의 다른 채팅은 대화 화면을 처음 열 때 그 채팅 것만 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 10, value: st.set.talkMain, onchange: e => { const n = Number(e.target.value); set('talkMain', e.target.value !== '' && Number.isFinite(n) ? Math.max(0, Math.min(2000, Math.round(n))) : DEF_SET.talkMain); } }), '개'))),
