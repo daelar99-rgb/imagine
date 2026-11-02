@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.6.4
+//@display-name 🎨 이매진 v5.7.0
 //@api 3.0
-//@version 5.6.4
+//@version 5.7.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.6.4';
+    const VERSION = '5.7.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -53,7 +53,6 @@
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
     const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border';
-    const V2_STACK = '1.3::comic, 2koma, manga::, 1.3::2 panels stacked vertically, top panel and bottom panel, horizontal panel border::, white border';
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -1098,7 +1097,7 @@ ${TAG_STYLE}`;
   3. else that fighter fights bare-handed (a fighting stance, fists, a punch or kick; it does not have to land): its trail (e.g. "blue impact trail", "orange shockwave").
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
-    const comicRules = () => talkOv?.v2 ? PANEL_RULES.comic.replace('COMIC PAGE (2 to 4 panels, all drawn in this one image;', 'COMIC PAGE (1 or 2 panels stacked vertically, top then bottom, all drawn in this one portrait image;') : PANEL_RULES.comic;
+    const comicRules = () => talkOv?.v2 ? PANEL_RULES.comic.replace('COMIC PAGE (2 to 4 panels, all drawn in this one image;', 'COMIC PAGE (exactly 1 panel that fills this whole portrait image, no panel split;') : PANEL_RULES.comic;
     const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
@@ -1174,7 +1173,7 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
-            : talkOv?.v2 ? '- panels: 1 or 2 entries per image, stacked vertically (panel 1 on top, panel 2 below). 1 for a single beat, 2 for setup → reaction. Never 3 or more.'
+            : talkOv?.v2 ? '- panels: always exactly 1 entry per image (one full-page panel, never split). Image 1 and image 2 together carry the story: image 1 the setup, image 2 what follows.'
             : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
@@ -1919,7 +1918,7 @@ Rules
         const kindOf = x => x.e ? x.type : x.name;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
-            if (slots.length >= (talkOv?.v2 ? 2 : 4)) break;
+            if (slots.length >= (talkOv?.v2 ? 1 : 4)) break;
             const who = [];
             for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
                 const e = findCast(cast, name);
@@ -1957,7 +1956,6 @@ Rules
                 chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
             });
         }
-        if (talkOv?.v2 && slots.length === 2) slots.forEach((sl, i) => { sl.prompt = `${i ? 'bottom panel' : 'top panel'},\n${sl.prompt}`; });
         for (const sl of slots) {
             sl.uc = joinTags(sl.uc, [...labels].filter(([k]) => !sl.keys.includes(k)).map(([, n]) => n));
             delete sl.keys;
@@ -1965,11 +1963,11 @@ Rules
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const single = slots.length === 1;
-        if (!single && talkOv?.v2) neg = joinTags(neg, 'side-by-side panels, vertical panel border');
+        if (talkOv?.v2) neg = joinTags(neg, 'multiple panels, panel border');
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : talkOv?.v2 ? V2_STACK : COMIC_TAGS, dropNone(img.scene)),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: single ? 1 : clampInt(slots.length, 2, talkOv?.v2 ? 2 : 4, 2),
+            slots, w, h, panels: single ? 1 : clampInt(slots.length, 2, 4, 2),
             useCoords: false,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
@@ -2762,7 +2760,7 @@ Rules
             console.log(LOG, 'talk scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
             const user = comicUser(char, chat, idx, cast, state, st.persona?.name, input, false, null, '', sc)
                 + `\n\n# TALK SCENE\nThis is a one-on-one spoken conversation between ${st.persona?.name || 'User'} and ${o.name}. ${v2
-                    ? `Draw the moment of the target message as 2 images: two portrait comic pages shown side by side, image 1 on the left and image 2 on the right, in story order (image 2 continues right after image 1). Each page has 1 or 2 panels stacked vertically, top then bottom. ${o.name} is the main subject.`
+                    ? `Draw the moment of the target message as 2 images: two portrait comic pages shown side by side, image 1 on the left and image 2 on the right, in story order (image 2 continues right after image 1). Each page is one single panel that fills the whole page (no panel split). ${o.name} is the main subject.`
                     : `Draw the moment of the target message as 1 image${isIllust() ? '' : ' (one comic page)'} with ${o.name} as the main subject.`}`;
             const plan = await askJson(comicSystem(false, !!input, false, false, v2 ? 2 : 1), user, 'images',
                 v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.', job);
@@ -6106,7 +6104,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
                         `<svg viewBox="0 0 160 100">${bubble(60, 12, 90, 2, '#e9f5ff')}${bubble(10, 44, 100, 2)}<rect x="10" y="76" width="140" height="16" rx="8" fill="#fff" stroke="#dbe5f0"/><rect x="132" y="79" width="14" height="10" rx="5" fill="#ff6b5e"/></svg>`],
                     ['무대 그림이 바뀝니다', '답마다 그 순간의 표정 · 자세로 무대 그림을 다시 그립니다. 에셋이 있으면 바로 꺼내 씁니다.',
                         `<svg viewBox="0 0 160 100"><rect x="10" y="8" width="140" height="84" rx="8" fill="#2a3550"/><rect x="10" y="62" width="140" height="30" rx="0" fill="#3d4a6b"/>${face(80, 44, 20, '#3b2f5c')}<rect x="60" y="64" width="40" height="28" rx="8" fill="#8b6cf0"/><path d="M73 52 q7 6 14 0" stroke="#1f2d45" stroke-width="1.8" fill="none"/></svg>`],
-                    ['목소리로 답을 듣습니다', '음성과 같은 TTS 키를 쓰면 답이 인물의 목소리로 나옵니다. 무대 아래 「TTS」로 켜고 끕니다.',
+                    ['목소리로 답을 듣습니다', '음성과 같은 TTS 키를 쓰면 답이 늘 인물의 목소리로 나옵니다.',
                         `<svg viewBox="0 0 160 100">${face(30, 46, 18, '#3b2f5c')}${wave(58, 46, '#ff6b5e', 9)}<rect x="56" y="74" width="48" height="16" rx="8" fill="#ffe8e5"/><text x="66" y="85" font-size="9" fill="#ff6b5e" font-weight="800">TTS 켬</text></svg>`],
                 ] },
         };
@@ -10688,6 +10686,7 @@ Rules:
     async function loadSet() {
         const v = await api.pluginStorage.getItem('gt:set').catch(() => null);
         if (v && typeof v === 'object') st.set = { ...DEF_SET, ...v };
+        st.set.talkSpeak = true; st.set.talkAuto = true; st.set.talkWhen = 'every';
         if (!st.set.m38 && st.set.model === OLD_MODEL) st.set.model = DEF_SET.model;
         st.set.m38 = true;
         if (!st.set.t46 && st.set.talkModel === 'model') st.set.talkModel = 'submodel';
@@ -13066,12 +13065,6 @@ ${ctx || '(none)'}`;
             stat ? h('div', { class: 'gt-hint' }, stat + '. 라이브러리 목소리는 3.8 Flash 로 만들고, 기존 목소리와 한 요청에 섞지 않습니다.') : null,
             list);
     }
-    function talkWhenSeg(onpick) {
-        const el = seg([['every', '매 답마다 (기본)'], ['scene', '장면이 바뀔 때'], ['manual', '직접 누를 때만']], st.set.talkWhen === 'scene' ? 'every' : st.set.talkWhen, onpick);
-        el.children[1].disabled = true;
-        el.children[1].title = '다음 버전에서 씁니다';
-        return el;
-    }
     function seg(items, value, onpick, extra) {
         return h('div', { class: 'vf-seg' + (extra ? ' ' + extra : ''), role: 'group' },
             items.map(([id, label]) => h('button', { type: 'button', class: id === value ? 'sel' : null, 'aria-pressed': String(id === value), onclick: () => onpick(id) }, label)));
@@ -13158,10 +13151,6 @@ ${ctx || '(none)'}`;
                     h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기')))];
         return [
             group('대화', '모든 봇 공통',
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '답 자동 듣기'), h('p', null, st.set.talkSpeak
-                        ? '답이 오면 그 인물의 목소리로 바로 읽어 줍니다. 대화 화면 무대 아래의 「TTS」 버튼으로도 바꿀 수 있습니다.'
-                        : '글로만 대화합니다. 무대 아래 「다시 듣기」를 누르면 그 말만 들을 수 있습니다.')),
-                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkSpeak ? 'on' : 'off', id => set('talkSpeak', id === 'on'))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '본편에 대화 알리기'), h('p', null, st.set.talkLink
                         ? '대화 기록 항목에 그 인물의 로어북 키를 그대로 넣고, 키가 없으면 항상 켜짐으로 둡니다. 본편 이야기에 그 인물이 나오면 대화 기록이 함께 들어가, 봇이 대화에서 나눈 말을 기억합니다. 그만큼 입력 토큰이 늘어납니다.'
                         : '대화 기록은 채팅 로어북의 「' + TALK_FOLDER + '」 폴더에 저장만 하고, 키를 비워 두어 본편 이야기에는 들어가지 않습니다.')),
@@ -13175,15 +13164,9 @@ ${ctx || '(none)'}`;
             group('대화 그림', '모든 봇 공통',
                 h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 작가는 바뀌지 않습니다. 대화 그림의 종류 · 작가 · 연출 모델 · 말풍선 · 해상도는 대화 › 준비에서 고릅니다.')),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그림 방식'), h('p', null, st.set.talkImgSrc === 'asset'
-                        ? '대화 모델이 봇의 그림 에셋 이름을 모두 받아 답마다 하나를 골라 무대에 겁니다. 자동 그리기 · 그릴 때 설정은 쓰지 않습니다.'
-                        : '답의 장면을 NovelAI 로 그려 무대에 겁니다.')),
+                        ? '대화 모델이 봇의 그림 에셋 이름을 모두 받아 답마다 하나를 골라 무대에 겁니다.'
+                        : '답이 올 때마다 그 장면을 NovelAI 로 그려 무대에 겁니다. 한 장마다 Anlas 를 씁니다.')),
                     seg([['nai', 'NovelAI (기본)'], ['asset', '봇 에셋']], st.set.talkImgSrc, id => set('talkImgSrc', id))),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 그리기'), h('p', null, st.set.talkAuto
-                        ? '답이 오면 그 장면을 NovelAI 로 그려 대화 화면 위쪽 무대에 겁니다. 한 장마다 Anlas 를 씁니다.'
-                        : '무대에 마우스를 올려 「그리기」를 누를 때만 그립니다.')),
-                    seg([['on', '켬 (기본)'], ['off', '끔']], st.set.talkAuto ? 'on' : 'off', id => set('talkAuto', id === 'on'))),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그릴 때'), h('p', null, '「장면이 바뀔 때」는 다음 버전에서 씁니다.')),
-                    talkWhenSeg(id => set('talkWhen', id))),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '무대 맞춤'), h('p', null, st.set.talkFit === 'cover'
                         ? '그림을 무대에 꽉 채웁니다. 그림 위아래나 양옆이 조금 잘립니다.'
                         : '그림 전체를 보여 줍니다. 남는 자리는 같은 그림을 흐리게 깔아 채웁니다.')),
@@ -13370,7 +13353,6 @@ ${ctx || '(none)'}`;
         const src = talkSrc(log);
         const drawing = T.draw?.name === name;
         const noKey = keyKnown === false;
-        const speak = st.set.talkSpeak && !noKey;
         const auto = st.set.talkAuto && st.set.talkWhen !== 'manual';
         const assetMode = st.set.talkImgSrc === 'asset';
         const lastC = log.findLast(m => m.r === 'c');
@@ -13420,24 +13402,13 @@ ${ctx || '(none)'}`;
             const cf = T.confirm === name;
             wipe.push(di('warn' + (cf ? ' cf' : ''), 'bubx', cf ? '한 번 더' : '전체삭제', cf ? '한 번 더 누르면 대화를 전부 지웁니다' : '대화 전부 지우기', () => void talkClear(v, name)));
         }
+        const low = [grp('그림', acts), grp('음성', voc), ...wipe].filter(Boolean);
         kids.push(h('div', { class: 'vn-dock', role: 'toolbar', 'aria-label': '대화 도구' },
             h('span', { class: 'vn-an' }, host.anlas()),
-            di('vc' + (speak ? ' on' : ''), speak ? 'speaker' : 'mute', noKey ? '키 없음' : 'TTS',
-                noKey ? '음성 · 대화 › 준비에서 구글 키를 넣으면 목소리로 들을 수 있습니다' : speak ? '답 자동 듣기 끄기' : '답 자동 듣기 켜기',
-                () => { st.set.talkSpeak = !st.set.talkSpeak; void saveSet(); if (!st.set.talkSpeak) talkQuiet(); talkPaint(); },
-                { disabled: noKey, 'aria-pressed': String(speak) }),
-            assetMode ? null : di(auto ? 'on' : '', 'image', '자동', auto ? '입력마다 그리기 끄기' : '말을 보낼 때마다 답의 장면을 NAI 로 그립니다', () => {
-                if (auto) st.set.talkAuto = false;
-                else { st.set.talkAuto = true; if (st.set.talkWhen === 'manual') st.set.talkWhen = 'every'; }
-                void saveSet();
-                talkPaint();
-            }, { 'aria-pressed': String(auto) }),
-            assetMode ? null : h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }),
-            assetMode ? null : [['illust', '삽화'], ['comic', '만화'], ['comic2', '만화v2']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
-                id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : id === 'comic2' ? '다음 그림부터 세로 만화 두 장(장마다 1~2컷)을 좌우로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
-                () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(talkKindNow() === id) })),
-            acts.length || voc.length || wipe.length ? h('span', { class: 'vn-vsep', 'aria-hidden': 'true' }) : null,
-            grp('그림', acts), grp('음성', voc), wipe));
+            assetMode ? null : h('div', { class: 'vn-dr' }, [['illust', '삽화'], ['comic', '만화'], ['comic2', '만화v2']].map(([id, label]) => di(talkKindNow() === id ? 'on' : '', id, label,
+                id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : id === 'comic2' ? '다음 그림부터 세로 만화 두 장(장마다 한 컷)을 좌우로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
+                () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(talkKindNow() === id) }))),
+            low.length ? h('div', { class: 'vn-dr' }, low) : null));
         return h('div', { class: 'vn-stage', onpointerup: talkHud }, kids);
     }
     function talkHud(e) {
@@ -14358,7 +14329,7 @@ Rules:
         }
         if (n === 4) return [
             h('div', { class: 'vz-cards' },
-                wizCard('comic2', '만화v2', '연출 한 번으로 세로 만화 두 장을 그려 무대에 왼쪽 · 오른쪽으로 겁니다. 장마다 컷은 1~2개이고 위아래로 쌓입니다. 크기는 세로 832×1216 으로 정해져 있고, NAI 요청은 두 번입니다.', talkKindNow(), val => set('talkKind', val), true),
+                wizCard('comic2', '만화v2', '연출 한 번으로 세로 만화 두 장을 그려 무대에 왼쪽 · 오른쪽으로 겁니다. 장마다 컷은 하나입니다. 크기는 세로 832×1216 으로 정해져 있고, NAI 요청은 두 번입니다.', talkKindNow(), val => set('talkKind', val), true),
                 wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 아래 「말풍선」 칸에서 켜고 끕니다.', talkKindNow(), val => set('talkKind', val)),
                 wizCard('illust', '삽화', '답의 장면을 컷 없는 한 장 그림으로 그립니다.', talkKindNow(), val => set('talkKind', val))),
             h('div', { class: 'vf-card', style: 'margin-top:14px' },
@@ -14390,7 +14361,7 @@ Rules:
                 li(st.set.castLlm === 'submodel' ? '등장인물은 보조 모델이 분석합니다' : '등장인물은 메인 모델이 분석합니다'),
                 li(st.set.talkModel === 'model' ? '대화의 답은 메인 모델이 만듭니다' : '대화의 답은 보조 모델이 만듭니다'),
                 li(talkAssetMode() ? '봇 에셋에서 답에 맞는 그림을 골라 겁니다' : `${talkKindNow() === 'comic2' ? '만화v2(세로 두 장)' : talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 작가 ${pr?.name || '이름 없음'} · 연출 ${st.set.talkLlm === 'model' ? '메인' : '보조'} 모델`),
-                li(st.set.talkSpeak ? (keyKnown === true ? '답을 목소리로 읽어 줍니다' : '목소리로 들으려면 음성 · 대화 › 준비에서 키를 넣어야 합니다') : '글로만 대화합니다')),
+                li(keyKnown === true ? '답을 목소리로 읽어 줍니다' : '목소리로 들으려면 음성 · 대화 › 준비에서 키를 넣어야 합니다')),
             h('div', { class: 'fn-go' },
                 h('button', { class: 'ix-btn main', type: 'button', onclick: () => { ui.talk.list = true; host.ui.ttab = 'talk'; render(); } }, '💬 대화하기')));
     }
@@ -14685,9 +14656,12 @@ Rules:
 .gt .vn-ir em.new{padding:1px 7px;border-radius:8px;font-size:10.5px;font-weight:800;color:var(--sky);background:var(--skl)}
 .gt .vn-x{display:grid;place-items:center;width:34px;height:34px;padding:0;border:0;border-radius:50%;background:#fff;color:var(--ink2);box-shadow:0 4px 12px rgba(0,0,0,.25)}
 /* 4.10.0: 무대 아래 가운데에 떠 있는 독. 아이콘 칸마다 아래 그림자가 있어 밝은 그림 위에서도 또렷하다 */
-.gt .vn-dock{position:absolute;left:0;right:0;bottom:14px;margin:0 auto;width:max-content;max-width:calc(100% - 20px);z-index:3;display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-end;gap:6px;padding:7px 9px;border-radius:20px;background:rgba(255,255,255,.88);box-shadow:0 14px 34px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.6) inset;backdrop-filter:blur(14px)}
-.gt .vn-di{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:50px;padding:0;border:0;background:none;color:var(--ink2);font-size:10px;font-weight:800;white-space:nowrap;transition:transform .2s cubic-bezier(.3,1.6,.5,1)}
-.gt .vn-di i{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;font-style:normal;background:#eef3f9;box-shadow:0 2px 0 #c9d6e6,0 4px 10px -4px rgba(15,26,46,.35);transition:background .15s}
+.gt .vn-dock{position:absolute;left:0;right:0;bottom:14px;margin:0 auto;width:max-content;max-width:calc(100% - 20px);z-index:3;display:flex;flex-direction:column;align-items:center;gap:7px;padding:8px 9px 9px;border-radius:20px;background:rgba(255,255,255,.88);box-shadow:0 14px 34px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.6) inset;backdrop-filter:blur(14px)}
+/* 5.7.0: 독 한 줄. 아이콘 아래 끝을 맞춘다(묶음 이름이 있는 버튼과 없는 버튼이 같은 높이에 선다) */
+.gt .vn-dr{display:flex;justify-content:center;align-items:flex-end;gap:6px}
+.gt .vn-di{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;width:50px;padding:0;border:0;background:none;color:var(--ink2);font-size:10px;font-weight:800;white-space:nowrap;transition:color .15s}
+.gt .vn-di>span{display:block;height:12px;line-height:12px}
+.gt .vn-di i{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;font-style:normal;background:#eef3f9;box-shadow:0 2px 0 #c9d6e6,0 4px 10px -4px rgba(15,26,46,.35);transition:background .15s,color .15s,filter .15s}
 .gt .vn-di .vn-ic svg{width:18px;height:18px}
 .gt .vn-di.on i{color:#fff;background:linear-gradient(180deg,#4fb0ff,#1d7fe0);box-shadow:0 2px 0 #155fb0,0 6px 14px -4px rgba(43,149,240,.7)}
 .gt .vn-di.vc.on i{background:linear-gradient(180deg,#3fd6a4,#0f9f77);box-shadow:0 2px 0 #0b7a5b,0 6px 14px -4px rgba(20,179,134,.7)}
@@ -14702,10 +14676,11 @@ Rules:
 .gt .vn-di.run{color:var(--sky)}
 .gt .vn-dg{display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 4px 0;border-radius:14px;background:rgba(43,149,240,.08)}
 .gt .vn-dg>b{font-size:9px;font-weight:900;letter-spacing:.06em;color:var(--ink2)}
-.gt .vn-dg>div{display:flex;gap:6px}
+.gt .vn-dg>div{display:flex;align-items:flex-end;gap:6px}
 .gt .vn-tone{display:block;margin-top:4px;font-size:11px;font-style:italic;font-weight:600;color:var(--ink2)}
 .gt .vn-vsep{align-self:stretch;width:1px;margin:4px 3px;background:#d3dceb}
-@media (hover:hover){.gt .vn-di:hover:not(:disabled){transform:translateY(-6px) scale(1.15)}}
+/* 5.7.0: 호버는 크기를 바꾸지 않고 색만 바꾼다. 켜진 버튼은 조금 밝게, 전체삭제는 빨강(.warn:hover) */
+@media (hover:hover){.gt .vn-di:hover:not(:disabled){color:var(--sky)}.gt .vn-di:not(.on,.run,.warn):hover:not(:disabled) i{color:var(--sky);background:#d6e9fb}.gt .vn-di:is(.on,.run):hover:not(:disabled) i{filter:brightness(1.1)}.gt .vn-di.warn:hover:not(:disabled){color:#d0453b}}
 /* 4.7.0: 독 · 인물 목록은 바로 뜨지 않고 미끄러지며 천천히 뜬다.
    4.10.0: 호버는 마우스(pointer:fine)에서만 쓴다. 터치 화면은 호버가 풀리지 않으므로 무대를 눌러 .hud 로 켜고 끈다 */
 .gt .vn-dock,.gt .vn-cast,.gt .vn-who{opacity:0;pointer-events:none;transition:opacity .35s cubic-bezier(.2,.8,.2,1),transform .35s cubic-bezier(.2,.8,.2,1)}
@@ -14795,10 +14770,13 @@ Rules:
   .gt .vn-tr{right:8px;top:8px;gap:6px}
   .gt .vn-who{left:8px;top:8px;max-width:calc(100% - 180px)}
   .gt .vn-pick .vn-ifc{width:42px;height:42px;font-size:16px}
-  .gt .vn-dock{gap:4px;padding:6px 7px;bottom:10px}
-  .gt .vn-di{width:30px}
-  .gt .vn-di>span{display:none}
-  .gt .vn-di i{width:30px;height:30px;border-radius:10px}
+  /* 5.7.0: 모바일은 무대 : 기록 = 5 : 5 (줄 style 의 --stage 를 덮는다) */
+  .gt .vn{--stage:50% !important}
+  /* 5.7.0: 두 줄 독이라 모바일도 버튼 이름을 보인다 */
+  .gt .vn-dock{gap:6px;padding:7px 7px 8px;bottom:10px;max-width:calc(100% - 12px)}
+  .gt .vn-dr,.gt .vn-dg>div{gap:4px}
+  .gt .vn-di{width:46px}
+  .gt .vn-di i{width:34px;height:34px;border-radius:10px}
   .gt .vn-vsep{margin:3px 1px}
   .gt .vn-col{padding:14px 12px 18px;gap:14px}
   .gt .vn-in{padding:0 10px}
