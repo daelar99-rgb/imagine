@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.6.3
+//@display-name 🎨 이매진 v5.6.4
 //@api 3.0
-//@version 5.6.3
+//@version 5.6.4
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.6.3';
+    const VERSION = '5.6.4';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -13395,10 +13395,8 @@ ${ctx || '(none)'}`;
         const grp = (label, list) => list.length ? h('div', { class: 'vn-dg', role: 'group', 'aria-label': label }, h('b', null, label), h('div', null, list)) : null;
         const acts = [];
         if (src?.img?.path && !drawing) {
-            const cf = T.confirm === 'img:' + src.at;
             acts.push(di('', 'zoom', '크게', src.img.path2 ? '두 장 함께 크게 보기' : '크게 보기', () => void host.showBig(src.img.path, src.img.path2)));
             if (src.img.req && !assetMode) acts.push(di('', 'redo', '다시', '이 장면 다시 그리기', () => void talkArt(v, name, src, 'redo', false), { disabled: !!T.draw }));
-            acts.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 그림을 지웁니다' : '그림 지우기', () => talkDropImg(v, name, src)));
         }
         if (drawing && T.draw.redo) acts.push(di('run dr', 'halt', '멈춤', '다시 그리기 멈추기', () => T.draw?.job?.cancel?.(), { style: `--p:${talkPct(T.draw.job).pct}%` }));
         else if (drawing) acts.push(di('', 'halt', '멈추기', '그리기 멈추기', () => T.draw?.job?.cancel?.()));
@@ -13413,11 +13411,9 @@ ${ctx || '(none)'}`;
                 () => void talkRecast(v, name, log, vt), { disabled: !!T.recast }));
         }
         if (vt) {
-            const cf = T.confirm === 'aud:' + vt.at;
             const re = di('vr', 'redo', '다시', noKey ? '키가 없어 목소리를 만들 수 없습니다' : '이 답의 목소리 다시 만들기', () => void talkRevoice(v, name, vt), { disabled: noKey, 'data-k': vt.at });
             talkMarkRe(re);
             voc.push(re);
-            voc.push(di('warn' + (cf ? ' cf' : ''), 'trash', cf ? '한 번 더' : '제거', cf ? '한 번 더 누르면 이 답의 목소리를 지웁니다' : '이 답의 목소리 지우기', () => void talkDropVoice(v, name, vt)));
         }
         const wipe = [];
         if (log.length && T.busy !== name) {
@@ -13643,22 +13639,6 @@ ${ctx || '(none)'}`;
             return;
         }
     }
-    function talkDropImg(v, name, m) {
-        const T = ui.talk, key = 'img:' + m.at;
-        if (T.confirm !== key) {
-            T.confirm = key;
-            talkPaint();
-            setTimeout(() => { if (T.confirm === key) { T.confirm = null; talkPaint(); } }, 3000);
-            return;
-        }
-        T.confirm = null;
-        if (T.view === m.at) T.view = '';
-        const paths = [m.img?.path, m.img?.path2].filter(Boolean);
-        delete m.img;
-        void saveTalk(v.tk, v.talk);
-        for (const p of paths) host.dropThumb(p);
-        talkPaint();
-    }
     async function talkRevoice(v, name, m) {
         const T = ui.talk;
         if (T.voicing.has(m.at)) { talkQuiet(); talkMark(); talkPaint(); return; }
@@ -13720,26 +13700,6 @@ Rules:
             talkPaint();
         }
     }
-    async function talkDropVoice(v, name, m) {
-        const T = ui.talk, key = 'aud:' + m.at;
-        if (T.confirm !== key) {
-            T.confirm = key;
-            talkPaint();
-            setTimeout(() => { if (T.confirm === key) { T.confirm = null; talkPaint(); } }, 3000);
-            return;
-        }
-        T.confirm = null;
-        for (const j of T.voices) if (j.at === m.at) { j.stop = true; T.voices.delete(j); }
-        T.voicing.delete(m.at);
-        for (let n = talkQ.length - 1; n >= 0; n--) if (talkQ[n].k === m.at) talkQ.splice(n, 1)[0].end(true);
-        T.voiceQ = T.voiceQ.filter(q => q.at !== m.at);
-        if (T.playing === m.at) talkHalt();
-        talkNext();
-        talkVoiceNext();
-        await dropAudio(talkHash(v.chaId, name, m.t, m.tone));
-        talkMark();
-        talkPaint();
-    }
     function talkEdit(m) {
         const T = ui.talk;
         T.edit = { at: m.at, text: String(m.t ?? '') };
@@ -13800,7 +13760,6 @@ Rules:
         const [m] = log.splice(i, 1);
         for (const p of [m.img?.path, m.img?.path2]) if (p) host.dropThumb(p);
         if (T.view === at) T.view = '';
-        if (T.confirm === 'img:' + at) T.confirm = null;
         void saveTalk(v.tk, v.talk);
         talkMark();
         talkPaint();
