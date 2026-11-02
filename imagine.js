@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.23.0
+//@display-name 🎨 이매진 v5.24.0
 //@api 3.0
-//@version 5.23.0
+//@version 5.24.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.23.0';
+    const VERSION = '5.24.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -10992,7 +10992,7 @@ Rules:
         ['gemini-2.5-pro-tts', '2.5 Pro'],
         ['gemini-2.5-flash-lite-preview-tts', '2.5 Flash Lite (미리보기)'],
     ];
-    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'submodel', talkLink: true, setup: 0, talkSetup: 0,
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'submodel', talkLink: true, talkSync: false, setup: 0, talkSetup: 0,
         talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai',
         talkBubbles: true, ttsHead: '' };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
@@ -11874,8 +11874,9 @@ Rules:
             const p = await guard(personaOf());
             personaFail.delete(chaId + '|' + p.sig);
             await guard(ensurePersona(chaId, bot, p, st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
-            if (job) void castMainLines(w, bot, user, entries, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
-            else try { step(4); await castMainLines(w, bot, user, entries, (i, n) => { run.part = [i, n]; onStage(4); }, () => run.stop); } catch (error) { if (run.stop) throw error; console.warn(LOG, 'main lines', error); }
+            if (!st.set.talkSync) {  }
+            else if (job) void castMainLines(w, bot, user, entries, q => q, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
+            else try { step(4); await castMainLines(w, bot, user, entries, guard, (i, n) => { run.part = [i, n]; onStage(4); }, () => run.stop); } catch (error) { if (run.stop) throw error; console.warn(LOG, 'main lines', error); }
             return list.length;
         } catch (error) {
             throw run.stop ? stopError() : error;
@@ -11946,7 +11947,7 @@ Rules:
         }
         return keys;
     }
-    const MAIN_TAG = '제미니 본편 · ', MAIN_KEEP = 8000, MAIN_CTX = 3000;
+    const MAIN_TAG = '제미니 본편 · ', MAIN_CHUNK = 16000, MAIN_KEEP = 8000, MAIN_CTX = 3000;
     const isMainLore = e => !!e && e.mode !== 'folder' && String(e.comment ?? '').startsWith(MAIN_TAG);
     const mainTried = new Set();
     let mainRun = null;
@@ -12335,76 +12336,7 @@ ${art}
         chat.localLore = lore;
         await api.setCharacterToIndex(ci, char);
     }
-    const MAIN_NARR = /^(narrator|narration|text|system|나레이션|내레이션|해설|시스템)$/i;
-    const MAIN_JOSA = /^(?![가-힣])|^(께서|에게|한테|이가|이는|이랑|이|가|은|는|의|을|를|와|과|도|만|에|씨|님|아|야|랑)/;
-    const MAIN_SAY = /말했|말한|물었|묻는|대답|답했|속삭|외쳤|소리쳤|중얼|입을 열|덧붙|웃으며|said|asks?|asked|repl|whisper|shout|murmur|mutter/i;
-    function mainNames(bot, user) {
-        const out = [];
-        for (const [n, v] of Object.entries(bot.voices)) for (const a of [n, ...(v.aliases ?? [])]) {
-            const word = String(a ?? '').trim();
-            if (word) out.push({ name: n, word, low: word.toLowerCase() });
-        }
-        const u = String(user ?? '').trim();
-        if (u) out.push({ name: u, word: u, low: u.toLowerCase() });
-        return out.sort((a, b) => b.word.length - a.word.length);
-    }
-    function mainPick(span, names, near) {
-        const low = span.toLowerCase(), used = [], hits = [];
-        const say = MAIN_SAY.test(span) ? 2 : 0;
-        for (const c of names) {
-            for (let at = low.indexOf(c.low); at >= 0; at = low.indexOf(c.low, at + 1)) {
-                const end = at + c.low.length;
-                if (used.some(([a, b]) => at < b && end > a)) continue;
-                if (/[a-z0-9]/i.test(c.word) && (/[a-z0-9]/i.test(low[at - 1] ?? '') || /[a-z0-9]/i.test(low[end] ?? ''))) continue;
-                if (/[가-힣]/.test(c.word) && (/[가-힣]/.test(span[at - 1] ?? '') || !MAIN_JOSA.test(span.slice(end)))) continue;
-                used.push([at, end]);
-                const tail = span.slice(end, end + 3);
-                const score = (/^(께서|이가|이는|이|가|은|는)(?![가-힣])/.test(tail) ? 2 : /^(의|을|를|에게|한테|와|과)/.test(tail) ? 0 : 1) + say;
-                hits.push({ name: c.name, score, dist: near === 'end' ? span.length - end : at });
-            }
-        }
-        hits.sort((a, b) => b.score - a.score || a.dist - b.dist);
-        return hits[0]?.name ?? '';
-    }
-    function mainSpeakers(parts, bot, names) {
-        const out = new Map();
-        let i = 0;
-        while (i < parts.length) {
-            if (!parts[i].q) { i++; continue; }
-            const group = [parts[i]];
-            let j = i + 1;
-            while (j + 1 < parts.length && !parts[j].q && /^[ \t]*$/.test(parts[j].text) && parts[j + 1].q) { group.push(parts[j + 1]); j += 2; }
-            const before = i > 0 && !parts[i - 1].q ? parts[i - 1].text : '';
-            const after = j < parts.length && !parts[j].q ? parts[j].text : '';
-            let who = '', narr = false;
-            const pre = before.match(/(?:^|\n)[ \t]*([^\n:："“「『]{1,20}?)[ \t]*[:：][ \t]*$/);
-            if (pre) {
-                const tok = pre[1].replace(/^[\[(【]|[\])】]$/g, '').trim();
-                const hit = names.find(c => c.low === tok.toLowerCase());
-                if (hit) who = hit.name;
-                else if (MAIN_NARR.test(tok)) narr = true;
-                else if ((/^[\p{L}\p{N}][\p{L}\p{N}._'-]{0,14}$/u.test(tok) || /^[A-Za-z][A-Za-z .'-]{0,24}$/.test(tok))) who = canonName(bot, tok);
-            }
-            if (!who && !narr) {
-                const line = after.split('\n')[0];
-                const m = line.match(/^[\s\S]*?[.!?。…]+(?=\s|$)/);
-                who = mainPick(m ? m[0] : line.slice(0, 160), names, 'start');
-            }
-            if (!who && !narr) {
-                let t = before.replace(/\s+$/, '');
-                if (i > 1 && parts[i - 2].q) {
-                    const head = t.split('\n')[0], lead = head.match(/^[\s\S]*?[.!?。…]+(?=\s|$)/);
-                    t = t.slice(lead ? lead[0].length : head.length);
-                }
-                const cut = Math.max(t.lastIndexOf('\n'), t.slice(0, -1).search(/[.!?。…][^.!?。…]*$/));
-                who = mainPick(t.slice(cut + 1).slice(-200), names, 'end');
-            }
-            if (who && !narr) for (const p of group) out.set(p.q, who);
-            i = j;
-        }
-        return out;
-    }
-    async function castMainLines(w, bot, user, entries, onPart, stopped) {
+    async function castMainLines(w, bot, user, entries, guard, onPart, stopped) {
         const char = w?.char, chaId = char?.chaId;
         if (!chaId || !w.chat) return;
         const chi = Number.isInteger(w.chi) ? w.chi : await api.getCurrentChatIndex();
@@ -12416,18 +12348,34 @@ ${art}
         let msgs = [{ role: 'char', data: first }, ...(Array.isArray(w.chat.message) ? w.chat.message : [])];
         const max = Number(st.set.talkMain ?? DEF_SET.talkMain);
         if (max > 0) msgs = msgs.slice(-max);
-        msgs = msgs.filter(m => m?.role === 'char' && m.data);
+        const chunks = [];
+        let cur = null;
+        for (const m of msgs) {
+            if (m?.role !== 'char' || !m.data) continue;
+            const { parts, count } = splitQuotes(plain(fill(m.data)));
+            if (!count) continue;
+            const len = parts.reduce((n, p) => n + p.text.length, 0);
+            if (!cur || cur.len > MAIN_CHUNK) chunks.push(cur = { parts: [], count: 0, len: 0 });
+            else cur.parts.push({ q: 0, text: '\n\n---\n\n' });
+            for (const p of parts) {
+                if (p.q) cur.parts.push({ q: ++cur.count, text: p.text });
+                else cur.parts.push({ q: 0, text: p.text.length > 240 ? p.text.slice(0, 80) + ' … ' + p.text.slice(-160) : p.text });
+            }
+            cur.len += len;
+        }
         const lines = new Map();
         const me = String(user ?? '').toLowerCase();
-        const names = mainNames(bot, user);
-        for (let i = 0; i < msgs.length; i++) {
+        for (let i = 0; i < chunks.length; i++) {
             if (stopped()) return;
-            if (i % 20 === 0) { onPart(i, msgs.length); await new Promise(r => setTimeout(r, 0)); }
-            const { parts, count } = splitQuotes(plain(fill(msgs[i].data)));
-            if (!count) continue;
-            const text = new Map(parts.filter(p => p.q).map(p => [p.q, p.text]));
-            for (const [n, name] of mainSpeakers(parts, bot, names)) {
-                if ((me && name.toLowerCase() === me) || !bot.voices[name] || bot.voices[name].persona) continue;
+            const c = chunks[i];
+            onPart(i, chunks.length);
+            let got = null;
+            try { got = await guard(askLabels(c.parts, c.count, bot, char.name ?? '', '', st.set.castLlm === 'submodel' ? 'submodel' : 'model')); }
+            catch (error) { if (stopped()) throw error; console.warn(LOG, 'main lines', error); continue; }
+            const text = new Map(c.parts.filter(p => p.q).map(p => [p.q, p.text]));
+            for (const [n, x] of got.labels) {
+                const name = canonName(bot, x.speaker);
+                if (name === NARR || (me && name.toLowerCase() === me) || bot.voices[name]?.persona) continue;
                 const t = String(text.get(n) ?? '').replace(/^["“”「」『』‘’]+|["“”「」『』‘’]+$/g, '').replace(/\s+/g, ' ').trim();
                 if (!t || !spoken(t)) continue;
                 const list = lines.get(name) ?? [];
@@ -12435,7 +12383,7 @@ ${art}
                 lines.set(name, list);
             }
         }
-        onPart(msgs.length, msgs.length);
+        onPart(chunks.length, chunks.length);
         if (stopped()) return;
         const ci = Number.isInteger(w.ci) ? w.ci : await api.getCurrentCharacterIndex();
         const job = loreJob.then(async () => {
@@ -13451,8 +13399,9 @@ ${art}
     }
     function mainState(m) {
         const [i, n] = m.part ?? [0, 0];
-        const pct = n ? Math.max(2, Math.min(95, Math.round(100 * Math.min(i, n) / n))) : 2;
-        const text = !n ? '본편 대사를 찾는 중입니다' : i < n ? `본편 대사를 모으는 중입니다 · 답 ${i} / ${n}` : '모은 대사를 적는 중입니다';
+        const fill = n && i < n ? Math.min(0.9, (Date.now() - m.t0) / (ilAvg('main', 20) * 1000)) : 0;
+        const pct = n ? Math.max(2, Math.min(95, Math.round(100 * (Math.min(i, n) + fill) / n))) : 2;
+        const text = !n ? '본편 대사를 찾는 중입니다' : i < n ? `본편 대사를 모으는 중입니다 · ${i + 1} / ${n}` : '모은 대사를 적는 중입니다';
         return { pct, text };
     }
     const talkRunOf = v => !v ? null : cast?.chaId === v.chaId ? cast : mainRun && mainRun.tk === v.tk ? mainRun : null;
@@ -13563,7 +13512,7 @@ ${art}
             .then(ok => { if (ok) talkPaint(); }).catch(error => console.warn(LOG, 'talk persona', error));
     }
     function talkMainSoon(v) {
-        if (mainTried.has(v.tk) || cast || mainRun) return;
+        if (!st.set.talkSync || mainTried.has(v.tk) || cast || mainRun || ns.armed) return;
         mainTried.add(v.tk);
         let run = null;
         void (async () => {
@@ -13571,11 +13520,19 @@ ${art}
             if (w.char?.chaId !== v.chaId || talkKeyOf(v.chaId, w.chat, w.chi) !== v.tk) { mainTried.delete(v.tk); return; }
             if ((w.chat?.localLore ?? []).some(isMainLore)) return;
             if (cast || mainRun) { mainTried.delete(v.tk); return; }
-            run = mainRun = { chaId: v.chaId, tk: v.tk, part: null, stop: false, cancel: () => { run.stop = true; } };
+            let halt;
+            const wait = new Promise((_, no) => { halt = () => no(stopError()); });
+            wait.catch(() => {});
+            run = mainRun = { chaId: v.chaId, tk: v.tk, t0: Date.now(), part: null, stop: false, cancel: () => { run.stop = true; halt(); } };
             mainPaint();
             const entries = (await Promise.resolve(api.getCurrentLorebookEntries()).catch(() => [])) ?? [];
-            const onPart = (i, n) => { run.part = [i, n]; mainPaint(); };
-            await castMainLines(w, v.bot, await userName(), entries, onPart, () => !!cast || run.stop);
+            const onPart = (i, n) => {
+                if (run.part && run.part[0] < run.part[1]) ilPush('main', (Date.now() - run.t0) / 1000);
+                run.part = [i, n];
+                run.t0 = Date.now();
+                mainPaint();
+            };
+            await castMainLines(w, v.bot, await userName(), entries, q => Promise.race([q, wait]), onPart, () => !!cast || run.stop);
         })().then(() => mainEnd(run), error => {
             if (!error?.stop) { mainTried.delete(v.tk); console.warn(LOG, 'main lines', error); }
             mainEnd(run);
@@ -13713,7 +13670,11 @@ ${art}
                         const v = ui.view;
                         if (v) for (const [name, log] of Object.entries(v.talk)) if (log?.length) talkLoreSoon(v.tk, v.ci, name);
                     })),
-                row('본편 대사 개수', '등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 그 채팅의 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모읍니다. 분석한 봇의 다른 채팅은 대화 화면을 처음 열 때 그 채팅 것만 모읍니다. 0 이면 전부 읽습니다. 모델에게 묻지 않고 따옴표 앞뒤 글의 이름으로 누가 했는지 정하며, 정하지 못한 대사는 모으지 않습니다.',
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '대화 싱크'), h('p', null, st.set.talkSync
+                        ? '등장인물 분석 때와 분석한 봇의 다른 채팅을 대화 화면으로 처음 열 때, 모델이 본편 대사의 화자를 정해 인물마다 채팅 로어북에 모읍니다. 대화 상대가 본편 말투를 따라 합니다. 모델 요청이 늘어납니다.'
+                        : '본편 대사를 모으지 않습니다. 모델 요청이 없습니다. 이미 모은 본편 대사는 그대로 씁니다.')),
+                    seg([['on', '켬'], ['off', '끔 (기본)']], st.set.talkSync ? 'on' : 'off', id => set('talkSync', id === 'on'))),
+                row('본편 대사 개수', '대화 싱크를 켰을 때, 등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 그 채팅의 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모읍니다. 분석한 봇의 다른 채팅은 대화 화면을 처음 열 때 그 채팅 것만 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 10, value: st.set.talkMain, onchange: e => { const n = Number(e.target.value); set('talkMain', e.target.value !== '' && Number.isFinite(n) ? Math.max(0, Math.min(2000, Math.round(n))) : DEF_SET.talkMain); } }), '개'))),
             group('대화 그림', '모든 봇 공통',
                 h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 그림체는 바뀌지 않습니다. 대화 그림의 종류 · 그림체 · NAI 모델 · 말풍선 · 해상도는 대화 › 준비에서 고릅니다. 대화 그림의 연출은 대화 모델이 씁니다.')),
