@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.7.0
+//@display-name 🎨 이매진 v5.8.0
 //@api 3.0
-//@version 5.7.0
+//@version 5.8.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.7.0';
+    const VERSION = '5.8.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -13336,6 +13336,7 @@ ${ctx || '(none)'}`;
             ui.root.querySelectorAll('.vn-dfirst').forEach(x => { x.textContent = word === '분석 중' ? '첫 장면을 분석하는 중입니다.' : '첫 장면을 그리는 중입니다.'; });
             ui.root.querySelectorAll('.vn-thumb.dr i').forEach(x => { x.style.width = pct + '%'; });
             ui.root.querySelectorAll('.vn-di.run.dr').forEach(x => { x.style.setProperty('--p', pct + '%'); });
+            ui.root.querySelectorAll('.vn-gauge').forEach(x => { x.setAttribute('aria-valuenow', String(pct)); x.firstChild.style.width = pct + '%'; });
         }, 1000);
     }
     function talkSrc(log) {
@@ -13409,6 +13410,10 @@ ${ctx || '(none)'}`;
                 id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : id === 'comic2' ? '다음 그림부터 세로 만화 두 장(장마다 한 컷)을 좌우로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
                 () => { if (talkKindNow() === id) return; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(talkKindNow() === id) }))),
             low.length ? h('div', { class: 'vn-dr' }, low) : null));
+        if (drawing && !assetMode) {
+            const pct = talkPct(T.draw.job).pct;
+            kids.push(h('div', { class: 'vn-gauge', role: 'progressbar', 'aria-label': '그림 진행', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pct) }, h('i', { style: `width:${pct}%` })));
+        }
         return h('div', { class: 'vn-stage', onpointerup: talkHud }, kids);
     }
     function talkHud(e) {
@@ -14557,6 +14562,10 @@ Rules:
 .gt .vn-ic{display:inline-flex;flex:none}
 .gt .vn-ic svg{display:block;width:16px;height:16px}
 .gt .vn-stage{flex:0 0 var(--stage,60%);min-height:0;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 38%,#2c4466,#0f1a2e 72%)}
+/* 5.8.0: 그림 게이지. 무대 아래 가장자리 3px, 왼쪽에서 오른쪽으로 찬다(A안) */
+.gt .vn-gauge{position:absolute;left:0;right:0;bottom:0;height:3px;z-index:2;background:rgba(255,255,255,.14);pointer-events:none}
+.gt .vn-gauge>i{display:block;height:100%;width:0;background:#2b95f0;transition:width .9s linear}
+@media (prefers-reduced-motion:reduce){.gt .vn-gauge>i{transition:none}}
 .gt .vn-blur{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(18px) brightness(.75);transform:scale(1.08)}
 .gt .vn-shot{position:absolute;left:50%;top:0;bottom:0;height:100%;width:auto;max-width:100%;object-fit:contain;transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 40px rgba(0,0,0,.45)}
 .gt .vn-shot.cover{left:0;right:0;width:100%;max-width:none;object-fit:cover;transform:none;box-shadow:none}
