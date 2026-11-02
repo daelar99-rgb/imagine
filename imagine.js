@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.6.2
+//@display-name 🎨 이매진 v5.6.3
 //@api 3.0
-//@version 5.6.2
+//@version 5.6.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.6.2';
+    const VERSION = '5.6.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -4290,7 +4290,7 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .lb img{display:block;width:auto;height:auto;max-width:calc(100vw - 32px);max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px);object-fit:contain;box-shadow:0 10px 40px rgba(0,0,0,.6)}
 .lb-two{display:flex;justify-content:center;align-items:center;gap:0;max-width:calc(100vw - 32px)}
 .lb-two img{max-width:calc(50vw - 16px)}
-.lb-two img+img{border-left:3px solid #000}
+.lb-two img+img{box-shadow:-3px 0 0 #000,0 10px 40px rgba(0,0,0,.6)}
 .lb-tip{font-size:.76rem;color:#c7cdd6}
 .lb-x{position:absolute;top:10px;right:10px;width:38px;height:38px;padding:0;font-size:1.2rem;line-height:1;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);cursor:pointer}
 .lb-x:hover{background:rgba(255,255,255,.25)}
@@ -14633,8 +14633,8 @@ Rules:
 .gt .vn-pair{position:absolute;inset:0;display:flex;justify-content:center;align-items:stretch;gap:0}
 .gt .vn-pair .vn-shot{position:static;flex:0 1 auto;height:100%;width:auto;max-width:50%;transform:none}
 .gt .vn-pair .vn-shot.cover{flex:1 1 0;width:auto;max-width:none;min-width:0;object-fit:cover}
-/* 5.6.2: 두 장 가운데 검은 선 */
-.gt .vn-pair .vn-shot+.vn-shot{border-left:3px solid #000}
+/* 5.6.2: 두 장 가운데 검은 선. 5.6.3: 테두리는 오른쪽 그림 안쪽 폭을 줄여 높이가 어긋났다. 자리를 차지하지 않는 그림자로 긋는다 */
+.gt .vn-pair .vn-shot+.vn-shot{box-shadow:-3px 0 0 #000,0 0 40px rgba(0,0,0,.45)}
 .gt .vn-noimg{position:absolute;inset:0;display:grid;place-items:center;background:#e6edf5;color:#a3b3c8}
 .gt .vn-noimg>.vn-ic svg{width:72px;height:72px}
 .gt .vn-hello{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:64px 20px 72px;color:#fff;text-align:center}
