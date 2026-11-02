@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.8.0
+//@display-name 🎨 이매진 v5.8.1
 //@api 3.0
-//@version 5.8.0
+//@version 5.8.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.8.0';
+    const VERSION = '5.8.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -13390,7 +13390,7 @@ ${ctx || '(none)'}`;
         const voc = [];
         if (lastC) {
             const busy = T.recast === name;
-            voc.push(di(busy ? 'on' : '', 'mic', busy ? '고르는 중' : '재분석', busy ? '목소리를 고르는 중입니다' : '이 인물의 목소리를 다시 골라 바꾸기 (지금 · 지난 목소리는 빼고 고릅니다)',
+            voc.push(di(busy ? 'on' : '', 'mic', busy ? '고르는 중' : '변경', busy ? '목소리를 고르는 중입니다' : '이 인물의 목소리를 다시 골라 바꾸기 (지금 · 지난 목소리는 빼고 고릅니다)',
                 () => void talkRecast(v, name, log, vt), { disabled: !!T.recast }));
         }
         if (vt) {
@@ -13567,8 +13567,9 @@ ${ctx || '(none)'}`;
         if (idx < 0) { talkArtNext(); return; }
         if (T.draw) return later();
         const redo = mode === 'redo' && !!entry.img?.req;
-        const kind = redo ? entry.img.kind ?? entry.img.req.kind ?? 'illust' : talkKindNow();
-        const size = kind === 'comic2' ? 'tall' : redo ? entry.img.size ?? st.set.talkSize : st.set.talkSize;
+        const kind = talkKindNow();
+        const was = redo ? entry.img.kind ?? entry.img.req.kind ?? 'illust' : '';
+        const size = kind === 'comic2' ? 'tall' : redo && was === kind ? entry.img.size ?? st.set.talkSize : st.set.talkSize;
         const o = { ci: v.ci, chaId: v.chaId, tk: v.tk, name, log: log.slice(0, idx + 1), kind, size, preset: st.set.talkPreset, llm: st.set.talkLlm, bubbles: st.set.talkBubbles !== false };
         const job = {};
         T.draw = { name, at, job, redo: mode === 'redo' };
