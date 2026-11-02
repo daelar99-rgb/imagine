@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.8.1
+//@display-name 🎨 이매진 v5.8.2
 //@api 3.0
-//@version 5.8.1
+//@version 5.8.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.8.1';
+    const VERSION = '5.8.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -13667,7 +13667,6 @@ Rules:
             talkNext();
             for (const m of log) if (m.r === 'c') await dropAudio(talkHash(v.chaId, name, m.t, m.tone), false);
             await saveList();
-            T.note = { name, text: `${name}의 목소리를 ${voiceLabel(old)} → ${voiceLabel(pick.id)}(으)로 바꿨습니다.${reset ? ' 고를 수 있는 목소리를 모두 써 봐서 지난 기록을 비우고 골랐습니다.' : ''}` };
             if (vt && keyKnown !== false) void talkReplay(v.chaId, name, vt.t, vt.at, vt.tone);
         } catch (error) {
             T.err = { name, text: '목소리를 다시 고르지 못했습니다. ' + String(error?.message ?? error) };
