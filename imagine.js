@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.33.0
+//@display-name 🎨 이매진 v5.34.1
 //@api 3.0
-//@version 5.33.0
+//@version 5.34.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.33.0';
+    const VERSION = '5.34.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -7653,6 +7653,190 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 }),
                 h('button', { type: 'button', 'aria-label': '심각도 기준 높이기', disabled: off || v >= 10, onclick: () => put(v + 1) }, '+')));
     }
+    const BK_KEYS = ['nc:set', 'nc:presets', 'nc:preset', 'nc:nsfw', 'nc:nsfwMy', 'gt:set', 'gt:my'];
+    const BK_PRE = ['nc:cast:', 'nc:img:', 'nc:ast:', 'gt:bot:', 'gt:talk:'];
+    const bk = { img: false, busy: '', msg: '', cls: '', url: '', file: '', size: 0, mode: 'merge' };
+    const bkPre = k => BK_PRE.find(p => k.startsWith(p)) ?? '';
+    const bkIdOf = k => { const p = bkPre(k); return p ? k.slice(p.length).split('|')[0] : ''; };
+    const bkPic = (name, made) => /^nc_[a-z0-9]+$/i.test(name) || (/^c_[a-z0-9_]+$/i.test(name) && made.includes(name));
+    const bkSize = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+    const bkB64 = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
+    const bkUnB64 = s => { const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+    const bkDropUrl = () => { if (bk.url) URL.revokeObjectURL(bk.url); bk.url = ''; bk.size = 0; };
+    const bkSay = (msg, cls = '') => { bk.msg = msg; bk.cls = cls; renderNow(); };
+    async function bkBots() {
+        const out = new Map();
+        for (let i = 0; i < 100000; i++) {
+            const c = await api.getCharacterFromIndex(i);
+            if (!c) break;
+            if (c.chaId && !out.has(c.chaId)) out.set(c.chaId, { i, name: String(c.name ?? ''), group: c.type === 'group' });
+        }
+        return out;
+    }
+    async function bkExport() {
+        if (bk.busy) return;
+        bk.busy = 'make';
+        bkDropUrl();
+        bkSay('백업 파일을 만드는 중입니다…');
+        try {
+            const data = {};
+            for (const k of BK_KEYS) { const v = await api.pluginStorage.getItem(k).catch(() => null); if (v != null) data[k] = v; }
+            const keys = await api.pluginStorage.keys().catch(() => []);
+            for (const k of (Array.isArray(keys) ? keys : []).map(String)) {
+                if (!bkPre(k)) continue;
+                const v = await api.pluginStorage.getItem(k).catch(() => null);
+                if (v != null) data[k] = v;
+            }
+            const live = await bkBots();
+            const bots = {};
+            let gone = 0;
+            for (const k of Object.keys(data)) {
+                const id = bkIdOf(k);
+                if (!id) continue;
+                if (live.has(id)) bots[id] = live.get(id).name;
+                else if (live.size) { delete data[k]; gone++; }
+            }
+            const file = { app: 'imagine', kind: 'backup', version: VERSION, at: Date.now(), bots, data };
+            let pics = 0;
+            if (bk.img) {
+                file.images = {};
+                for (const [id, b] of live) {
+                    if (b.group) continue;
+                    const c = await api.getCharacterFromIndex(b.i);
+                    if (!c || c.chaId !== id) continue;
+                    const made = Array.isArray(data['nc:ast:' + id]?.made) ? data['nc:ast:' + id].made : [];
+                    const list = [];
+                    for (const x of c.additionalAssets ?? []) {
+                        const [name, path, ext] = Array.isArray(x) ? x : [];
+                        if (!name || !path || !bkPic(String(name), made)) continue;
+                        try {
+                            const raw = await api.readImage(path);
+                            list.push([String(name), String(ext || ''), bkB64(raw instanceof Uint8Array ? raw : new Uint8Array(raw))]);
+                        } catch (error) { console.warn(LOG, 'backup image', name, error); }
+                    }
+                    if (list.length) { file.images[id] = list; bots[id] = b.name; pics += list.length; }
+                }
+            }
+            const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
+            const d = new Date();
+            bk.url = URL.createObjectURL(blob);
+            bk.size = blob.size;
+            bk.file = `imagine_backup_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+            bk.busy = '';
+            bkSay(`백업 파일을 만들었습니다. 기록 ${Object.keys(data).length}개 · 봇 ${Object.keys(bots).length}개${bk.img ? ` · 그림 ${pics}장` : ''}이 들어 있습니다.${gone ? ` 지운 봇의 기록 ${gone}개는 뺐습니다.` : ''} 「내려받기」를 눌러 저장하세요.`, 'ok');
+        } catch (error) {
+            console.warn(LOG, 'backup', error);
+            bk.busy = '';
+            bkSay('백업 파일을 만들지 못했습니다: ' + (error?.message ?? error), 'err');
+        }
+    }
+    function bkPick() {
+        if (bk.busy) return;
+        const input = doc.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,application/json';
+        input.addEventListener('change', () => { const f = input.files?.[0]; if (f) void bkImport(f); }, { once: true });
+        input.click();
+    }
+    function bkMerge(kind, cur, v) {
+        const byId = (a, b, idOf = x => x?.id) => {
+            if (!Array.isArray(a) || !Array.isArray(b)) return null;
+            const have = new Set(a.map(idOf).filter(Boolean).map(String));
+            const more = b.filter(x => x && idOf(x) && !have.has(String(idOf(x))));
+            return more.length ? [...a, ...more] : null;
+        };
+        const byKey = (a, b) => {
+            if (!isObj(a) || !isObj(b)) return null;
+            const more = Object.keys(b).filter(k => !(k in a));
+            return more.length ? { ...a, ...Object.fromEntries(more.map(k => [k, b[k]])) } : null;
+        };
+        if (kind === 'nc:presets' || kind === 'nc:nsfwMy') return byId(cur, v);
+        if (kind === 'gt:my') { const list = byId(cur?.voices, v?.voices); return list ? { ...cur, voices: list } : null; }
+        if (kind === 'nc:cast:') {
+            const list = byId(cur?.list, v?.list, e => String(e?.key ?? '').toLowerCase());
+            return list ? { ...cur, list, at: Date.now() } : null;
+        }
+        if (kind === 'nc:img:') return byKey(cur, v);
+        if (kind === 'gt:bot:') { const vs = byKey(cur?.voices, v?.voices); return vs ? { ...cur, voices: vs } : null; }
+        return null;
+    }
+    async function bkImport(f) {
+        if (bk.busy) return;
+        bk.busy = 'load';
+        bkSay('백업 파일을 읽는 중입니다…');
+        try {
+            let file;
+            try { file = JSON.parse(await f.text()); } catch { throw new Error('JSON 파일이 아닙니다.'); }
+            if (!isObj(file) || file.app !== 'imagine' || file.kind !== 'backup' || !isObj(file.data)) throw new Error('이매진 백업 파일이 아닙니다.');
+            if (verCmp(file.version, VERSION) > 0) throw new Error(`이매진 v${file.version} 에서 만든 파일입니다. 이매진을 v${file.version} 이상으로 올린 뒤 불러오세요.`);
+            const live = await bkBots();
+            const byName = new Map();
+            for (const [id, b] of live) { const n = b.name.trim(); if (n) byName.set(n, byName.has(n) ? '' : id); }
+            const names = isObj(file.bots) ? file.bots : {};
+            const mapId = id => live.has(id) ? id : byName.get(String(names[id] ?? '').trim()) || '';
+            const over = bk.mode === 'over';
+            let wrote = 0, kept = 0, skipped = 0;
+            const lost = new Set();
+            for (const [k0, v] of Object.entries(file.data)) {
+                if (v == null) continue;
+                const p = bkPre(k0);
+                if (!p && !BK_KEYS.includes(k0)) continue;
+                let k = k0;
+                if (p) {
+                    const id = bkIdOf(k0);
+                    const to = id ? mapId(id) : '';
+                    if (!to) { lost.add(id); skipped++; continue; }
+                    k = p + to + k0.slice(p.length + id.length);
+                }
+                const cur = await api.pluginStorage.getItem(k).catch(() => null);
+                const next = over || cur == null ? v : bkMerge(p || k0, cur, v);
+                if (next == null) { kept++; continue; }
+                await api.pluginStorage.setItem(k, next);
+                wrote++;
+            }
+            let pics = 0;
+            if (isObj(file.images)) {
+                await inQueue(async () => {
+                    for (const [id, list] of Object.entries(file.images)) {
+                        const to = mapId(id);
+                        if (!to) { lost.add(id); continue; }
+                        const b = live.get(to);
+                        if (!b || b.group || !Array.isArray(list)) continue;
+                        const c = await api.getCharacterFromIndex(b.i);
+                        if (!c || c.chaId !== to) continue;
+                        c.additionalAssets ??= [];
+                        const have = new Set(c.additionalAssets.map(x => String(x?.[0] ?? '').toLowerCase()));
+                        let n = 0;
+                        for (const x of list) {
+                            const [name, ext, data] = Array.isArray(x) ? x : [];
+                            if (typeof name !== 'string' || typeof data !== 'string' || !/^(nc|c)_[a-z0-9_]+$/i.test(name) || have.has(name.toLowerCase())) continue;
+                            const path = await api.saveAsset(bkUnB64(data));
+                            c.additionalAssets.push([name, path, String(ext || 'png')]);
+                            have.add(name.toLowerCase());
+                            n++;
+                        }
+                        if (n) { await api.setCharacterToIndex(b.i, c); pics += n; }
+                    }
+                });
+            }
+            castCache.clear(); recCache.clear(); astCache.clear();
+            await loadPrefs();
+            await nsLoad();
+            await voice?.reload?.();
+            await refreshView().catch(error => console.warn(LOG, 'backup view', error));
+            const lostNames = [...lost].map(id => String(names[id] ?? '').trim() || id).filter(Boolean);
+            bk.busy = '';
+            bkSay(`불러왔습니다. 기록 ${wrote}개를 썼습니다.${kept ? ` 이미 있는 기록 ${kept}개는 그대로 두었습니다.` : ''}`
+                + (pics ? ` 그림 ${pics}장을 봇에 넣었습니다.` : '')
+                + (lost.size ? ` 이 리수에 없는 봇(${lostNames.slice(0, 3).join(', ')}${lostNames.length > 3 ? ` 외 ${lostNames.length - 3}개` : ''})의 기록 ${skipped}개는 건너뛰었습니다. 봇을 먼저 들여온 뒤 다시 불러오면 들어갑니다.` : '')
+                + ' 리수를 새로 고치면 모든 화면에 반영됩니다.', 'ok');
+        } catch (error) {
+            console.warn(LOG, 'restore', error);
+            bk.busy = '';
+            bkSay('불러오지 못했습니다: ' + (error?.message ?? error), 'err');
+        }
+    }
+
     function renderSettings() {
         const s = st.set;
         const pane = h('section', { class: 'ix-pane ix-set' });
@@ -7755,10 +7939,26 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 grp('그림', genreRow('talkGenre'), dynRow('talkDynamic'), dynMinRow('talkDynamic', 'talkDynMin')),
                 castGrp(true), grp('저장', webpRow('talkWebp'))] : []],
         };
+        const gBackup = () => grp('백업',
+            row('sw', '그림 파일도 넣기', '봇에 들어 있는 이매진 삽화(nc_)와 애드 에셋 그림(c_)을 백업 파일에 함께 넣습니다. 그림이 많으면 파일이 아주 커집니다.',
+                '끄면 기록만 담습니다. 그림 없이 다른 리수로 옮기면 삽화 목록에 「그림 없음」으로 보입니다.',
+                toggle(bk.img, () => { bk.img = !bk.img; bkDropUrl(); bk.msg = ''; renderNow(); }, !!bk.busy)),
+            row('col', '백업 파일 만들기', '작가(그림체) · NSFW 프롬프트 · 설정 · 내 목소리, 봇마다 등장인물 · 삽화 기록 · 애드 에셋 기록 · 목소리 표 · 대화 기록을 JSON 파일 하나로 내보냅니다.',
+                'NAI API 키 · Vertex JSON 은 리수 플러그인 설정 칸에 있어 담지 않습니다. 다른 플러그인의 저장값도 담지 않습니다. 파일을 만든 뒤 나타나는 「내려받기」를 누르면 저장됩니다.',
+                h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center' },
+                    h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: () => void bkExport() }, bk.busy === 'make' ? '만드는 중…' : '백업 파일 만들기'),
+                    bk.url ? h('a', { class: 'ix-btn sm main', href: bk.url, download: bk.file, style: 'text-decoration:none' }, `내려받기 (${bkSize(bk.size)})`) : null)),
+            row('col', '백업 파일 불러오기', '「합치기」는 지금 있는 값을 지키고 파일에만 있는 작가 · 글 · 목소리 · 인물 · 기록을 더합니다. 「덮어쓰기」는 파일에 있는 항목을 파일 값으로 바꿉니다.',
+                '어느 쪽도 지금 있는 기록을 지우지 않습니다. 봇은 같은 봇(chaId)을 먼저 찾고, 없으면 이름이 같은 봇이 하나뿐일 때 그 봇에 넣습니다. 그림은 봇에 없는 이름만 넣습니다.',
+                h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center' },
+                    seg([['merge', '합치기'], ['over', '덮어쓰기']], bk.mode, v => { bk.mode = v; renderNow(); }),
+                    h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: bkPick }, bk.busy === 'load' ? '불러오는 중…' : '백업 파일 불러오기'))),
+            bk.msg ? h('div', { class: 'cf-row' }, h('p', { class: 'ix-msg' + (bk.cls ? ' ' + bk.cls : ''), role: 'status', 'aria-live': 'polite', style: 'margin:0;flex:1 1 100%' }, bk.msg)) : null);
         const sec = SECS[ui.mode] ?? SECS.imagine;
         add(pane,
             h('div', { class: 'cf-sec' }, sec[0] + ' 설정', h('small', null, '이 앱의 설정만 보입니다')),
             sec[1](),
+            gBackup(),
             devRow(),
             st.sizeNote ? h('div', { class: 'sz-bar', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'sz-tx ' + st.sizeNote.cls }, st.sizeNote.text)) : null,
         );
@@ -15958,7 +16158,8 @@ Rules:
         castProgress, castFoot, castMsg: msgBox, syncView, voiceMatch, voiceRows, voiceNames, setPart, castAutoRow, embed,
         ttsHead: () => String(st.set.ttsHead ?? ''), setTtsHead: v => { st.set.ttsHead = v; void saveSet(); },
         talkPresetId: () => st.set.talkPreset, setTalkPreset: id => { st.set.talkPreset = id; void saveSet(); },
-        myCount: () => myList().length };
+        myCount: () => myList().length,
+        reload: async () => { await loadSet(); await loadMy(); st.bots.clear(); talks.clear(); } };
     }
 
     await loadPrefs();
