@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.29.0
+//@display-name 🎨 이매진 v5.29.1
 //@api 3.0
-//@version 5.29.0
+//@version 5.29.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.29.0';
+    const VERSION = '5.29.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -11509,7 +11509,14 @@ Rules:
             return [r, await r.json().catch(() => null)];
         })(), GOOGLE_WAIT, '내 목소리');
     }
-    const myErr = (what, res, j) => new Error(`${what}에 실패했습니다 (${res.status}): ${j?.error?.message ?? ''}` + (res.status === 403 ? ' (구글 클라우드 콘솔에서 Vertex AI API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자 · Vertex AI 사용자)을 가졌는지 확인해 주세요.)' : ''));
+    const myErr = (what, res, j) => {
+        const msg = String(j?.error?.message ?? '');
+        const hint = res.status === 403 ? ' (구글 클라우드 콘솔에서 Vertex AI API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자 · Vertex AI 사용자)을 가졌는지 확인해 주세요.)'
+            : res.status === 429 && /voice_creations/i.test(msg) ? ' (이 구글 클라우드 프로젝트에는 목소리 만들기 할당량이 열려 있지 않습니다. 구글이 많은 프로젝트에 이 할당량을 0 으로 두고, 콘솔의 할당량 화면에도 늘릴 줄을 보여 주지 않아 기다려도 풀리지 않습니다. 구글 클라우드 지원 · 영업 창구에 voice_creations 할당량을 열어 달라고 요청해야 합니다. 요청이 거절되었으므로 요금은 나가지 않았습니다.)'
+            : res.status === 429 ? ' (분당 요청 한도에 걸렸습니다. 1분쯤 뒤에 다시 눌러 주세요.)'
+            : '';
+        return new Error(`${what}에 실패했습니다 (${res.status}): ${msg}${hint}`);
+    };
     async function myCreate({ name, gender, lang, desc }) {
         const { token, project } = await accessToken();
         if (!project) throw new Error('키 JSON 에 project_id 가 없어 목소리를 만들 수 없습니다.');
@@ -14125,7 +14132,7 @@ ${art}
                     h('div', { class: 'gt-acts' }, MY_SAMPLES.map(([label, g, text]) => h('button', { class: 'gt-b sm', type: 'button', onclick: () => { f.desc = text; f.gender = g; render(); } }, label))),
                     ta),
                 h('div', { class: 'vf-row' },
-                    h('div', { class: 'vf-tx' }, h('p', null, '만들 때마다 구글 클라우드 요금이 듭니다. 같은 설명으로 다시 만들어도 똑같은 목소리가 나오지는 않습니다. 만들면 샘플을 바로 틀어 줍니다.')),
+                    h('div', { class: 'vf-tx' }, h('p', null, '만들 때마다 구글 클라우드 요금이 듭니다. 같은 설명으로 다시 만들어도 똑같은 목소리가 나오지는 않습니다. 만들면 샘플을 바로 틀어 줍니다. 구글이 목소리 만들기 할당량을 열어 주지 않은 프로젝트는 첫 요청부터 429 오류로 거절되고(이때 요금은 나가지 않습니다), 이 할당량은 콘솔에서 직접 늘릴 수 없습니다.')),
                     f.busy ? h('button', { class: 'gt-b main', type: 'button', disabled: true }, '만드는 중…')
                         : host.armButton('목소리 만들기', '한 번 더 누르면 만듭니다 (요금)', () => void myMake(), 'gt-b main', 'nc-mycreate'))),
             h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '목소리는 마지막으로 쓴 뒤 1년이 지나면 구글이 지웁니다. 한 프로젝트에 약 200개까지 만들 수 있습니다.')];
