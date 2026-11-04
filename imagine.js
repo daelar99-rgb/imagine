@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.29.1
+//@display-name 🎨 이매진 v5.30.0
 //@api 3.0
-//@version 5.29.1
+//@version 5.30.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.29.1';
+    const VERSION = '5.30.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5666,7 +5666,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (vMode(ui.mode)) {
             return h('footer', { class: 'ix-foot' },
                 h('span', null, `이매진 v${VERSION} · ${ui.mode === 'talk' ? '대화' : ui.mode === 'myvoice' ? '내 목소리' : 'TTS'}`),
-                h('span', null, ui.mode === 'myvoice' ? '목소리는 키의 구글 클라우드 프로젝트에 만들어집니다' : '키는 리수 플러그인 설정(vertex_json)에만 저장합니다'));
+                h('span', null, ui.mode === 'myvoice' ? '내 목소리는 리수 플러그인 저장소에만 둡니다' : '키는 리수 플러그인 설정(vertex_json)에만 저장합니다'));
         }
         if (ui.mode === 'style') {
             return h('footer', { class: 'ix-foot' },
@@ -10265,7 +10265,7 @@ Rules:
         talk: '봇 인물과 그림 · 목소리가 있는 화면에서 바로 대화합니다. 말을 건넬 때마다 무대 그림이 바뀌고, 답은 인물의 목소리로 들을 수 있습니다.',
         prompt: '모델에게 보내는 지시문을 앱마다 직접 고칩니다. 지시문마다 on/off 토글이 있고, NSFW 프롬프트도 여기서 앱마다 켜고 끕니다.',
         style: '그림에 쓸 그림체를 만들고 고칩니다. NovelAI 그림을 넣으면 그 그림의 그림체를 가져옵니다. 삽화 · 애드 에셋 · 대화가 이 목록에서 그림체를 고릅니다.',
-        myvoice: '글 설명만으로 새 목소리를 만듭니다. 만든 목소리는 TTS · 대화의 목소리 고르기 창에 「내 목소리」로 나옵니다. 목소리는 내 구글 클라우드 프로젝트에만 생기고, 만들 때마다 요금이 듭니다.',
+        myvoice: '기본 목소리에 지시문을 더해 원하는 느낌의 목소리를 저장합니다. 저장한 목소리는 TTS · 대화의 목소리 고르기 창에 「내 목소리」로 나옵니다. 저장에는 요금이 들지 않습니다.',
     };
     function renderTour() {
         const steps = ['home', ...MODES.map(([m]) => m)];
@@ -11163,9 +11163,10 @@ Rules:
     const isVertex = model => /^gemini-3\.8/.test(model);
     const VOICES_URL = (project, page) => `https://aiplatform.googleapis.com/v1beta1/projects/${encodeURIComponent(project)}/locations/global/voices?pageSize=50${page ? '&pageToken=' + encodeURIComponent(page) : ''}`;
     const isLib = v => /^[a-z]{2}-[a-z]{2}-/.test(String(v ?? ''));
-    const isMy = v => /^voice_/.test(String(v ?? ''));
-    const MY_URL = (project, id) => `https://aiplatform.googleapis.com/v1beta1/projects/${encodeURIComponent(project)}/locations/global/voices${id ? '/' + encodeURIComponent(id) : ''}`;
-    const LIB_LANGS = ['ko-kr-', 'ja-jp-'];
+    const isMy = v => /^my_/.test(String(v ?? ''));
+    const LIB_LANGS = ['ko-kr-', 'ja-jp-', 'en-'];
+    const langKey = c => /^ja/i.test(String(c ?? '')) ? 'ja' : /^en/i.test(String(c ?? '')) ? 'en' : 'ko';
+    const LANG_CODE = { ko: 'ko-KR', ja: 'ja-JP', en: 'en-US' };
     const LIB_TTL = 24 * 3600 * 1000;
     const LIB_PAGES = 42;
     const LIB_MODEL = 'gemini-3.8-flash-tts';
@@ -11372,7 +11373,7 @@ Rules:
         return { token: tok.value, project: sa.project };
     }
     async function checkKey() {
-        try { const sa = await account(); keyKnown = !!sa; my.project = sa?.project ?? ''; } catch { keyKnown = true; }
+        try { const sa = await account(); keyKnown = !!sa; } catch { keyKnown = true; }
         return keyKnown;
     }
 
@@ -11390,7 +11391,7 @@ Rules:
         if (job) { job.note = ''; paintSoon(true); }
     }
     const voicesOf = r => Array.isArray(r.voice) ? r.voice.map(v => v.speakerId) : [r.voice];
-    const modelFor = r => voicesOf(r).some(v => isLib(v) || isMy(v)) && !isVertex(st.set.model) ? LIB_MODEL : st.set.model;
+    const modelFor = r => voicesOf(r).some(isLib) && !isVertex(st.set.model) ? LIB_MODEL : st.set.model;
     function requestFor(r, project, model = modelFor(r)) {
         const ttsHeadOf = pr => {
             const hd = r.test || host.prOff?.('ttsHead') ? '' : String(st.set.ttsHead ?? '').trim();
@@ -11447,7 +11448,7 @@ Rules:
         const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
         if (quota && project) headers['x-goog-user-project'] = project;
         const vertex = isVertex(model);
-        const useLib = voicesOf(r).some(v => isLib(v) || isMy(v));
+        const useLib = voicesOf(r).some(isLib);
         for (let attempt = 0; ; attempt++) {
             if (job?.stop) throw stopError();
             const [res, j] = await timed((async () => {
@@ -11467,8 +11468,7 @@ Rules:
             const hint = res.status === 403 ? (vertex
                     ? ` (구글 클라우드 콘솔에서 Vertex AI API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자 · Vertex AI 사용자)을 가졌는지 확인해 주세요.)`
                     : ' (구글 클라우드 콘솔에서 Cloud Text-to-Speech API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자)을 가졌는지 확인해 주세요.)')
-                : res.status === 400 && useLib && /lite/.test(model) ? ` (라이브러리 목소리 · 내 목소리는 3.8 Flash 에서만 시험했습니다. TTS › 준비에서 모델을 3.8 Flash 로 바꿔 보세요.)`
-                : (res.status === 404 || res.status === 400) && voicesOf(r).some(isMy) ? ' (내 목소리를 찾지 못했습니다. 다른 프로젝트의 키로 바꿨거나, 1년 동안 쓰지 않아 지워졌을 수 있습니다. 내 목소리 › 목록에서 확인해 주세요.)'
+                : res.status === 400 && useLib && /lite/.test(model) ? ` (라이브러리 목소리는 3.8 Flash 에서만 시험했습니다. TTS › 준비에서 모델을 3.8 Flash 로 바꿔 보세요.)`
                 : res.status === 429 ? ' (분당 요청 한도에 걸렸습니다. 1분쯤 뒤에 다시 눌러 주세요.)'
                 : '';
             throw Object.assign(new Error(`Gemini-TTS 오류 ${res.status}: ${msg}${hint}`), { status: res.status });
@@ -11488,79 +11488,27 @@ Rules:
     async function loadLib() {
         if (lib.voices) return lib.voices;
         const v = await api.pluginStorage.getItem('gt:lib').catch(() => null);
-        if (v?.voices?.length) Object.assign(lib, { voices: v.voices, at: Number(v.at) || 0, pages: Number(v.pages) || LIB_PAGES });
+        if (v?.voices?.length) Object.assign(lib, { voices: v.voices, at: v.langs === LIB_LANGS.join(',') ? Number(v.at) || 0 : 0, pages: Number(v.pages) || LIB_PAGES });
         return lib.voices;
     }
-    const my = { voices: [], project: '', busy: false, err: '' };
+    const my = { voices: [] };
     async function loadMy() {
         const v = await api.pluginStorage.getItem('gt:my').catch(() => null);
-        my.voices = Array.isArray(v?.voices) ? v.voices.filter(x => isMy(x?.id)) : [];
+        my.voices = Array.isArray(v?.voices) ? v.voices.filter(x => isMy(x?.id) && x.base) : [];
     }
     async function saveMy() {
         await api.pluginStorage.setItem('gt:my', { voices: my.voices }).catch(error => console.warn(LOG, 'save my', error));
     }
-    const myList = () => my.voices.filter(v => !my.project || v.project === my.project);
+    const myList = () => my.voices;
     const myOf = id => my.voices.find(v => v.id === id);
-    async function myFetch(url, method, token, body) {
-        const headers = { Authorization: 'Bearer ' + token };
-        if (body) headers['Content-Type'] = 'application/json';
-        return timed((async () => {
-            const r = await api.nativeFetch(url, body ? { method, headers, body: JSON.stringify(body) } : { method, headers });
-            return [r, await r.json().catch(() => null)];
-        })(), GOOGLE_WAIT, '내 목소리');
-    }
-    const myErr = (what, res, j) => {
-        const msg = String(j?.error?.message ?? '');
-        const hint = res.status === 403 ? ' (구글 클라우드 콘솔에서 Vertex AI API 를 켜고, 서비스 계정이 그 프로젝트의 권한(예: 편집자 · Vertex AI 사용자)을 가졌는지 확인해 주세요.)'
-            : res.status === 429 && /voice_creations/i.test(msg) ? ' (이 구글 클라우드 프로젝트에는 목소리 만들기 할당량이 열려 있지 않습니다. 구글이 많은 프로젝트에 이 할당량을 0 으로 두고, 콘솔의 할당량 화면에도 늘릴 줄을 보여 주지 않아 기다려도 풀리지 않습니다. 구글 클라우드 지원 · 영업 창구에 voice_creations 할당량을 열어 달라고 요청해야 합니다. 요청이 거절되었으므로 요금은 나가지 않았습니다.)'
-            : res.status === 429 ? ' (분당 요청 한도에 걸렸습니다. 1분쯤 뒤에 다시 눌러 주세요.)'
-            : '';
-        return new Error(`${what}에 실패했습니다 (${res.status}): ${msg}${hint}`);
-    };
-    async function myCreate({ name, gender, lang, desc }) {
-        const { token, project } = await accessToken();
-        if (!project) throw new Error('키 JSON 에 project_id 가 없어 목소리를 만들 수 없습니다.');
-        const [res, j] = await myFetch(MY_URL(project), 'POST', token, { store: true, voice: { type: 'VOICE_TYPE_PROMPTED', displayName: name, languageCode: lang, prompted: { input: desc } } });
-        if (!res.ok) throw myErr('목소리 만들기', res, j);
-        const v = j?.voice ?? j ?? {};
-        const id = String(v.id ?? v.name ?? '').split('/').pop();
-        if (!isMy(id)) throw new Error('응답에 목소리 ID 가 없습니다: ' + JSON.stringify(j ?? {}).slice(0, 200));
-        my.project = project;
-        const rec = { id, name, gender, lang, desc, at: Date.now(), project };
-        my.voices = [rec, ...my.voices.filter(x => x.id !== id)];
-        await saveMy();
-        const audio = v.sample_audio?.data ?? v.sampleAudio?.data ?? j?.sample_audio?.data ?? j?.sampleAudio?.data ?? '';
-        return { rec, audio };
-    }
-    async function myDelete(id) {
-        const { token, project } = await accessToken();
-        const [res, j] = await myFetch(MY_URL(project, id), 'DELETE', token);
-        if (!res.ok && res.status !== 404) throw myErr('목소리 지우기', res, j);
-        my.voices = my.voices.filter(v => v.id !== id);
-        await saveMy();
-    }
-    async function myRefresh() {
-        const { token, project } = await accessToken();
-        if (!project) throw new Error('키 JSON 에 project_id 가 없어 목록을 받을 수 없습니다.');
-        my.project = project;
-        const mine = my.voices.filter(v => v.project === project);
-        let alive = null;
-        const [res, j] = await myFetch(MY_URL(project) + '?type=prompted&type=replicated&pageSize=100', 'GET', token);
-        if (res.ok) {
-            alive = (j?.voices ?? []).map(v => ({ ...v, id: String(v.id ?? v.name ?? '').split('/').pop() })).filter(v => isMy(v.id));
-            for (const v of alive) if (!myOf(v.id)) my.voices.push({ id: v.id, name: v.display_name ?? v.displayName ?? v.id, gender: 'unknown', lang: v.language_code ?? v.languageCode ?? 'ko-KR', desc: v.prompted?.input ?? v.description ?? '', at: Date.now(), project });
-            const ids = new Set(alive.map(v => v.id));
-            my.voices = my.voices.filter(v => v.project !== project || ids.has(v.id));
-        } else if (res.status === 400) {
-            const gone = new Set();
-            for (const v of mine) {
-                const [r1, j1] = await myFetch(MY_URL(project, v.id), 'GET', token);
-                if (r1.status === 404) gone.add(v.id);
-                else if (!r1.ok) throw myErr('목소리 확인', r1, j1);
-            }
-            my.voices = my.voices.filter(v => !gone.has(v.id));
-        } else throw myErr('목록 받기', res, j);
-        await saveMy();
+    const myPrompt = id => isMy(id) ? String(myOf(id)?.prompt ?? '').trim() : '';
+    const DEF_VOICE = { female: 'Aoede', male: 'Charon' };
+    function realOf(id, gender = '') {
+        if (isMy(id)) {
+            const m = myOf(id);
+            if (m) return realOf(m.base, m.gender);
+        } else if (isLib(id) || FEMALE.includes(id) || MALE.includes(id)) return id;
+        return DEF_VOICE[gender] ?? DEF_VOICE.female;
     }
     async function fetchLib(force = false, onPage = () => {}) {
         await loadLib();
@@ -11584,7 +11532,7 @@ Rules:
                 onPage(lib.page);
             } while (page && lib.page < 200);
             Object.assign(lib, { voices: out, at: Date.now(), pages: lib.page });
-            await api.pluginStorage.setItem('gt:lib', { at: lib.at, pages: lib.pages, voices: out }).catch(error => console.warn(LOG, 'save lib', error));
+            await api.pluginStorage.setItem('gt:lib', { at: lib.at, pages: lib.pages, langs: LIB_LANGS.join(','), voices: out }).catch(error => console.warn(LOG, 'save lib', error));
         } catch (error) {
             lib.err = String(error?.message ?? error);
         } finally {
@@ -11593,10 +11541,12 @@ Rules:
         return lib.voices;
     }
     const ACCENT_KO = { 'Seoul Korean': '서울', 'Busan Korean': '부산', 'Tokyo Japanese': '도쿄', 'Osaka Japanese': '오사카', 'Fukuoka Japanese': '후쿠오카' };
-    const accentKo = a => ACCENT_KO[a] ?? a;
+    const EN_ACCENT_KO = { American: '미국', British: '영국', Australian: '호주', Indian: '인도', Irish: '아일랜드', Scottish: '스코틀랜드', Canadian: '캐나다', 'New Zealand': '뉴질랜드', 'South African': '남아공', Southern: '미국 남부' };
+    const accentKo = a => ACCENT_KO[a] ?? (/ English$/.test(String(a ?? '')) && EN_ACCENT_KO[a.replace(/ English$/, '')] ? `${EN_ACCENT_KO[a.replace(/ English$/, '')]} 영어` : a);
     function voiceLabel(id) {
-        if (isMy(id)) { const m = myOf(id); return m ? `${m.name} · 내 목소리` : '내 목소리 (목록에 없음)'; }
-        if (!isLib(id)) return id;
+        if (!id) return '';
+        if (isMy(id)) { const m = myOf(id); return m ? `${m.name} · 내 목소리` : `내 목소리 (지워짐 · 대신 ${realOf(id)})`; }
+        if (!isLib(id)) return FEMALE.includes(id) || MALE.includes(id) ? id : `${id} (없는 목소리 · 대신 ${realOf(id)})`;
         const v = lib.voices?.find(x => x.id === id);
         return v ? `${v.name} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}` : id;
     }
@@ -11734,7 +11684,7 @@ Rules:
         })(), LLM_WAIT, '모델');
     }
     function castPool(bot, want = null) {
-        const lang = /^ja/i.test(st.set.lang) ? 'ja' : 'ko';
+        const lang = langKey(st.set.lang);
         const used = new Set([bot.narrator, ...Object.values(bot.voices).map(v => v.voice)]);
         const fits = g => !want?.size || want.has('unknown') || want.has(g);
         return [
@@ -11868,14 +11818,16 @@ Rules:
     function buildRequests(segs, bot) {
         const turns = [];
         for (const s of segs) {
-            const voice = voiceFor(bot, s.speaker, s.gender);
             const narr = s.speaker === NARR;
+            const gender = narr ? '' : bot.voices[s.speaker]?.gender ?? s.gender ?? '';
+            const v0 = voiceFor(bot, s.speaker, s.gender);
+            const voice = isMy(v0) ? v0 : realOf(v0, gender);
             const rec = narr ? null : bot.voices[s.speaker];
             if (rec && s.style && !String(rec.style ?? '').trim()) { rec.style = s.style; bot.dirty = true; }
             const own = narr ? '' : bot.voices[s.speaker]?.style ?? '';
-            const prompt = cutBytes([narr ? bot.narrStyle : bot.talkStyle, own].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
+            const prompt = cutBytes([narr ? bot.narrStyle : bot.talkStyle, myPrompt(v0), own].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
             const text = s.text.replace(/\s*\n\s*/g, ' ');
-            for (const t of chunks(text, TEXT_BYTES - 12)) turns.push({ voice, speaker: s.speaker, narr, prompt, text: t });
+            for (const t of chunks(text, TEXT_BYTES - 12)) turns.push({ voice, speaker: s.speaker, narr, gender, prompt, text: t });
         }
         const reqs = [];
         let cur = null;
@@ -11895,7 +11847,7 @@ Rules:
     function finish(r) {
         if (r.voices.length === 1) {
             const prompts = [...new Set(r.turns.map(t => t.prompt).filter(Boolean))];
-            return { voice: r.voices[0], text: r.turns.map(t => t.text).join('\n'), prompt: cutBytes(prompts.join(' '), PROMPT_BYTES), turns: r.turns };
+            return { voice: realOf(r.voices[0], r.turns[0]?.gender), text: r.turns.map(t => t.text).join('\n'), prompt: cutBytes(prompts.join(' '), PROMPT_BYTES), turns: r.turns };
         }
         const aliasOf = new Map();
         const narrVoice = r.turns.find(t => t.narr)?.voice;
@@ -12777,9 +12729,10 @@ ${art}
             if (v) return v;
         }
         const bot = await botOf(chaId);
-        const voice = voiceFor(bot, name, bot.voices[name]?.gender ?? 'unknown');
+        const v0 = voiceFor(bot, name, bot.voices[name]?.gender ?? 'unknown');
+        const voice = realOf(v0, bot.voices[name]?.gender);
         if (bot.dirty) { delete bot.dirty; void saveBot(chaId, bot); }
-        const prompt = cutBytes([tone, bot.talkStyle, bot.voices[name]?.style].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
+        const prompt = cutBytes([tone, bot.talkStyle, myPrompt(v0), bot.voices[name]?.style].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
         const parts = [], body = plain(text), t0 = Date.now();
         for (const c of chunks(body, TEXT_BYTES)) {
             if (parts.length) parts.push(silence(Number(st.set.gap) || 0));
@@ -13667,16 +13620,15 @@ ${art}
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
-    function voiceField(key, value, onchange) {
+    function voiceField(key, value, onchange, opts = {}) {
         const open = ui.pick?.key === key;
-        return h('button', { class: open ? 'gt-b sm main gt-vbtn' : 'gt-b sm gt-vbtn', type: 'button', 'aria-expanded': String(open), onclick: () => openPick(key, value, onchange) },
+        return h('button', { class: open ? 'gt-b sm main gt-vbtn' : 'gt-b sm gt-vbtn', type: 'button', 'aria-expanded': String(open), onclick: () => openPick(key, value, onchange, opts) },
             h('span', null, voiceLabel(value)), ' ▾');
     }
-    function openPick(key, value, onchange) {
+    function openPick(key, value, onchange, opts = {}) {
         if (ui.pick?.key === key) { ui.pick = null; render(); return; }
-        const ml = isMy(value) ? String(myOf(value)?.lang ?? '').slice(0, 2) : '';
-        const lang = isLib(value) ? value.slice(0, 2) : ml === 'ja' || ml === 'ko' ? ml : /^ja/i.test(st.set.lang) ? 'ja' : 'ko';
-        ui.pick = { key, onchange, lang, gender: '', accent: '', q: '', cur: value };
+        const lang = opts.lang ?? (isMy(value) ? langKey(myOf(value)?.lang) : isLib(value) ? value.slice(0, 2) : langKey(st.set.lang));
+        ui.pick = { key, onchange, lang, gender: '', accent: '', q: '', cur: value, noMy: !!opts.noMy };
         render();
         if (!lib.busy && (!lib.voices || Date.now() - lib.at >= LIB_TTL)) void reloadLib(false);
     }
@@ -13693,7 +13645,7 @@ ${art}
         const p = ui.pick;
         const q = p.q.trim().toLowerCase();
         const base = [...FEMALE, ...MALE].map(id => ({ id, name: id, gender: FEMALE.includes(id) ? 'female' : 'male', desc: BASE_DESC[id] ?? '', base: true, accent: '', cat: BASE_CAT }));
-        const mine = myList().map(v => ({ id: v.id, name: v.name, gender: v.gender, desc: v.desc, my: true, lang: v.lang, accent: '', cat: MY_CAT }));
+        const mine = p.noMy ? [] : myList().map(v => ({ id: v.id, name: v.name, gender: v.gender, desc: v.prompt, my: true, lang: v.lang, base: false, baseId: v.base, accent: '', cat: MY_CAT }));
         const hits = [...(p.accent ? [] : [...mine, ...base]), ...(lib.voices ?? []).filter(v => v.lang === p.lang)].filter(v => (!p.gender || v.gender === p.gender) && (!p.accent || v.accent === p.accent)
             && (!q || [v.name, v.cat, v.role, v.desc, v.id, v.base ? BASE_NOTE[v.id] ?? '' : accentKo(v.accent)].join(' ').toLowerCase().includes(q)));
         if (!hits.length) return [h('div', { class: 'gt-hint gt-pk-none' }, lib.voices ? '맞는 목소리가 없습니다.'
@@ -13703,7 +13655,7 @@ ${art}
         return cats.map(c => h('div', { class: 'gt-pk-cat' }, h('b', null, `${c || '기타'} · ${hits.filter(v => v.cat === c).length}`),
             hits.filter(v => v.cat === c).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(v => h('div', { class: 'gt-pk-it' + (v.id === p.cur ? ' cur' : '') + (v.id === ui.pvLast ? ' last' : ''), 'data-v': v.id },
                 h('button', { class: 'gt-pk-pick', type: 'button', title: v.id, onclick: () => { const fn = p.onchange; ui.pick = null; fn(v.id); render(); } },
-                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, v.base ? ` ${sex[v.gender]} · ${BASE_TRAIT[v.id] ?? ''}${BASE_NOTE[v.id] ? ' · ' + BASE_NOTE[v.id] : ''}` : v.my ? ` ${sex[v.gender] ?? '성별 모름'} · ${LANG_KO[String(v.lang).slice(0, 2)] ?? v.lang}` : ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
+                    h('span', { class: 'gt-pk-nm' }, v.name, h('small', null, v.base ? ` ${sex[v.gender]} · ${BASE_TRAIT[v.id] ?? ''}${BASE_NOTE[v.id] ? ' · ' + BASE_NOTE[v.id] : ''}` : v.my ? ` ${sex[v.gender] ?? '성별 모름'} · ${LANG_KO[langKey(v.lang)]} · 바탕 ${voiceLabel(v.baseId)}` : ` ${sex[v.gender] ?? ''} · ${accentKo(v.accent)}${v.role ? ' · ' + v.role : ''}`)),
                     h('span', { class: 'gt-pk-ds' }, v.desc)),
                 h('button', { class: 'gt-b sm', type: 'button', title: '미리 듣기', 'data-pv': '', disabled: ui.preview?.busy, onclick: () => void preview(v.id, '') }, '▶')))));
     }
@@ -13900,24 +13852,24 @@ ${art}
         const list = h('div', { class: 'gt-pk-list' }, pickItems());
         const set = (k, val) => { p[k] = val; if (k === 'lang') p.accent = ''; render(); };
         const accents = [...new Set((lib.voices ?? []).filter(v => v.lang === p.lang).map(v => v.accent))].sort();
-        const stat = lib.busy ? '' : lib.voices ? `한국어 · 일본어 ${lib.voices.length}개 · ${new Date(lib.at).toLocaleString()}에 받음` : '';
+        const stat = lib.busy ? '' : lib.voices ? `한국어 · 일본어 · 영어 ${lib.voices.length}개 · ${new Date(lib.at).toLocaleString()}에 받음` : '';
         return h('div', { class: 'gt-pk' },
             h('div', { class: 'gt-pk-bar' },
-                seg([['ko', '한국어'], ['ja', '일본어']], p.lang, id => set('lang', id), 'sm'),
+                seg([['ko', '한국어'], ['ja', '일본어'], ['en', '영어']], p.lang, id => set('lang', id), 'sm'),
                 seg([['', '전체'], ['female', '여'], ['male', '남']], p.gender, id => set('gender', id), 'sm'),
                 accents.length ? seg([['', '모든 억양'], ...accents.map(a => [a, accentKo(a)])], p.accent, id => set('accent', id), 'sm') : null),
             h('div', { class: 'gt-pk-bar' },
                 h('input', { class: 'vf-in', type: 'search', placeholder: '이름 · 용도 · 설명으로 찾기 (예: Narrator, Support, 20-year-old)', value: p.q,
                     oninput: e => { p.q = e.target.value; list.replaceChildren(...pickItems()); } }),
                 h('button', { class: 'gt-b sm', type: 'button', disabled: lib.busy, onclick: () => void reloadLib(true) }, '목록 새로 고침'),
-                h('button', { class: 'gt-b sm', type: 'button', title: '내 목소리 앱에서 글 설명으로 새 목소리를 만듭니다', onclick: () => {
+                p.noMy || host.ui.mode === 'myvoice' ? null : h('button', { class: 'gt-b sm', type: 'button', title: '내 목소리 앱에서 기본 목소리에 지시문을 더한 목소리를 만듭니다', onclick: () => {
                     const fn = p.onchange;
                     ui.pick = null;
                     host.openApp('myvoice', { what: '이 목소리로', use: id => { fn(id); void refreshView().then(render); } });
                 } }, '+ 새 목소리 만들기')),
             lib.err ? h('p', { class: 'gt-msg err' }, lib.err) : null,
             lib.busy ? libLoad() : null,
-            stat ? h('div', { class: 'gt-hint' }, stat + '. 라이브러리 목소리 · 내 목소리는 3.8 Flash 로 만들고, 기존 목소리와 한 요청에 섞지 않습니다.') : null,
+            stat ? h('div', { class: 'gt-hint' }, stat + '. 라이브러리 목소리는 3.8 Flash 로 만들고, 기존 목소리와 한 요청에 섞지 않습니다.') : null,
             list);
     }
     function seg(items, value, onpick, extra) {
@@ -13930,16 +13882,17 @@ ${art}
     function group(title, sub, ...rows) {
         return h('section', { class: 'vf-grp' }, h('h2', null, title, sub ? h('small', null, sub) : null), h('div', { class: 'vf-card' }, rows));
     }
-    async function preview(voice, prompt) {
+    async function preview(voice, prompt, lang = '') {
         ui.preview = { voice, busy: true, src: '' };
         ui.pvLast = voice;
         doc.querySelectorAll('.gt-pk-it.last').forEach(el => el.classList.remove('last'));
         doc.querySelectorAll('.gt-pk-it').forEach(el => { if (el.dataset.v === voice) el.classList.add('last'); });
         paintPreview();
         try {
-            const lg = isMy(voice) ? String(myOf(voice)?.lang ?? '').slice(0, 2) : /^ja-/.test(voice) ? 'ja' : 'ko';
+            const lg = lang ? langKey(lang) : isMy(voice) ? langKey(myOf(voice)?.lang) : isLib(voice) ? voice.slice(0, 2) : langKey(st.set.lang);
             const text = lg === 'ja' ? 'こんにちは。この声で物語を読み上げますね。' : lg === 'en' ? 'Hello. I will read the story to you in this voice.' : '안녕하세요. 이 목소리로 이야기를 읽어 드릴게요.';
-            const pcm = await synth({ voice, text, prompt, turns: [] });
+            const said = cutBytes([myPrompt(voice), prompt].filter(x => String(x ?? '').trim()).join(' '), PROMPT_BYTES);
+            const pcm = await synth({ voice: realOf(voice), text, prompt: said, turns: [] });
             ui.preview = { voice, busy: false, src: 'data:audio/wav;base64,' + b64(wavOf([pcm])) };
             if (ui.msg) { ui.msg = ''; render(); } else paintPreview();
         } catch (error) {
@@ -13992,7 +13945,8 @@ ${art}
                         ? '봇 답변이 다 만들어지면 「🔊 읽기」를 누르지 않아도 바로 만들어 틉니다. 처음 켤 때 리수가 권한을 묻습니다. 거절하면 자동 읽기가 되지 않으니, 그때는 플러그인을 다시 켜고 허용해 주세요.'
                         : '「🔊 읽기」를 누를 때만 읽습니다.')),
                     seg([['on', 'on (기본)'], ['off', 'off']], st.set.auto ? 'on' : 'off', id => { set('auto', id === 'on'); void syncListen(); })),
-                row('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 모델은 글을 보고 읽을 언어를 알아서 정합니다. 이 값으로는 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, 그 밖에는 한국어)도 이 값으로 정합니다.',
+                row('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 모델은 글을 보고 읽을 언어를 알아서 정합니다. 이 값으로는 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, en으로 시작하면 영어, 그 밖에는 한국어)도 이 값으로 정합니다.',
+                    seg([['ko-KR', '한국어'], ['ja-JP', '일본어'], ['en-US', '영어']], st.set.lang, id => set('lang', id), 'sm'),
                     h('input', { class: 'vf-num', style: 'width:110px;text-align:left', value: st.set.lang, onchange: e => set('lang', e.target.value.trim() || 'ko-KR') })),
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '새 인물 목소리'), h('p', null, st.set.split === 'off'
                         ? '화자를 나누지 않으면 새 인물이 생기지 않아 쓰이지 않습니다.'
@@ -14099,11 +14053,12 @@ ${art}
     }
 
     const MY_SAMPLES = [
-        ['20대 남성 · 힘찬', 'male', '20대 남성. 힘 있고 밝은 목소리. 발음이 또렷하고 말끝에 자신감이 있다. 조금 빠르게 말한다.'],
-        ['30대 여성 · 차분한 내레이터', 'female', '30대 여성. 낮고 차분한 목소리. 부드럽고 따뜻하며, 이야기를 들려주듯 천천히 또박또박 읽는다.'],
-        ['10대 여성 · 발랄한', 'female', '10대 후반 여성. 높고 맑은 목소리. 밝고 장난기가 있으며, 감정이 잘 드러나게 말한다.'],
-        ['70대 남성 · 쉰 목소리', 'male', '70대 남성. 낮고 조금 쉰 목소리. 느긋하고 무게감 있게, 말 사이에 여유를 두고 말한다.'],
+        ['20대 남성 · 힘찬', 'male', 'Puck', '20대 남성처럼 힘 있고 밝게 말해 주세요. 발음은 또렷하게, 말끝에는 자신감을 담고, 조금 빠르게 말해 주세요.'],
+        ['30대 여성 · 차분한 내레이터', 'female', 'Sulafat', '30대 여성처럼 낮고 차분하게 말해 주세요. 부드럽고 따뜻하게, 이야기를 들려주듯 천천히 또박또박 읽어 주세요.'],
+        ['10대 여성 · 발랄한', 'female', 'Leda', '10대 후반 여성처럼 높고 맑게 말해 주세요. 밝고 장난기 있게, 감정이 잘 드러나도록 말해 주세요.'],
+        ['70대 남성 · 쉰 목소리', 'male', 'Algenib', '70대 남성처럼 낮고 조금 쉰 목소리로 말해 주세요. 느긋하고 무게감 있게, 말 사이에 여유를 두고 말해 주세요.'],
     ];
+    const myBlank = () => ({ id: '', name: '', gender: 'female', lang: LANG_CODE[langKey(st.set.lang)], base: DEF_VOICE.female, prompt: '' });
     function myRet() {
         const r = host.ui.ret;
         if (!r) return null;
@@ -14112,82 +14067,78 @@ ${art}
             h('button', { class: 'gt-b sm', type: 'button', onclick: () => host.goRet() }, r.use ? '고르지 않고 돌아가기' : `${r.label} 화면으로 돌아가기`));
     }
     function paneMyMake() {
-        const f = ui.my ??= { name: '', gender: 'female', lang: /^ja/i.test(st.set.lang) ? 'ja-JP' : 'ko-KR', desc: '', busy: false };
-        if (keyKnown !== true) return [myRet(), msgBox(),
-            group('키 넣기', '구글 서비스 계정 키',
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '키를 먼저 넣어 주세요'),
-                    h('p', null, '내 목소리는 TTS 와 같은 구글 클라우드 서비스 계정 키(JSON)로 만듭니다. 목소리는 그 키의 프로젝트에 생기고, 그 프로젝트의 키로만 쓸 수 있습니다.')),
-                    keyButtons()))];
-        const ta = h('textarea', { class: 'vf-ta', rows: 5, placeholder: '예: 20대 남성. 힘 있고 밝은 목소리. 발음이 또렷하고 말끝에 자신감이 있다.', oninput: e => { f.desc = e.target.value; } }, f.desc);
+        const f = ui.my ??= myBlank();
+        const pv = ui.preview;
+        const ta = h('textarea', { class: 'vf-ta', rows: 4, placeholder: '예: 20대 남성처럼 힘 있고 밝게 말해 주세요. 발음은 또렷하게, 조금 빠르게 말해 주세요.', oninput: e => { f.prompt = e.target.value; } }, f.prompt);
+        const pickBase = val => {
+            f.base = val;
+            const g = genderOf(val);
+            if (g === 'female' || g === 'male') f.gender = g;
+            render();
+        };
         return [myRet(), msgBox(),
-            group('새 목소리', `프로젝트 ${my.project || '(모름)'}`,
-                row('이름', '목록과 목소리 고르기 창에 보이는 이름입니다. 구글에도 이 이름으로 저장합니다.',
+            group(f.id ? '목소리 고치기' : '새 목소리', '기본 목소리 + 지시문',
+                row('이름', '목록과 목소리 고르기 창에 보이는 이름입니다.',
                     h('input', { class: 'vf-in', maxlength: 40, placeholder: '예: 힘찬 청년', value: f.name, oninput: e => { f.name = e.target.value; } })),
-                row('성별', '구글에는 보내지 않습니다. 새 인물에게 목소리를 정해 줄 때 성별을 맞추는 데만 씁니다.',
+                row('바탕 목소리', '이 목소리의 바탕입니다. 기본 목소리 30개나 라이브러리 목소리에서 고릅니다. 고르면 성별도 그 목소리에 맞춥니다.',
+                    voiceField('my:base', f.base, pickBase, { noMy: true, lang: langKey(f.lang) }),
+                    ui.pick?.key === 'my:base' ? pickPanel() : null),
+                row('성별', '새 인물에게 목소리를 정해 줄 때 성별을 맞추는 데 씁니다.',
                     seg([['female', '여'], ['male', '남']], f.gender, id => { f.gender = id; render(); })),
-                row('언어', '이 목소리가 주로 읽을 언어입니다. 미리 듣기 문장도 이 언어로 읽습니다.',
+                row('언어', '이 목소리가 주로 읽을 언어입니다. 미리 듣기 문장과 바탕 목소리 고르기 창의 첫 언어가 이 값을 따릅니다.',
                     seg([['ko-KR', '한국어'], ['ja-JP', '일본어'], ['en-US', '영어']], f.lang, id => { f.lang = id; render(); })),
                 h('div', { class: 'vf-row col' },
-                    h('div', { class: 'vf-tx' }, h('b', null, '목소리 설명'), h('p', null, '나이 · 성별 · 음색 · 빠르기 · 분위기를 문장으로 적습니다. 아래 예시를 눌러 채운 뒤 고쳐 써도 됩니다.')),
-                    h('div', { class: 'gt-acts' }, MY_SAMPLES.map(([label, g, text]) => h('button', { class: 'gt-b sm', type: 'button', onclick: () => { f.desc = text; f.gender = g; render(); } }, label))),
+                    h('div', { class: 'vf-tx' }, h('b', null, '지시문'), h('p', null, '나이 · 음색 · 빠르기 · 분위기를 문장으로 적습니다. 읽을 때마다 바탕 목소리에 이 지시문을 함께 보냅니다. 아래 예시를 누르면 바탕 목소리 · 성별 · 지시문을 함께 채웁니다.')),
+                    h('div', { class: 'gt-acts' }, MY_SAMPLES.map(([label, g, base, text]) => h('button', { class: 'gt-b sm', type: 'button', onclick: () => { Object.assign(f, { gender: g, base, prompt: text }); render(); } }, label))),
                     ta),
                 h('div', { class: 'vf-row' },
-                    h('div', { class: 'vf-tx' }, h('p', null, '만들 때마다 구글 클라우드 요금이 듭니다. 같은 설명으로 다시 만들어도 똑같은 목소리가 나오지는 않습니다. 만들면 샘플을 바로 틀어 줍니다. 구글이 목소리 만들기 할당량을 열어 주지 않은 프로젝트는 첫 요청부터 429 오류로 거절되고(이때 요금은 나가지 않습니다), 이 할당량은 콘솔에서 직접 늘릴 수 없습니다.')),
-                    f.busy ? h('button', { class: 'gt-b main', type: 'button', disabled: true }, '만드는 중…')
-                        : host.armButton('목소리 만들기', '한 번 더 누르면 만듭니다 (요금)', () => void myMake(), 'gt-b main', 'nc-mycreate'))),
-            h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '목소리는 마지막으로 쓴 뒤 1년이 지나면 구글이 지웁니다. 한 프로젝트에 약 200개까지 만들 수 있습니다.')];
+                    h('div', { class: 'vf-tx' }, h('p', null, '저장은 이 플러그인 저장소에만 하고 요금이 들지 않습니다. 미리 듣기는 구글 서비스 계정 키가 있어야 하고, 한 번 읽는 만큼 요금이 듭니다.')),
+                    h('div', { class: 'gt-acts' },
+                        h('button', { class: 'gt-b sm', type: 'button', 'data-pv': '', disabled: pv?.busy, onclick: () => void preview(f.base, f.prompt, f.lang) }, '▶ 미리 듣기'),
+                        f.id ? h('button', { class: 'gt-b sm', type: 'button', onclick: () => { ui.my = null; render(); } }, '고치기 그만두기') : null,
+                        h('button', { class: 'gt-b main', type: 'button', onclick: () => void mySave() }, f.id ? '고친 내용 저장' : '저장')))),
+            h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '같은 지시문이라도 읽을 때마다 조금씩 다르게 들릴 수 있습니다. 인물별 말투(등장인물 탭)는 이 지시문 뒤에 붙습니다.')];
     }
-    async function myMake() {
+    async function mySave() {
         const f = ui.my;
-        const name = f.name.trim(), desc = f.desc.trim();
-        if (!name || !desc) { ui.msg = '이름과 목소리 설명을 모두 적어 주세요.'; ui.ok = false; render(); return; }
-        f.busy = true;
-        ui.msg = '';
-        render();
-        try {
-            const { rec, audio } = await myCreate({ name, gender: f.gender, lang: f.lang, desc });
-            ui.my = { ...f, name: '', desc: '', busy: false };
-            ui.myNew = rec.id;
-            ui.msg = `「${name}」 목소리를 만들었습니다. ` + (audio ? '함께 온 샘플을 틉니다.' : '▶ 듣기로 들어 볼 수 있습니다.');
-            ui.ok = true;
-            host.ui.mtab = 'list';
-            if (audio) {
-                ui.pvLast = rec.id;
-                ui.preview = { voice: rec.id, busy: false, src: 'data:audio/wav;base64,' + b64(wavOf([pcmOf(unb64(audio))])) };
-            }
-        } catch (error) {
-            f.busy = false;
-            ui.msg = String(error?.message ?? error);
-            ui.ok = false;
-        }
+        const name = f.name.trim(), prompt = f.prompt.trim();
+        if (!name || !f.base) { ui.msg = '이름과 바탕 목소리를 정해 주세요.'; ui.ok = false; render(); return; }
+        const id = f.id && myOf(f.id) ? f.id : 'my_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const rec = { id, name, base: f.base, gender: f.gender, lang: f.lang, prompt, at: myOf(id)?.at ?? Date.now() };
+        my.voices = myOf(id) ? my.voices.map(v => v.id === id ? rec : v) : [rec, ...my.voices];
+        await saveMy();
+        ui.my = null;
+        ui.myNew = id;
+        ui.msg = f.id ? `「${name}」 목소리를 고쳤습니다.` : `「${name}」 목소리를 저장했습니다.`;
+        ui.ok = true;
+        host.ui.mtab = 'list';
         render();
     }
-    async function myRun(work, done) {
-        my.busy = true;
-        ui.msg = '';
-        render();
-        try { await work(); ui.msg = done(); ui.ok = true; } catch (error) { ui.msg = String(error?.message ?? error); ui.ok = false; }
-        my.busy = false;
+    async function myDrop(id) {
+        const m = myOf(id);
+        my.voices = my.voices.filter(v => v.id !== id);
+        await saveMy();
+        if (ui.my?.id === id) ui.my = null;
+        ui.msg = `「${m?.name ?? id}」 목소리를 지웠습니다. 이 목소리를 쓰던 인물은 성별에 맞는 기본 목소리로 읽습니다.`;
+        ui.ok = true;
         render();
     }
     function paneMyList() {
-        const all = myList(), hid = my.voices.length - all.length, ret = host.ui.ret, pv = ui.preview;
+        const all = myList(), ret = host.ui.ret, pv = ui.preview;
         const sex = { male: '남', female: '여' };
         const items = all.map(v => h('div', { class: 'vf-row my-it' + (v.id === ui.myNew ? ' new' : ''), title: v.id },
-            h('div', { class: 'vf-tx' }, h('b', null, v.name, h('small', null, [sex[v.gender] ?? '성별 모름', LANG_KO[String(v.lang).slice(0, 2)] ?? v.lang, new Date(v.at).toLocaleDateString()].join(' · '))),
-                v.desc ? h('p', null, v.desc) : null),
+            h('div', { class: 'vf-tx' }, h('b', null, v.name, h('small', null, [sex[v.gender] ?? '성별 모름', LANG_KO[langKey(v.lang)], '바탕 ' + voiceLabel(v.base)].join(' · '))),
+                v.prompt ? h('p', null, v.prompt) : null),
             h('div', { class: 'gt-acts' },
                 ret?.use ? h('button', { class: 'gt-b sm main', type: 'button', onclick: () => host.goRet(v.id) }, `✓ ${ret.what || '이 목소리로'} 정하기`) : null,
                 h('button', { class: 'gt-b sm', type: 'button', 'data-pv': '', disabled: pv?.busy, onclick: () => void preview(v.id, '') }, '▶ 듣기'),
-                my.busy ? null : host.armButton('지우기', '한 번 더 누르면 지웁니다', () => void myRun(() => myDelete(v.id), () => `「${v.name}」 목소리를 지웠습니다.`), 'gt-b sm warn', 'nc-mydel:' + v.id))));
+                h('button', { class: 'gt-b sm', type: 'button', onclick: () => { ui.my = { id: v.id, name: v.name, gender: v.gender, lang: v.lang, base: v.base, prompt: v.prompt ?? '' }; host.ui.mtab = 'make'; render(); } }, '고치기'),
+                host.armButton('지우기', '한 번 더 누르면 지웁니다', () => void myDrop(v.id), 'gt-b sm warn', 'nc-mydel:' + v.id))));
         return [myRet(), msgBox(),
-            group('내 목소리', `프로젝트 ${my.project || '(모름)'} · ${all.length}개`,
+            group('내 목소리', `${all.length}개`,
                 ...(all.length ? items : [h('div', { class: 'gt-empty' }, h('b', null, '아직 만든 목소리가 없습니다'),
-                    h('div', { style: 'margin-top:10px' }, h('button', { class: 'gt-b main', type: 'button', onclick: () => { host.ui.mtab = 'make'; render(); } }, '+ 새 목소리 만들기')))])),
-            h('div', { class: 'gt-acts', style: 'margin:10px 2px 0' },
-                h('button', { class: 'gt-b sm', type: 'button', disabled: my.busy || keyKnown !== true, onclick: () => void myRun(myRefresh, () => `구글에서 다시 확인했습니다. 내 목소리 ${myList().length}개`) }, my.busy ? '확인하는 중…' : '구글에서 다시 확인')),
-            h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '듣기 · 다시 확인 · 지우기는 만들기와 달리 요금이 거의 들지 않습니다. 지운 목소리를 쓰던 인물은 목소리를 다시 골라야 합니다. 마지막으로 쓴 뒤 1년이 지난 목소리는 구글이 지우므로, 「구글에서 다시 확인」을 누르면 목록에서도 빠집니다.'
-                + (hid ? ` 다른 프로젝트 키로 만든 목소리 ${hid}개는 지금 키로 쓸 수 없어 숨겼습니다.` : ''))];
+                    h('div', { style: 'margin-top:10px' }, h('button', { class: 'gt-b main', type: 'button', onclick: () => { if (ui.my?.id) ui.my = null; host.ui.mtab = 'make'; render(); } }, '+ 새 목소리 만들기')))])),
+            h('p', { class: 'gt-hint', style: 'margin:10px 2px 0' }, '내 목소리는 바탕 목소리에 지시문을 더해 읽습니다. 지운 목소리를 쓰던 인물은 성별에 맞는 기본 목소리로 읽으니, 등장인물 탭에서 다시 골라 주세요.')];
     }
     function paneVoices() {
         const v = ui.view;
@@ -15267,7 +15218,6 @@ Rules:
             tok.value = '';
             const sa = await account();
             if (!sa) throw new Error('키가 없습니다. 「JSON 파일 선택」으로 서비스 계정 키를 등록해 주세요.');
-            my.project = sa.project ?? '';
             await synth({ voice: 'Kore', text: '확인', prompt: '', turns: [], test: true });
             ui.msg = `연결되었습니다. 프로젝트 ${sa.project || '(없음)'} · ${sa.email.replace(/^(.{3}).*(@.*)$/, '$1…$2')}`;
             ui.ok = true;
