@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.25.1
+//@display-name 🎨 이매진 v5.26.0
 //@api 3.0
-//@version 5.25.1
+//@version 5.26.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.25.1';
+    const VERSION = '5.26.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5393,7 +5393,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         upd: '<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/>',
         voice: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
         mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"/>',
-        talk: '<path d="M4 5h16v11H10l-5 4v-4H4z"/><path d="M8.5 10.5h.01M12 10.5h.01M15.5 10.5h.01"/>',
+        talk: '<circle cx="8" cy="9" r="3.5"/><path d="M2 21v-1A4.5 4.5 0 0 1 6.5 15.5h3A4.5 4.5 0 0 1 14 20v1"/><path d="M14.5 6.5a3.5 3.5 0 0 1 0 5M17.5 4a7 7 0 0 1 0 10"/>',
         home: '<path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9v11h13V9"/>',
         back: '<path d="M19 12H5"/><path d="M11 18l-6-6 6-6"/>',
         search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
