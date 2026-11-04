@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.32.0
+//@display-name 🎨 이매진 v5.33.0
 //@api 3.0
-//@version 5.32.0
+//@version 5.33.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.32.0';
+    const VERSION = '5.33.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2037,6 +2037,12 @@ Rules
         const numOf = x => { if (!nums.has(x.key)) nums.set(x.key, nums.size + 1); return nums.get(x.key); };
         const labels = new Map();
         const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
+        const canonHead = (x, withTag) => {
+            const tag = tidy(x.e?.canon);
+            if (!tag) return [];
+            const bare = canonBare(tag);
+            return withTag ? [tag, bare] : bare.toLowerCase() === tag.toLowerCase() ? [] : [bare];
+        };
         const kindOf = x => x.e ? x.type : x.name;
         let panelN = 0, v2Base = '';
         for (const pn of img.panels) {
@@ -2065,7 +2071,7 @@ Rules
             const say = line ? `speech bubble with Text: ${line} ` : '';
             const personLine = k => {
                 const [tg, prose] = splitAct(acts[k]);
-                return `${labelOf(who[k])}: ${[mergeTags(kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+                return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k], false), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
             if (talkOv?.v2 && who.length >= 2) {
                 const cells = Array.isArray(pn.cells) ? pn.cells : [];
@@ -2074,7 +2080,7 @@ Rules
                     const [tg, prose] = splitAct(acts[k]);
                     const at = xyOfCell(cells[k]) ?? { x: 0.5, y: 0.5 };
                     slots.push({
-                        prompt: [mergeTags(kindOf(x), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN),
+                        prompt: [mergeTags(canonHead(x, true), kindOf(x), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN),
                         uc: k ? '' : tidy(pn.uc), x: at.x, y: at.y, kind: 'char', type: x.type,
                         name: x.name, keys, chars: [[String(x.name).toLowerCase(), labelOf(x)]],
                     });
