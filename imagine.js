@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.35.0
+//@display-name 🎨 이매진 v5.36.0
 //@api 3.0
-//@version 5.35.0
+//@version 5.36.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.35.0';
+    const VERSION = '5.36.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3518,7 +3518,7 @@ ${t.user}` : null;
     const nsPicked = () => ns.data ? ns.data.blocks.filter(b => ns.data.pick.includes(b.id)) : [];
     const nsMine = () => ns.my.filter(m => m.on && m.x.trim());
     const nsMyText = m => (m.t.trim() ? `## ${m.t.trim()}\n` : '') + m.x.trim();
-    const nsJoined = () => [...nsPicked().map(b => b.text), ...nsMine().map(nsMyText)].join('\n\n').trim();
+    const nsJoined = () => [nsJoinBlocks(nsPicked()), ...nsMine().map(nsMyText)].filter(Boolean).join('\n\n').trim();
     const nsCount = () => ({ got: nsPicked().length, my: nsMine().length, n: nsJoined().length });
     function nsfwText(rail) {
         const s = st.set.nsfw;
@@ -3537,6 +3537,11 @@ ${t.user}` : null;
         if (!was && setupDone()) ui.readyAt = Date.now();
     }
     function nsTitle(b) {
+        if (b.title) {
+            const ti = [...(b.path ?? []), b.title].map(x => x.length > 40 ? x.slice(0, 38) + '…' : x).join(' › ');
+            const pv = b.text.split('\n').filter((l, i) => !(i === 0 && /^\s*(#|<)/.test(l))).join('\n').trim();
+            return { ti, pv };
+        }
         const [first, ...rest] = b.text.split('\n');
         if (/^#+\s/.test(first)) return { ti: first.replace(/^#+\s*/, ''), pv: rest.join('\n').trim() };
         const s = b.text.split(/(?<=[.!?])\s/)[0];
@@ -3673,10 +3678,158 @@ ${t.user}` : null;
     }
     const NS_HEAD = /^\s*(?:#+[^\n]*|\[[^\]\n]{1,80}\]|[-=*_~]{3,})\s*$/;
     const nsEmpty = t => !t.replace(/<\/?\p{L}[^>]*>/gu, '').split('\n').filter(l => !NS_HEAD.test(l)).join('\n').trim();
+    const NS_BOX = 1500;
+    const NS_TAG = /^<(\/?)\s*(\p{L}[^<>]{0,200}?)\s*>$/u;
+    const NS_SEP = /^(?:[-=*_~]{3,}.*[-=*_~]{3,}|[-=*_~]{3,})$/;
+    function nsLines(msgs) {
+        const out = [];
+        let fence = false;
+        msgs.forEach((m, mi) => {
+            if (mi) out.push({ k: 'brk' });
+            for (const sg of m.segs) {
+                if (sg.k !== 'raw') { out.push({ k: 'brk' }); continue; }
+                for (const t of sg.t.split('\n')) {
+                    const s = t.trim(), L = { t, mi, role: m.role, k: 'text' };
+                    if (/^(```|~~~)/.test(s)) { fence = !fence; out.push(L); continue; }
+                    if (fence) { out.push(L); continue; }
+                    let x;
+                    if (!s) L.k = 'blank';
+                    else if ((x = s.match(NS_TAG)) && !x[2].endsWith('/')) {
+                        Object.assign(L, { k: x[1] ? 'close' : 'open', name: x[1] || !x[2].includes('=') ? x[2].trim() : x[2].split(/\s/)[0] });
+                    } else if ((x = s.match(/^(#{1,6})\s+(\S.*)$/))) Object.assign(L, { k: 'head', lv: x[1].length, ti: x[2].replace(/#+\s*$/, '').trim() });
+                    else if (/^\[[^\]\n]{1,80}\]$/.test(s)) Object.assign(L, { k: 'head', lv: 7, ti: s.slice(1, -1).trim() });
+                    else if (NS_SEP.test(s)) L.k = 'sep';
+                    out.push(L);
+                }
+            }
+        });
+        return out;
+    }
+    function nsTree(lines) {
+        const stack = [], pair = new Map();
+        lines.forEach((L, i) => {
+            if (L.k === 'open') stack.push(i);
+            else if (L.k === 'close') {
+                const j = stack.findLastIndex(o => lines[o].name === L.name);
+                if (j < 0) return;
+                pair.set(stack[j], i);
+                stack.length = j;
+            }
+        });
+        const build = (a, b) => {
+            const kids = [];
+            for (let i = a; i < b; i++) {
+                const L = lines[i];
+                if (L.k === 'open' && pair.has(i)) {
+                    const e = pair.get(i);
+                    kids.push({ tag: true, name: L.name, open: L, close: lines[e], kids: build(i + 1, e) });
+                    i = e;
+                } else kids.push(L.k === 'open' || L.k === 'close' ? { ...L, k: 'text' } : L);
+            }
+            return kids;
+        };
+        return build(0, lines.length);
+    }
+    const nsRender = items => items.map(it => it.tag ? [it.open.t, nsRender(it.kids), it.close.t].join('\n') : it.k === 'brk' ? '' : it.t).join('\n');
+    const nsSize = items => items.reduce((n, it) => n + (it.tag ? nsSize(it.kids) + it.open.t.length + it.close.t.length + 2 : it.k === 'brk' ? 1 : it.t.length + 1), 0);
+    const nsFirst = items => { for (const it of items) { if (it.tag) return it.open; if (it.mi != null) return it; } return null; };
+    const nsHasTag = items => items.some(it => it.tag);
+    function nsTrim(items) {
+        let a = 0, b = items.length;
+        const edge = it => !it.tag && (it.k === 'blank' || it.k === 'sep' || it.k === 'brk');
+        while (a < b && edge(items[a])) a++;
+        while (b > a && edge(items[b - 1])) b--;
+        return items.slice(a, b);
+    }
+    const nsCutAt = (items, at) => {
+        const parts = [[]];
+        for (const it of items) { if (at(it)) parts.push([]); parts[parts.length - 1].push(it); }
+        return parts;
+    };
+    function nsSplit(msgs, resOf = () => '') {
+        const blocks = [];
+        const box = (items, ctx) => {
+            const text = nsRender(items).trim();
+            if (!text || nsEmpty(text)) return;
+            const f = nsFirst(items);
+            const title = items[0].tag ? items[0].name : items[0].k === 'head' ? items[0].ti : nsSentence(text);
+            let mi2 = f?.mi ?? 0;
+            const walk = xs => xs.forEach(it => { if (it.tag) { mi2 = Math.max(mi2, it.close.mi); walk(it.kids); } else if (it.mi != null) mi2 = Math.max(mi2, it.mi); });
+            walk(items);
+            blocks.push({
+                id: blocks.length, role: f?.role ?? '', mi: f?.mi ?? 0, mi2, text, res: resOf(text),
+                title, path: ctx.path.filter((p, i, a) => p !== title && p.toLowerCase() !== a[i - 1]?.toLowerCase()),
+                wrap: ctx.wrap.map(n => ({ o: n.open.t.trim(), c: n.close.t.trim() })),
+            });
+        };
+        const emit = (raw, ctx, minLv) => {
+            const items = nsTrim(raw);
+            if (!items.length) return;
+            const size = nsSize(items);
+            if (size <= NS_BOX) return box(items, ctx);
+            if (items.length === 1 && items[0].tag) {
+                const n = items[0];
+                return split(n.kids, { wrap: [...ctx.wrap, n], path: [...ctx.path, n.name] });
+            }
+            const top = items[0].k === 'head' ? items[0] : null;
+            const sub = top ? { ...ctx, path: [...ctx.path, top.ti] } : ctx;
+            const heads = items.filter((it, i) => i && it.k === 'head' && it.lv > minLv);
+            if (heads.length) {
+                const lv = Math.min(...heads.map(h => h.lv));
+                const kid = top && top.lv < lv;
+                const parts = nsCutAt(items, it => it !== items[0] && it.k === 'head' && it.lv === lv);
+                if (parts.length > 1 && nsEmpty(nsRender(parts[0]))) parts.splice(0, 2, [...parts[0], ...parts[1]]);
+                parts.forEach((p, i) => emit(p, kid && i ? sub : ctx, lv));
+                return;
+            }
+            const big = items.some(it => it.tag && nsSize(it.kids) > NS_BOX);
+            if (top && size <= NS_BOX * 3 && !big) return box(items, ctx);
+            const parts = [];
+            for (const it of items) {
+                if (!it.tag && it.k === 'sep') { parts.push([]); continue; }
+                if (it.tag) { parts.push([it], []); continue; }
+                if (!parts.length) parts.push([]);
+                parts[parts.length - 1].push(it);
+            }
+            const real = parts.map(nsTrim).filter(p => p.length);
+            if (real.length > 1) { real.forEach((p, i) => emit(p, i ? sub : ctx, 99)); return; }
+            let buf = [], n = 0, first = true;
+            const out = () => { if (buf.length) box(buf, first ? ctx : sub); first = false; buf = []; n = 0; };
+            for (const p of nsCutAt(items, it => !it.tag && it.k === 'blank')) {
+                const s = nsSize(p);
+                if (n && n + s > NS_BOX) out();
+                buf.push(...p);
+                n += s;
+            }
+            out();
+        };
+        const split = (items, ctx) => { for (const chunk of nsCutAt(items, it => it.k === 'brk')) emit(chunk, ctx, 0); };
+        split(nsTree(nsLines(msgs)), { wrap: [], path: [] });
+        return blocks;
+    }
+    const nsSentence = t => {
+        const l = t.split('\n').find(x => x.trim() && !NS_SEP.test(x.trim()))?.trim() ?? '';
+        const x = l.match(NS_TAG);
+        if (x) return x[2].includes('=') ? x[2].split(/\s/)[0] : x[2].trim();
+        return l.split(/(?<=[.!?。])\s/)[0].slice(0, 120);
+    };
+    function nsJoinBlocks(list) {
+        const out = [], open = [];
+        for (const b of [...list].sort((x, y) => x.id - y.id)) {
+            const w = b.wrap ?? [];
+            let k = 0;
+            while (k < open.length && k < w.length && open[k].o === w[k].o) k++;
+            while (open.length > k) out.push(open.pop().c);
+            for (const x of w.slice(k)) { out.push(x.o); open.push(x); }
+            out.push(b.text);
+        }
+        while (open.length) out.push(open.pop().c);
+        return out.join('\n\n').trim();
+    }
     async function nsDigest(copy) {
         const bots = await nsBotTexts();
         const cuts = bots.flatMap(b => b.ts.map(t => ({ b, t }))).sort((x, y) => y.t.length - x.t.length);
-        const msgs = [], blocks = [], hit = new Set();
+        const msgs = [], hit = new Set();
         let chatN = 0, botN = 0;
         for (const m of copy) {
             if (m.memo) { chatN++; msgs.push({ role: m.role, segs: [{ k: 'cut', lb: '채팅', t: nsNorm(m.text) }] }); continue; }
@@ -3692,28 +3845,7 @@ ${t.user}` : null;
         }
         const probes = bots.filter(b => !hit.has(b) && b.probe);
         const resOf = t => probes.find(b => t.startsWith(b.probe))?.lb ?? '';
-        msgs.forEach((m, mi) => {
-            if (copy[mi].memo) return;
-            const paras = m.segs.flatMap(sg => sg.k === 'raw' ? sg.t.split(/\n{2,}/) : [null]);
-            let buf = null, tag = null;
-            const flush = () => {
-                const t = buf?.trim();
-                if (t && !nsEmpty(t)) blocks.push({ id: blocks.length, role: m.role, mi, text: t, res: resOf(t) });
-                buf = null;
-                tag = null;
-            };
-            for (const p of paras) {
-                if (p === null) { flush(); continue; }
-                if (!p.trim()) continue;
-                buf = buf == null ? p : buf + '\n\n' + p;
-                const open = !tag && p.trim().match(/^<([A-Za-z][\w-]*)[^>]*>/);
-                if (open && !open[0].endsWith('/>') && !p.includes(`</${open[1]}>`)) tag = open[1];
-                if (tag && !p.includes(`</${tag}>`)) continue;
-                if (/^#+ [^\n]*$/.test(p.trim()) || /^\[[^\]\n]{1,80}\]$/.test(p.trim())) continue;
-                flush();
-            }
-            flush();
-        });
+        const blocks = nsSplit(msgs, resOf);
         ns.cap = { msgs, blocks, chatN, botN, msgN: copy.length, at: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) };
         ns.pick = new Set(blocks.filter(b => !b.res).map(b => b.id));
         ns.open.delete('raw');
@@ -3790,7 +3922,7 @@ ${t.user}` : null;
                 h('input', { class: 'np-ck', type: 'checkbox', checked: on, onchange: e => set(e.target.checked) }),
                 h('span', { class: 'np-it-tx' },
                     h('b', { class: 'np-ti' }, ti),
-                    h('span', { class: 'np-sub' }, `${NS_ROLE[b.role] ?? b.role} · ${b.text.length.toLocaleString()}자 · 요청 ${b.mi + 1}번째 글${b.res ? ` · 「${b.res}」 글과 앞부분이 같음` : ''}`),
+                    h('span', { class: 'np-sub' }, `${NS_ROLE[b.role] ?? b.role} · ${b.text.length.toLocaleString()}자 · 요청 ${b.mi + 1}${b.mi2 > b.mi ? `~${b.mi2 + 1}` : ''}번째 글${b.res ? ` · 「${b.res}」 글과 앞부분이 같음` : ''}`),
                     pv ? h('span', { class: 'np-pv' }, pv) : null));
         };
         const nsOne = (i, text) => h('div', { class: 'np-one' }, h('span', { class: 'np-n' }, `${i} / 3`), h('b', null, text));
@@ -3812,10 +3944,10 @@ ${t.user}` : null;
             const cap = ns.cap;
             const pre = cap.blocks.filter(b => !b.res), res = cap.blocks.filter(b => b.res);
             const picked = cap.blocks.filter(b => ns.pick.has(b.id));
-            const joined = picked.map(b => b.text).join('\n\n');
+            const joined = nsJoinBlocks(picked);
             const r = b => row(b, ns.pick.has(b.id), on => { if (on) ns.pick.add(b.id); else ns.pick.delete(b.id); redraw(); });
             const use = () => {
-                const all = cap.blocks.map(b => ({ id: b.id, text: b.text, role: b.role, mi: b.mi, res: b.res || '', title: nsTitle(b).ti }));
+                const all = cap.blocks.map(b => ({ id: b.id, text: b.text, role: b.role, mi: b.mi, mi2: b.mi2 ?? b.mi, res: b.res || '', title: b.title || nsTitle(b).ti, path: b.path ?? [], wrap: b.wrap ?? [] }));
                 ns.data = { blocks: all, pick: all.filter(b => ns.pick.has(b.id)).map(b => b.id), at: cap.at, chatN: cap.chatN, botN: cap.botN, msgN: cap.msgN };
                 save('nc:nsfw', ns.data);
                 Object.assign(ns, { view: '', cap: null, err: '' });
@@ -16257,7 +16389,7 @@ Rules:
         await voiceStop;
     });
     if (globalThis.__NC_TEST__ === true) {
-        globalThis.__NC_TEST__ = { voice: () => voice, st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, countLabel, countRange, rollCount, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete, ns, nsCatch, nsDigest, nsBotTexts, nsCut, nsBody, nsBack, nsfwText, nsfwSum, finLine, nsTitle, nsManage, nsGo, nsCount, nsJoined, prFilled, renderPromptApp, PR_SLOTS };
+        globalThis.__NC_TEST__ = { voice: () => voice, st, acs, astCache, loadAst, acPlan, acReq, acLore, acSlugs, acEmos, acOutfits, acNoteText, acNoteInto, acSyncNote, acCutNote, acMine, acMineAll, botContext, setArtistThumb, withHead, isIllust, panelsOf, countNow, countLabel, countRange, rollCount, sizeNow, placeTags, findQuote, blockedRanges, tailStart, bubblesNow, ui, parseJson, jsonObjectAt, tryJson, unzipFirst, firstImage, buildReq, naiBody, countTags, guardTags, removeTokens, bubbleSlot, joinTags, stripOurs, stripProcess, stripRequest, msgHash, readState, writeStateInto, applyState, mergeCast, findCast, comicSystem, comicUser, findMsg, render, renderNow, openPanel, refreshView, runJob, enqueue, onOutput, plainText, grid, preset, DEFAULT_POS, DEFAULT_NEG, NEG_V12, figTag, figCss, ncDisplay, hideTargets, luaExcerpt, hidePrompt, checkHide, sortHide, applyHide, unhide, hasHide, botHidden, isTokenLimit, hideSlot, saveHide, runHide, runUnhide, hide, HIDE_SYSTEM, root, rootDenied, rootDoc, paintBusy, progressNow, cancelAll, tightenButtons, startRoot, stopRoot, syncRoot, placeButton, onRootClick, paintGen, genState, genClick, genHtml, setupDone, failed, jobsOn, figAction, removeImage, withVars, putVars, syncVars, redrawChat, sizeChanged, drawLatest, queued, setVal, sizeOk, loadPrefs, told, setNaiKey, goneScan, goneDelete, ns, nsCatch, nsDigest, nsSplit, nsJoinBlocks, nsBotTexts, nsCut, nsBody, nsBack, nsfwText, nsfwSum, finLine, nsTitle, nsManage, nsGo, nsCount, nsJoined, prFilled, renderPromptApp, PR_SLOTS };
     }
     console.log(LOG, `v${VERSION} ready`);
 })().catch(error => {
