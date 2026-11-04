@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.30.0
+//@display-name 🎨 이매진 v5.31.0
 //@api 3.0
-//@version 5.30.0
+//@version 5.31.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.30.0';
+    const VERSION = '5.31.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -9324,10 +9324,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     };
 
     const acCast = () => (st.view?.cast?.list ?? []).filter(e => e && e.on !== false);
-    function acFaceKeys(chaId) {
-        if (st.view?.chaId !== chaId) return [];
-        const a = acAst();
-        return acCast().map(e => ({ names: [e.name, ...(e.aliases ?? [])], keys: [e.key, a?.slugs?.[e.id], a?.enNames?.[e.name]].filter(Boolean) }));
+    async function faceKeysOf(chaId) {
+        if (!chaId) return [];
+        const [cast, a] = await Promise.all([loadCast(chaId), loadAst(chaId)]);
+        return (cast?.list ?? []).filter(e => e && e.on !== false)
+            .map(e => ({ names: [e.name, ...(e.aliases ?? [])], keys: [e.key, a?.slugs?.[e.id], a?.enNames?.[e.name]].filter(Boolean) }));
     }
     const acHue = e => AC_HUES[Math.max(0, acCast().indexOf(e)) % AC_HUES.length];
     function acPickedIds(a) {
@@ -12322,18 +12323,19 @@ Rules:
 - Write each asset name exactly as listed, character for character. Use "" when no asset fits a character.
 Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
     const faceAsking = new Set();
+    let faceBusy = null, faceT0 = 0, faceFlash = null;
     function faceSig(v, names) {
-        const ext = host.faceKeys?.(v.chaId) ?? [];
+        const ext = v.fkeys ?? [];
         return hash(JSON.stringify([names.map(n => [n, v.bot.voices[n]?.aliases ?? []]), ext.map(e => [e.names, e.keys]), (v.faces?.list ?? []).map(f => f.name).sort()]));
     }
     async function talkFaceAsk(v, names) {
-        const pool = v.faces?.list ?? [];
-        if (!v.bot.castAt || cast || !pool.length || names.length < 1) return;
+        const pool = v?.faces?.list ?? [];
+        if (!v || st.set.talkImgSrc !== 'asset' || !v.bot.castAt || cast || !pool.length || names.length < 1) return;
         const sig = faceSig(v, names);
         const tag = v.chaId + ':' + sig;
         if (v.bot.faceAi?.sig === sig || faceAsking.has(tag)) return;
         faceAsking.add(tag);
-        const ext = host.faceKeys?.(v.chaId) ?? [];
+        const ext = v.fkeys ?? [];
         const keysOf = n => {
             const lows = new Set([n, ...(v.bot.voices[n]?.aliases ?? [])].map(x => String(x).trim().toLowerCase()));
             return [...new Set(ext.filter(e => e.names.some(x => lows.has(String(x ?? '').trim().toLowerCase()))).flatMap(e => e.keys))];
@@ -12346,6 +12348,10 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
             ...(others.length ? ['', 'OTHER PEOPLE (not in the list; never give their assets to anyone):', ...others] : []),
             '', 'ASSETS:', ...pool.map(f => `[${f.src === 'emo' ? 'emotion' : 'asset'}] ${f.name}`),
         ].join('\n');
+        faceBusy = v.chaId;
+        faceT0 = Date.now();
+        setTimeout(render, 0);
+        let ok = false;
         try {
             const out = await askModel([{ role: 'system', content: FACE_SYSTEM }, { role: 'user', content: user }], st.set.castLlm === 'submodel' ? 'submodel' : 'model');
             let j = null;
@@ -12355,8 +12361,14 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
             if (!got) throw new Error('얼굴 매칭 답을 읽지 못했습니다.');
             v.bot.faceAi = { sig, map: faceMap(got, names, pool) };
             await saveBot(v.chaId, v.bot);
-            if (ui.view?.chaId === v.chaId) render();
+            ok = true;
         } catch (error) { console.warn(LOG, 'talk faces', error); }
+        finally {
+            if (faceBusy === v.chaId) faceBusy = null;
+            faceFlash = ok ? v.chaId : null;
+            render();
+            if (ok) setTimeout(() => { if (faceFlash === v.chaId) { faceFlash = null; render(); } }, 1400);
+        }
     }
     function faceMap(got, names, pool) {
         const map = {};
@@ -12371,7 +12383,7 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
     function talkFaces(v, names) {
         const out = new Map();
         const pool = v.faces?.list ?? [];
-        const ext = host.faceKeys?.(v.chaId) ?? [];
+        const ext = v.fkeys ?? [];
         const parts = k => String(k).toLowerCase().split(/[_\s-]+/).filter(p => p.length >= 3);
         const used = new Set();
         const people = names.map(n => {
@@ -13914,7 +13926,8 @@ ${art}
         try {
             const w = await where();
             const chaId = w.char?.chaId;
-            ui.view = chaId ? { chaId, tk: talkKeyOf(chaId, w.chat, w.chi), ci: w.ci, name: w.char.name ?? '', bot: await botOf(chaId), talk: await talkOf(talkKeyOf(chaId, w.chat, w.chi), w.ci), user: await userName(), faces: facePool(w.char), stage: stagePool(w.char) } : null;
+            ui.view = chaId ? { chaId, tk: talkKeyOf(chaId, w.chat, w.chi), ci: w.ci, name: w.char.name ?? '', bot: await botOf(chaId), talk: await talkOf(talkKeyOf(chaId, w.chat, w.chi), w.ci), user: await userName(), faces: facePool(w.char), stage: stagePool(w.char),
+                fkeys: host.faceKeysOf ? await host.faceKeysOf(chaId).catch(() => []) : [] } : null;
         } catch {
             ui.view = null;
         }
@@ -14260,6 +14273,7 @@ ${art}
         const drawing = T.draw?.name === name;
         const noKey = keyKnown === false;
         const assetMode = st.set.talkImgSrc === 'asset';
+        if (assetMode) void talkFaceAsk(v, talkCast(v));
         const lastC = log.findLast(m => m.r === 'c');
         const kids = [];
         const shown = src?.r === 'c' && !src.img?.path && talkPending(name, src.at) ? log.slice(0, log.indexOf(src)).findLast(m => m.img?.path) ?? src : src;
@@ -14324,9 +14338,11 @@ ${art}
                 .concat((() => {
                     const cnt = v.stage?.list?.length ?? 0;
                     const can = !T.draw && (assetMode || cnt > 0);
-                    return di(assetMode ? 'on' : '', 'image', '봇 에셋',
-                        T.draw ? '그리는 중에는 그림 방식을 바꿀 수 없습니다' : assetMode ? '봇 에셋을 끄고 NovelAI 로 그리기' : cnt ? `NovelAI 대신 봇 에셋(${cnt}개) 중 답에 맞는 것을 걸기` : '이 봇에는 쓸 그림 에셋이 없습니다',
-                        () => { st.set.talkImgSrc = assetMode ? 'nai' : 'asset'; void saveSet(); talkPaint(); }, { 'aria-pressed': String(assetMode), disabled: !can });
+                    const fBusy = faceBusy === v.chaId, fDone = !fBusy && faceFlash === v.chaId;
+                    return di((assetMode ? 'on' : '') + (fBusy ? ' run vr' : fDone ? ' fdn' : ''), 'image', '봇 에셋',
+                        T.draw ? '그리는 중에는 그림 방식을 바꿀 수 없습니다' : fBusy ? '에셋에서 대화 상대 얼굴을 고르는 중입니다' : assetMode ? '봇 에셋을 끄고 NovelAI 로 그리기' : cnt ? `NovelAI 대신 봇 에셋(${cnt}개) 중 답에 맞는 것을 걸기` : '이 봇에는 쓸 그림 에셋이 없습니다',
+                        () => { st.set.talkImgSrc = assetMode ? 'nai' : 'asset'; void saveSet(); talkPaint(); },
+                        { 'aria-pressed': String(assetMode), 'aria-busy': fBusy ? 'true' : null, disabled: !can, style: fBusy ? `--d:12s;--e:-${Math.min(12000, Date.now() - faceT0)}ms` : null });
                 })())
                 .concat(nsBtn)),
             low.length ? h('div', { class: 'vn-dr' }, low) : null));
@@ -15279,8 +15295,8 @@ Rules:
         'gemini-3.8-flash-lite-tts': ['3.8 의 가벼운 모델입니다.'],
     };
     const castLlmNote = () => h('p', { class: 'gt-hint', style: 'margin:12px 0 0' }, 'TTS와 대화가 이 값을 함께 씁니다. 대화는 이 모델로 인물의 생김새를 NAI 태그까지 함께 정리합니다. TTS › 준비에서 고릅니다.');
-    function wizCard(id, title, desc, cur, onpick, rec) {
-        return h('button', { class: id === cur ? 'vz-mc sel' : 'vz-mc', type: 'button', 'aria-pressed': String(id === cur), onclick: () => onpick(id) },
+    function wizCard(id, title, desc, cur, onpick, rec, cls = '') {
+        return h('button', { class: (id === cur ? 'vz-mc sel' : 'vz-mc') + (cls ? ' ' + cls : ''), type: 'button', 'aria-pressed': String(id === cur), onclick: () => onpick(id) },
             h('span', { class: 'vz-rd', 'aria-hidden': 'true' }),
             h('span', { class: 'vz-mt' }, h('b', null, title), h('span', { class: 'vz-dd' }, desc)),
             rec ? h('span', { class: 'vz-rec' }, '추천') : null);
@@ -15388,9 +15404,11 @@ Rules:
             wizCard('submodel', '보조 모델', '대화의 답과 그림 연출을 보조 모델로 만듭니다. 싸고 빠르지만 말투나 그림 연출이 어긋날 수 있습니다. 한 번 보낼 때마다 요청 하나만 쓰고(연출이 빠지면 하나 더), 리수 채팅에는 아무것도 남기지 않습니다.', st.set.talkModel, val => set('talkModel', val)))];
         if (n === 2) {
             const cnt = ui.view?.stage?.list?.length;
+            if (ui.view && talkAssetMode()) void talkFaceAsk(ui.view, talkCast(ui.view));
+            const fCls = ui.view && faceBusy === ui.view.chaId ? 'fm' : ui.view && faceFlash === ui.view.chaId ? 'fdn' : '';
             return [h('div', { class: 'vz-cards' },
                 wizCard('nai', 'NovelAI 로 그리기', '답의 장면을 NovelAI 로 새로 그려 무대에 겁니다. 만화 · 삽화와 그림체를 고를 수 있습니다. 한 장마다 Anlas 를 씁니다.', st.set.talkImgSrc, val => set('talkImgSrc', val), true),
-                wizCard('asset', '봇 에셋 쓰기', `봇에 든 그림 에셋 중 답에 맞는 하나를 대화 모델이 골라 겁니다. Anlas 를 쓰지 않고 바로 바뀝니다.${cnt == null ? '' : cnt ? ` 지금 봇의 그림 에셋은 ${cnt}개입니다.` : ' 지금 봇에는 쓸 그림 에셋이 없습니다.'}`, st.set.talkImgSrc, val => set('talkImgSrc', val)))];
+                wizCard('asset', '봇 에셋 쓰기', `봇에 든 그림 에셋 중 답에 맞는 하나를 대화 모델이 골라 겁니다. Anlas 를 쓰지 않고 바로 바뀝니다.${cnt == null ? '' : cnt ? ` 지금 봇의 그림 에셋은 ${cnt}개입니다.` : ' 지금 봇에는 쓸 그림 에셋이 없습니다.'}`, st.set.talkImgSrc, val => set('talkImgSrc', val), false, fCls))];
         }
         if (n === 3 && talkAssetMode()) {
             const list = ui.view?.stage?.list ?? [];
@@ -15800,6 +15818,12 @@ Rules:
 .gt .vn-di.run.dr i::before{width:var(--p,0%);transition:width .8s linear}
 .gt .vn-di.run.vr i::before{width:0;animation:vn-fill var(--d,8s) linear var(--e,0s) forwards}
 .gt .vn-di.run{color:var(--sky)}
+.gt .vn-di.fdn i{animation:vn-fdn 1.4s ease-out}
+@keyframes vn-fdn{0%,30%{outline:2px solid #3fd6a4;outline-offset:2px}100%{outline:2px solid transparent;outline-offset:2px}}
+.gt .vz-mc.fm{overflow:hidden}
+.gt .vz-mc.fm::after{content:"";position:absolute;left:0;bottom:0;height:4px;width:0;background:linear-gradient(90deg,#7cc4ff,#4fb0ff);animation:vn-fill 12s linear forwards}
+.gt .vz-mc.fdn{animation:vz-fdn 1.4s ease-out}
+@keyframes vz-fdn{0%,30%{box-shadow:0 0 0 3px #3fd6a4}100%{box-shadow:0 0 0 3px transparent}}
 .gt .vn-dg{display:flex;flex-direction:column;align-items:center;gap:2px;padding:2px 4px 0;border-radius:14px;background:rgba(43,149,240,.08)}
 .gt .vn-dg>b{font-size:9px;font-weight:900;letter-spacing:.06em;color:var(--ink2)}
 .gt .vn-dg>div{display:flex;align-items:flex-end;gap:6px}
@@ -15933,7 +15957,7 @@ Rules:
     await loadPrefs();
     await nsLoad();
     voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
-        thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeys: acFaceKeys,
+        thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeysOf,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
