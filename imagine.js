@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.25.0
+//@display-name 🎨 이매진 v5.25.1
 //@api 3.0
-//@version 5.25.0
+//@version 5.25.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.25.0';
+    const VERSION = '5.25.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5730,12 +5730,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     },
                 })));
     }
-    function sizePick(value, onPick, opts = SIZE_OPTS) {
-        const own = !opts.some(([v]) => v === value);
+    function sizePick(value, onPick) {
+        const own = !SIZE_OPTS.some(([v]) => v === value);
         const wh = sizeWH(value);
         const shown = own && wh ? wh.join('×') : '';
         return h('div', { class: 'cf-pickbox' },
-            seg(opts, value, v => { if (v !== value) onPick(v); }),
+            seg(SIZE_OPTS, value, v => { if (v !== value) onPick(v); }),
             h('label', { class: 'cf-ownbox' },
                 h('input', {
                     class: 'cf-num cf-mid' + (own ? ' sel' : ''), type: 'text', spellcheck: 'false', autocomplete: 'off',
@@ -11152,7 +11152,7 @@ Rules:
         ['gemini-3.8-flash-tts', '3.8 Flash'],
         ['gemini-3.8-flash-lite-tts', '3.8 Flash Lite'],
     ];
-    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'model', talkLink: true, talkSync: true, setup: 0, talkSetup: 0,
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'model', talkSync: true, setup: 0, talkSetup: 0,
         talkKind: 'illust', talkSize: 'wide', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai',
         talkBubbles: true, ttsHead: '' };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
@@ -11201,8 +11201,6 @@ Rules:
         st.set.t46 = true;
         if (!st.set.t48 && Number(st.set.keep) === 30) st.set.keep = 300;
         st.set.t48 = true;
-        if (!st.set.t52) st.set.talkLink = true;
-        st.set.t52 = true;
         if (!st.set.t50) { if (Number(st.set.setup) >= 5) st.set.talkSetup = 3; st.set.setup = Math.min(Number(st.set.setup) || 0, 4); st.set.t50 = true; }
         if (!st.set.t51) { if (Number(st.set.talkSetup) >= 3) st.set.talkSetup = 4; st.set.t51 = true; }
         if (!st.set.t53) { for (const k of ['setup', 'talkSetup']) { const n = Number(st.set[k]) || 0; st.set[k] = n === 0 ? 0 : n + 2; } st.set.t53 = true; }
@@ -11221,13 +11219,6 @@ Rules:
             if (n >= 2) st.set.talkSetup = n - 1;
             for (const k of ['talkSpeak', 'talkAuto', 'talkWhen', 'talkLlm', 'talkTtsHead', 'talkTtsModel', 'talkLang', 'talkGap', 't519']) delete st.set[k];
             st.set.t520 = true;
-            void saveSet();
-        }
-        if (!st.set.t525) {
-            const on = st.set.talkLink !== false;
-            st.set.talkLink = on;
-            st.set.talkSync = on;
-            st.set.t525 = true;
             void saveSet();
         }
     }
@@ -12509,11 +12500,11 @@ ${art}
                 lore.push(folder);
             }
             const rec = bot.voices[name];
-            const keys = st.set.talkLink ? castKeys(own, [name, ...(rec?.aliases ?? [])]) : [];
+            const keys = st.set.talkSync ? castKeys(own, [name, ...(rec?.aliases ?? [])]) : [];
             const ent = {
                 key: keys.join(', '), secondkey: '', insertorder: 100, comment: TALK_TAG + name,
                 content: `[${name} · ${user} 대화 기록]\n` + log.map(m => `${m.r === 'u' ? user : name}: ${m.t}`).join('\n'),
-                mode: 'normal', alwaysActive: !!st.set.talkLink && !keys.length, selective: false, useRegex: false, folder: folder.key,
+                mode: 'normal', alwaysActive: !!st.set.talkSync && !keys.length, selective: false, useRegex: false, folder: folder.key,
             };
             if (at >= 0) lore[at] = { ...lore[at], ...ent };
             else lore.push(ent);
@@ -13882,12 +13873,11 @@ ${art}
     }
     const syncOn = () => !!st.set.talkSync;
     function setSync(on) {
-        const link = st.set.talkLink;
+        const was = !!st.set.talkSync;
         st.set.talkSync = !!on;
-        st.set.talkLink = !!on;
         void saveSet();
         const v = ui.view;
-        if (v && link !== st.set.talkLink) for (const [name, log] of Object.entries(v.talk)) if (log?.length) talkLoreSoon(v.tk, v.ci, name);
+        if (v && was !== st.set.talkSync) for (const [name, log] of Object.entries(v.talk)) if (log?.length) talkLoreSoon(v.tk, v.ci, name);
         render();
     }
     function castAutoRow() {
@@ -14002,6 +13992,7 @@ ${art}
         brush: '<path d="M9.97 17.03 21.38 5.62a1 1 0 0 0-3-3L6.97 14.03"/><path d="M11 10l3 3"/><path d="M6.5 21A3.5 3.5 0 1 0 3 17.5a2.6 2.6 0 0 1-.7 1.8A1 1 0 0 0 3 21z"/>',
     };
     const talkKindNow = () => st.set.talkKind === 'comic' || st.set.talkKind === 'comic2' ? st.set.talkKind : 'illust';
+    const talkSizeNow = () => st.set.talkSize === 'square' ? 'square' : 'wide';
     function talkIcon(name, sw = 2) {
         const el = h('span', { class: 'vn-ic', 'aria-hidden': 'true' });
         el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${TALK_SVG[name]}</svg>`;
@@ -14307,7 +14298,7 @@ ${art}
         const redo = mode === 'redo' && !!entry.img?.req;
         const kind = talkKindNow();
         const was = redo ? entry.img.kind ?? entry.img.req.kind ?? 'illust' : '';
-        const size = kind === 'comic2' ? 'tall' : redo && was === kind ? entry.img.size ?? st.set.talkSize : st.set.talkSize;
+        const size = kind === 'comic2' ? 'tall' : redo && was === kind ? entry.img.size ?? talkSizeNow() : talkSizeNow();
         const o = { ...talkArtOpts(v, name, log.slice(0, idx + 1), kind, size), plan: mode !== 'redo' && entry.plan && entry.planKind === kind ? entry.plan : null };
         const job = {};
         T.draw = { name, at, job, redo: mode === 'redo' };
@@ -14778,7 +14769,7 @@ Rules:
             const last = pool ? [...new Set((v.talk[name] ?? []).filter(m => m.r !== 'u' && m.img?.asset).map(m => m.img.asset).reverse())].slice(0, 3) : [];
             const kind = talkKindNow();
             const art = !assetMode
-                ? await host.talkBrief(talkArtOpts(v, name, v.talk[name] ?? [], kind, kind === 'comic2' ? 'tall' : st.set.talkSize)) : null;
+                ? await host.talkBrief(talkArtOpts(v, name, v.talk[name] ?? [], kind, kind === 'comic2' ? 'tall' : talkSizeNow())) : null;
             const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt), pool, last, art || '');
             const got = await talkAsk(system, v.talk[name] ?? [], name, rec, pool, !!art);
             reply = got.text;
@@ -15233,8 +15224,8 @@ Rules:
                         ? '만화 컷에 대사 말풍선을 넣습니다.'
                         : '말풍선 없이 그림만 그립니다.')),
                     seg([['on', 'on (기본)'], ['off', 'off']], st.set.talkBubbles !== false ? 'on' : 'off', id => set('talkBubbles', id === 'on'))) : null,
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '기기'), h('p', null, talkKindNow() === 'comic2' ? '만화v2 는 세로 832×1216 두 장으로 정해져 있어 이 값을 쓰지 않습니다. 삽화 · 만화로 그릴 때 씁니다.' : '대화를 주로 보는 기기를 고릅니다. 모바일은 정사각 그림이, PC · 태블릿은 가로 그림이 무대에 잘 맞습니다. 다른 크기는 직접 입력칸에 가로×세로로 적습니다.')),
-                    host.sizePick(st.set.talkSize, id => set('talkSize', id), [['square', '모바일 · 정사각 1024×1024'], ['wide', 'PC · 태블릿 · 가로 1216×832']]))),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '기기'), h('p', null, talkKindNow() === 'comic2' ? '만화v2 는 세로 832×1216 두 장으로 정해져 있어 이 값을 쓰지 않습니다. 삽화 · 만화로 그릴 때 씁니다.' : '대화를 주로 보는 기기를 고릅니다. 모바일은 정사각 1024×1024, PC · 태블릿은 가로 1216×832 로 그립니다.')),
+                    seg([['square', '모바일 · 정사각 1024×1024'], ['wide', 'PC · 태블릿 · 가로 1216×832']], talkSizeNow(), id => set('talkSize', id)))),
         ];
         if (n === 4) {
             if (talkAssetMode()) return [h('div', { class: 'vf-card vz-asw' }, h('p', { class: 'vz-asn' }, '봇 에셋 방식은 그림을 새로 그리지 않아 그림체를 쓰지 않습니다. 그대로 다음 단계로 넘어가면 됩니다.'))];
@@ -15742,7 +15733,7 @@ Rules:
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, sizePick, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeys: acFaceKeys,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
