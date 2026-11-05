@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.41.0
+//@display-name 🎨 이매진 v5.41.1
 //@api 3.0
-//@version 5.41.0
+//@version 5.41.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.41.0';
+    const VERSION = '5.41.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -8287,7 +8287,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
                 toggle(s.auto, () => setVal('auto', !s.auto))),
             row('동시생성', '켜면 메인 모델이 답변을 쓰면서 그 답변의 삽화 연출(NAI 태그)도 함께 씁니다. 연출 모델에 따로 묻는 요청 한 번을 아낍니다.',
-                '메인 요청 끝에 연출 지시가 붙어 요청이 길어집니다. 연출은 답변 끝 <nc-plan> 블록에 담기며 화면과 다음 요청에서는 늘 지웁니다. 「이미지 생성」 버튼으로 그릴 때도 이 블록을 씁니다. 블록이 없거나 깨졌으면 예전처럼 연출 모델에 따로 묻습니다. 그룹 봇 · 이어 쓰기 · 씬 재구성에는 쓰지 않습니다. 삽화 › 준비 ① 연출 방식에서 고른 값과 같습니다(기본 켬).',
+                '메인 요청 끝에 연출 지시가 붙어 요청이 길어집니다. 연출은 답변 끝 <nc-plan> 블록에 담기며 화면과 다음 요청에서는 늘 지웁니다. 「이미지 생성」 버튼으로 그릴 때도 이 블록을 씁니다. 블록이 없거나 깨졌으면 예전처럼 연출 모델에 따로 묻습니다. 그룹 봇 · 이어 쓰기 · 씬 재구성에는 쓰지 않습니다. 삽화 › 준비 ② 연출 방식에서 고른 값과 같습니다(기본 켬).',
                 toggle(!!s.cogen, () => setVal('cogen', !s.cogen))),
             row('해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                 sizePick(sizeNow(), v => setVal('size', v)), { wide: true }),
