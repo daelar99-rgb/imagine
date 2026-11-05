@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.41.1
+//@display-name 🎨 이매진 v5.42.0
 //@api 3.0
-//@version 5.41.1
+//@version 5.42.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.41.1';
+    const VERSION = '5.42.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5554,6 +5554,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 .ix .rl .dz-op.sel{background:var(--skl);border:2px solid var(--sky);box-shadow:none}
 .ix .rl .dz-th{flex:none;width:56px;height:56px;min-height:0;font-size:1.9rem;background:#eef3f9;border:0;border-radius:12px}
 .ix .rl .dz-op.sel .dz-th{background:#fff}
+.dz-th svg{display:block;width:52px;height:52px}
+.ix .rl .dz-th svg{width:36px;height:36px}
 .ix .rl .dz-tx{padding:0;gap:4px}
 .ix .rl .dz-tx b{font-size:16px;font-weight:900;color:var(--ink)}
 .ix .rl .dz-tx b::before{width:22px;height:22px;border:2px solid #c3d1e2}
@@ -5597,6 +5599,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
   .ix .rl .vz-st i svg{width:13px;height:13px}
   .ix .rl .vz-st::before{left:calc(50% + 13px);right:calc(13px - 50%);top:12px}
   .ix .rl .dz-th{width:46px;height:46px;font-size:1.5rem}
+  .ix .rl .dz-th svg{width:30px;height:30px}
 }
 /* 5.38.0: 설정 한 줄 한 행 · 프롬프팅 접은 줄 · NSFW 띠 */
 .cf-tg.mini{min-height:30px;gap:6px}
@@ -7104,13 +7107,20 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return pane;
     }
     const llmName = k => k === 'model' ? '메인' : '보조';
+    const DZ_ICON = {
+        cogen: '<svg viewBox="0 0 40 40" fill="none" stroke="#1f2d45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="20" r="2.6" fill="#2b95f0" stroke="none"/><path d="M7.5 20H12c4 0 4-9 8.5-9M12 20c4 0 4 10 8.5 10" stroke="#2b95f0"/><rect x="21" y="4.5" width="14" height="13" rx="2"/><path d="M24.5 9h7M24.5 13h4.5"/><path d="M21 21h14v4H21z"/><path d="M25.5 21l-2 4M30.5 21l-2 4"/><rect x="21" y="25" width="14" height="10" rx="1.5"/></svg>',
+        apart: '<svg viewBox="0 0 40 40" fill="none" stroke="#1f2d45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="13" height="18" rx="2"/><path d="M6.5 16h6M6.5 20h6M6.5 24h3.5"/><path d="M18.5 20h5" stroke="#2b95f0" stroke-dasharray="1.8 2.4"/><path d="M22 16.5l3.5 3.5-3.5 3.5" stroke="#2b95f0"/><path d="M27 14h11v4H27z"/><path d="M30.5 14l-2 4M34.5 14l-2 4"/><rect x="27" y="18" width="11" height="10" rx="1.5"/></svg>',
+        main: '<svg viewBox="0 0 40 40" fill="none" stroke="#1f2d45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="22" height="22" rx="4"/><rect x="15" y="15" width="10" height="10" rx="1.5" fill="#2b95f0" stroke="#2b95f0"/><path d="M15 9V4.5M20 9V4.5M25 9V4.5M15 31v4.5M20 31v4.5M25 31v4.5M9 15H4.5M9 20H4.5M9 25H4.5M31 15h4.5M31 20h4.5M31 25h4.5"/></svg>',
+        sub: '<svg viewBox="0 0 40 40" fill="none" stroke="#1f2d45" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="13" width="14" height="14" rx="3"/><circle cx="25" cy="20" r="2.6" fill="#2b95f0" stroke="none"/><path d="M22.5 13V9.5M27.5 13V9.5M22.5 27v3.5M27.5 27v3.5M32 17.5h3.5M32 22.5h3.5"/><path d="M4 15h9M7 20h8M4 25h9" stroke="#2b95f0"/></svg>',
+    };
+    const dzThumb = em => { const el = h('span', { class: 'dz-th' }); if (String(em).startsWith('<svg')) el.innerHTML = em; else el.textContent = em; return el; };
     const llmCards = (key) => h('div', { class: 'dz', role: 'radiogroup' },
-        [['model', '🧠', '메인 모델', '리수 설정 › 메인 모델로 보냅니다'], ['submodel', '⚡', '보조 모델', '리수 설정 › 보조 모델로 보냅니다']].map(([k, em, name, desc]) => {
+        [['model', DZ_ICON.main, '메인 모델', '리수 설정 › 메인 모델로 보냅니다'], ['submodel', DZ_ICON.sub, '보조 모델', '리수 설정 › 보조 모델로 보냅니다']].map(([k, em, name, desc]) => {
             const on = (st.set[key] === 'model' ? 'model' : 'submodel') === k;
             return h('button', {
                 class: 'dz-op' + (on ? ' sel' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false',
                 onclick: () => { st.set = { ...st.set, [key]: k }; saveSet(); renderNow(); },
-            }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
+            }, dzThumb(em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
         }));
     function renderReady() {
         const v = st.view;
@@ -7147,18 +7157,17 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 return h('button', {
                     class: 'dz-op' + (on ? ' sel' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false',
                     onclick: () => onpick(k),
-                }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
+                }, dzThumb(em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
             }));
         add(pane,
-            step(1, '연출 방식 고르기', `${st.set.cogen ? '동시생성' : '따로 연출'} · ${llmName(st.set.llm)} 모델`, () => [
-                radio([['on', '⚡', '동시생성 (추천)', '메인 모델이 답변을 쓰면서 그 답변의 그림 연출도 함께 씁니다. 연출 요청을 따로 보내지 않아 그림이 빨리 시작됩니다'],
-                    ['off', '🧠', '따로 연출', '답변이 끝난 뒤 아래 연출 모델에 장면 · 대사 · 복장을 따로 묻습니다. 메인 요청은 길어지지 않습니다']],
+            step(1, '연출 방식 고르기', st.set.cogen ? '동시생성' : `따로 연출 · ${llmName(st.set.llm)} 모델`, () => [
+                radio([['on', DZ_ICON.cogen, '동시생성 (추천)', '메인 모델이 답변을 쓰면서 그 답변의 그림 연출도 함께 씁니다. 연출 요청을 따로 보내지 않아 그림이 빨리 시작됩니다'],
+                    ['off', DZ_ICON.apart, '따로 연출', '답변이 끝난 뒤 아래 연출 모델에 장면 · 대사 · 복장을 따로 묻습니다. 메인 요청은 길어지지 않습니다']],
                     st.set.cogen ? 'on' : 'off', k => setVal('cogen', k === 'on')),
-                sub('연출 모델', st.set.cogen
-                    ? '동시생성은 메인 모델이 연출을 씁니다. 답변에 연출 블록이 없거나 깨졌을 때, 씬 재구성 · 그룹 봇 · 이어 쓰기일 때 이 모델에 따로 묻습니다.'
-                    : '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다.'),
-                llmCards('llm'),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 둘 다 설정 › 그리기에서도 바꿀 수 있습니다.'),
+                st.set.cogen ? null : [
+                    sub('연출 모델', '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다.'),
+                    llmCards('llm'),
+                    h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 둘 다 설정 › 그리기에서도 바꿀 수 있습니다.')],
                 nextBtn(['cogen', 'llm'])]),
             step(2, 'NovelAI 키 넣기', '키 저장됨', () => [
                 keyBox(ui.reopen === 2),
