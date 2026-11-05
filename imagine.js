@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.43.0
+//@display-name 🎨 이매진 v5.44.0
 //@api 3.0
-//@version 5.43.0
+//@version 5.44.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.43.0';
+    const VERSION = '5.44.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -235,7 +235,13 @@
     };
     const cellOf = (x, y) => CELL_COLS[Math.round((grid(x) - 0.1) / 0.2)] + (Math.round((grid(y) - 0.1) / 0.2) + 1);
     const charSlotsOf = req => (req?.slots ?? []).filter(sl => (sl.kind ?? 'char') === 'char');
-    const coordsOn = req => !!req?.useCoords && (req.panels ?? 1) === 1 && charSlotsOf(req).length >= 2;
+    const panelSlotsOf = req => (req?.slots ?? []).filter(sl => sl.kind === 'panel');
+    const coordsOn = req => !!req?.useCoords && ((req.panels ?? 1) === 1
+        ? charSlotsOf(req).length >= 2
+        : !!req.panelCoords && panelSlotsOf(req).length >= 2);
+    const panelCellsOf = (n, wide) => n >= 4 ? ['B2', 'D2', 'B4', 'D4']
+        : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
+        : wide ? ['B3', 'D3'] : ['C2', 'C4'];
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -1238,8 +1244,9 @@ ${TAG_STYLE}`;
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
     const V2_CELL_RULE = `  - cells: where each who entry sits, ONE cell code per who entry in the same order, on a 5x5 grid laid over this portrait image. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, C2 and C4 for one above the other, B4 and D2 for one low and one high). With 3 or more, give each one a different cell (e.g. B3, C3 and D3 side by side; B3 and D3 on both sides of one at C4). Two characters who interact face each other from opposite sides. With 1 character write ["C3"]: the app sends no position for a single character.`;
+    const PANEL_CELL_RULE = `  - cell: where this panel sits on the page, as ONE cell code on a 5x5 grid laid over the whole image: the center of the panel's frame. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. 2 panels on a portrait page "C2" and "C4" (stacked), on a landscape page "B3" and "D3" (side by side); 3 panels "C1", "B4", "D4" (one wide panel on top, two below) or "C1", "C3", "C5" (stacked); 4 panels "B2", "D2", "B4", "D4" (2x2) or "C1", "B3", "D3", "C5". The app places the panel's characters and action at that spot of the page.`;
     const comicRules = () => talkOv?.v2 ? PANEL_RULES.comic.replace('COMIC PAGE (2 to 4 panels, all drawn in this one image;', 'COMIC PAGE (exactly 1 panel that fills this whole portrait image, no panel split;')
-        .replace('\n  - Targets:', `\n${V2_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic;
+        .replace('\n  - Targets:', `\n${V2_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n  - Targets:`);
     const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
@@ -1320,7 +1327,7 @@ ${TAG_STYLE}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
             : talkOv?.v2 ? '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"cells":["C3"],"camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}'
-            : '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}';
+            : '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"cell":"C2","camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}';
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -2120,7 +2127,7 @@ Rules
             } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
             slots.push({
                 prompt: endComma(lines.join('\n')),
-                uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', type: types[0] ?? 'other',
+                uc: tidy(pn.uc), x: 0.5, y: 0.5, cell: tidy(pn.cell), kind: 'panel', type: types[0] ?? 'other',
                 name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
                 chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
             });
@@ -2130,6 +2137,15 @@ Rules
             sl.uc = joinTags(sl.uc, [...labels].filter(([k]) => !sl.keys.includes(k)).map(([, n]) => n));
             delete sl.keys;
         }
+        const pslots = slots.filter(sl => sl.kind === 'panel');
+        const panelCoords = !talkOv?.v2 && pslots.length >= 2;
+        if (panelCoords) {
+            const given = pslots.map(sl => xyOfCell(sl.cell));
+            const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
+            const dflt = panelCellsOf(pslots.length, w > h);
+            pslots.forEach((sl, k) => Object.assign(sl, ok ? given[k] : xyOfCell(dflt[k])));
+        }
+        for (const sl of slots) delete sl.cell;
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const single = panelN === 1;
@@ -2138,7 +2154,7 @@ Rules
             base: joinTags(v2Base, dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 4, 2),
-            useCoords: !!v2Base,
+            useCoords: !!v2Base || panelCoords, panelCoords,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
             preset: p.id,
@@ -2230,7 +2246,7 @@ Rules
             }
         }
         return { ...req, base: joinTags(req.base, MONO_TAGS, loose),
-            neg: removeTokens(req.neg, ['unfinished', 'blurry', 'monochrome', 'greyscale', 'sketch']), slots, useCoords: false };
+            neg: removeTokens(req.neg, ['unfinished', 'blurry', 'monochrome', 'greyscale', 'sketch']), slots, useCoords: false, panelCoords: false };
     }
     const withGenre = (req, img) => {
         const g = genreTags(img);
@@ -2321,7 +2337,7 @@ Rules
     function naiBody(req, seed, s = st.set) {
         req = { ...req, base: spaceNum(req.base), neg: spaceNum(req.neg), slots: (req.slots ?? []).map(sl => ({ ...sl, prompt: spaceNum(sl.prompt), uc: spaceNum(sl.uc) })) };
         const coords = coordsOn(req);
-        const at = sl => coords && (sl.kind ?? 'char') === 'char' ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: 0.5, y: 0.5 };
+        const at = sl => coords && ((sl.kind ?? 'char') === 'char' || sl.kind === 'panel') ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: 0.5, y: 0.5 };
         const slots = req.slots ?? [];
         const g = presetGen(st.presets.find(p => p.id === req.preset) ?? preset());
         const body = {
@@ -7431,10 +7447,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 
     const DOT_COLORS = ['#00b4ff', '#ff6fa5', '#a78bfa', '#ff914d', '#00e08a', '#facc15', '#f87171', '#38bdf8'];
     function renderCoord(req, locked) {
-        if ((req.panels ?? 1) !== 1) return null;
-        const chars = charSlotsOf(req);
+        const multi = (req.panels ?? 1) !== 1;
+        if (multi && !req.panelCoords) return null;
+        const chars = multi ? panelSlotsOf(req) : charSlotsOf(req);
         if (!chars.length) return null;
-        const free = chars.length >= 2 && !!req.useCoords;
+        const free = coordsOn(req);
         const box = h('div', { class: 'co' });
         let act = 0;
         const paint = () => {
@@ -7457,8 +7474,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                             class: 'co-chip' + (free && k === act ? ' on' : ''), type: 'button', disabled: !free || !!locked,
                             onclick: () => { act = k; paint(); },
                         }, h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1)),
-                            `${sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y)}` : ''}`)),
-                        h('p', { class: 'ix-hint', style: 'margin:0' }, free
+                            `${multi ? `${k + 1}컷${sl.name ? ` (${sl.name})` : ''}` : sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y)}` : ''}`)),
+                        h('p', { class: 'ix-hint', style: 'margin:0' }, free && multi
+                            ? '점을 고른 뒤 칸을 누르면 그 컷의 장면이 페이지의 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래입니다. 컷 칸 모양은 NAI 가 정합니다.'
+                            : free
                             ? '점을 고른 뒤 칸을 누르면 그 인물이 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래이고 C3 이 가운데입니다.'
                             : '인물이 1명이면 좌표를 보내지 않습니다. 자리는 NAI 가 프롬프트의 구도 태그를 보고 정하며, 대개 가운데에 옵니다.'))));
         };
