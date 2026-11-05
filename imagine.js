@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.42.0
+//@display-name 🎨 이매진 v5.43.0
 //@api 3.0
-//@version 5.42.0
+//@version 5.43.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.42.0';
+    const VERSION = '5.43.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5547,6 +5547,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 .ix .rl .vz-bd{flex:1 1 auto;min-width:0;margin-top:18px}
 /* 5.2.0: 완료 카드만 띄울 때는 판 상자 없이 둔다 (railSteps bare) */
 .ix .rl .vz-fin{flex:1 1 auto;min-width:0}
+.ix .rl .vz-desc{margin:0 0 16px;font-size:13.5px;color:var(--mut)}
 .ix .rl .vz-fin>.vz-bd{margin-top:0}
 .ix .rl .dz{gap:12px}
 .ix .rl .dz-op{flex-direction:row;align-items:center;gap:14px;min-height:92px;padding:12px 16px;background:#fff;border:1.5px solid var(--ln);border-radius:12px;transition:border-color .15s,background .15s}
@@ -5582,6 +5583,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
   .ix .rl .vz-st.on .vz-sh,.ix .rl .vz-st:hover:not(:disabled) .vz-sh{color:var(--sky)}
   .ix .rl .vz-pn{padding:18px 18px}
   .ix .rl .dz{grid-template-columns:1fr}
+  /* 5.43.0: 세로로 쌓이면 판이 화면 끝까지 늘어나 「다음」 위가 비었다. 내용 높이만 쓴다(대화 준비 .gt .vz 와 같음) */
+  .ix .rl{flex:0 0 auto}
+  .ix .rl .vz-pn,.ix .rl .vz-fin{flex:0 0 auto}
+  .ix .rl .vz-bd{flex:none}
 }
 @media (max-width:600px){
   .ix{min-height:calc(100vh - 58px);min-height:calc(100dvh - 58px)}
@@ -7178,10 +7183,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 sub('NAI 모델', '삽화 전용 NAI 모델입니다. 애드 에셋 · 대화 그림 모델과 따로 고릅니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
                 nextBtn(['kind', 'model'])]),
-            step(4, '그림체 고르기', preset().name || '이름 없음', () => { const t = SA.tailParts(); return [
-                presetGrid(null, null, false, t.head), t.tray,
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 고른 뒤 「다음」을 누릅니다. 그림체를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('imagine') }, '그림체 앱'), '을 여세요. 거기서 고른 그림체를 가지고 이 단계로 돌아옵니다.'),
-                nextBtn(['preset'], '이 그림체로 다음')]; }),
+            step(4, '그림체 고르기', preset().name || '이름 없음', () => [
+                h('p', { class: 'vz-desc' }, '삽화에 쓸 그림체를 카드에서 고릅니다. 애드 에셋 · 대화의 그림체와 따로 고릅니다. 그림체를 만들고 고치는 일은 ', h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('imagine') }, '그림체 앱'), '에서 합니다.'),
+                presetGrid(null, null, false),
+                nextBtn(['preset'], '이 그림체로 다음')]),
             step(5, '장 수 · 해상도', `${countLabel()} · ${sizeName(sizeNow())}`, () => [renderCountStep(su),
                 h('div', { class: 'cf-card', style: 'margin-top:12px' },
                     h('div', { class: 'cf-row' },
@@ -11483,9 +11488,9 @@ Rules:
         };
         const acSub = (title, desc) => h('div', { class: 'cf-tx', style: 'margin:22px 0 8px' }, h('b', null, title), desc ? h('p', null, desc) : null);
         const sArtist = () => [
+            h('p', { class: 'vz-desc' }, '애드 에셋에 쓸 그림체를 카드에서 고릅니다. 삽화 · 대화의 그림체와 따로 고릅니다. 그림체를 만들고 고치는 일은 ',
+                h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('asset') }, '그림체 앱'), '에서 합니다.'),
             presetGrid(null, null, true),
-            h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, `그림체 앱과 같은 목록입니다. 여기서 고른 그림체는 애드 에셋에만 쓰고, 삽화 그림체(지금 ${preset().name || '이름 없음'})와 따로 저장합니다. 그림체를 고치거나 새로 만들려면 `,
-                h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('asset') }, '그림체 앱'), '에서 합니다. 거기서 고른 그림체를 가지고 이 단계로 돌아옵니다.'),
             h('details', { class: 'ad-set', style: 'margin-top:14px', open: acs.adv, ontoggle: ev => { acs.adv = ev.currentTarget.open; } },
                 h('summary', null, '고급 설정 ', h('small', null, `시점 태그 · ${tidy(a.view.split(',')[0]) || '시점 없음'}`)),
                 h('div', { class: 'cf-row vw', style: 'margin-top:8px' },
@@ -16500,8 +16505,10 @@ Rules:
   .gt .vz-st.cur{background:var(--skl)}
   .gt .vz-st:hover:not(:disabled) b{text-decoration:none}
   .gt .vz-cards{grid-template-columns:1fr}
+  .gt .vz-pn{padding:18px 18px}
 }
 @media (max-width:600px){
+  .gt .vz-pn{padding:16px 14px;border-radius:14px}
   .gt .vz-st small{display:none}
   .gt .vz-st b,.gt .vz-st.cur b{font-size:10.5px}
 }
