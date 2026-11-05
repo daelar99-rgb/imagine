@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.40.1
+//@display-name 🎨 이매진 v5.41.0
 //@api 3.0
-//@version 5.40.1
+//@version 5.41.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.40.1';
+    const VERSION = '5.41.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -119,7 +119,7 @@
         countMin: 2,
         countMax: 4,
         size: 'tall',
-        sv: 35,
+        sv: 36,
         bubbles: true,
         loreMax: 0,
         castMax: 0,
@@ -135,9 +135,9 @@
         mo: '80',
         tap: true,
         ubtn: 'all',
-        cogen: false,
+        cogen: true,
         undo: false,
-        setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
+        setup: { cogen: false, llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
         introSeen: { illust: false, asset: false },
         homeTour: false,
         assetOff: [],
@@ -527,6 +527,13 @@
             const su = st.set.setup ?? {};
             if (su.count) st.set.setup = { ...su, size: true };
             st.set.sv = 35;
+            saveSet();
+        }
+        if (set && typeof set === 'object' && !(set.sv >= 36)) {
+            st.set.cogen = true;
+            const su = st.set.setup ?? {};
+            if (su.llm) st.set.setup = { ...su, cogen: true };
+            st.set.sv = 36;
             saveSet();
         }
         st.set.tap = true;
@@ -1171,7 +1178,7 @@ ${TAG_STYLE}`;
     const rollCount = () => { if (!randomCount()) return countNow(); const [a, b] = countRange(); return a + Math.floor(Math.random() * (b - a + 1)); };
     const loreMaxNow = () => Math.max(0, parseInt(st.set.loreMax, 10) || 0);
     const castMaxNow = () => Math.max(0, parseInt(st.set.castMax, 10) || 0);
-    const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count && st.set.setup?.size && st.set.nsfw?.st);
+    const setupDone = () => !!(st.set.setup?.cogen && st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count && st.set.setup?.size && st.set.nsfw?.st);
     const recipe = () => `${kindName()} ${countLabel()} · ${preset().name || '이름 없음'}`;
     function setStep(k) {
         const was = setupDone();
@@ -7024,7 +7031,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const shown = secs.find(el => state(el) === 'cur' && filled(el)) ?? secs.find(el => state(el) === 'cur') ?? [...secs].reverse().find(filled) ?? secs[secs.length - 1];
         const at = secs.indexOf(shown);
         const doneN = secs.filter(el => state(el) === 'done').length;
-        const SHORT = { '삽화 소개': '소개', '애드 에셋 소개': '소개', '연출 모델 고르기': '연출', 'NovelAI 키 넣기': '키', '만화로 그릴까요, 삽화로 그릴까요?': '만화/삽화', 'NSFW 프롬프트 추가': 'NSFW', '감정 에셋 확인': '감정', '글로벌노트': '노트', '애드 에셋': '그리기' };
+        const SHORT = { '삽화 소개': '소개', '애드 에셋 소개': '소개', '연출 모델 고르기': '연출', '연출 방식 고르기': '연출', '그림 종류 · 모델': '종류', '장 수 · 해상도': '분량', '그림체 · 모델': '그림체', 'NovelAI 키 넣기': '키', '만화로 그릴까요, 삽화로 그릴까요?': '만화/삽화', 'NSFW 프롬프트 추가': 'NSFW', '감정 에셋 확인': '감정', '글로벌노트': '노트', '애드 에셋': '그리기' };
         const short = name => SHORT[name] ?? name.replace(/\s+(고르기|넣기|추가|확인)$/, '');
         const check = () => { const i = h('i', null); i.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'; return i; };
         const seen = !!st.set.introSeen?.[app];
@@ -7110,12 +7117,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
-        const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count, !!su.size, !!st.set.nsfw?.st];
+        const done = [!!(su.cogen && su.llm), v.hasKey, !!(su.kind && su.model), !!su.preset, !!(su.count && su.size), !!st.set.nsfw?.st];
         const cur = done.indexOf(false);
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
         if (v.hasKey) void acAnlas();
-        const END = 9;
+        const END = 7;
         const step = (n, title, sum, body) => {
             const state = n === END ? (cur < 0 ? 'done' : 'lock') : stateOf(n - 1);
             let bd = null;
@@ -7132,39 +7139,48 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     open && done[n - 1] ? h('button', { class: 'lnk', type: 'button', onclick: () => { ui.reopen = 0; renderNow(); } }, '완료') : null),
                 h('div', { class: 'sp-bd' }, bd));
         };
+        const nextBtn = (keys, label = '다음') => h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { for (const k of keys) setStep(k); ui.reopen = 0; renderNow(); } }, label));
+        const sub = (title, desc) => h('div', { class: 'cf-tx', style: 'margin:18px 0 8px' }, h('b', null, title), desc ? h('p', null, desc) : null);
+        const radio = (list, now, onpick) => h('div', { class: 'dz', role: 'radiogroup' },
+            list.map(([k, em, name, desc]) => {
+                const on = now === k;
+                return h('button', {
+                    class: 'dz-op' + (on ? ' sel' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false',
+                    onclick: () => onpick(k),
+                }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
+            }));
         add(pane,
-            step(1, '연출 모델 고르기', `${llmName(st.set.llm)} 모델`, () => [
+            step(1, '연출 방식 고르기', `${st.set.cogen ? '동시생성' : '따로 연출'} · ${llmName(st.set.llm)} 모델`, () => [
+                radio([['on', '⚡', '동시생성 (추천)', '메인 모델이 답변을 쓰면서 그 답변의 그림 연출도 함께 씁니다. 연출 요청을 따로 보내지 않아 그림이 빨리 시작됩니다'],
+                    ['off', '🧠', '따로 연출', '답변이 끝난 뒤 아래 연출 모델에 장면 · 대사 · 복장을 따로 묻습니다. 메인 요청은 길어지지 않습니다']],
+                    st.set.cogen ? 'on' : 'off', k => setVal('cogen', k === 'on')),
+                sub('연출 모델', st.set.cogen
+                    ? '동시생성은 메인 모델이 연출을 씁니다. 답변에 연출 블록이 없거나 깨졌을 때, 씬 재구성 · 그룹 봇 · 이어 쓰기일 때 이 모델에 따로 묻습니다.'
+                    : '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다.'),
                 llmCards('llm'),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다. 기본은 보조 모델이고, 카드를 고른 뒤 「다음」을 누릅니다. 애드 에셋은 애드 에셋 › 준비에서 따로 고릅니다.'),
-                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('llm'); ui.reopen = 0; renderNow(); } }, '다음'))]),
+                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 둘 다 설정 › 그리기에서도 바꿀 수 있습니다.'),
+                nextBtn(['cogen', 'llm'])]),
             step(2, 'NovelAI 키 넣기', '키 저장됨', () => [
                 keyBox(ui.reopen === 2),
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 로 시작하는 키를 넣으세요.')]),
-            step(3, 'NAI 모델 고르기', modelName(st.set.model), () => [
+            step(3, '그림 종류 · 모델', `${kindName()} · ${modelName(st.set.model)}`, () => [
+                radio([['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']],
+                    st.set.kind, k => { st.set = { ...st.set, kind: k }; saveSet(); renderNow(); }),
+                sub('NAI 모델', '삽화 전용 NAI 모델입니다. 애드 에셋 · 대화 그림 모델과 따로 고릅니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
-                h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '삽화 전용 NAI 모델입니다. 애드 에셋 · 대화 그림 모델과 따로 고릅니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
-                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('model'); ui.reopen = 0; renderNow(); } }, '이 모델로 다음'))]),
-            step(4, '만화로 그릴까요, 삽화로 그릴까요?', kindName(), () => [h('div', { class: 'dz', role: 'radiogroup' },
-                [['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']].map(([k, em, name, desc]) => {
-                    const on = st.set.kind === k;
-                    return h('button', {
-                        class: 'dz-op' + (on ? ' sel' : ''), type: 'button', role: 'radio', 'aria-checked': on ? 'true' : 'false',
-                        onclick: () => { st.set = { ...st.set, kind: k }; saveSet(); renderNow(); },
-                    }, h('span', { class: 'dz-th' }, em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
-                })),
-                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('kind'); ui.reopen = 0; renderNow(); } }, '다음'))]),
-            step(5, '그림체 고르기', preset().name || '이름 없음', () => { const t = SA.tailParts(); return [
+                nextBtn(['kind', 'model'])]),
+            step(4, '그림체 고르기', preset().name || '이름 없음', () => { const t = SA.tailParts(); return [
                 presetGrid(null, null, false, t.head), t.tray,
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 고른 뒤 「다음」을 누릅니다. 그림체를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('imagine') }, '그림체 앱'), '을 여세요. 거기서 고른 그림체를 가지고 이 단계로 돌아옵니다.'),
-                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 그림체로 다음'))]; }),
-            step(6, '장 수 고르기', countLabel(), () => [renderCountStep(su), h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('count'); ui.reopen = 0; renderNow(); } }, '다음'))]),
-            step(7, '해상도 고르기', sizeName(sizeNow()), () => [h('div', { class: 'cf-card' },
-                h('div', { class: 'cf-row' },
-                    h('div', { class: 'cf-tx' }, h('b', null, '어떤 크기로 그릴까요?'),
-                        h('p', null, '삽화 · 만화 그림의 가로 × 세로 크기입니다. 1024×1024 넓이 이하는 Opus 구독이면 Anlas 를 쓰지 않습니다. 설정 › 그리기에서도 바꿀 수 있습니다.')),
-                    sizePick(sizeNow(), k => setVal('size', k)))),
-                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('size'); ui.reopen = 0; renderNow(); } }, '이 크기로 다음'))]),
-            step(8, 'NSFW 프롬프트 추가', nsfwSum('illust'), () => nsBody('illust', { close: () => { ui.reopen = 0; renderNow(); } })),
+                nextBtn(['preset'], '이 그림체로 다음')]; }),
+            step(5, '장 수 · 해상도', `${countLabel()} · ${sizeName(sizeNow())}`, () => [renderCountStep(su),
+                h('div', { class: 'cf-card', style: 'margin-top:12px' },
+                    h('div', { class: 'cf-row' },
+                        h('div', { class: 'cf-tx' }, h('b', null, '어떤 크기로 그릴까요?'),
+                            h('p', null, '삽화 · 만화 그림의 가로 × 세로 크기입니다. 1024×1024 넓이 이하는 Opus 구독이면 Anlas 를 쓰지 않습니다. 설정 › 그리기에서도 바꿀 수 있습니다.')),
+                        sizePick(sizeNow(), k => setVal('size', k)))),
+                nextBtn(['count', 'size'])]),
+            step(6, 'NSFW 프롬프트 추가', nsfwSum('illust'), () => nsBody('illust', { close: () => { ui.reopen = 0; renderNow(); } })),
             step(END, '완료', recipe(), () => renderReadyEnd()));
         add(pane, renderReadyBar());
         return pane;
@@ -7241,13 +7257,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     function renderReadyBar() {
         const v = st.view;
         const su = st.set.setup ?? {};
-        const n = [su.llm, v.hasKey, su.model, su.kind, su.preset, su.count, su.size, st.set.nsfw?.st].filter(Boolean).length;
+        const n = [su.cogen && su.llm, v.hasKey, su.kind && su.model, su.preset, su.count && su.size, st.set.nsfw?.st].filter(Boolean).length;
         let cls = '', text;
         if (setupDone() && !st.busy && !st.lore && v.hasKey && !lastFail()) return null;
         if (st.busy || st.lore) { cls = 'wait'; text = `${(st.busy ?? st.lore).label}…`; }
-        else if (!su.llm) text = '연출 모델을 고르면 다음 단계가 열립니다.';
+        else if (!su.cogen || !su.llm) text = '연출 방식을 고르면 다음 단계가 열립니다.';
         else if (!v.hasKey) { cls = 'err'; text = 'NAI 키를 넣어야 그릴 수 있습니다.'; }
-        else if (!setupDone()) text = `8단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
+        else if (!setupDone()) text = `6단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
         else if (lastFail()) { cls = 'err'; text = '그리지 못한 답변이 있습니다.'; }
         return h('div', { class: 'ab' }, h('span', { class: 'ab-tx ' + cls }, text));
     }
@@ -8266,12 +8282,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
                 keyBox(true), { wide: true, tag: true }));
         const gDraw = grp('draw', '그리기',
-            hint1('만화/삽화 · 장 수 · 연출 모델 · NAI 모델은 ', toReady, '에서, 그림체는 ', h('button', { class: 'lnk', type: 'button', onclick: () => openApp('style') }, '그림체 앱'), '에서 바꿉니다. 애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe()),
+            hint1('연출 방식(동시생성 · 연출 모델) · 만화/삽화 · NAI 모델 · 장 수는 ', toReady, '에서, 그림체는 ', h('button', { class: 'lnk', type: 'button', onclick: () => openApp('style') }, '그림체 앱'), '에서 바꿉니다. 애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe()),
             row('답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
                 '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
                 toggle(s.auto, () => setVal('auto', !s.auto))),
             row('동시생성', '켜면 메인 모델이 답변을 쓰면서 그 답변의 삽화 연출(NAI 태그)도 함께 씁니다. 연출 모델에 따로 묻는 요청 한 번을 아낍니다.',
-                '메인 요청 끝에 연출 지시가 붙어 요청이 길어집니다. 연출은 답변 끝 <nc-plan> 블록에 담기며 화면과 다음 요청에서는 늘 지웁니다. 「이미지 생성」 버튼으로 그릴 때도 이 블록을 씁니다. 블록이 없거나 깨졌으면 예전처럼 연출 모델에 따로 묻습니다. 그룹 봇 · 이어 쓰기 · 씬 재구성에는 쓰지 않습니다.',
+                '메인 요청 끝에 연출 지시가 붙어 요청이 길어집니다. 연출은 답변 끝 <nc-plan> 블록에 담기며 화면과 다음 요청에서는 늘 지웁니다. 「이미지 생성」 버튼으로 그릴 때도 이 블록을 씁니다. 블록이 없거나 깨졌으면 예전처럼 연출 모델에 따로 묻습니다. 그룹 봇 · 이어 쓰기 · 씬 재구성에는 쓰지 않습니다. 삽화 › 준비 ① 연출 방식에서 고른 값과 같습니다(기본 켬).',
                 toggle(!!s.cogen, () => setVal('cogen', !s.cogen))),
             row('해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                 sizePick(sizeNow(), v => setVal('size', v)), { wide: true }),
@@ -11174,13 +11190,15 @@ Rules:
         const noSp = a.count === 1;
         const hasSp = a.count !== 1 && a.count !== 'custom';
         if (noSp && a.step === 4) a.step = 5;
-        const shown = n => (noSp && n > 4 ? n - 1 : n) + 1 + (n === 8 ? 1 : 0);
+        if (a.step === 6) a.step = 5;
+        const shown = n => (noSp && n > 4 ? n - 1 : n) - (n > 6 ? 1 : 0) + 1 + (n === 8 ? 1 : 0);
         const cs = acPicked(a), os = acOutfits(a), emos = acEmos(a), sp = acSpecial(a);
         const plan = acPlan(a), have = acHas(), left = plan.filter(t => !have.has(t.name));
         if (run) { a.step = 8; acs.reopen = 0; }
         const ro = !noCast && acs.reopenCha === v.chaId && acs.reopen < a.step && !(acs.reopen === 4 && noSp) ? acs.reopen : 0;
         const goto = n => {
             if (n === 4 && noSp) n = 5;
+            if (n === 6) n = 7;
             a.step = n;
             acs.reopen = 0;
             acs.menu = '';
@@ -11238,6 +11256,7 @@ Rules:
         const hint = (...kids) => h('p', { class: 'ix-hint', style: 'margin:0 0 10px' }, ...kids);
         const step = (n, title, sum, body) => {
             if (n === 4 && noSp) return null;
+            if (n === 6) return null;
             const at = noCast ? 1 : a.step;
             let s = n === ro ? 'cur' : n < at ? 'done' : n === at ? 'cur' : 'lock';
             if (n === 8 && s === 'cur' && !st.set.nsfw?.st && !run && !fin) s = 'lock';
@@ -11453,6 +11472,7 @@ Rules:
                 nextBtn(false),
             ];
         };
+        const acSub = (title, desc) => h('div', { class: 'cf-tx', style: 'margin:22px 0 8px' }, h('b', null, title), desc ? h('p', null, desc) : null);
         const sArtist = () => [
             presetGrid(null, null, true),
             h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, `그림체 앱과 같은 목록입니다. 여기서 고른 그림체는 애드 에셋에만 쓰고, 삽화 그림체(지금 ${preset().name || '이름 없음'})와 따로 저장합니다. 그림체를 고치거나 새로 만들려면 `,
@@ -11467,9 +11487,10 @@ Rules:
                     })),
                 h('p', { class: 'ix-hint', style: 'margin:6px 0 0' }, `기본: ${AC_VIEW_DEF}. 전신은 full body, 상반신은 upper body 로 바꿉니다. 이미 그린 그림은 다시 그려야 바뀝니다.`,
                     a.view !== AC_VIEW_DEF ? [' ', h('button', { class: 'lnk', type: 'button', onclick: () => { a.view = AC_VIEW_DEF; keep(); renderNow(); } }, '기본으로 되돌리기')] : null)),
-            nextBtn(false),
+            sModel(),
         ];
         const sModel = () => [
+            acSub('NAI 모델 · 레퍼런스'),
             modelPick(acModelOf(), m => { st.set = { ...st.set, acModel: m }; saveSet(); renderNow(); }),
             h('p', { class: 'ix-hint', style: 'margin:6px 0 12px' }, '애드 에셋 전용 NAI 모델입니다. 삽화 · 대화 그림 모델과 따로 고릅니다.'),
             h('div', { class: 'cf-row sw rf' },
@@ -11661,8 +11682,7 @@ Rules:
             step(2, '복장 고르기', acOutfitLabel(a), sOutfit),
             step(3, '에셋 개수', `에셋 ${emos.length}개 · 총 ${total}장`, sCount),
             step(4, '감정 에셋 확인', `에셋 ${emos.length}종${hasSp ? ` · 특수 ${sp.icon} ${sp.ko}` : ''}`, sSpecial),
-            step(5, '그림체 고르기', `${acPreset().name} · ${tidy(a.view.split(',')[0]) || '시점 없음'}`, sArtist),
-            step(6, 'NAI 모델 고르기', `${modelName(acModelOf())} · 레퍼런스 ${a.ref ? 'on' : 'off'}`, sModel),
+            step(5, '그림체 · 모델', `${acPreset().name} · ${modelName(acModelOf())} · 레퍼런스 ${a.ref ? 'on' : 'off'}`, sArtist),
             step(7, '글로벌노트', ptOff ? '꺼 둠' : a.gnEdited ? '직접 고친 글' : '자동으로 쓴 글', sNote),
             nsStep(),
             step(8, '애드 에셋', !left.length && plan.length ? `${plan.length}장 완료` : '', sRun),
@@ -12072,6 +12092,14 @@ Rules:
             const n = Number(st.set.talkSetup) || 0;
             if (n >= 6) st.set.talkSetup = n - 1;
             st.set.t535 = true;
+            void saveSet();
+        }
+        if (!st.set.t541) {
+            const v6 = Number(st.set.setup) || 0;
+            st.set.setup = v6 >= 6 ? 4 : v6 >= 4 ? 3 : v6 >= 3 ? 2 : v6 >= 1 ? 1 : 0;
+            const t6 = Number(st.set.talkSetup) || 0;
+            st.set.talkSetup = t6 >= 4 ? t6 - 1 : t6 === 3 ? 2 : t6;
+            st.set.t541 = true;
             void saveSet();
         }
     }
@@ -16098,18 +16126,19 @@ Rules:
         return el;
     }
 
-    const SETUP = [['TTS 소개', 'TTS란?'], ['분석 모델 고르기', '등장인물 분석 모델'], ['키 넣기', '구글 서비스 계정 키'], ['TTS 모델', '목소리를 만들 모델'], ['읽을 범위', '대사만 · 내레이션까지'], ['화자 나누기', '누가 말했는지 정하기']];
+    const SETUP = [['TTS 소개', 'TTS란?'], ['키 넣기', '구글 서비스 계정 키'], ['모델 고르기', '분석 모델 · TTS 모델'], ['읽기 방식', '읽을 범위 · 화자 나누기']];
     const MODEL_DESC = {
         'gemini-3.8-flash-tts': ['가장 새 모델입니다. 라이브러리 목소리를 함께 씁니다.', true],
         'gemini-3.8-flash-lite-tts': ['3.8 의 가벼운 모델입니다.'],
     };
-    const castLlmNote = () => h('p', { class: 'gt-hint', style: 'margin:12px 0 0' }, 'TTS와 대화가 이 값을 함께 씁니다. 대화는 이 모델로 인물의 생김새를 NAI 태그까지 함께 정리합니다. TTS › 준비에서 고릅니다.');
+    const castLlmNote = () => h('p', { class: 'gt-hint', style: 'margin:12px 0 0' }, 'TTS와 대화가 이 값을 함께 씁니다. 대화는 이 모델로 인물의 생김새를 NAI 태그까지 함께 정리합니다. TTS › 준비 ③ 모델 고르기에서 고릅니다.');
     function wizCard(id, title, desc, cur, onpick, rec, cls = '') {
         return h('button', { class: (id === cur ? 'vz-mc sel' : 'vz-mc') + (cls ? ' ' + cls : ''), type: 'button', 'aria-pressed': String(id === cur), onclick: () => onpick(id) },
             h('span', { class: 'vz-rd', 'aria-hidden': 'true' }),
             h('span', { class: 'vz-mt' }, h('b', null, title), h('span', { class: 'vz-dd' }, desc)),
             rec ? h('span', { class: 'vz-rec' }, '추천') : null);
     }
+    const vzSub = (title, desc, first) => h('div', { class: 'vf-tx', style: `margin:${first ? '4px' : '22px'} 0 10px` }, h('b', null, title), desc ? h('p', null, desc) : null);
     const setupOf = () => Math.max(0, Math.min(SETUP.length, Number(st.set.setup) || 0));
     function setupNext(n) {
         if (setupOf() < n + 1) { st.set.setup = n + 1; void saveSet(); }
@@ -16126,19 +16155,25 @@ Rules:
     function readyStep(n) {
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); paintSoon(true); };
         if (n === 0) return [host.introBody('voice')];
-        if (n === 1) return [h('div', { class: 'vz-cards' },
-            wizCard('model', '메인 모델', '대화 상대의 생김새 · 복장 · 말투를 로어북과 채팅에서 읽어 정리합니다. 인물을 더 정확히 읽습니다.', st.set.castLlm, val => set('castLlm', val), true),
-            wizCard('submodel', '보조 모델', '싸고 빠르지만 인물을 빠뜨리거나 생김새를 덜 읽을 수 있습니다.', st.set.castLlm, val => set('castLlm', val))),
-            castLlmNote()];
-        if (n === 2) return keyStep();
-        if (n === 3) return [h('div', { class: 'vz-cards' }, MODELS.map(([id, label]) => wizCard(id, label, MODEL_DESC[id]?.[0] ?? '', st.set.model, val => set('model', val), MODEL_DESC[id]?.[1])))];
-        if (n === 4) return [h('div', { class: 'vz-cards' },
-            wizCard('talk', '대사만', '따옴표 안의 대사만 인물 목소리로 읽습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.', st.set.read, val => set('read', val), true),
-            wizCard('all', '내레이션까지', '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.', st.set.read, val => set('read', val)))];
-        if (n === 5) return [h('div', { class: 'vz-cards' },
-            wizCard('submodel', '보조 모델', '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', st.set.split, val => set('split', val), true),
-            wizCard('model', '메인 모델', '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.split, val => set('split', val)),
-            wizCard('off', '나누지 않음', '대사를 모두 봇 목소리로 읽습니다. 인물 지시문도 자동으로 쓰지 않습니다.', st.set.split, val => set('split', val)))];
+        if (n === 1) return keyStep();
+        if (n === 2) return [
+            vzSub('등장인물 분석 모델', '대화 상대의 생김새 · 복장 · 말투를 로어북과 채팅에서 읽어 정리할 모델입니다.', true),
+            h('div', { class: 'vz-cards' },
+                wizCard('model', '메인 모델', '인물을 더 정확히 읽습니다.', st.set.castLlm, val => set('castLlm', val), true),
+                wizCard('submodel', '보조 모델', '싸고 빠르지만 인물을 빠뜨리거나 생김새를 덜 읽을 수 있습니다.', st.set.castLlm, val => set('castLlm', val))),
+            castLlmNote(),
+            vzSub('TTS 모델', '목소리를 만들 구글 TTS 모델입니다.'),
+            h('div', { class: 'vz-cards' }, MODELS.map(([id, label]) => wizCard(id, label, MODEL_DESC[id]?.[0] ?? '', st.set.model, val => set('model', val), MODEL_DESC[id]?.[1])))];
+        if (n === 3) return [
+            vzSub('읽을 범위', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', true),
+            h('div', { class: 'vz-cards' },
+                wizCard('talk', '대사만', '따옴표 안의 대사만 인물 목소리로 읽습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.', st.set.read, val => set('read', val), true),
+                wizCard('all', '내레이션까지', '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.', st.set.read, val => set('read', val))),
+            vzSub('화자 나누기', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'),
+            h('div', { class: 'vz-cards' },
+                wizCard('submodel', '보조 모델', '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', st.set.split, val => set('split', val), true),
+                wizCard('model', '메인 모델', '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.split, val => set('split', val)),
+                wizCard('off', '나누지 않음', '대사를 모두 봇 목소리로 읽습니다. 인물 지시문도 자동으로 쓰지 않습니다.', st.set.split, val => set('split', val)))];
         return [];
     }
     function readyCard() {
@@ -16176,8 +16211,8 @@ Rules:
             ui.dup ? h('p', { class: 'vz-dup' }, '따로 설치한 제미니 TTS 플러그인도 켜져 있습니다. 답변 아래 읽기 버튼이 두 벌 생기니 그쪽은 꺼 주세요.') : null);
         if (n >= SETUP.length) return [h('div', { class: 'vz' }, steps, h('div', { class: 'vz-fin' }, readyCard()))];
         const [title] = SETUP[n];
-        const desc = [null, '등장인물 목소리를 분석할 모델을 고릅니다.', '구글 클라우드에서 만든 서비스 계정 키를 고르면 TTS를 쓸 수 있습니다.', '목소리를 만들 모델을 고릅니다. 나중에 TTS › 준비에서 바꿀 수 있습니다.', '봇 답변에서 어디까지 소리로 읽을지 고릅니다.', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'][n];
-        const block = n === 2 && keyKnown !== true;
+        const desc = [null, '구글 클라우드에서 만든 서비스 계정 키를 고르면 TTS를 쓸 수 있습니다.', '인물을 분석할 모델과 목소리를 만들 모델을 고릅니다. 나중에 이 화면에서 바꿀 수 있습니다.', '무엇을 읽을지, 대사마다 화자를 어떻게 정할지 고릅니다.'][n];
+        const block = n === 1 && keyKnown !== true;
         return [h('div', { class: 'vz' }, steps,
             h('section', { class: 'vz-pn' },
                 h('div', { class: 'vz-hd' }, h('span', { class: 'vz-tg' }, `${n + 1} / ${SETUP.length} 단계`), h('h2', null, n === 0 ? 'TTS란?' : title)),
@@ -16193,7 +16228,7 @@ Rules:
         render();
     }
 
-    const TSETUP = [['대화 소개', '대화란?'], ['대화 모델', '대화 답 · 그림 연출 모델'], ['그림 방식', 'NovelAI · 봇 에셋'], ['그림', '종류 · NAI 모델 · 해상도'], ['그림체', '대화 그림 그림체'], ['NSFW 프롬프트', '프리셋 NSFW · 탈옥 글']];
+    const TSETUP = [['대화 소개', '대화란?'], ['대화 모델', '대화 답 · 그림 연출 모델'], ['그림', '방식 · 종류 · 모델 · 기기'], ['그림체', '대화 그림 그림체'], ['NSFW 프롬프트', '프리셋 NSFW · 탈옥 글']];
     const talkAssetMode = () => st.set.talkImgSrc === 'asset';
     const talkSetupOf = () => Math.max(0, Math.min(TSETUP.length, Number(st.set.talkSetup) || 0));
     const talkReady = () => talkSetupOf() >= TSETUP.length;
@@ -16214,20 +16249,32 @@ Rules:
             const cnt = ui.view?.stage?.list?.length;
             if (ui.view && talkAssetMode()) void talkFaceAsk(ui.view, talkCast(ui.view));
             const fCls = ui.view && faceBusy === ui.view.chaId ? 'fm' : ui.view && faceFlash === ui.view.chaId ? 'fdn' : '';
-            return [h('div', { class: 'vz-cards' },
+            const src = [vzSub('그림 방식', '대화 화면 무대에 걸 그림을 어디서 가져올지 고릅니다.', true), h('div', { class: 'vz-cards' },
                 wizCard('nai', 'NovelAI 로 그리기', '답의 장면을 NovelAI 로 새로 그려 무대에 겁니다. 만화 · 삽화와 그림체를 고를 수 있습니다. 한 장마다 Anlas 를 씁니다.', st.set.talkImgSrc, val => set('talkImgSrc', val), true),
                 wizCard('asset', '봇 에셋 쓰기', `봇에 든 그림 에셋 중 답에 맞는 하나를 대화 모델이 골라 겁니다. Anlas 를 쓰지 않고 바로 바뀝니다.${cnt == null ? '' : cnt ? ` 지금 봇의 그림 에셋은 ${cnt}개입니다.` : ' 지금 봇에는 쓸 그림 에셋이 없습니다.'}`, st.set.talkImgSrc, val => set('talkImgSrc', val), false, fCls))];
+            return [...src, ...talkPicBody()];
         }
-        if (n === 3 && talkAssetMode()) {
+        if (n === 3) {
+            if (talkAssetMode()) return [h('div', { class: 'vf-card vz-asw' }, h('p', { class: 'vz-asn' }, '봇 에셋 방식은 그림을 새로 그리지 않아 그림체를 쓰지 않습니다. 그대로 다음 단계로 넘어가면 됩니다.'))];
+            setTimeout(() => host.loadThumbs(), 0);
+            const all = host.presets();
+            return [host.presetGrid(null, { cur: all.find(p => p.id === st.set.talkPreset) ?? all[0] ?? {}, pick: id => set('talkPreset', id), noTags: true })];
+        }
+        if (n === TSETUP.length - 1) return [host.nsfwBody('talk', { close: () => talkSetupNext(TSETUP.length - 1), render })];
+        return [];
+    }
+    function talkPicBody() {
+        const set = (k, val) => { st.set[k] = val; void saveSet(); render(); };
+        if (talkAssetMode()) {
             const list = ui.view?.stage?.list ?? [];
-            return [
+            return [vzSub('에셋 목록 · 무대 맞춤', '대화 모델이 답마다 아래 에셋 중 하나를 골라 무대에 겁니다. 봇 에셋은 바꾸지 않습니다.'),
                 list.length
                     ? h('div', { class: 'vf-card vz-asw' },
                         h('p', { class: 'vz-asn' }, `대화 모델에게 이 ${list.length}개의 에셋 이름을 모두 보냅니다. 모델은 답마다 이 중 하나를 골라 무대에 겁니다. 이매진이 그린 그림(nc_)은 뺐습니다.`),
                         h('div', { class: 'vz-asl' }, list.map(f => h('figure', { class: 'vz-asi', title: f.name },
                             h('img', { 'data-path': f.path, alt: f.name, loading: 'lazy' }),
                             h('figcaption', null, f.name)))))
-                    : h('div', { class: 'vf-card vz-asw' }, h('p', { class: 'vz-asn' }, ui.view ? '지금 봇에는 쓸 그림 에셋이 없습니다. 무대에는 인물의 얼굴 그림이나 봇 그림이 걸립니다. NovelAI 로 그리려면 앞 단계에서 바꿔 주세요.' : '봇 채팅을 열면 그 봇의 에셋 목록을 보여 드립니다.')),
+                    : h('div', { class: 'vf-card vz-asw' }, h('p', { class: 'vz-asn' }, ui.view ? '지금 봇에는 쓸 그림 에셋이 없습니다. 무대에는 인물의 얼굴 그림이나 봇 그림이 걸립니다. NovelAI 로 그리려면 위 「그림 방식」에서 바꿔 주세요.' : '봇 채팅을 열면 그 봇의 에셋 목록을 보여 드립니다.')),
                 h('div', { class: 'vf-card', style: 'margin-top:14px' },
                     h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '무대 맞춤'), h('p', null, st.set.talkFit === 'cover'
                             ? '그림을 무대에 꽉 채웁니다. 그림 위아래나 양옆이 조금 잘립니다.'
@@ -16235,7 +16282,8 @@ Rules:
                         seg([['contain', '전체 보기 (추천)'], ['cover', '꽉 채우기']], st.set.talkFit, id => set('talkFit', id)))),
             ];
         }
-        if (n === 3) return [
+        return [
+            vzSub('그림 종류 · 모델', '그림 연출은 대화 모델이 답과 함께 씁니다. 삽화 설정은 바뀌지 않습니다.'),
             h('div', { class: 'vz-cards' },
                 wizCard('comic2', '만화v2', '연출 한 번으로 세로 만화 두 장을 그려 무대에 왼쪽 · 오른쪽으로 겁니다. 장마다 컷은 하나입니다. 크기는 세로 832×1216 으로 정해져 있고, NAI 요청은 두 번입니다.', talkKindNow(), val => set('talkKind', val), true),
                 wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 아래 「말풍선」 칸에서 켜고 끕니다.', talkKindNow(), val => set('talkKind', val)),
@@ -16250,14 +16298,6 @@ Rules:
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '기기'), h('p', null, talkKindNow() === 'comic2' ? '만화v2 는 세로 832×1216 두 장으로 정해져 있어 이 값을 쓰지 않습니다. 삽화 · 만화로 그릴 때 씁니다.' : '대화를 주로 보는 기기를 고릅니다. 모바일은 정사각 1024×1024, PC · 태블릿은 가로 1344×768 로 그립니다.')),
                     deviceCards(talkSizeNow(), id => set('talkSize', id)))),
         ];
-        if (n === 4) {
-            if (talkAssetMode()) return [h('div', { class: 'vf-card vz-asw' }, h('p', { class: 'vz-asn' }, '봇 에셋 방식은 그림을 새로 그리지 않아 그림체를 쓰지 않습니다. 그대로 다음 단계로 넘어가면 됩니다.'))];
-            setTimeout(() => host.loadThumbs(), 0);
-            const all = host.presets();
-            return [host.presetGrid(null, { cur: all.find(p => p.id === st.set.talkPreset) ?? all[0] ?? {}, pick: id => set('talkPreset', id), noTags: true })];
-        }
-        if (n === TSETUP.length - 1) return [host.nsfwBody('talk', { close: () => talkSetupNext(TSETUP.length - 1), render })];
-        return [];
     }
     function talkReadyCard() {
         const el = Date.now() - ui.readyAt, fresh = el < 1200;
@@ -16285,11 +16325,11 @@ Rules:
                 const state = i === n ? 'cur' : i < done ? 'done' : i > done ? 'lock' : '';
                 return h('button', { class: 'vz-st ' + state, type: 'button', disabled: i > done, 'aria-current': i === n ? 'step' : null, onclick: () => { ui.tstep = i; ui.msg = ''; render(); } },
                     h('i', null, i < done && i !== n ? '✓' : String(i + 1)),
-                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 여기' : i < done ? '완료' : i === 3 && talkAssetMode() ? '에셋 목록 · 무대 맞춤' : i === 4 && talkAssetMode() ? '봇 에셋 방식은 안 씀' : sub)));
+                    h('span', null, h('b', null, title), h('small', null, i === n ? '지금 여기' : i < done ? '완료' : i === 2 && talkAssetMode() ? '봇 에셋 · 무대 맞춤' : i === 3 && talkAssetMode() ? '봇 에셋 방식은 안 씀' : sub)));
             }));
         if (n >= TSETUP.length) return [h('div', { class: 'vz' }, steps, h('div', { class: 'vz-fin' }, talkReadyCard()))];
-        const desc = [null, '대화에서 인물의 답을 만들 모델을 고릅니다. 나중에 대화 › 준비에서 바꿀 수 있습니다.', '대화 화면 무대에 걸 그림을 어디서 가져올지 고릅니다.',
-            talkAssetMode() ? '봇 에셋 방식은 대화 모델이 아래 에셋 중 하나를 답마다 골라 무대에 겁니다. 봇 에셋은 바꾸지 않습니다.' : '대화 화면 무대에 걸 그림의 종류 · NAI 모델 · 해상도를 고릅니다. 그림 연출은 대화 모델이 답과 함께 씁니다. 삽화 설정은 바뀌지 않습니다.',
+        const desc = [null, '대화에서 인물의 답을 만들 모델을 고릅니다. 나중에 대화 › 준비에서 바꿀 수 있습니다.',
+            '대화 화면 무대에 걸 그림을 어디서 가져올지 고르고, 그 방식에 맞는 값을 고릅니다.',
             talkAssetMode() ? '' : ['대화 그림에 쓸 그림체를 카드에서 고릅니다. 삽화 · 애드 에셋의 그림체와 따로 고릅니다. 그림체를 만들고 고치는 일은 ', h('button', { class: 'lnk', type: 'button', onclick: () => host.openStyleFor('talk') }, '그림체 앱'), '에서 합니다.'],
             ''][n];
         let body = talkStep(n).flat(3), cta = null;
@@ -16338,7 +16378,7 @@ Rules:
         Object.assign(ui.talk, { cmsg: null });
         if (!ui.talk.voices.size) { ui.talk.voicing.clear(); ui.talk.voiceQ.length = 0; }
         void talkRatesLoad();
-        ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : Math.min(setupOf(), 2);
+        ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : Math.min(setupOf(), 1);
         ui.tstep = Math.min(talkSetupOf(), TSETUP.length);
         try {
             const d = root.asked ? await rootDoc() : null;
