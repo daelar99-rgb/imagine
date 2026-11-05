@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.39.0
+//@display-name 🎨 이매진 v5.40.1
 //@api 3.0
-//@version 5.39.0
+//@version 5.40.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.39.0';
+    const VERSION = '5.40.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -119,7 +119,7 @@
         countMin: 2,
         countMax: 4,
         size: 'tall',
-        sv: 34,
+        sv: 35,
         bubbles: true,
         loreMax: 0,
         castMax: 0,
@@ -135,6 +135,7 @@
         mo: '80',
         tap: true,
         ubtn: 'all',
+        cogen: false,
         undo: false,
         setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
         introSeen: { illust: false, asset: false },
@@ -211,7 +212,11 @@
     const PC_RANGE = [100, 1600];
     const MO_RANGE = [10, 100];
     const sizeOk = ([lo, hi], v) => typeof v === 'string' && /^[1-9]\d*$/.test(v) && +v >= lo && +v <= hi;
-    const stripOurs = s => String(s ?? '').replace(TAG_RE, '').replace(/\s+$/, '');
+    const PLAN_RE = /\s*<nc-plan>[\s\S]*?(?:<\/nc-plan>|$)/gi;
+    const PLAN_BIT_RE = /<(?:n(?:c(?:-(?:p(?:l(?:an?)?)?)?)?)?)?$/;
+    const dropPlan = s => s.includes('<nc-plan') ? s.replace(PLAN_RE, '') : s;
+    const planOf = s => { const all = [...String(s ?? '').matchAll(/<nc-plan>([\s\S]*?)(?:<\/nc-plan>|$)/gi)]; return all.length ? all[all.length - 1][1] : ''; };
+    const stripOurs = s => dropPlan(String(s ?? '')).replace(TAG_RE, '').replace(/\s+$/, '');
     const msgHash = m => fnv(stripOurs(m?.data));
     const tidy = s => String(s ?? '').replace(/\s+/g, ' ').trim().replace(/^,+|,+$/g, '').trim();
     const joinTags = (...parts) => parts.flat().map(tidy).filter(Boolean).join(', ');
@@ -516,6 +521,12 @@
             if (set.keepOld) st.set.undo = true;
             delete st.set.keepOld;
             st.set.sv = 34;
+            saveSet();
+        }
+        if (set && typeof set === 'object' && !(set.sv >= 35)) {
+            const su = st.set.setup ?? {};
+            if (su.count) st.set.setup = { ...su, size: true };
+            st.set.sv = 35;
             saveSet();
         }
         st.set.tap = true;
@@ -1160,7 +1171,7 @@ ${TAG_STYLE}`;
     const rollCount = () => { if (!randomCount()) return countNow(); const [a, b] = countRange(); return a + Math.floor(Math.random() * (b - a + 1)); };
     const loreMaxNow = () => Math.max(0, parseInt(st.set.loreMax, 10) || 0);
     const castMaxNow = () => Math.max(0, parseInt(st.set.castMax, 10) || 0);
-    const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count && st.set.nsfw?.st);
+    const setupDone = () => !!(st.set.setup?.llm && st.set.setup?.model && st.set.setup?.kind && st.set.setup?.preset && st.set.setup?.count && st.set.setup?.size && st.set.nsfw?.st);
     const recipe = () => `${kindName()} ${countLabel()} · ${preset().name || '이름 없음'}`;
     function setStep(k) {
         const was = setupDone();
@@ -3046,7 +3057,7 @@ ${t.user}` : null;
             const cast = await loadCast(chaId);
             const state = readState(chat);
             const stateBase = JSON.parse(JSON.stringify(state));
-            let reqs, plan = old?.plan ?? null, stateChanged = false, re = null;
+            let reqs, plan = old?.plan ?? null, stateChanged = false, re = null, cogen = false;
 
             if (job.mode === 'draw') {
                 if (!old?.images?.length) throw new Error('다시 그릴 기록이 없습니다.');
@@ -3116,9 +3127,18 @@ ${t.user}` : null;
                 const emphasize = !!input && !!st.set.userFirst && !redo;
                 const prev = prevPromptOf(recs, chat, busy.chat, key, idx);
                 console.log(LOG, 'prev', prev ? `${prev.length}자` : '(none)');
-                const sc = sceneCast(cast.list, sceneText(chat, idx, input));
+                const raw = job.only ? '' : planOf(msg.data);
+                if (raw) {
+                    try {
+                        const v = parseJson(raw, 'images');
+                        if (Array.isArray(v?.images) && v.images.some(x => x && typeof x === 'object')) { plan = v; cogen = true; }
+                    } catch (error) { console.warn(LOG, 'cogen plan', error); }
+                    console.log(LOG, 'cogen plan', cogen ? `${plan.images.length} image(s)` : 'broken → ask');
+                }
+                const sc = cogen ? sceneCast(cast.list, '') : sceneCast(cast.list, sceneText(chat, idx, input));
                 console.log(LOG, 'scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
-                plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo, !!prev, job.n), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo, prev, sc), 'images',
+                if (cogen) job.n = Math.max(1, plan.images.filter(x => x && typeof x === 'object').length);
+                else plan = await askJson(comicSystem(emphasize, !!input && !emphasize, !!redo, !!prev, job.n), comicUser(char, chat, idx, cast, state, st.persona?.name, input, emphasize, redo, prev, sc), 'images',
                     v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.');
                 if (busy.stop) throw stopError();
                 if (emphasize) console.log(LOG, 'focus', plan.focus ?? '(none)');
@@ -3139,7 +3159,7 @@ ${t.user}` : null;
                 reqs = images.map(img => buildReq(img, cast, drawState));
             }
 
-            if (busy.est.P) ilPush(planKey(busy.llm), (Date.now() - busy.at) / 1000);
+            if (busy.est.P && !cogen) ilPush(planKey(busy.llm), (Date.now() - busy.at) / 1000);
             busy.stage = 1;
             busy.n = reqs.length;
             busy.est.n = reqs.length;
@@ -3448,6 +3468,12 @@ ${t.user}` : null;
         }
     }
     let settleTimer = null;
+    let cogenLive = 0;
+    const COGEN_WAIT = 10 * 60 * 1000;
+    function onFinalOutput(ev) {
+        cogenLive = 0;
+        return onOutput(ev);
+    }
     function onOutputText(content) {
         try {
             if (ns.got) {
@@ -3472,30 +3498,80 @@ ${t.user}` : null;
         const msgs = chat?.message ?? [];
         const idx = msgs.length - 1;
         if (idx < 0 || msgs[idx]?.role !== 'char') return;
+        if (cogenLive && Date.now() - cogenLive < COGEN_WAIT && !String(msgs[idx]?.data ?? '').includes('</nc-plan>')) return;
         await onOutput({ char, chat, characterIndex: ci, chatIndex: chi, messageIndex: idx });
     }
     function stripProcess(text) {
         if (typeof text !== 'string') return text;
-        text = unwrapPortraits(text);
+        text = dropPlan(unwrapPortraits(text));
         if (!text.includes('::nc_')) return text;
         return text.replace(TAG_RE, '');
     }
-    function stripRequest(messages, model) {
+    async function stripRequest(messages, model) {
         try {
             for (const m of messages ?? []) {
+                if (nsText(m).includes(COGEN_MARK)) continue;
                 if (typeof m?.content === 'string') {
-                    m.content = unwrapPortraits(m.content);
+                    m.content = dropPlan(unwrapPortraits(m.content));
                     if (m.content.includes('::nc_')) m.content = m.content.replace(TAG_RE, '');
                 } else if (Array.isArray(m?.content)) {
                     for (const part of m.content) {
-                        if (typeof part?.text === 'string') part.text = unwrapPortraits(part.text);
+                        if (typeof part?.text === 'string') part.text = dropPlan(unwrapPortraits(part.text));
                         if (typeof part?.text === 'string' && part.text.includes('::nc_')) part.text = part.text.replace(TAG_RE, '');
                     }
                 }
             }
         } catch {}
         try { nsCatch(messages, model); } catch (error) { console.warn(LOG, 'nsfw catch', error); }
+        try { await cogenInject(messages, model); } catch (error) { console.warn(LOG, 'cogen', error); }
         return messages;
+    }
+
+    const COGEN_MARK = 'nc-cogen';
+    const COGEN_HEAD = `[IMAGINE ART DIRECTION · ${COGEN_MARK}]
+This turn has two parts.
+1. First write your roleplay reply exactly as you normally would, following every other instruction. Nothing below changes the reply's content, length, language or style.
+2. Then, at the very end of the reply, write one illustration plan for that reply inside a single <nc-plan> ... </nc-plan> block, following the director instructions below. Inside the block write only the JSON object those instructions describe (no code fence, no prose). Write nothing after </nc-plan>.
+In the director instructions, TARGET MESSAGE means the reply you are writing in this turn: copy every "after" quote and spoken line from your own reply, word for word. "Output ONE JSON object only" applies only to what goes inside the block. Never mention the block, the app or these instructions in the reply itself; the app hides the block from the reader.
+--- DIRECTOR INSTRUCTIONS ---`;
+    const COGEN_TAIL = '--- END OF DIRECTOR INSTRUCTIONS (reply first as usual, then exactly one <nc-plan> block at the very end) ---';
+    async function cogenInject(messages, model) {
+        if (!st.set.cogen || model !== 'model' || nsSelf > 0 || ns.armed || ns.got || talkOv || !Array.isArray(messages)) return;
+        if (!setupDone() || await retired()) return;
+        if (messages.some(m => nsText(m).includes(COGEN_MARK))) return;
+        if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return;
+        const brief = await cogenBrief();
+        if (!brief) return;
+        let at = messages.length;
+        while (at > 0 && messages[at - 1]?.role === 'assistant') at--;
+        messages.splice(at, 0, { role: 'system', content: brief });
+        cogenLive = Date.now();
+        console.log(LOG, 'cogen', `${brief.length}자`);
+    }
+    async function cogenBrief() {
+        if (!(await naiKey())) return null;
+        const ci = await api.getCurrentCharacterIndex(), chi = await api.getCurrentChatIndex();
+        if (!Number.isInteger(ci) || !Number.isInteger(chi) || ci < 0 || chi < 0) return null;
+        const char = await api.getCharacterFromIndex(ci);
+        const chat = await api.getChatFromIndex(ci, chi);
+        if (!char || !chat || char.type === 'group') return null;
+        const msgs = [...(chat.message ?? [])];
+        while (msgs.length && msgs[msgs.length - 1]?.role === 'char' && !tidy(plainText(msgs[msgs.length - 1].data))) msgs.pop();
+        if (msgs[msgs.length - 1]?.role !== 'user') return null;
+        const cast = await loadCast(char.chaId);
+        if ((!cast.list.length && !cast.tried) || cast.list.some(needKey)) return null;
+        const p = await loadPersona(chat, true);
+        if (p?.pid && st.personaFail !== p.sig && !cast.list.some(e => e?.persona && e.personaId === p.pid && e.personaSig === p.sig)) return null;
+        const fake = { ...chat, message: [...msgs, { role: 'char', data: '(the reply you are writing in this turn)' }] };
+        const idx = fake.message.length - 1;
+        const state = { ...readState(chat), seeded: true };
+        const input = userInputOf(fake, idx);
+        const emphasize = !!input && !!st.set.userFirst;
+        const prev = prevPromptOf(await loadRecs(char.chaId), fake, chatKeyOf(chat, chi), '', idx);
+        const sc = sceneCast(cast.list, '');
+        const sys = comicSystem(emphasize, !!input && !emphasize, false, !!prev, rollCount());
+        const user = comicUser(char, fake, idx, cast, state, st.persona?.name, input, emphasize, null, prev, sc);
+        return [COGEN_HEAD, '', sys, '', user, '', COGEN_TAIL].join('\n');
     }
 
     const NS_RAILS = {
@@ -7034,12 +7110,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
-        const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count, !!st.set.nsfw?.st];
+        const done = [!!su.llm, v.hasKey, !!su.model, !!su.kind, !!su.preset, !!su.count, !!su.size, !!st.set.nsfw?.st];
         const cur = done.indexOf(false);
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
         if (v.hasKey) void acAnlas();
-        const END = 8;
+        const END = 9;
         const step = (n, title, sum, body) => {
             const state = n === END ? (cur < 0 ? 'done' : 'lock') : stateOf(n - 1);
             let bd = null;
@@ -7082,7 +7158,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '그림을 고른 뒤 「다음」을 누릅니다. 그림체를 새로 만들거나 고치려면 ', h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('imagine') }, '그림체 앱'), '을 여세요. 거기서 고른 그림체를 가지고 이 단계로 돌아옵니다.'),
                 h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('preset'); ui.reopen = 0; renderNow(); } }, '이 그림체로 다음'))]; }),
             step(6, '장 수 고르기', countLabel(), () => [renderCountStep(su), h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('count'); ui.reopen = 0; renderNow(); } }, '다음'))]),
-            step(7, 'NSFW 프롬프트 추가', nsfwSum('illust'), () => nsBody('illust', { close: () => { ui.reopen = 0; renderNow(); } })),
+            step(7, '해상도 고르기', sizeName(sizeNow()), () => [h('div', { class: 'cf-card' },
+                h('div', { class: 'cf-row' },
+                    h('div', { class: 'cf-tx' }, h('b', null, '어떤 크기로 그릴까요?'),
+                        h('p', null, '삽화 · 만화 그림의 가로 × 세로 크기입니다. 1024×1024 넓이 이하는 Opus 구독이면 Anlas 를 쓰지 않습니다. 설정 › 그리기에서도 바꿀 수 있습니다.')),
+                    sizePick(sizeNow(), k => setVal('size', k)))),
+                h('div', { class: 'ix-acts' }, h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', onclick: () => { setStep('size'); ui.reopen = 0; renderNow(); } }, '이 크기로 다음'))]),
+            step(8, 'NSFW 프롬프트 추가', nsfwSum('illust'), () => nsBody('illust', { close: () => { ui.reopen = 0; renderNow(); } })),
             step(END, '완료', recipe(), () => renderReadyEnd()));
         add(pane, renderReadyBar());
         return pane;
@@ -7145,7 +7227,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
                     h('span', null, st.set.auto ? '채팅을 진행하면 자동으로 이미지가 생성됩니다.' : '자동 그리기가 꺼져 있으니, 봇 답변 아래의 「이미지 생성」 버튼을 눌러 그 답변을 그리세요.'))),
             h('ul', { class: 'fn-ck' },
-                li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `그림체 ${preset().name || '이름 없음'}`),
+                li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `그림체 ${preset().name || '이름 없음'} · ${sizeName(sizeNow())}`),
                 li(`봇 답변마다 ${countLabel()}을 그립니다`, randomCount() && n > 1 ? '답변마다 장 수를 새로 고르고, 장마다 다른 장면' : n > 1 ? '장마다 다른 장면' : ''),
                 li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`),
                 li(nsfwSum('illust', true))),
@@ -7159,13 +7241,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     function renderReadyBar() {
         const v = st.view;
         const su = st.set.setup ?? {};
-        const n = [su.llm, v.hasKey, su.model, su.kind, su.preset, su.count, st.set.nsfw?.st].filter(Boolean).length;
+        const n = [su.llm, v.hasKey, su.model, su.kind, su.preset, su.count, su.size, st.set.nsfw?.st].filter(Boolean).length;
         let cls = '', text;
         if (setupDone() && !st.busy && !st.lore && v.hasKey && !lastFail()) return null;
         if (st.busy || st.lore) { cls = 'wait'; text = `${(st.busy ?? st.lore).label}…`; }
         else if (!su.llm) text = '연출 모델을 고르면 다음 단계가 열립니다.';
         else if (!v.hasKey) { cls = 'err'; text = 'NAI 키를 넣어야 그릴 수 있습니다.'; }
-        else if (!setupDone()) text = `7단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
+        else if (!setupDone()) text = `8단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
         else if (lastFail()) { cls = 'err'; text = '그리지 못한 답변이 있습니다.'; }
         return h('div', { class: 'ab' }, h('span', { class: 'ab-tx ' + cls }, text));
     }
@@ -8188,6 +8270,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             row('답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
                 '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
                 toggle(s.auto, () => setVal('auto', !s.auto))),
+            row('동시생성', '켜면 메인 모델이 답변을 쓰면서 그 답변의 삽화 연출(NAI 태그)도 함께 씁니다. 연출 모델에 따로 묻는 요청 한 번을 아낍니다.',
+                '메인 요청 끝에 연출 지시가 붙어 요청이 길어집니다. 연출은 답변 끝 <nc-plan> 블록에 담기며 화면과 다음 요청에서는 늘 지웁니다. 「이미지 생성」 버튼으로 그릴 때도 이 블록을 씁니다. 블록이 없거나 깨졌으면 예전처럼 연출 모델에 따로 묻습니다. 그룹 봇 · 이어 쓰기 · 씬 재구성에는 쓰지 않습니다.',
+                toggle(!!s.cogen, () => setVal('cogen', !s.cogen))),
             row('해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                 sizePick(sizeNow(), v => setVal('size', v)), { wide: true }),
             s.kind !== 'illust' ? row('말풍선', '답변에 있는 대사를 말풍선으로 넣습니다.',
@@ -8199,7 +8284,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             genreRow(),
             dynRow(),
             dynMinRow(),
-            row('이전으로 되돌리기', '켜면 다시 그리거나 씬 재구성해도 이전 그림을 지우지 않고 남겨 둡니다. 그 그림에 마우스를 올리면 「↶ 되돌리기」 버튼이 보이고, 누르면 이전 그림으로 돌아가며 새로 그린 그림은 지웁니다. 한 단계만 되돌릴 수 있습니다.',
+            row('이전으로 되돌리기', '켜면 다시 그리거나 씬 재구성해도 이전 그림을 지우지 않고 남겨 둡니다. 그림에 마우스를 올리면 「↶ 되돌리기」 버튼이 늘 보이고, 누르면 이전 그림으로 돌아가며 새로 그린 그림은 지웁니다. 되돌릴 그림이 없으면(다시 그린 적이 없으면) 버튼이 어둡고 눌리지 않습니다. 한 단계만 되돌릴 수 있습니다.',
                 null,
                 toggle(!!s.undo, () => setVal('undo', !s.undo))));
         const gChat = grp('chat', '채팅 속 그림',
@@ -8460,11 +8545,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             + `@media (max-width:768px){.nc-fig,.nc-pt{width:${s.mo}vw!important;width:{{getvar::nc_mo}}vw!important}}</style>`;
     }
     const ACT_LABEL = { panel: '🎨 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', undo: '↶ 되돌리기', del: '🗑 지우기' };
-    const UNDO_HIDE = imp({ display: 'none' });
+    const UNDO_OFF = imp({ opacity: '.4', cursor: 'default', background: 'rgba(0,0,0,.62)' });
     const actHtml = (name, can) => `<div class="nc-act" style="${ACT_STYLE}">`
         + Object.entries(ACT_LABEL).filter(([k]) => k !== 'undo' || st.set.undo).map(([k, label]) => {
             const on = k !== 'undo' || !!can?.has(String(name).toLowerCase());
-            return `<span class="nc-act-b nc-${k} nc-for-${name} nc-at-{{chat_index}}${k === 'undo' && on ? ' nc-uv' : ''}" style="${on ? BTN_STYLE : BTN_STYLE + ';' + UNDO_HIDE}">${label}</span>`;
+            return `<span class="nc-act-b nc-${k} nc-for-${name} nc-at-{{chat_index}}${k === 'undo' && on ? ' nc-uv' : ''}" style="${on ? BTN_STYLE : BTN_STYLE + ';' + UNDO_OFF}">${label}</span>`;
         }).join('')
         + '</div>';
     const FIG_RE = /<div class="nc-fig nc-id-(nc_[a-z0-9_]+)">(<div class="nc-act">)?/gi;
@@ -8536,6 +8621,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     async function ncDisplay(content) {
         if (typeof content !== 'string') return null;
         if (await retired()) return content;
+        const orig = content;
+        content = dropPlan(content);
+        if (st.set.cogen) content = content.replace(PLAN_BIT_RE, '');
         const gen = uniHtml();
         const hasFig = content.includes('nc-fig'), hasPt = content.includes('nc-pt');
         const needId = (st.set.assetOff.length > 0 && /risu-inlay-image|<img src="|<video /.test(content)) || (st.set.ptOff.length > 0 && hasPt);
@@ -8543,7 +8631,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const assetHide = !!chaId && st.set.assetOff.includes(chaId);
         if (!hasFig && !hasPt) {
             const rest = dropAssets(content, assetHide);
-            return gen ? rest + '\n\n' + gen : rest === content ? null : rest;
+            return gen ? rest + '\n\n' + gen : rest === orig ? null : rest;
         }
         const acts = st.set.tap && !rootDenied();
         const fs = figStyle();
@@ -9081,7 +9169,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const show = can.has(name);
             const was = /(?:^|\s)(?:x-risu-)?nc-uv(?:\s|$)/.test(cls);
             if (show === was) continue;
-            await el.setStyleAttribute(show ? BTN_STYLE : BTN_STYLE + ';' + UNDO_HIDE);
+            await el.setStyleAttribute(show ? BTN_STYLE : BTN_STYLE + ';' + UNDO_OFF);
             await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-uv$/.test(c)).concat(show ? ['nc-uv'] : []).join(' '));
         }
     }
@@ -9121,6 +9209,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const name = /(?:^|\s)x-risu-nc-for-(nc_[a-z0-9_]+)/i.exec(cls)?.[1];
             const act = /(?:^|\s)x-risu-nc-(panel|draw|new|undo|del)(?:\s|$)/.exec(cls)?.[1];
             if (act === 'panel') return void openPanel().catch(error => console.error(LOG, 'panel', error));
+            if (act === 'undo' && !/(?:^|\s)(?:x-risu-)?nc-uv(?:\s|$)/.test(cls)) return;
             if (name && act) await figAction(act, name, el, genIdx(cls));
             return;
         }
@@ -16702,7 +16791,7 @@ Rules:
     } catch (error) {
         console.warn(LOG, 'process handler', error);
     }
-    await api.addRisuChatListener('output', onOutput);
+    await api.addRisuChatListener('output', onFinalOutput);
     await api.addRisuReplacer('beforeRequest', stripRequest);
     if (sizeMoved) void sizeChanged();
     await api.onUnload(async () => {
@@ -16715,7 +16804,7 @@ Rules:
             for (const [target, type, fn] of domListeners.splice(0)) target.removeEventListener(type, fn);
             for (const p of thumbs.values()) p.then(url => URL.revokeObjectURL(url)).catch(() => {});
         } catch {}
-        try { await api.removeRisuChatListener?.('output', onOutput); } catch {}
+        try { await api.removeRisuChatListener?.('output', onFinalOutput); } catch {}
         try { await api.removeRisuReplacer?.('beforeRequest', stripRequest); } catch {}
         for (const button of panelButtons) try { await api.unregisterUIPart(button.id); } catch {}
         if (displayOn) try { await api.removeRisuScriptHandler?.('display', ncDisplay); } catch {}
