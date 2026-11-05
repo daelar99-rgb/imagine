@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.45.0
+//@display-name 🎨 이매진 v5.46.0
 //@api 3.0
-//@version 5.45.0
+//@version 5.46.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.45.0';
+    const VERSION = '5.46.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3241,7 +3241,7 @@ ${t.user}` : null;
             busy.stage = 2;
             busy.at = Date.now();
             render();
-            const scroll = st.set.scroll !== 'off' && (reqs[0]?.kind ?? (isIllust() ? 'illust' : 'comic')) === 'illust' ? st.set.scroll : null;
+            const scroll = st.set.scroll !== 'off' ? st.set.scroll : null;
             const spot = await commit(job, char, key, idx, out, stateChanged ? state : null, cast, stateBase, re, scroll) ?? { key, idx };
             if (spot.key !== key) { delete recs[rid]; failed.delete(key); }
             const undoOn = !!st.set.undo && char.type !== 'group' && !!old?.images?.length;
@@ -4262,7 +4262,6 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
         clearTimeout(prSave.t);
         prSave.t = setTimeout(() => { if (!s.voice) void saveSet(); }, 400);
     };
-    const prOpen = new Set();
     function renderPromptApp() {
         if (ui.ptab === 'nsfw') return h('section', { class: 'ix-pane pr-pane' }, nsManage());
         const [intro, slots] = PR_SLOTS[ui.ptab] ?? PR_SLOTS.illust;
@@ -4271,12 +4270,11 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
             const v = prGet(s), n = v.length;
             const dead = s.voice && !voice;
             const on = !prOff(s.k);
-            const op = prOpen.has(s.k);
-            let cnt, stt, pv, lc;
+            let cnt, stt, lc;
             const tg = toggle(on, () => { prSetOn(s.k, !on); renderNow(); }, dead);
             tg.classList.add('mini');
-            const box = h('div', { class: 'pr-ln' + (op ? ' op' : '') + (on ? '' : ' off') });
-            const body = h('div', { class: 'pr-lbody', hidden: !op },
+            const box = h('div', { class: 'pr-ln' + (on ? '' : ' off') });
+            const body = h('div', { class: 'pr-lbody' },
                 h('p', { class: 'ix-hint' }, h('span', { class: 'pr-where' }, s.w), s.d),
                 h('textarea', {
                     class: 'pr-ta', 'aria-label': s.t, placeholder: s.ph, disabled: dead,
@@ -4287,8 +4285,6 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
                         lc.textContent = x ? `${x.length.toLocaleString()}자` : '';
                         stt.textContent = x ? '✓ 저장됨' : '비어 있음';
                         stt.classList.toggle('ok', !!x);
-                        pv.textContent = x ? x.split('\n')[0] : '비어 있음 · 눌러서 쓰기';
-                        pv.classList.toggle('empty', !x);
                     },
                 }, v),
                 h('div', { class: 'pr-ft' },
@@ -4296,24 +4292,10 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
                     stt = h('span', { class: 'pr-st' + (n ? ' ok' : '') }, n ? '✓ 저장됨' : '비어 있음'),
                     on ? null : h('span', { class: 'pr-offn' }, 'off · 보내지 않음'),
                     dead ? h('span', { class: 'ix-hint', style: 'margin:0' }, 'TTS 모듈을 불러오지 못해 지금은 고칠 수 없습니다.') : null));
-            const flip = () => {
-                const open = !prOpen.has(s.k);
-                if (open) prOpen.add(s.k); else prOpen.delete(s.k);
-                box.classList.toggle('op', open);
-                body.hidden = !open;
-                head.setAttribute('aria-expanded', String(open));
-            };
-            const head = h('div', {
-                class: 'pr-lh', role: 'button', tabindex: '0', 'aria-expanded': String(op),
-                onclick: e => { if (!e.target.closest('.cf-tg')) flip(); },
-                onkeydown: e => { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flip(); } },
-            },
-                h('span', { class: 'pr-ltx' },
-                    h('b', null, s.t),
-                    pv = h('span', { class: 'pr-lpv' + (v ? '' : ' empty') }, v ? v.split('\n')[0] : '비어 있음 · 눌러서 쓰기')),
+            const head = h('div', { class: 'pr-lh' },
+                h('span', { class: 'pr-ltx' }, h('b', null, s.t)),
                 lc = h('span', { class: 'pr-lc' }, v ? `${n.toLocaleString()}자` : ''),
-                tg,
-                h('span', { class: 'pr-ar', 'aria-hidden': 'true' }, '⌄'));
+                tg);
             box.append(head, body);
             return box;
         };
@@ -5682,16 +5664,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 .pr-rule b{color:var(--ink)}
 .pr-ln{border-top:1px solid var(--line)}
 .pr-ln:first-child{border-top:0}
-.pr-lh{display:flex;align-items:center;gap:10px 14px;padding:12px 14px;cursor:pointer}
-.pr-lh:hover{background:#fafcff}
+.pr-lh{display:flex;align-items:center;gap:10px 14px;padding:12px 14px 8px}
 .pr-ltx{flex:1 1 auto;min-width:0}
 .pr-ltx b{display:block;font-size:.9rem;color:var(--ink)}
-.pr-lpv{display:block;margin-top:2px;font-size:.74rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pr-lpv.empty{font-style:italic;color:#9aa8bd}
 .pr-lc{flex:none;font-size:.72rem;font-weight:700;color:var(--muted)}
-.pr-ar{flex:none;color:var(--muted);transition:transform .15s}
-.pr-ln.op .pr-ar{transform:rotate(180deg)}
-.pr-ln.op{background:#fbfcfe}
 .pr-ln.off .pr-ltx b{color:var(--muted)}
 .pr-lbody{padding:0 14px 14px}
 .pr-lbody .ix-hint{margin:0 0 8px}
@@ -5702,7 +5678,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 .ns-chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 12px;border-radius:15px;border:1px solid #3b4766;background:#232d45;color:#cfd6e4;font-size:.8rem;font-weight:700;cursor:pointer}
 .ns-chip i{width:8px;height:8px;border-radius:50%;background:#56607a}
 .ns-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.ns-chip.on i{background:#fff}
+.ns-chip.on i{background:#4ade80;box-shadow:0 0 0 2px rgba(74,222,128,.28),0 0 6px #4ade80}
 .ns-tot{margin-left:auto;font-size:.8rem}
 .ns-tot b{color:#fff}
 .ns-sub3{display:flex;margin:0 0 12px;border:1px solid var(--line2);border-radius:20px;overflow:hidden;width:max-content;max-width:100%}
@@ -7072,7 +7048,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const shown = secs.find(el => state(el) === 'cur' && filled(el)) ?? secs.find(el => state(el) === 'cur') ?? [...secs].reverse().find(filled) ?? secs[secs.length - 1];
         const at = secs.indexOf(shown);
         const doneN = secs.filter(el => state(el) === 'done').length;
-        const SHORT = { '삽화 소개': '소개', '애드 에셋 소개': '소개', '연출 모델 고르기': '연출', '연출 방식 고르기': '연출', '그림 종류 · 모델': '종류', '장 수 · 해상도': '분량', '그림체 · 모델': '그림체', 'NovelAI 키 넣기': '키', '만화로 그릴까요, 삽화로 그릴까요?': '만화/삽화', 'NSFW 프롬프트 추가': 'NSFW', '감정 에셋 확인': '감정', '글로벌노트': '노트', '애드 에셋': '그리기' };
+        const SHORT = { '삽화 소개': '소개', '애드 에셋 소개': '소개', '연출 모델 고르기': '연출', '연출 방식 고르기': '연출', '그림 종류 · 모델': '종류', '그림 종류 · 모델 · 장 수 · 해상도': '종류', '장 수 · 해상도': '분량', '그림체 · 모델': '그림체', 'NovelAI 키 넣기': '키', '만화로 그릴까요, 삽화로 그릴까요?': '만화/삽화', 'NSFW 프롬프트 추가': 'NSFW', '감정 에셋 확인': '감정', '글로벌노트': '노트', '애드 에셋': '그리기' };
         const short = name => SHORT[name] ?? name.replace(/\s+(고르기|넣기|추가|확인)$/, '');
         const check = () => { const i = h('i', null); i.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'; return i; };
         const seen = !!st.set.introSeen?.[app];
@@ -7165,12 +7141,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const pane = h('section', { class: 'ix-pane' });
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
-        const done = [!!(su.cogen && su.llm), v.hasKey, !!(su.kind && su.model), !!su.preset, !!(su.count && su.size), !!st.set.nsfw?.st];
+        const done = [!!(su.cogen && su.llm), v.hasKey, !!(su.kind && su.model && su.count && su.size), !!su.preset, !!st.set.nsfw?.st];
         const cur = done.indexOf(false);
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
         if (v.hasKey) void acAnlas();
-        const END = 7;
+        const END = 6;
         const step = (n, title, sum, body) => {
             const state = n === END ? (cur < 0 ? 'done' : 'lock') : stateOf(n - 1);
             let bd = null;
@@ -7198,36 +7174,43 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 }, dzThumb(em), h('span', { class: 'dz-tx' }, h('b', null, name), h('span', null, desc)));
             }));
         add(pane,
-            step(1, '연출 방식 고르기', st.set.cogen ? '동시생성' : `따로 연출 · ${llmName(st.set.llm)} 모델`, () => [
+            step(1, '연출 방식 고르기', `${st.set.cogen ? '동시생성' : '따로 연출'} · ${llmName(st.set.llm)} 모델`, () => [
                 radio([['on', DZ_ICON.cogen, '동시생성 (추천)', '메인 모델이 답변을 쓰면서 그 답변의 그림 연출도 함께 씁니다. 연출 요청을 따로 보내지 않아 그림이 빨리 시작됩니다'],
                     ['off', DZ_ICON.apart, '따로 연출', '답변이 끝난 뒤 아래 연출 모델에 장면 · 대사 · 복장을 따로 묻습니다. 메인 요청은 길어지지 않습니다']],
                     st.set.cogen ? 'on' : 'off', k => setVal('cogen', k === 'on')),
-                st.set.cogen ? null : [
-                    sub('연출 모델', '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다.'),
+                [
+                    st.set.cogen
+                        ? sub('연출 모델 (다시 그리기 · 씬 재구성용)', '동시생성이어도 다시 그리기 · 씬 재구성 · 그룹 봇 · 이어 쓰기, 그리고 답변에 연출 블록이 빠졌을 때는 이 모델에 연출을 따로 묻습니다.')
+                        : sub('연출 모델', '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다.'),
                     llmCards('llm'),
                     h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 둘 다 설정 › 그리기에서도 바꿀 수 있습니다.')],
                 nextBtn(['cogen', 'llm'])]),
             step(2, 'NovelAI 키 넣기', '키 저장됨', () => [
                 keyBox(ui.reopen === 2),
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 로 시작하는 키를 넣으세요.')]),
-            step(3, '그림 종류 · 모델', `${kindName()} · ${modelName(st.set.model)}`, () => [
+            step(3, '그림 종류 · 모델 · 장 수 · 해상도', `${kindName()} · ${modelName(st.set.model)} · ${countLabel()} · ${sizeName(sizeNow())}`, () => [
                 radio([['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']],
                     st.set.kind, k => { st.set = { ...st.set, kind: k }; saveSet(); renderNow(); }),
                 sub('NAI 모델', '삽화 전용 NAI 모델입니다. 애드 에셋 · 대화 그림 모델과 따로 고릅니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
-                nextBtn(['kind', 'model'])]),
-            step(4, '그림체 고르기', preset().name || '이름 없음', () => [
-                h('p', { class: 'vz-desc' }, '삽화에 쓸 그림체를 카드에서 고릅니다. 애드 에셋 · 대화의 그림체와 따로 고릅니다. 그림체를 만들고 고치는 일은 ', h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('imagine') }, '그림체 앱'), '에서 합니다.'),
-                presetGrid(null, null, false),
-                nextBtn(['preset'], '이 그림체로 다음')]),
-            step(5, '장 수 · 해상도', `${countLabel()} · ${sizeName(sizeNow())}`, () => [renderCountStep(su),
+                sub('장 수 · 크기 · 스크롤', '한 번에 그릴 양과 그림 크기, 다 그린 뒤 채팅 화면을 옮길 자리입니다.'),
+                renderCountStep(su),
                 h('div', { class: 'cf-card', style: 'margin-top:12px' },
                     h('div', { class: 'cf-row' },
                         h('div', { class: 'cf-tx' }, h('b', null, '어떤 크기로 그릴까요?'),
                             h('p', null, '삽화 · 만화 그림의 가로 × 세로 크기입니다. 1024×1024 넓이 이하는 Opus 구독이면 Anlas 를 쓰지 않습니다. 설정 › 그리기에서도 바꿀 수 있습니다.')),
                         sizePick(sizeNow(), k => setVal('size', k)))),
-                nextBtn(['count', 'size'])]),
-            step(6, 'NSFW 프롬프트 추가', nsfwSum('illust'), () => nsBody('illust', { close: () => { ui.reopen = 0; renderNow(); } })),
+                h('div', { class: 'cf-card', style: 'margin-top:12px' },
+                    h('div', { class: 'cf-row' },
+                        h('div', { class: 'cf-tx' }, h('b', null, '다 그리면 어디로 옮길까요?'),
+                            h('p', null, '그림을 답변에 넣은 뒤 채팅 화면을 옮길 자리입니다. 삽화 · 만화 모두 같습니다. 설정 › 채팅 속 그림에서도 바꿀 수 있습니다.')),
+                        seg([['last', '마지막 채팅 맨 위'], ['fig', '그린 그림'], ['off', '리수 기본(안 옮김)']], st.set.scroll, k => setVal('scroll', k)))),
+                nextBtn(['kind', 'model', 'count', 'size'])]),
+            step(4, '그림체 고르기', preset().name || '이름 없음', () => [
+                h('p', { class: 'vz-desc' }, '삽화에 쓸 그림체를 카드에서 고릅니다. 애드 에셋 · 대화의 그림체와 따로 고릅니다. 그림체를 만들고 고치는 일은 ', h('button', { class: 'lnk', type: 'button', onclick: () => openStyleFor('imagine') }, '그림체 앱'), '에서 합니다.'),
+                presetGrid(null, null, false),
+                nextBtn(['preset'], '이 그림체로 다음')]),
+            step(5, 'NSFW 프롬프트 추가', nsfwSum('illust'), () => nsBody('illust', { close: () => { ui.reopen = 0; renderNow(); } })),
             step(END, '완료', recipe(), () => renderReadyEnd()));
         add(pane, renderReadyBar());
         return pane;
@@ -7304,13 +7287,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     function renderReadyBar() {
         const v = st.view;
         const su = st.set.setup ?? {};
-        const n = [su.cogen && su.llm, v.hasKey, su.kind && su.model, su.preset, su.count && su.size, st.set.nsfw?.st].filter(Boolean).length;
+        const n = [su.cogen && su.llm, v.hasKey, su.kind && su.model && su.count && su.size, su.preset, st.set.nsfw?.st].filter(Boolean).length;
         let cls = '', text;
         if (setupDone() && !st.busy && !st.lore && v.hasKey && !lastFail()) return null;
         if (st.busy || st.lore) { cls = 'wait'; text = `${(st.busy ?? st.lore).label}…`; }
         else if (!su.cogen || !su.llm) text = '연출 방식을 고르면 다음 단계가 열립니다.';
         else if (!v.hasKey) { cls = 'err'; text = 'NAI 키를 넣어야 그릴 수 있습니다.'; }
-        else if (!setupDone()) text = `6단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
+        else if (!setupDone()) text = `5단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
         else if (lastFail()) { cls = 'err'; text = '그리지 못한 답변이 있습니다.'; }
         return h('div', { class: 'ab' }, h('span', { class: 'ab-tx ' + cls }, text));
     }
@@ -8339,11 +8322,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             row('동시생성', '켜면 메인 모델이 답변을 쓰면서 그 답변의 삽화 연출(NAI 태그)도 함께 씁니다. 연출 모델에 따로 묻는 요청 한 번을 아낍니다.',
                 '메인 요청 끝에 연출 지시가 붙어 요청이 길어집니다. 연출은 답변 끝 <nc-plan> 블록에 담기며 화면과 다음 요청에서는 늘 지웁니다. 「이미지 생성」 버튼으로 그릴 때도 이 블록을 씁니다. 블록이 없거나 깨졌으면 예전처럼 연출 모델에 따로 묻습니다. 그룹 봇 · 이어 쓰기 · 씬 재구성에는 쓰지 않습니다. 삽화 › 준비 ② 연출 방식에서 고른 값과 같습니다(기본 켬).',
                 toggle(!!s.cogen, () => setVal('cogen', !s.cogen))),
-            row('해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
+            row('해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', '만화일 때 가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                 sizePick(sizeNow(), v => setVal('size', v)), { wide: true }),
-            s.kind !== 'illust' ? row('말풍선', '답변에 있는 대사를 말풍선으로 넣습니다.',
-                '대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 줄 끝에 「speech bubble with Text: 대사」로 붙습니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
-                toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))) : null,
+            row('말풍선', '만화에 답변의 대사를 말풍선으로 넣습니다.',
+                '그림 종류가 만화일 때만 쓰입니다. 삽화는 이 값과 상관없이 말풍선을 넣지 않습니다. 대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 줄 끝에 「speech bubble with Text: 대사」로 붙습니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
+                toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))),
             row('유저 인풋 우선', '유저 입력이 부른 장면을 먼저 그립니다.',
                 '유저 입력은 이 설정과 상관없이 늘 참고로 보냅니다. 켜면 첫 장(만화 한 장이면 첫 컷)은 유저 입력이 그리는 순간이고, 나머지는 그 반응입니다. 유저 입력이 다른 인물의 행동을 지시해도 그 장면을 그립니다. 첫 컷 대사는 유저 입력에서 옮길 수 있습니다. 답변과 어긋나면 답변을 따릅니다. 바로 앞이 유저 입력이 아니면(첫 메시지 · 이어 쓰기) 끈 것과 같습니다.',
                 toggle(s.userFirst, () => setVal('userFirst', !s.userFirst))),
@@ -8358,9 +8341,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             sizeRows(),
             row('이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '두 메뉴의 버튼은 그대로 있습니다.',
                 toggle(s.panelBtn, () => setVal('panelBtn', !s.panelBtn))),
-            s.kind === 'illust' ? row('다 그리면 스크롤', '삽화를 다 그린 뒤 채팅 화면을 옮길 자리입니다. 「마지막 채팅 맨 위」는 그림을 넣은 답변의 맨 위로, 「그린 그림」은 그 그림으로(여러 장이면 맨 위 그림) 갑니다. 「리수 기본」은 옮기지 않습니다.',
-                '자동 그리기에도 똑같이 옮깁니다. 만화를 그릴 때는 옮기지 않습니다. 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼을 모두 끄면 리수 본문 화면에 접근하지 않으므로 옮기지 않습니다.',
-                seg([['last', '마지막 채팅 맨 위'], ['fig', '그린 그림'], ['off', '리수 기본(안 옮김)']], s.scroll, v => setVal('scroll', v))) : null,
+            row('다 그리면 스크롤', '그림을 다 그린 뒤 채팅 화면을 옮길 자리입니다. 「마지막 채팅 맨 위」는 그림을 넣은 답변의 맨 위로, 「그린 그림」은 그 그림으로(여러 장이면 맨 위 그림) 갑니다. 「리수 기본」은 옮기지 않습니다.',
+                '삽화 · 만화 모두 옮기고, 자동 그리기에도 똑같이 옮깁니다. 삽화 › 준비 ④ 단계에서 고른 값과 같습니다. 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼을 모두 끄면 리수 본문 화면에 접근하지 않으므로 옮기지 않습니다.',
+                seg([['last', '마지막 채팅 맨 위'], ['fig', '그린 그림'], ['off', '리수 기본(안 옮김)']], s.scroll, v => setVal('scroll', v))),
             needRoot() ? hint1(rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
                 : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.') : null);
         const gBot = grp('bot', '이 봇의 그림',
