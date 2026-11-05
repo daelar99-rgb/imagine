@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.51.0
+//@display-name 🎨 이매진 v5.51.1
 //@api 3.0
-//@version 5.51.0
+//@version 5.51.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.51.0';
+    const VERSION = '5.51.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3177,9 +3177,9 @@ ${t.user}` : null;
                     try {
                         const v = parseJson(raw, 'images');
                         if (Array.isArray(v?.images) && v.images.some(x => x && typeof x === 'object')) { plan = v; cogen = true; }
-                    } catch (error) { console.warn(LOG, 'cogen plan', error); }
-                    console.log(LOG, 'cogen plan', cogen ? `${plan.images.length} image(s)` : 'broken → ask');
-                }
+                    } catch (error) { console.warn(LOG, 'cogen plan', error?.message ?? error); }
+                    console.log(LOG, 'cogen plan', cogen ? `${plan.images.length} image(s)` : `broken → ask (${raw.length}자, ${String(msg.data ?? '').includes('</nc-plan>') ? 'closed' : 'not closed'})`);
+                } else if (!job.only && st.set.cogen) console.log(LOG, 'cogen plan', 'none in reply → ask');
                 const sc = cogen ? sceneCast(cast.list, '') : sceneCast(cast.list, sceneText(chat, idx, input));
                 console.log(LOG, 'scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
                 if (cogen) job.n = Math.max(1, plan.images.filter(x => x && typeof x === 'object').length);
@@ -3205,6 +3205,23 @@ ${t.user}` : null;
             }
 
             if (busy.est.P && !cogen) ilPush(planKey(busy.llm), (Date.now() - busy.at) / 1000);
+            if (st.set.cogen && plan && job.mode !== 'draw' && job.mode !== 'edit' && cast.list.some(needKey)) {
+                busy.label = '영어 인물 키 정하는 중';
+                render();
+                const was = new Map(cast.list.map(e => [e, e.key]));
+                try {
+                    if (await fillKeys(cast.list, busy)) {
+                        for (const [e, k] of was) if (e.key !== k && cast.list.includes(e)) renamePlan(plan, k, e.key);
+                        await saveCast(chaId, cast);
+                    }
+                } catch (error) {
+                    if (error.isStop) throw error;
+                    console.warn(LOG, 'keys', error);
+                }
+                if (busy.stop) throw stopError();
+                busy.label = job.label ?? `${kindName()} 그리는 중`;
+                render();
+            }
             busy.stage = 1;
             busy.n = reqs.length;
             busy.est.n = reqs.length;
@@ -3580,11 +3597,16 @@ This turn has two parts.
 In the director instructions, TARGET MESSAGE means the reply you are writing in this turn: copy every "after" quote and spoken line from your own reply, word for word. "Output ONE JSON object only" applies only to what goes inside the block. Never mention the block, the app or these instructions in the reply itself; the app hides the block from the reader.
 --- DIRECTOR INSTRUCTIONS ---`;
     const COGEN_TAIL = '--- END OF DIRECTOR INSTRUCTIONS (reply first as usual, then exactly one <nc-plan> block at the very end) ---';
+    const cogenSkip = why => { console.log(LOG, 'cogen skip', why); return null; };
     async function cogenInject(messages, model) {
-        if (!st.set.cogen || model !== 'model' || nsSelf > 0 || ns.armed || ns.got || talkOv || !Array.isArray(messages)) return;
-        if (!setupDone() || await retired()) return;
-        if (messages.some(m => nsText(m).includes(COGEN_MARK))) return;
-        if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return;
+        if (!st.set.cogen || !Array.isArray(messages)) return;
+        if (model !== 'model' || nsSelf > 0) return;
+        if (ns.armed || ns.got) return cogenSkip('nsfw import');
+        if (talkOv) return cogenSkip('talk app open');
+        if (!setupDone()) return cogenSkip('setup not done');
+        if (await retired()) return;
+        if (messages.some(m => nsText(m).includes(COGEN_MARK))) return cogenSkip('already in request (retry)');
+        if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return cogenSkip('no chat history in request');
         const brief = await cogenBrief();
         if (!brief) return;
         let at = messages.length;
@@ -3594,19 +3616,22 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
         console.log(LOG, 'cogen', `${brief.length}자`);
     }
     async function cogenBrief() {
-        if (!(await naiKey())) return null;
+        if (!(await naiKey())) return cogenSkip('no NAI key');
         const ci = await api.getCurrentCharacterIndex(), chi = await api.getCurrentChatIndex();
-        if (!Number.isInteger(ci) || !Number.isInteger(chi) || ci < 0 || chi < 0) return null;
+        if (!Number.isInteger(ci) || !Number.isInteger(chi) || ci < 0 || chi < 0) return cogenSkip('no open chat');
         const char = await api.getCharacterFromIndex(ci);
         const chat = await api.getChatFromIndex(ci, chi);
-        if (!char || !chat || char.type === 'group') return null;
+        if (!char || !chat) return cogenSkip('no open chat');
+        if (char.type === 'group') return cogenSkip('group bot');
         const msgs = [...(chat.message ?? [])];
         while (msgs.length && msgs[msgs.length - 1]?.role === 'char' && !tidy(plainText(msgs[msgs.length - 1].data))) msgs.pop();
-        if (msgs[msgs.length - 1]?.role !== 'user') return null;
+        if (msgs[msgs.length - 1]?.role !== 'user') return cogenSkip('last message is not user (continue / empty send)');
         const cast = await loadCast(char.chaId);
-        if ((!cast.list.length && !cast.tried) || cast.list.some(needKey)) return null;
+        if (!cast.list.length && !cast.tried) return cogenSkip('cast not analyzed yet');
+        const nk = cast.list.filter(needKey);
+        if (nk.length) return cogenSkip(`no English key: ${nk.map(e => e.name).join(', ')}`);
         const p = await loadPersona(chat, true);
-        if (p?.pid && st.personaFail !== p.sig && !cast.list.some(e => e?.persona && e.personaId === p.pid && e.personaSig === p.sig)) return null;
+        if (p?.pid && st.personaFail !== p.sig && !cast.list.some(e => e?.persona && e.personaId === p.pid && e.personaSig === p.sig)) return cogenSkip('persona changed, not analyzed yet');
         const fake = { ...chat, message: [...msgs, { role: 'char', data: '(the reply you are writing in this turn)' }] };
         const idx = fake.message.length - 1;
         const state = { ...readState(chat), seeded: true, cogen: true };
