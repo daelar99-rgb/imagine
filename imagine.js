@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.51.1
+//@display-name 🎨 이매진 v5.52.1
 //@api 3.0
-//@version 5.51.1
+//@version 5.52.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.51.1';
+    const VERSION = '5.52.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1679,8 +1679,8 @@ ${TAG_STYLE}`;
         }
     }
 
-    async function lookupCast(char, items, cast, busy = st.busy) {
-        const { text, persona, entries } = await botContext(char);
+    async function lookupCast(char, items, cast, busy = st.busy, ctx = null) {
+        const { text, persona, entries } = ctx ?? await botContext(char);
         const known = (cast?.list ?? []).filter(e => e.src !== 'chat');
         const ask = `${text}
 
@@ -1708,6 +1708,27 @@ Return entries only for the characters in this list that the character sheet, lo
         return node;
     }
     const renameText = (s, from, to) => tidy(s) === from ? to : s.split('@' + from).join('@' + to);
+    const SCRIPT_MIN = 0.7;
+    const flatName = s => String(s ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]/gu, '');
+    const latinOnly = s => !/[^\x00-\x7f]/.test(s);
+    function latinShare(text) {
+        const words = String(text ?? '').split(/\s+/).filter(w => /\p{L}/u.test(w));
+        return words.length ? words.filter(latinOnly).length / words.length : null;
+    }
+    function askable(text, cast) {
+        const body = flatName(text);
+        const latin = latinShare(text);
+        const known = (cast?.list ?? []).filter(e => e.src !== 'chat')
+            .flatMap(e => [e.key, ...(e.keys ?? []), e.name, ...(e.aliases ?? [])]).map(flatName).filter(Boolean);
+        return x => {
+            const words = [x.name, x.label].map(flatName).filter(Boolean);
+            if (!words.length || words.some(w => body.includes(w))) return true;
+            if (words.some(w => known.some(k => k.includes(w) || w.includes(k)))) return true;
+            if (latin === null) return false;
+            const same = latinOnly(flatName(x.label) || words[0]) ? latin : 1 - latin;
+            return same < SCRIPT_MIN;
+        };
+    }
     async function resolveUnknown(char, plan, cast, state, here = true, busy = st.busy) {
         state.looked ??= [];
         const items = [];
@@ -1725,8 +1746,13 @@ Return entries only for the characters in this list that the character sheet, lo
         if (!items.length || !here) return done;
         let found = new Map();
         try {
-            found = await lookupCast(char, items, cast, busy);
-            for (const x of items) state.looked.push(x.seen);
+            const ctx = await botContext(char);
+            const ask = items.filter(askable(ctx.text, cast));
+            const skip = items.filter(x => !ask.includes(x));
+            if (skip.length) console.log(LOG, 'lookup skip', skip.map(x => x.label || x.name).join(', '));
+            for (const x of skip) state.looked.push(x.seen);
+            if (ask.length) found = await lookupCast(char, ask, cast, busy, ctx);
+            for (const x of ask) state.looked.push(x.seen);
         } catch (error) {
             if (error.isStop) throw error;
             console.warn(LOG, 'lookup', error);
