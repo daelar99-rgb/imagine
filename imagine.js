@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.46.1
+//@display-name 🎨 이매진 v5.47.0
 //@api 3.0
-//@version 5.46.1
+//@version 5.47.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.46.1';
+    const VERSION = '5.47.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -121,6 +121,7 @@
         size: 'tall',
         sv: 36,
         bubbles: true,
+        comicCoords: true,
         loreMax: 0,
         castMax: 0,
         userFirst: false,
@@ -1170,6 +1171,7 @@ ${TAG_STYLE}`;
 
     const isIllust = () => (talkOv?.kind ?? st.set.kind) === 'illust';
     const bubblesNow = () => !isIllust() && !!(talkOv ? talkOv.bubbles : st.set.bubbles);
+    const comicCoordsNow = () => !!talkOv || st.set.comicCoords !== false;
     const kindName = () => isIllust() ? '삽화' : '만화';
     const sizeNow = () => talkOv?.size ?? (sizeWH(st.set.size) ? st.set.size : 'tall');
     const COUNT_MAX = 10;
@@ -1246,7 +1248,7 @@ ${TAG_STYLE}`;
     const V2_CELL_RULE = `  - cells: where each who entry sits, ONE cell code per who entry in the same order, on a 5x5 grid laid over this portrait image. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, C2 and C4 for one above the other, B4 and D2 for one low and one high). With 3 or more, give each one a different cell (e.g. B3, C3 and D3 side by side; B3 and D3 on both sides of one at C4). Two characters who interact face each other from opposite sides. With 1 character write ["C3"]: the app sends no position for a single character.`;
     const PANEL_CELL_RULE = `  - cell: where this panel sits on the page, as ONE cell code on a 5x5 grid laid over the whole image: the center of the panel's frame. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. 2 panels on a portrait page "C2" and "C4" (stacked), on a landscape page "B3" and "D3" (side by side); 3 panels "C1", "B4", "D4" (one wide panel on top, two below) or "C1", "C3", "C5" (stacked); 4 panels "B2", "D2", "B4", "D4" (2x2) or "C1", "B3", "D3", "C5". The app places the panel's characters and action at that spot of the page.`;
     const comicRules = () => talkOv?.v2 ? PANEL_RULES.comic.replace('COMIC PAGE (2 to 4 panels, all drawn in this one image;', 'COMIC PAGE (exactly 1 panel that fills this whole portrait image, no panel split;')
-        .replace('\n  - Targets:', `\n${V2_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n  - Targets:`);
+        .replace('\n  - Targets:', `\n${V2_CELL_RULE}\n  - Targets:`) : comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
@@ -1327,7 +1329,7 @@ ${TAG_STYLE}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
             : talkOv?.v2 ? '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"cells":["C3"],"camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}'
-            : '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"cell":"C2","camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}';
+            : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2",' : ''}"camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -2155,7 +2157,7 @@ Rules
             delete sl.keys;
         }
         const pslots = slots.filter(sl => sl.kind === 'panel');
-        const panelCoords = !talkOv?.v2 && pslots.length >= 2;
+        const panelCoords = !talkOv?.v2 && pslots.length >= 2 && comicCoordsNow();
         if (panelCoords) {
             const given = pslots.map(sl => xyOfCell(sl.cell));
             const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
@@ -8326,6 +8328,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             row('말풍선', '만화에 답변의 대사를 말풍선으로 넣습니다.',
                 '그림 종류가 만화일 때만 쓰입니다. 삽화는 이 값과 상관없이 말풍선을 넣지 않습니다. 대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 줄 끝에 「speech bubble with Text: 대사」로 붙습니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
                 toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))),
+            row('만화 좌표', '2~4컷 만화에서 컷마다 페이지 위 자리(좌표)를 정해 보냅니다.',
+                '그림 종류가 만화일 때만 쓰입니다. 켜면 연출 모델이 컷마다 5×5 칸 중 하나를 고르고, 그 자리를 컷 프롬프트의 좌표로 보냅니다. 끄면 좌표 없이 생성하고, 컷 배치는 NAI 가 판 나눔 태그와 프롬프트를 보고 정합니다. 1컷 만화 · 삽화 · 대화 앱 만화는 이 값과 상관없습니다.',
+                toggle(s.comicCoords !== false, () => setVal('comicCoords', s.comicCoords === false))),
             row('유저 인풋 우선', '유저 입력이 부른 장면을 먼저 그립니다.',
                 '유저 입력은 이 설정과 상관없이 늘 참고로 보냅니다. 켜면 첫 장(만화 한 장이면 첫 컷)은 유저 입력이 그리는 순간이고, 나머지는 그 반응입니다. 유저 입력이 다른 인물의 행동을 지시해도 그 장면을 그립니다. 첫 컷 대사는 유저 입력에서 옮길 수 있습니다. 답변과 어긋나면 답변을 따릅니다. 바로 앞이 유저 입력이 아니면(첫 메시지 · 이어 쓰기) 끈 것과 같습니다.',
                 toggle(s.userFirst, () => setVal('userFirst', !s.userFirst))),
