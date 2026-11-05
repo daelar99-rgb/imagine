@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.44.0
+//@display-name 🎨 이매진 v5.45.0
 //@api 3.0
-//@version 5.44.0
+//@version 5.45.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.44.0';
+    const VERSION = '5.45.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2060,6 +2060,16 @@ Rules
         return { prompt: `Text: ${quoteText(b.text)} `, uc: '', kind: narration ? 'narration' : 'bubble' };
     }
 
+    const LOOK_NEG_KEYS = ['haircolor', 'hairstyle', 'bangs', 'eyes'];
+    const lookNegOf = (e, state) => !e ? [] : [...LOOK_NEG_KEYS.filter(k => !(wearBrief && k === 'bangs')).flatMap(k => tagsOf(wearOf(e, state, k))), ...tagsOf(e.look)].filter(t => !isNone(t));
+    const negKey = t => tidy(String(t ?? '').toLowerCase().replace(/-?\d+(?:\.\d+)?::|::/g, ' ').replace(/[{}\[\]]/g, ' ').replace(/_/g, ' '));
+    const ownTagsOf = (prompt, labelList) => String(prompt ?? '').split(/[,\n]|\s\+\s/).map(t => {
+        let s = tidy(t);
+        const l = labelList.find(n => s.toLowerCase().startsWith(`${n.toLowerCase()}:`));
+        if (l) s = s.slice(l.length + 1);
+        return negKey(s);
+    }).filter(Boolean);
+    const tagClash = (a, own) => own.some(b => a === b || ` ${b} `.includes(` ${a} `) || (b.includes(' ') && ` ${a} `.includes(` ${b} `)));
     function buildComicReq(img, cast, state) {
         const p = preset();
         const [w, h] = sizeWH(sizeNow()) ?? SIZES.tall;
@@ -2068,6 +2078,7 @@ Rules
         const numOf = x => { if (!nums.has(x.key)) nums.set(x.key, nums.size + 1); return nums.get(x.key); };
         const labels = new Map();
         const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
+        const looks = new Map();
         const canonHead = (x, withTag) => {
             const tag = tidy(x.e?.canon);
             if (!tag) return [];
@@ -2086,7 +2097,7 @@ Rules
                 if (who.some(x => x.key === key)) continue;
                 who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
             }
-            for (const x of who) labelOf(x);
+            for (const x of who) { labelOf(x); if (!looks.has(x.key)) looks.set(x.key, lookNegOf(x.e, state)); }
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
@@ -2133,8 +2144,14 @@ Rules
             });
             panelN++;
         }
+        const labelList = [...labels.values()];
         for (const sl of slots) {
-            sl.uc = joinTags(sl.uc, [...labels].filter(([k]) => !sl.keys.includes(k)).map(([, n]) => n));
+            const own = ownTagsOf(sl.prompt, labelList);
+            const seen = new Set(tagsOf(sl.uc).map(negKey));
+            const add = [...labels].filter(([k]) => !sl.keys.includes(k))
+                .flatMap(([k, n]) => [n, ...(looks.get(k) ?? []).filter(t => !tagClash(negKey(t), own))])
+                .filter(t => { const s = negKey(t); if (!s || seen.has(s)) return false; seen.add(s); return true; });
+            sl.uc = joinTags(sl.uc, add);
             delete sl.keys;
         }
         const pslots = slots.filter(sl => sl.kind === 'panel');
