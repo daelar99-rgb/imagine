@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.37.0
+//@display-name 🎨 이매진 v5.37.1
 //@api 3.0
-//@version 5.37.0
+//@version 5.37.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.37.0';
+    const VERSION = '5.37.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3896,6 +3896,9 @@ ${t.user}` : null;
         const hit = pre.filter(b => NS_PICK_RE.test([b.text, b.title ?? '', ...(b.path ?? [])].join('\n')));
         return new Set((hit.length ? hit : pre).map(b => b.id));
     }
+    function nsHasKw(blocks) {
+        return blocks.some(b => !b.res && NS_PICK_RE.test([b.text, b.title ?? '', ...(b.path ?? [])].join('\n')));
+    }
     async function nsBack() {
         clearTimeout(ns.timer);
         clearTimeout(ns.back);
@@ -4001,7 +4004,7 @@ ${t.user}` : null;
                     h('span', null, '프리셋 글 ', h('b', null, `${picked.length}개`), ' · ', h('b', null, `${joined.length.toLocaleString()}자`)),
                     h('span', { class: 'ix-hint', style: 'margin:0' }, '채팅 · 페르소나 · 봇 글은 뺐습니다.')) : null,
                 h('div', { class: 'np-lead' },
-                    h('p', null, cap.msgs ? `요청 메시지 ${cap.msgN}개에서 채팅 ${cap.chatN}곳과 봇 · 페르소나 글 ${cap.botN}곳을 뺐습니다. ` : '', 'policy · disclaimer · reasoning · authorization · thinking · restrictions · yes · alright 가 든 글만 먼저 체크해 두었습니다. 넣을 글만 체크해 두세요.'),
+                    h('p', null, cap.msgs ? `요청 메시지 ${cap.msgN}개에서 채팅 ${cap.chatN}곳과 봇 · 페르소나 글 ${cap.botN}곳을 뺐습니다. ` : '', nsHasKw(pre) ? 'policy · disclaimer · reasoning · authorization · thinking · restrictions · yes · alright 가 든 글만 먼저 체크해 두었습니다. 넣을 글만 체크해 두세요.' : '넣을 글만 체크해 두세요.'),
                     h('span', { class: 'np-bulk' },
                         link('전체 선택', () => { for (const b of pre) ns.pick.add(b.id); redraw(); }, pre.every(b => ns.pick.has(b.id))),
                         link('전체 해제', () => { ns.pick.clear(); redraw(); }, !ns.pick.size))),
@@ -4013,10 +4016,9 @@ ${t.user}` : null;
             src = [
                 h('p', { class: 'np-got' }, `✓ ${cap.at} 채팅에서 요청을 받았습니다`),
                 cap.msgs && pre.length ? nsOne(3, '아래 「저장」을 누르면 끝납니다.') : null,
-                pre.length ? null : h('p', { class: 'ix-hint', style: 'margin:0' }, '프리셋 글을 찾지 못했습니다. NSFW · 탈옥 토글을 켰는지 확인하고 다시 가져와 주세요.'),
+                pre.length ? null : h('p', { class: 'ix-hint', style: 'margin:0' }, '프리셋 글을 찾지 못했습니다. NSFW · 탈옥 토글을 켰는지 확인하고, 취소한 뒤 다시 가져와 주세요.'),
                 h('div', { class: 'ix-acts' },
                     h('button', { 'data-next': '1', class: 'ix-btn main', type: 'button', disabled: !picked.length, onclick: use }, '저장'),
-                    link('다시 가져오기', start),
                     link('취소', cancel)),
                 adv,
             ];
@@ -4069,8 +4071,7 @@ ${t.user}` : null;
             toggle(!!on[rail], () => { nsSet({ on: { ...on, [rail]: !on[rail] } }); redraw(); }));
         const grp = (title, ...kids) => h('div', { class: 'cf-grp' }, h('h2', null, title), ...kids);
         return [
-            h('div', { class: 'pr-intro' }, h('b', null, 'NSFW 지침'),
-                h('span', null, '삽화 · 애드 에셋 · 대화의 연출 모델 요청에 덧붙이는 글입니다. 앱마다 보낼지는 아래 스위치로 켜고 끕니다. off 면 글은 남겨 두고 보내지만 않습니다.')),
+            h('div', { class: 'pr-intro' }, h('b', null, 'NSFW 지침')),
             grp('앱별 NSFW 프롬프트', h('div', { class: 'cf-card' }, appRow('illust', '삽화'), appRow('asset', '애드 에셋'), appRow('talk', '대화'))),
             grp('NSFW 프롬프트 호환', Array.isArray(src) ? h('div', { class: 'cf-card ns-src' }, src) : src),
             grp(['직접 쓴 글', h('small', null, `${ns.my.length}개`)],
@@ -4131,7 +4132,6 @@ ${t.user}` : null;
                 h('div', { class: 'cf-card pr-slot' + (on ? '' : ' off') },
                     h('div', { class: 'cf-row sw' },
                         h('div', { class: 'cf-tx' },
-                            h('b', null, '요청에 넣기'),
                             h('p', null, h('span', { class: 'pr-where' }, s.w), `${s.d} off 면 글은 남겨 두고 보내지만 않습니다.`)),
                         toggle(on, () => { prSetOn(s.k, !on); renderNow(); }, dead)),
                     h('div', { class: 'cf-row col' },
