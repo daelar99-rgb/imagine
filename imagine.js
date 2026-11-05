@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.52.1
+//@display-name 🎨 이매진 v5.53.3
 //@api 3.0
-//@version 5.52.1
+//@version 5.53.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.52.1';
+    const VERSION = '5.53.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -213,13 +213,17 @@
     const PC_RANGE = [100, 1600];
     const MO_RANGE = [10, 100];
     const sizeOk = ([lo, hi], v) => typeof v === 'string' && /^[1-9]\d*$/.test(v) && +v >= lo && +v <= hi;
-    const PLAN_RE = /\s*<nc-plan>[\s\S]*?(?:<\/nc-plan>|$)/gi;
-    const PLAN_BIT_RE = /<(?:n(?:c(?:-(?:p(?:l(?:an?)?)?)?)?)?)?$/;
-    const dropPlan = s => s.includes('<nc-plan') ? s.replace(PLAN_RE, '') : s;
+    const BLOCK_RE = /\s*<(nc-plan|nc-tts)>[\s\S]*?(?:<\/\1>|$)/gi;
+    const BIT_RE = /<(?:n(?:c(?:-(?:p(?:l(?:an?)?)?|t(?:ts?)?)?)?)?)?$/;
+    const dropBlocks = s => /<nc-(?:plan|tts)>/i.test(s) ? s.replace(BLOCK_RE, '') : s;
+    const TTS_RE = /\s*<nc-tts>[\s\S]*?(?:<\/nc-tts>|$)/gi;
+    const cutTts = s => { let tail = ''; const body = s.replace(TTS_RE, m => { tail += m; return ''; }); return [body, tail]; };
     const planOf = s => { const all = [...String(s ?? '').matchAll(/<nc-plan>([\s\S]*?)(?:<\/nc-plan>|$)/gi)]; return all.length ? all[all.length - 1][1] : ''; };
-    const stripOurs = s => dropPlan(String(s ?? '')).replace(TAG_RE, '').replace(/\s+$/, '');
+    const stripOurs = s => dropBlocks(String(s ?? '')).replace(TAG_RE, '').replace(/\s+$/, '');
+    const stripKeepTts = s => { const [body, tts] = cutTts(String(s ?? '')); return stripOurs(body) + tts; };
     const msgHash = m => fnv(stripOurs(m?.data));
     const tidy = s => String(s ?? '').replace(/\s+/g, ' ').trim().replace(/^,+|,+$/g, '').trim();
+    const lookOf = s => String(s ?? '').split(',').map(tidy).filter(t => t && !/^(?:[?？]+|\(?unknown\)?)$/i.test(t)).join(', ');
     const joinTags = (...parts) => parts.flat().map(tidy).filter(Boolean).join(', ');
     const TAG_JOIN = ' + ';
     const withTags = (...parts) => parts.flat().flatMap(s => String(s ?? '').split(',')).map(tidy).filter(Boolean).join(TAG_JOIN);
@@ -249,7 +253,7 @@
     };
     const varName = name => String(name ?? '').trim().replace(/\s+/g, '_').replace(/[:{}|$]/g, '') || 'x';
     function plainText(s, max) {
-        let t = stripOurs(s)
+        let t = stripOurs(dropBlocks(String(s ?? '')))
             .replace(/<(Thoughts|think|thinking)>[\s\S]*?<\/\1>/gi, '')
             .replace(/<style[\s\S]*?<\/style>/gi, '')
             .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -667,7 +671,7 @@
     }
     const identTags = (type, look, val, none = () => false) => {
         const v = WEAR_KEYS.map(k => !wearBrief ? val(k) : k === 'bangs' ? '' : OUTFIT_KEYS.includes(k) ? briefWear(val(k)) : val(k));
-        return [type, ...v.slice(0, BODY_AT), look, ...v.slice(BODY_AT), ...absentTags(val, none)];
+        return [type, ...v.slice(0, BODY_AT), lookOf(look), ...v.slice(BODY_AT), ...absentTags(val, none)];
     };
     const HAIR_TAG = /\b(?:hair|bangs|twintails|twin tails|ponytail|braids?|braided|hair bun|double bun|sidelocks|ahoge|bob cut|hime cut|drill hair|pigtails|updo|ringlets|afro|mohawk|undercut|bald|hairclip|hairband)\b/i;
     const NOT_HAIR = /\b(?:facial hair|body hair|pubic hair|chest hair|arm hair)\b/i;
@@ -1428,7 +1432,7 @@ ${TAG_STYLE}`;
     function castLine(e, state) {
         const alias = e.aliases?.length ? `; aliases: ${e.aliases.join(', ')}` : '';
         const now = WEAR_KEYS.map(k => `${k}: ${wearOf(e, state, k) || 'none'}`).join(' | ');
-        return `- ${e.key} (name: ${e.name}${alias})${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${e.look || '?'} | NOW ${now}`;
+        return `- ${e.key} (name: ${e.name}${alias})${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${lookOf(e.look) || '(unknown)'} | NOW ${now}`;
     }
     const castBrief = e => `- ${e.key} (name: ${e.name}${e.aliases?.length ? `; aliases: ${e.aliases.join(', ')}` : ''})`;
     const LATIN_RE = /^[\x20-\x7e]+$/;
@@ -1628,7 +1632,7 @@ ${TAG_STYLE}`;
             aliases: (Array.isArray(raw.aliases) ? raw.aliases : []).map(tidy).filter(Boolean).slice(0, 6),
             canon: isPersona ? '' : canonTag(raw.canon),
             type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
-            look: tidy(raw.look),
+            look: lookOf(raw.look),
             wear: Object.fromEntries(WEAR_KEYS.map(k => [k, tidy(raw[k])])),
             persona: isPersona,
             src: isPersona ? 'persona' : 'lore',
@@ -1696,7 +1700,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const sk = charKey(raw.same);
             const same = sk ? known.find(e => e.key === sk || e.keys?.includes(sk)) : null;
             if (same) { out.set(want, { same }); continue; }
-            if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
+            if (![lookOf(raw.look), raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
             out.set(want, castEntry(raw, tidy(raw.name) || want.label || want.key, persona, want.key || undefined));
         }
         loreAliases([...out.values()].filter(x => !x.same), entries);
@@ -1950,11 +1954,11 @@ Rules
             let e = findCast(cast, name);
             if (fresh.has(e?.key ?? charKey(name))) continue;
             if (!e) {
-                if (![raw.look, raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
+                if (![lookOf(raw.look), raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
                 e = normCast({
                     id: uid(), key: freshKey(cast.list, name), name: tidy(raw.label) || name, aliases: [], canon: canonTag(raw.canon),
                     type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
-                    look: tidy(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, isNone(slotVal(k, raw[k])) ? '' : slotVal(k, raw[k])])),
+                    look: lookOf(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, isNone(slotVal(k, raw[k])) ? '' : slotVal(k, raw[k])])),
                     src: 'chat', on: true,
                 });
                 cast.list.push(e);
@@ -3401,7 +3405,8 @@ ${t.user}` : null;
         return src.length;
     }
     function placeTags(text, items, keep) {
-        const src = keep ? String(text ?? '') : stripOurs(text);
+        const [raw, tts] = cutTts(String(text ?? ''));
+        const src = keep ? raw : stripOurs(raw);
         const blocked = blockedRanges(src), thoughts = thoughtRanges(src);
         const tail = tailStart(src);
         const spots = items.map((it, order) => {
@@ -3415,7 +3420,7 @@ ${t.user}` : null;
             out += src.slice(last, s.at) + '\n\n' + s.tag;
             last = s.at;
         }
-        return out + src.slice(last);
+        return out + src.slice(last) + tts;
     }
 
     const COMMIT_CHECKS = [250, 450, 700];
@@ -3445,7 +3450,7 @@ ${t.user}` : null;
             } else {
                 m.data = put
                     ? placeTags(m.data, out.map(o => ({ name: o.name, after: o.req?.after })))
-                    : stripOurs(m.data);
+                    : stripKeepTts(m.data);
             }
         };
         let spot = null;
@@ -3591,7 +3596,7 @@ ${t.user}` : null;
     }
     function stripProcess(text) {
         if (typeof text !== 'string') return text;
-        text = dropPlan(unwrapPortraits(text));
+        text = dropBlocks(unwrapPortraits(text));
         if (!text.includes('::nc_')) return text;
         return text.replace(TAG_RE, '');
     }
@@ -3600,11 +3605,11 @@ ${t.user}` : null;
             for (const m of messages ?? []) {
                 if (nsText(m).includes(COGEN_MARK)) continue;
                 if (typeof m?.content === 'string') {
-                    m.content = dropPlan(unwrapPortraits(m.content));
+                    m.content = dropBlocks(unwrapPortraits(m.content));
                     if (m.content.includes('::nc_')) m.content = m.content.replace(TAG_RE, '');
                 } else if (Array.isArray(m?.content)) {
                     for (const part of m.content) {
-                        if (typeof part?.text === 'string') part.text = dropPlan(unwrapPortraits(part.text));
+                        if (typeof part?.text === 'string') part.text = dropBlocks(unwrapPortraits(part.text));
                         if (typeof part?.text === 'string' && part.text.includes('::nc_')) part.text = part.text.replace(TAG_RE, '');
                     }
                 }
@@ -3616,33 +3621,48 @@ ${t.user}` : null;
     }
 
     const COGEN_MARK = 'nc-cogen';
-    const COGEN_HEAD = `[IMAGINE ART DIRECTION · ${COGEN_MARK}]
+    const BLOCK_NAME = { tts: '<nc-tts> ... </nc-tts>', plan: '<nc-plan> ... </nc-plan>' };
+    function cogenText(plan, tts) {
+        const order = [tts && BLOCK_NAME.tts, plan && BLOCK_NAME.plan].filter(Boolean).join(', then ');
+        return [`[IMAGINE · ${COGEN_MARK}]
 This turn has two parts.
 1. First write your roleplay reply exactly as you normally would, following every other instruction. Nothing below changes the reply's content, length, language or style.
-2. Then, at the very end of the reply, write one illustration plan for that reply inside a single <nc-plan> ... </nc-plan> block, following the director instructions below. Inside the block write only the JSON object those instructions describe (no code fence, no prose). Write nothing after </nc-plan>.
-In the director instructions, TARGET MESSAGE means the reply you are writing in this turn: copy every "after" quote and spoken line from your own reply, word for word. "Output ONE JSON object only" applies only to what goes inside the block. Never mention the block, the app or these instructions in the reply itself; the app hides the block from the reader.
---- DIRECTOR INSTRUCTIONS ---`;
-    const COGEN_TAIL = '--- END OF DIRECTOR INSTRUCTIONS (reply first as usual, then exactly one <nc-plan> block at the very end) ---';
+2. Then, at the very end of the reply, write ${order}, following the sections below. Inside each block write only the JSON object its section describes (no code fence, no prose). Write nothing after the last block.
+Never mention the blocks, the app or these instructions in the reply itself; the app hides the blocks from the reader.`,
+            tts,
+            plan && `--- ILLUSTRATION PLAN (the <nc-plan> block) ---
+In the director instructions below, TARGET MESSAGE means the reply you are writing in this turn: copy every "after" quote and spoken line from your own reply, word for word. "Output ONE JSON object only" applies only to what goes inside the block.
+
+${plan}
+--- END OF ILLUSTRATION PLAN ---`,
+            `--- END OF IMAGINE INSTRUCTIONS (reply first as usual, then ${order} at the very end) ---`].filter(Boolean).join('\n\n');
+    }
     const cogenSkip = why => { console.log(LOG, 'cogen skip', why); return null; };
     async function cogenInject(messages, model) {
-        if (!st.set.cogen || !Array.isArray(messages)) return;
+        if (!Array.isArray(messages)) return;
         if (model !== 'model' || nsSelf > 0) return;
+        const art = !!st.set.cogen && setupDone(), tts = !!voice?.ready?.();
+        if (st.set.cogen && !art) cogenSkip('setup not done');
+        if (!art && !tts) return;
         if (ns.armed || ns.got) return cogenSkip('nsfw import');
         if (talkOv) return cogenSkip('talk app open');
-        if (!setupDone()) return cogenSkip('setup not done');
         if (await retired()) return;
         if (messages.some(m => nsText(m).includes(COGEN_MARK))) return cogenSkip('already in request (retry)');
         if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return cogenSkip('no chat history in request');
-        const brief = await cogenBrief();
-        if (!brief) return;
+        const ctx = await cogenChat();
+        if (!ctx) return;
+        const plan = art ? await cogenBrief(ctx) : null;
+        let voiceCast = null;
+        if (tts) try { voiceCast = await voice.ttsBrief(ctx.char); } catch (error) { console.warn(LOG, 'cogen tts', error); }
+        if (!plan && !voiceCast) return;
+        const brief = cogenText(plan, voiceCast);
         let at = messages.length;
         while (at > 0 && messages[at - 1]?.role === 'assistant') at--;
         messages.splice(at, 0, { role: 'system', content: brief });
-        cogenLive = Date.now();
-        console.log(LOG, 'cogen', `${brief.length}자`);
+        if (plan) cogenLive = Date.now();
+        console.log(LOG, 'cogen', `${brief.length}자`, plan ? 'plan' : '', voiceCast ? 'tts' : '');
     }
-    async function cogenBrief() {
-        if (!(await naiKey())) return cogenSkip('no NAI key');
+    async function cogenChat() {
         const ci = await api.getCurrentCharacterIndex(), chi = await api.getCurrentChatIndex();
         if (!Number.isInteger(ci) || !Number.isInteger(chi) || ci < 0 || chi < 0) return cogenSkip('no open chat');
         const char = await api.getCharacterFromIndex(ci);
@@ -3652,6 +3672,10 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
         const msgs = [...(chat.message ?? [])];
         while (msgs.length && msgs[msgs.length - 1]?.role === 'char' && !tidy(plainText(msgs[msgs.length - 1].data))) msgs.pop();
         if (msgs[msgs.length - 1]?.role !== 'user') return cogenSkip('last message is not user (continue / empty send)');
+        return { chi, char, chat, msgs };
+    }
+    async function cogenBrief({ chi, char, chat, msgs }) {
+        if (!(await naiKey())) return cogenSkip('no NAI key');
         const cast = await loadCast(char.chaId);
         if (!cast.list.length && !cast.tried) return cogenSkip('cast not analyzed yet');
         const nk = cast.list.filter(needKey);
@@ -3667,7 +3691,7 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
         const sc = sceneCast(cast.list, '');
         const sys = comicSystem(emphasize, false, false, !!prev, rollCount(), true);
         const user = comicUser(char, fake, idx, cast, state, st.persona?.name, input, emphasize, null, prev, sc);
-        return [COGEN_HEAD, '', sys, '', user, '', COGEN_TAIL].join('\n');
+        return [sys, '', user].join('\n');
     }
 
     const NS_RAILS = {
@@ -5594,11 +5618,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 .ix .rl .vz-st.lock small{color:#b3bfd0}
 .ix .rl .vz-st.on:not(.cur) i{box-shadow:0 0 0 5px rgba(43,149,240,.22)}
 .ix .rl .vz-st.on b{color:var(--sky)}
-.ix .rl .vz-ft{display:flex;align-items:center;gap:12px;margin-top:22px}
-.ix .rl .vz-note{flex:1 1 auto;margin:0;font-size:12.5px;color:var(--mut)}
-.ix .rl .vz-back{height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
+.ix .rl .vz-ft{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:12px;margin-top:22px}
+.ix .rl .vz-note{flex:1 1 9em;margin:0;font-size:12.5px;color:var(--mut)}
+.ix .rl .vz-back{flex:none;white-space:nowrap;height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
 .ix .rl .vz-back:disabled{opacity:.45;cursor:not-allowed}
-.ix .rl .vz-cta{height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
+.ix .rl .vz-cta{flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
 .ix .rl .vz-cta:hover:not(:disabled){transform:translateY(-2px)}
 .ix .rl .vz-cta:disabled{opacity:.45;cursor:not-allowed}
 .ix .rl .in-lead{margin:10px 0 20px;font-size:15px;line-height:1.7;color:var(--ink2)}
@@ -8721,8 +8745,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (typeof content !== 'string') return null;
         if (await retired()) return content;
         const orig = content;
-        content = dropPlan(content);
-        if (st.set.cogen) content = content.replace(PLAN_BIT_RE, '');
+        content = dropBlocks(content).replace(BIT_RE, '');
         const gen = uniHtml();
         const hasFig = content.includes('nc-fig'), hasPt = content.includes('nc-pt');
         const needId = (st.set.assetOff.length > 0 && /risu-inlay-image|<img src="|<video /.test(content)) || (st.set.ptOff.length > 0 && hasPt);
@@ -9826,6 +9849,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
   /* 휴대폰 폭에서는 Anlas 칸의 「Anlas」·「할당량」 글을 숨기고 숫자만 남긴다 (× 가 띠 밖으로 밀려났다) */
   .ix .ix-band .an-c{gap:5px;padding:0 8px;font-size:0}
   .ix .ix-band .an-c b,.ix .ix-band .an-c .lnk{font-size:12px}
+  /* 5.53.2: 「애드 에셋」 이름이 길어 × 가 띠 밖으로 밀렸다. 이 폭에서는 아이콘만 남긴다 */
+  .ix .ix-band.m-asset .ix-pg{gap:0;padding:0 9px;font-size:0}
 }
 .as-g{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
 .as-t{position:relative;display:grid;min-width:0;background:#fff;border:1px solid var(--line2)}
@@ -12102,7 +12127,7 @@ Rules:
         ['gemini-3.8-flash-tts', '3.8 Flash'],
         ['gemini-3.8-flash-lite-tts', '3.8 Flash Lite'],
     ];
-    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', split: 'submodel', pick: 'model', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'model', talkSync: true, setup: 0, talkSetup: 0,
+    const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', regen: 'submodel', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'model', talkSync: true, setup: 0, talkSetup: 0,
         talkKind: 'illust', talkSize: 'wide3', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai',
         talkBubbles: true, ttsHead: '' };
     const OLD_MODEL = 'gemini-2.5-flash-tts';
@@ -12183,6 +12208,13 @@ Rules:
             const t6 = Number(st.set.talkSetup) || 0;
             st.set.talkSetup = t6 >= 4 ? t6 - 1 : t6 === 3 ? 2 : t6;
             st.set.t541 = true;
+            void saveSet();
+        }
+        if (!st.set.t553) {
+            if ('split' in st.set) st.set.regen = st.set.split === 'model' ? 'model' : 'submodel';
+            delete st.set.split;
+            delete st.set.pick;
+            st.set.t553 = true;
             void saveSet();
         }
     }
@@ -12501,7 +12533,7 @@ Rules:
         return s.replace(new RegExp(`<(?:${THINK_TAG})\\b[^>]*>[\\s\\S]*$`, 'i'), '').trim();
     }
     function plain(text) {
-        let s = noThink(text);
+        let s = noThink(host.dropBlocks ? host.dropBlocks(String(text ?? '')) : text);
         s = s.replace(/```[\s\S]*?```/g, ' ').replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ');
         s = s.replace(/\{\{[\s\S]*?\}\}/g, '');
         s = s.replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d|tr)>/gi, '\n').replace(/<[^>]*>/g, '');
@@ -12524,19 +12556,36 @@ Rules:
         return { parts, count: n };
     }
 
+    const SPEAKER_RULES = `- speaker is the character who says (or thinks) the quote, written as the story names them. Use the same name every time for the same person. If the person is in KNOWN SPEAKERS (by name or by an "also called" name), use that exact main name.
+- If a quote is not spoken by anyone (a quoted word, a title, a sign, a sound effect, emphasis), use "narrator".
+- gender is "female", "male", or "unknown".
+- styles: for every speaker in your answer who is NOT listed in KNOWN SPEAKERS as "has voice", write a voice direction for a voice actor.
+  Write it in Korean, 2-3 sentences, under 200 characters. Be concrete about: apparent age, pitch and timbre, speaking pace, baseline emotion and attitude, and speech habits (polite or casual, sharp, drawling, hesitant, etc.).
+  Base it on the character's personality and role shown in the story and the character notes, not on this single scene's mood. Do not quote lines or name other characters.
+  Example: "20대 초반 여성. 맑고 약간 높은 음색에 말이 빠르다. 밝고 장난스럽지만 말끝을 살짝 끄는 버릇이 있다."
+  Leave out "narrator" and speakers marked "has voice".`;
     const LABEL_SYSTEM = `You label who speaks each numbered quote in a roleplay reply, for a text-to-speech reader.
 Each quote in TEXT is preceded by a tag like [Q3]. Reply with JSON only, no prose:
 {"quotes":[{"n":1,"speaker":"Name","gender":"female"}],"styles":{"Name":"voice direction"}}
 Rules:
 - One entry per quote number, every number included.
-- speaker is the character who says (or thinks) the quote, written as the story names them. Use the same name every time for the same person. If the person is in KNOWN SPEAKERS (by name or by an "also called" name), use that exact main name.
-- If a quote is not spoken by anyone (a quoted word, a title, a sign, a sound effect, emphasis), use "narrator".
-- gender is "female", "male", or "unknown".
-- styles: for every speaker in your answer who is NOT listed in KNOWN SPEAKERS as "has voice", write a voice direction for a voice actor.
-  Write it in Korean, 2-3 sentences, under 200 characters. Be concrete about: apparent age, pitch and timbre, speaking pace, baseline emotion and attitude, and speech habits (polite or casual, sharp, drawling, hesitant, etc.).
-  Base it on the character's personality and role shown in TEXT and CHARACTER NOTES, not on this single scene's mood. Do not quote lines or name other characters.
-  Example: "20대 초반 여성. 맑고 약간 높은 음색에 말이 빠르다. 밝고 장난스럽지만 말끝을 살짝 끄는 버릇이 있다."
-  Leave out "narrator" and speakers marked "has voice".`;
+${SPEAKER_RULES}`;
+    async function ttsBrief(char) {
+        if (!char?.chaId) return null;
+        const bot = await botOf(char.chaId);
+        return `--- VOICE CAST (the <nc-tts> block) ---
+Label who speaks each quoted line of the reply you are writing, for a text-to-speech reader.
+Inside <nc-tts> ... </nc-tts> write only this JSON (no code fence, no prose):
+{"quotes":[{"q":"first words of the quote","speaker":"Name","gender":"female"}],"styles":{"Name":"voice direction"}}
+Rules:
+- A quote is any text inside “ ”, " ", 「 」, 『 』 or ‘ ’ in your reply. Write one entry per quote, in the order they appear, none skipped. If the reply has no quotes, write {"quotes":[]}.
+- q is the first 10 or so characters inside the quote marks, copied exactly from your reply.
+${SPEAKER_RULES}
+
+MAIN CHARACTER (the bot): ${char.name ?? ''}
+KNOWN SPEAKERS: ${knownOf(bot)}
+--- END OF VOICE CAST ---`;
+    }
     function parseLabels(s) {
         const out = new Map();
         const styles = new Map();
@@ -12552,13 +12601,37 @@ Rules:
         }
         if (!Array.isArray(list)) {
             list = [];
-            for (const m of s.matchAll(/"n"\s*:\s*(\d+)[^{}]*?"speaker"\s*:\s*"([^"]*)"(?:[^{}]*?"gender"\s*:\s*"(\w+)")?/g)) list.push({ n: +m[1], speaker: m[2], gender: m[3] });
+            for (const m of s.matchAll(/\{[^{}]*"speaker"[^{}]*\}/g)) try { list.push(JSON.parse(m[0])); } catch {}
         }
+        const items = [];
+        for (const [i, x] of list.entries()) {
+            const n = x?.n == null ? i + 1 : Number(x.n), name = String(x?.speaker ?? '').replace(/["“”「」『』]/g, '').trim();
+            if (!Number.isInteger(n) || !name) continue;
+            const lab = { speaker: /^narrator$|^내레이션$|^나레이션$/i.test(name) ? NARR : name.slice(0, 40), gender: /^(fe)?male$/i.test(x?.gender) ? x.gender.toLowerCase() : 'unknown', q: String(x?.q ?? '') };
+            out.set(n, lab);
+            items.push(lab);
+        }
+        return { labels: out, styles, list: items };
+    }
+    function ttsOf(data) {
+        const m = [...String(data ?? '').matchAll(/<nc-tts>([\s\S]*?)(?:<\/nc-tts>|$)/gi)].pop();
+        return m ? parseLabels(m[1]) : null;
+    }
+    const normQ = s => String(s ?? '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+    function alignLabels(parts, list) {
+        const quotes = parts.filter(p => p.q).map(p => ({ n: p.q, key: normQ(p.text) }));
+        const out = new Map();
+        let at = 0;
         for (const x of list) {
-            const n = Number(x?.n), name = String(x?.speaker ?? '').replace(/["“”「」『』]/g, '').trim();
-            if (Number.isInteger(n) && name) out.set(n, { speaker: /^narrator$|^내레이션$|^나레이션$/i.test(name) ? NARR : name.slice(0, 40), gender: /^(fe)?male$/i.test(x?.gender) ? x.gender.toLowerCase() : 'unknown' });
+            if (at >= quotes.length) break;
+            const k = normQ(x.q).slice(0, 8);
+            let i = at;
+            if (k) while (i < quotes.length && !quotes[i].key.startsWith(k) && !(quotes[i].key && k.startsWith(quotes[i].key))) i++;
+            if (i >= quotes.length) continue;
+            out.set(quotes[i].n, x);
+            at = i + 1;
         }
-        return { labels: out, styles };
+        return out;
     }
     async function readStream(stream) {
         const reader = stream.getReader();
@@ -12571,7 +12644,9 @@ Rules:
         }
         return last;
     }
-    function askModel(messages, mode = st.set.split === 'model' ? 'model' : 'submodel') {
+    const castMode = () => st.set.castLlm === 'submodel' ? 'submodel' : 'model';
+    const regenMode = () => st.set.regen === 'model' ? 'model' : 'submodel';
+    function askModel(messages, mode = castMode()) {
         return timed((async () => {
             const res = await selfLLM({ mode, messages, allowPlugins: true });
             if (!res || res.type === 'fail') throw new Error(String(res?.result || '모델 요청이 실패했습니다.'));
@@ -12611,7 +12686,7 @@ Rules:
 - Match apparent age, personality and role from the brief and CHARACTER NOTES.
 - Candidates are listed with detailed library voices (ids like ko-kr-...) first. Prefer a library voice whose age and role fit; use a short-described base voice only when no library voice fits.
 - Never give the same id to two characters.`;
-    async function askVoices(fresh, styles, bot, botName, botNote, job) {
+    async function askVoices(fresh, styles, bot, botName, botNote, job, mode) {
         if (!await loadLib() && !lib.tried && !lib.busy) {
             lib.tried = true;
             job.note = '목소리 목록 받는 중';
@@ -12627,7 +12702,7 @@ Rules:
         const out = await askModel([
             { role: 'system', content: PICK_SYSTEM },
             { role: 'user', content: `MAIN CHARACTER (the bot): ${botName}\nCHARACTER NOTES:\n${botNote || '(none)'}\n\nNEW CHARACTERS:\n${who}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n')}` },
-        ]);
+        ], mode);
         const a = out.indexOf('{'), b = out.lastIndexOf('}');
         let j = null;
         if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
@@ -12647,23 +12722,28 @@ Rules:
     async function segmentsOf(text, bot, botName, job) {
         const { parts, count } = splitQuotes(text);
         let labels = new Map(), styles = new Map();
-        if (count && st.set.split !== 'off') {
+        if (count && job.re) {
             job.note = '화자 나누는 중';
             paintSoon(true);
-            try { ({ labels, styles } = await askLabels(parts, count, bot, botName, job.botNote)); } catch (error) { console.warn(LOG, 'label', error); }
-            for (const x of labels.values()) x.speaker = canonName(bot, x.speaker);
-            for (const [n, text] of [...styles]) {
-                const c = canonName(bot, n);
-                if (c === n) continue;
-                styles.delete(n);
-                if (!styles.has(c)) styles.set(c, text);
-            }
+            try { ({ labels, styles } = await askLabels(parts, count, bot, botName, job.botNote, regenMode())); } catch (error) { console.warn(LOG, 'label', error); }
+        } else if (count) {
+            const got = ttsOf(job.msg?.data);
+            if (got) { labels = alignLabels(parts, got.list); styles = got.styles; }
+        }
+        for (const x of labels.values()) x.speaker = canonName(bot, x.speaker);
+        for (const [n, text] of [...styles]) {
+            const c = canonName(bot, n);
+            if (c === n) continue;
+            styles.delete(n);
+            if (!styles.has(c)) styles.set(c, text);
+        }
+        if (job.re) {
             const fresh = new Map();
             for (const x of labels.values()) if (x.speaker !== NARR && !bot.voices[x.speaker]?.voice && fresh.get(x.speaker) !== 'female' && fresh.get(x.speaker) !== 'male') fresh.set(x.speaker, x.gender);
-            if (fresh.size && st.set.pick !== 'hash') {
+            if (fresh.size) {
                 job.note = '목소리 고르는 중';
                 paintSoon(true);
-                try { await askVoices(fresh, styles, bot, botName, job.botNote, job); } catch (error) { console.warn(LOG, 'pick', error); }
+                try { await askVoices(fresh, styles, bot, botName, job.botNote, job, regenMode()); } catch (error) { console.warn(LOG, 'pick', error); }
             }
         }
         const segs = [];
@@ -12671,7 +12751,7 @@ Rules:
             const who = !p.q ? { speaker: NARR, gender: 'unknown' } : labels.get(p.q) ?? { speaker: botName || '캐릭터', gender: 'unknown' };
             const prev = segs[segs.length - 1];
             if (prev && prev.speaker === who.speaker) prev.text += p.text;
-            else segs.push({ ...who, style: styles.get(who.speaker) ?? '', text: p.text });
+            else segs.push({ speaker: who.speaker, gender: who.gender, style: styles.get(who.speaker) ?? '', text: p.text });
         }
         const talkOnly = st.set.read !== 'all';
         return segs.map(s => ({ ...s, text: s.text.trim() })).filter(s => spoken(s.text) && !(talkOnly && s.speaker === NARR));
@@ -13004,7 +13084,7 @@ Rules:
                     { role: 'system', content: CAST_SYSTEM() },
                     { role: 'user', content: `MAIN CHARACTER (the bot): ${w.char.name ?? ''}\nUSER NAME (the player, leave out): ${user || '(unknown)'}\n\nKNOWN SPEAKERS: ${knownOf(bot)}\n\nCANDIDATES (id | gender | description):\n${pool.map(v => `${v.id} | ${v.gender} | ${v.desc}`).join('\n') || '(none)'}\n\nSTORY:\n${story}`
                         + (round ? `\n\nALREADY LISTED (your previous answer was cut off; do not repeat these people or their voices. List only the people still missing, or {"cast":[]} when none are left): ${list.map(c => c.name + (c.voice ? ` (voice ${c.voice})` : '')).join(', ')}` : '') },
-                ], st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
+                ], castMode()));
                 if (run.stop) throw stopError();
                 const got = parseCast(out, user);
                 const seen = new Set(have.map(n => n.toLowerCase()));
@@ -13025,7 +13105,7 @@ Rules:
             const p = await guard(personaOf());
             personaFail.delete(chaId + '|' + p.sig);
             if (bot.personaNo) delete bot.personaNo[p.name];
-            await guard(ensurePersona(chaId, bot, p, st.set.castLlm === 'submodel' ? 'submodel' : 'model'));
+            await guard(ensurePersona(chaId, bot, p, castMode()));
             if (!st.set.talkSync) {  }
             else if (job) void castMainLines(w, bot, user, entries, q => q, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
             else try { step(4); await castMainLines(w, bot, user, entries, guard, (i, n) => { run.part = [i, n]; onStage(4); }, () => run.stop); } catch (error) { if (run.stop) throw error; console.warn(LOG, 'main lines', error); }
@@ -13247,7 +13327,7 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
         setTimeout(render, 0);
         let ok = false;
         try {
-            const out = await askModel([{ role: 'system', content: FACE_SYSTEM }, { role: 'user', content: user }], st.set.castLlm === 'submodel' ? 'submodel' : 'model');
+            const out = await askModel([{ role: 'system', content: FACE_SYSTEM }, { role: 'user', content: user }], castMode());
             let j = null;
             const a = out.indexOf('{'), b = out.lastIndexOf('}');
             if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
@@ -13547,7 +13627,7 @@ ${art}
             const c = chunks[i];
             onPart(i, chunks.length);
             let got = null;
-            try { got = await guard(askLabels(c.parts, c.count, bot, char.name ?? '', '', st.set.castLlm === 'submodel' ? 'submodel' : 'model')); }
+            try { got = await guard(askLabels(c.parts, c.count, bot, char.name ?? '', '', castMode())); }
             catch (error) { if (stopped()) throw error; console.warn(LOG, 'main lines', error); continue; }
             const text = new Map(c.parts.filter(p => p.q).map(p => [p.q, p.text]));
             for (const [n, x] of got.labels) {
@@ -13795,7 +13875,7 @@ ${art}
     async function makeAudio(job) {
         await accessToken();
         const bot = await botOf(job.chaId);
-        if (st.set.castAuto && !bot.castAt && st.set.split !== 'off' && st.set.pick !== 'hash' && !castTried.has(job.chaId) && !cast) {
+        if (st.set.castAuto && !bot.castAt && !castTried.has(job.chaId) && !cast) {
             castTried.add(job.chaId);
             try {
                 const char = await api.getCharacterFromIndex(job.ci);
@@ -13806,7 +13886,7 @@ ${art}
             }
             if (job.stop) throw stopError();
         }
-        if (st.set.castAuto && st.set.split !== 'off') {
+        if (st.set.castAuto) {
             const p = await personaOf();
             if (p.sig && bot.voices[canonName(bot, p.name)]?.persona !== p.sig) {
                 job.note = '페르소나 분석 중';
@@ -14116,7 +14196,7 @@ ${art}
         failed.delete(k);
         await rootQueue(() => showSlot(idx, ''));
         const botNote = plain(w.char?.desc ?? '').slice(0, 1500);
-        enqueue({ ci: w.ci, chi: w.chi, idx, k, chaId, msg, botName: w.char?.name ?? '', botNote, stop: false, total: 0, done: 0, note: '' });
+        enqueue({ ci: w.ci, chi: w.chi, idx, k, chaId, msg, re: !!re, botName: w.char?.name ?? '', botNote, stop: false, total: 0, done: 0, note: '' });
     }
 
     let listenOn = false;
@@ -14243,7 +14323,7 @@ ${art}
 .vf-card{background:var(--card);border:1px solid var(--line)}
 .vf-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:13px 14px;border-top:1px solid var(--line)}
 .vf-row:first-child{border-top:0}
-.vf-row.col{flex-direction:column;align-items:stretch}
+.vf-row.col{flex-direction:column;flex-wrap:nowrap;align-items:stretch}
 .vf-tx{display:block;flex:1 1 250px;min-width:0}
 .vf-row.col .vf-tx{flex:none}
 .vf-tx>b{display:block;font-size:.9rem;line-height:1.4}
@@ -14718,7 +14798,7 @@ ${art}
         talkMainSoon(v);
         if (Date.now() - (talkPersonaAt.get(v.chaId) ?? 0) < 30000) return;
         talkPersonaAt.set(v.chaId, Date.now());
-        personaOf().then(p => (!p.sig || v.bot.voices[canonName(v.bot, p.name)]?.persona === p.sig) ? false : ensurePersona(v.chaId, v.bot, p, st.set.castLlm === 'submodel' ? 'submodel' : 'model'))
+        personaOf().then(p => (!p.sig || v.bot.voices[canonName(v.bot, p.name)]?.persona === p.sig) ? false : ensurePersona(v.chaId, v.bot, p, castMode()))
             .then(ok => { if (ok) talkPaint(); }).catch(error => console.warn(LOG, 'talk persona', error));
     }
     function talkMainSoon(v) {
@@ -14870,12 +14950,6 @@ ${art}
                 sRow('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 모델은 글을 보고 읽을 언어를 알아서 정합니다. 이 값으로는 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, en으로 시작하면 영어, 그 밖에는 한국어)도 이 값으로 정합니다.',
                     seg([['ko-KR', '한국어'], ['ja-JP', '일본어'], ['en-US', '영어']], st.set.lang, id => set('lang', id), 'sm'),
                     h('input', { class: 'vf-num', style: 'width:110px;text-align:left', value: st.set.lang, onchange: e => set('lang', e.target.value.trim() || 'ko-KR') })),
-                sRow('새 인물 목소리', (st.set.split === 'off'
-                        ? '화자를 나누지 않으면 새 인물이 생기지 않아 쓰이지 않습니다.'
-                        : st.set.pick === 'hash'
-                            ? '처음 나온 인물에게 성별이 맞는 기본 목소리를 이름에 따라 정해 줍니다. 모델에게 따로 묻지 않습니다.'
-                            : '처음 나온 인물이 있으면 화자를 나눈 모델에게 한 번 더 물어, 나이 · 성격에 맞는 목소리를 고르게 합니다. 확장 라이브러리 목소리를 먼저 보고, 맞는 것이 없으면 기본 30개에서 고릅니다. 목록을 아직 받지 않았으면 처음 한 번 받아 옵니다. 이미 정한 목소리는 바꾸지 않습니다.'),
-                    seg([['model', '모델이 고름 (기본)'], ['hash', '이름으로 정함']], st.set.pick, id => set('pick', id))),
                 sRow('요청 사이 쉼', '답변이 길거나 목소리가 셋 이상이라 요청이 나뉠 때, 그 사이에 넣는 쉼입니다. 0~2000ms',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 50, value: st.set.gap, onchange: e => set('gap', Math.max(0, Math.min(2000, Number(e.target.value) || 0))) }), 'ms')),
                 sRow('보관 개수', `지금 ${cacheList.length}개 · ${used.toFixed(1)}MB를 보관하고 있습니다. 넘치면 오래된 것부터 지웁니다.`,
@@ -14915,9 +14989,7 @@ ${art}
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); };
         return sRow('자동 등장인물 분석 (TTS · 대화)', (!st.set.castAuto
                 ? '자동으로 분석하지 않습니다. 등장인물 탭의 「📖 등장인물 분석」 버튼을 누를 때만 목소리를 분석합니다.'
-                : st.set.split === 'off' || st.set.pick === 'hash'
-                    ? '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때 목소리 분석을 한 번 합니다. 화자를 나누지 않거나 새 인물 목소리를 이름으로 정해서, 읽기 전에는 분석하지 않습니다.'
-                    : '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때나 그 봇의 답변을 처음 읽을 때 목소리 분석을 한 번 합니다. 메인 모델 요청이 한 번 늘고, 읽기라면 소리가 조금 늦게 나옵니다.'),
+                : '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때나 그 봇의 답변을 처음 읽을 때 목소리 분석을 한 번 합니다. 메인 모델 요청이 한 번 늘고, 읽기라면 소리가 조금 늦게 나옵니다.'),
             seg([['on', 'on (기본)'], ['off', 'off']], st.set.castAuto ? 'on' : 'off', id => set('castAuto', id === 'on')));
     }
     function voiceRow(name) {
@@ -14967,8 +15039,8 @@ ${art}
         return [
             h('p', { class: 'gt-hint', style: 'margin:0 2px 10px' }, (v.bot.castAt
                 ? `목소리는 ${new Date(v.bot.castAt).toLocaleString()}에 분석했습니다. 로어북을 고쳤으면 다시 누르세요. `
-                : '목소리 분석은 봇 설명 · 첫 메시지 · 로어북을 메인 모델에게 읽혀, 나올 인물의 목소리 · 성별 · 지시문 · 별명을 미리 정합니다. ')
-                + '화자 나누기 설정과 상관없이 늘 메인 모델로 하며, 이미 정한 목소리와 직접 쓴 지시문은 바꾸지 않습니다.'),
+                : '목소리 분석은 봇 설명 · 첫 메시지 · 로어북을 등장인물 분석 모델에게 읽혀, 나올 인물의 목소리 · 성별 · 지시문 · 별명을 미리 정합니다. ')
+                + '이미 정한 목소리와 직접 쓴 지시문은 바꾸지 않습니다.'),
             cast?.chaId === v.chaId ? castLoad(cast) : null,
             msgBox(),
         ];
@@ -15407,7 +15479,7 @@ ${art}
         host.loadThumbs();
     }
     function talkArtOpts(v, name, log, kind, size) {
-        return { ci: v.ci, chaId: v.chaId, tk: v.tk, name, log, kind, size, preset: st.set.talkPreset, llm: st.set.castLlm === 'submodel' ? 'submodel' : 'model', talkLlm: st.set.talkModel === 'model' ? 'model' : 'submodel', bubbles: st.set.talkBubbles !== false };
+        return { ci: v.ci, chaId: v.chaId, tk: v.tk, name, log, kind, size, preset: st.set.talkPreset, llm: castMode(), talkLlm: st.set.talkModel === 'model' ? 'model' : 'submodel', bubbles: st.set.talkBubbles !== false };
     }
     async function talkArt(v, name, entry, mode, quiet) {
         const T = ui.talk;
@@ -15518,7 +15590,7 @@ Rules:
             const out = await askModel([
                 { role: 'system', content: RECAST_SYSTEM },
                 { role: 'user', content: `CHARACTER: ${name} (${rec.gender ?? 'unknown'})${rec.aliases?.length ? '\nALSO CALLED: ' + rec.aliases.join(' / ') : ''}\nBRIEF: ${String(rec.style ?? '').trim() || '(no brief)'}\n\nSAMPLE LINES:\n${lines || '(none)'}\n\nEXCLUDED (do not choose):\n${past.map(id => `${id} | ${voiceLabel(id)}`).join('\n')}\n\nCANDIDATES (id | gender | description):\n${pool.map(x => `${x.id} | ${x.gender} | ${x.desc}`).join('\n')}` },
-            ], st.set.castLlm === 'submodel' ? 'submodel' : 'model');
+            ], castMode());
             const a = out.indexOf('{'), b = out.lastIndexOf('}');
             let j = null;
             if (a >= 0 && b > a) try { j = JSON.parse(out.slice(a, b + 1)); } catch {}
@@ -16209,7 +16281,7 @@ Rules:
         return el;
     }
 
-    const SETUP = [['TTS 소개', 'TTS란?'], ['키 넣기', '구글 서비스 계정 키'], ['모델 고르기', '분석 모델 · TTS 모델'], ['읽기 방식', '읽을 범위 · 화자 나누기']];
+    const SETUP = [['TTS 소개', 'TTS란?'], ['키 넣기', '구글 서비스 계정 키'], ['모델 고르기', '분석 모델 · TTS 모델'], ['읽기 방식', '읽을 범위 · 재생성 모델']];
     const MODEL_DESC = {
         'gemini-3.8-flash-tts': ['가장 새 모델입니다. 라이브러리 목소리를 함께 씁니다.', true],
         'gemini-3.8-flash-lite-tts': ['3.8 의 가벼운 모델입니다.'],
@@ -16221,7 +16293,7 @@ Rules:
             h('span', { class: 'vz-mt' }, h('b', null, title), h('span', { class: 'vz-dd' }, desc)),
             rec ? h('span', { class: 'vz-rec' }, '추천') : null);
     }
-    const vzSub = (title, desc, first) => h('div', { class: 'vf-tx', style: `margin:${first ? '4px' : '22px'} 0 10px` }, h('b', null, title), desc ? h('p', null, desc) : null);
+    const vzSub = (title, desc, first) => h('div', { class: 'vf-tx', style: `margin:${first ? '4px' : '22px'} 0 10px;flex:none` }, h('b', null, title), desc ? h('p', null, desc) : null);
     const setupOf = () => Math.max(0, Math.min(SETUP.length, Number(st.set.setup) || 0));
     function setupNext(n) {
         if (setupOf() < n + 1) { st.set.setup = n + 1; void saveSet(); }
@@ -16252,11 +16324,10 @@ Rules:
             h('div', { class: 'vz-cards' },
                 wizCard('talk', '대사만', '따옴표 안의 대사만 인물 목소리로 읽습니다. 내레이션은 누가 말했는지 정할 때만 참고합니다.', st.set.read, val => set('read', val), true),
                 wizCard('all', '내레이션까지', '따옴표 밖의 내레이션도 내레이션 목소리로 읽습니다.', st.set.read, val => set('read', val))),
-            vzSub('화자 나누기', '대사마다 누가 말했는지 정하는 방법을 고릅니다.'),
+            vzSub('재생성 모델', '대사마다 누가 말했는지는 메인 모델이 답변을 쓸 때 함께 적습니다. 여기서는 ↻ 다시 만들기를 누를 때 화자를 다시 나눌 모델을 고릅니다.'),
             h('div', { class: 'vz-cards' },
-                wizCard('submodel', '보조 모델', '보조 모델이 대사마다 누가 말했는지 정하고, 처음 나온 인물의 목소리 지시문도 씁니다. 메인 모델보다 싸고 빠릅니다.', st.set.split, val => set('split', val), true),
-                wizCard('model', '메인 모델', '메인 모델이 화자와 인물 지시문을 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.split, val => set('split', val)),
-                wizCard('off', '나누지 않음', '대사를 모두 봇 목소리로 읽습니다. 인물 지시문도 자동으로 쓰지 않습니다.', st.set.split, val => set('split', val)))];
+                wizCard('submodel', '보조 모델', '화자와 처음 나온 인물의 목소리를 보조 모델이 다시 정합니다. 메인 모델보다 싸고 빠릅니다.', st.set.regen, val => set('regen', val), true),
+                wizCard('model', '메인 모델', '메인 모델이 다시 정합니다. 보조 모델이 자주 틀릴 때 고릅니다.', st.set.regen, val => set('regen', val)))];
         return [];
     }
     function readyCard() {
@@ -16264,7 +16335,6 @@ Rules:
         const ok = h('span', { class: 'fn-ok' + (fresh ? '' : ' still'), 'aria-hidden': 'true' });
         ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
         const li = (tx, small) => h('li', null, h('span', null, tx, small ? h('small', null, small) : null));
-        const split = { submodel: '보조 모델이 대사마다 화자를 나눕니다', model: '메인 모델이 대사마다 화자를 나눕니다', off: '화자를 나누지 않고 모두 봇 목소리로 읽습니다' };
         return h('div', { class: 'fn-card' + (fresh ? ' fn-rise' : ''), style: fresh ? `--fe:${el}ms` : null },
             h('div', { class: 'fn-top' }, ok,
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
@@ -16273,7 +16343,7 @@ Rules:
                 li(st.set.castLlm === 'submodel' ? '등장인물은 보조 모델이 분석합니다' : '등장인물은 메인 모델이 분석합니다'),
                 li(`${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} 모델로 목소리를 만듭니다`),
                 li(st.set.read === 'all' ? '대사와 내레이션을 모두 읽습니다' : '따옴표 안의 대사만 읽습니다', st.set.read === 'all' ? '내레이션은 내레이션 목소리로' : '내레이션은 화자를 정할 때만 참고'),
-                li(split[st.set.split] ?? split.submodel)),
+                li('화자는 메인 모델이 답변과 함께 정합니다', `↻ 다시 만들기는 ${st.set.regen === 'model' ? '메인' : '보조'} 모델이 다시 나눕니다`)),
             h('div', { class: 'cf-row sw' },
                 h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 읽기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 바로 읽어 줍니다. 처음 켤 때 리수가 권한을 묻습니다.')),
                 host.toggle(st.set.auto, () => { st.set.auto = !st.set.auto; void saveSet(); void syncListen(); render(); paintSoon(true); })),
@@ -16539,10 +16609,10 @@ Rules:
 .gt .in-card p{margin:0;font-size:12.5px;line-height:1.55;color:var(--mut)}
 .gt .in-arr{display:grid;place-items:center;color:#a9b8cc;font-size:20px;font-weight:900}
 @media (max-width:860px){.gt .in-flow{grid-template-columns:1fr}.gt .in-arr{transform:rotate(90deg);height:26px}}
-.gt .vz-ft{display:flex;align-items:center;gap:12px;margin-top:22px}
-.gt .vz-note{flex:1 1 auto;margin:0;font-size:12.5px;color:var(--mut)}
-.gt .vz-back{height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
-.gt .vz-cta{height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
+.gt .vz-ft{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:12px;margin-top:22px}
+.gt .vz-note{flex:1 1 9em;margin:0;font-size:12.5px;color:var(--mut)}
+.gt .vz-back{flex:none;white-space:nowrap;height:52px;padding:0 20px;font-weight:800;color:var(--ink2);background:#fff;border:1.5px solid var(--ln);border-radius:12px}
+.gt .vz-cta{flex:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;height:52px;padding:0 26px;font-size:15px;font-weight:900;color:#fff;background:var(--co);border:0;border-radius:12px;box-shadow:0 8px 18px -10px rgba(255,107,94,.8);transition:transform .15s,opacity .15s}
 .gt .vz-cta:hover:not(:disabled){transform:translateY(-2px)}
 .gt .vz-cta:disabled{opacity:.45;cursor:not-allowed}
 .gt .vz-key{margin:0 0 16px;background:var(--skl);border-radius:12px;overflow:hidden}
@@ -16861,18 +16931,19 @@ Rules:
     return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), talkCount: () => Object.values(ui.view?.talk ?? {}).reduce((n, log) => n + log.filter(m => m.r === 'c').length, 0), ready: () => keyKnown === true && setupOf() >= SETUP.length,
         lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false,
         talkReady, talkLit: () => talkReady(), talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
-        castLlm: () => st.set.castLlm === 'submodel' ? 'submodel' : 'model', castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
+        castLlm: castMode, castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
         castProgress, castFoot, castMsg: msgBox, syncView, voiceMatch, voiceRows, voiceNames, setPart, castAutoRow, embed,
         ttsHead: () => String(st.set.ttsHead ?? ''), setTtsHead: v => { st.set.ttsHead = v; void saveSet(); },
         talkPresetId: () => st.set.talkPreset, setTalkPreset: id => { st.set.talkPreset = id; void saveSet(); },
         myCount: () => myList().length,
         setupOk: () => setupOf() >= SETUP.length,
+        ttsBrief,
         reload: async () => { await loadSet(); await loadMy(); st.bots.clear(); talks.clear(); } };
     }
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, dropBlocks, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeysOf,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
