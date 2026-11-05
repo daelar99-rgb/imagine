@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.48.2
+//@display-name 🎨 이매진 v5.49.0
 //@api 3.0
-//@version 5.48.2
+//@version 5.49.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.48.2';
+    const VERSION = '5.49.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1295,7 +1295,7 @@ ${TAG_STYLE}`;
         return m?.role === 'user' && tidy(plainText(m.data)) ? m : null;
     }
 
-    function comicSystem(withInput = false, plainInput = false, redo = false, prevPrompt = false, n = 1) {
+    function comicSystem(withInput = false, plainInput = false, redo = false, prevPrompt = false, n = 1, co = false) {
         if (redo) n = 1;
         const size = sizeNow();
         const [w, h] = sizeWH(size) ?? SIZES.tall;
@@ -1374,12 +1374,12 @@ STATE
 - background: write ONE NEW background in English for this draw, every time, from the chat: what the camera sees BEHIND the characters in the TARGET MESSAGE's moment (the wall, corner or view behind them). It follows the camera direction inside the current location: decide where the camera stands in this shot and which way it faces (toward the window, the door, the bed, the counter…), and describe only that side of the location, not the whole place. When the camera turns, the background shows another wall or view of the same place; when the camera is behind the characters ("from behind"), the background is what they are facing. That direction must agree with the camera / view tags you write in chars[].tags or panels[].camera (for a comic page, use the direction most panels face). Write no camera or framing words in the background itself (no "from behind", "from above", "close-up"): the app adds it to the image prompt. Write it in 1 to 3 short sentences: how bright it is and the color of the light, furniture and objects with material and color, whether doors, windows and curtains are open or closed, what is visible outside. It always starts with the brightness and light color, indoors and outdoors alike: indoors say whether the room is bright or dim and what lights it (e.g. "a bright room under white ceiling lights", "a dim room lit only by a warm orange desk lamp", "a dark room lit by pale blue moonlight through the window"); outdoors say the light of the sky or the lamps (e.g. "bright midday sunlight", "orange sunset light", "a dark street under yellow street lamps"). No proper nouns (no person, school, shop or place names), no characters and no weather (those stay in scene). Example for a teenage boy's bedroom at night, seen behind someone sitting at the desk:
   "dim room lit by a warm orange desk lamp, a small wooden desk under the window with stacked textbooks, light blue wallpaper with a soccer poster, the closed window shows a dark residential street under yellow street lamps"
   The same room with the camera facing the door instead: "dim room lit by a warm orange desk lamp off to the side, light blue wallpaper, a closed white wooden door with a jacket on a hook, a low bookshelf beside it"
-- Past backgrounds: CURRENT STATE lists the last 3 backgrounds the app kept (background[0] is the newest), each with the location where it was seen. Read all 3 before writing. They are references, not slots to fill or copy: always write a new background for the TARGET MESSAGE. When the characters are at a location that appears there (still in the same room, or back at an earlier place), keep what the place has and where it is (furniture, materials, colors, layout) the same, and change only what the chat or the camera changed (the camera now faces another side: show the furniture on that side of the same place, not a different room; a window opened, a table was knocked over, the lights went on or off, the sun went down: then the brightness and light color change too). At a new location, write it fresh. Do not rewrite the past backgrounds; the app keeps them.
+- Past backgrounds: CURRENT STATE lists the last 3 backgrounds the app kept (background[0] is the newest), each with the location where it was seen. Read all 3 before writing. They are references, not slots to fill or copy: always write a new background for the TARGET MESSAGE. When the characters are at a location that appears there (still in the same room, or back at an earlier place), keep what the place has and where it is (furniture, materials, colors, layout) the same, and change only what the chat or the camera changed (the camera now faces another side: show the furniture on that side of the same place, not a different room; a window opened, a table was knocked over, the lights went on or off, the sun went down: then the brightness and light color change too). At a new location, write it fresh. Do not rewrite the past backgrounds; the app keeps them.${co ? '' : `
 - CHAT HISTORY (only sent the first time this chat is drawn): earlier messages, oldest → newest, for context only. Never draw them. Read them to find the current location / time / background (the room's furniture, doors and windows, the view outside) and what each character wears now (the latest change wins), because CURRENT STATE may still be empty.
-- PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.${prevPrompt ? `
+- PREVIOUS MESSAGE (sent on later draws instead of CHAT HISTORY): the reply just before the TARGET MESSAGE, for context only (who is where, what just happened). Never draw it, and copy after and every spoken line only from the TARGET MESSAGE, never from the PREVIOUS MESSAGE.`}${prevPrompt ? `
 - PREVIOUS PROMPT: the exact NovelAI prompt the app sent for the last drawn reply in this chat (base is the main prompt, then one line per character / panel / bubble slot). Reference only, never a template. The app itself added the quality and artist tags, count tags (1girl, solo...), panel layout tags, genre tags and the background at the end of base, and the CAST identity tags (hair, eyes, body, clothes) at the start of each character or panel slot: never copy those into your fields. Use it to keep continuity: the same place and props, items still held. Do not repeat its pose, camera or composition unless the moment really continues. Colors may be missing there (some images drop them on purpose): take colors from CAST, never from here.` : ''}${plainInput ? `
 - USER INPUT: what the user wrote just before the TARGET MESSAGE; the TARGET MESSAGE is the reply to it. Context only: use it to understand what the reply answers (who acts, what was said or done), but draw the moments the TARGET MESSAGE narrates, and never copy after or spoken lines from USER INPUT.` : ''}${withInput ? `
-- USER PRIORITY STAGING: what the user just wrote, the staging the user cares about most: their own character's action or line, or what they direct other characters to do; the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context: image 1 draws it.` : ''}
+- USER PRIORITY STAGING: ${co ? "the user's last message in this conversation" : 'what the user just wrote'}, the staging the user cares about most: their own character's action or line, or what they direct other characters to do; ${co ? 'your reply answers it. It is not just context' : 'the TARGET MESSAGE is the reply to it. Unlike CHAT HISTORY and PREVIOUS MESSAGE it is not just context'}: image 1 draws it.` : ''}
 
 GENERAL
 - LANGUAGE: everything that becomes an image prompt (${promptFields}, uc, state.background, state.cast slots / look) and state.location and state.time are English, even when the chat is Korean or Japanese. Only ${lineFields} and after stay in the chat's own language.
@@ -1473,7 +1473,7 @@ ${TAG_STYLE}`;
                 total += line.length;
             }
             if (past.length) story.push(`# CHAT HISTORY (oldest → newest, ${past.length} earlier message${past.length > 1 ? 's' : ''}; context only, do not draw)`, past.reverse().join('\n\n'), '');
-        } else {
+        } else if (!state.cogen) {
             for (let i = idx - 1; i >= 0; i--) {
                 if (msgs[i]?.role !== 'char') continue;
                 const t = plainText(msgs[i].data, PREV_MSG);
@@ -1481,11 +1481,14 @@ ${TAG_STYLE}`;
                 break;
             }
         }
-        if (input && emphasize) {
+        if (input && emphasize && state.cogen) {
+            story.push(`# USER PRIORITY STAGING (= ${userName}'s last message in this conversation, not repeated here: the staging the user cares about most; your reply answers it; image 1 draws this)`, '');
+            story.push('# TARGET MESSAGE (the reply to USER PRIORITY STAGING above; copy after and spoken lines from here)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`, '');
+        } else if (input && emphasize) {
             story.push(`# USER PRIORITY STAGING (what ${userName} just wrote: the staging the user cares about most, their own action or line, or what they direct other characters to do; the reply below answers it; image 1 draws this)`, `${label(input)}: ${plainText(input.data)}`, '');
             story.push('# TARGET MESSAGE (the reply to USER PRIORITY STAGING above; copy after and spoken lines from here)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`, '');
         } else {
-            if (input) story.push(`# USER INPUT (what ${userName} wrote just before the target; context only, do not copy after or spoken lines from it)`, `${label(input)}: ${plainText(input.data)}`, '');
+            if (input && !state.cogen) story.push(`# USER INPUT (what ${userName} wrote just before the target; context only, do not copy after or spoken lines from it)`, `${label(input)}: ${plainText(input.data)}`, '');
             story.push('# TARGET MESSAGE (draw this)', `${label(msgs[idx])}: ${plainText(msgs[idx]?.data, 8000)}`, '');
         }
         const lines = [
@@ -3606,12 +3609,12 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
         if (p?.pid && st.personaFail !== p.sig && !cast.list.some(e => e?.persona && e.personaId === p.pid && e.personaSig === p.sig)) return null;
         const fake = { ...chat, message: [...msgs, { role: 'char', data: '(the reply you are writing in this turn)' }] };
         const idx = fake.message.length - 1;
-        const state = { ...readState(chat), seeded: true };
+        const state = { ...readState(chat), seeded: true, cogen: true };
         const input = userInputOf(fake, idx);
         const emphasize = !!input && !!st.set.userFirst;
         const prev = prevPromptOf(await loadRecs(char.chaId), fake, chatKeyOf(chat, chi), '', idx);
         const sc = sceneCast(cast.list, '');
-        const sys = comicSystem(emphasize, !!input && !emphasize, false, !!prev, rollCount());
+        const sys = comicSystem(emphasize, false, false, !!prev, rollCount(), true);
         const user = comicUser(char, fake, idx, cast, state, st.persona?.name, input, emphasize, null, prev, sc);
         return [COGEN_HEAD, '', sys, '', user, '', COGEN_TAIL].join('\n');
     }
