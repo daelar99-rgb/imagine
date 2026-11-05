@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.48.0
+//@display-name 🎨 이매진 v5.48.1
 //@api 3.0
-//@version 5.48.0
+//@version 5.48.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.48.0';
+    const VERSION = '5.48.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -7255,13 +7255,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const v = st.view;
         const toGallery = h('button', { class: 'lnk', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'gallery'; ui.side = ''; renderNow(); } }, '삽화 목록 보기 →');
         if (st.busy) return [renderProgress('job'), h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '창을 닫아도 됩니다. 다 그리면 그 답변 아래에 그림이 들어갑니다. '), toGallery];
-        const f = lastFail();
-        if (f) return [
-            h('div', { class: 'ix-msg err', role: 'alert' }, `#${f.idx} 답변을 그리지 못했습니다. ${f.error}`),
-            rawBox(f),
-            h('div', { class: 'ix-acts' },
-                h('button', { class: 'ix-btn main sm', type: 'button', disabled: !v.hasKey || st.jobs > 0, onclick: () => { const i = v.msgs.find(m => m.key === f.key)?.i ?? -1; if (i >= 0) draw(i, 'new'); else { failed.delete(f.key); st.err = '그 답변을 찾지 못했습니다. 지워졌거나 옮겨졌을 수 있습니다.'; renderNow(); } } }, '↻ 다시 시도'),
-                h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { failed.delete(f.key); st.err = ''; renderNow(); } }, '닫기'))];
         const el = Date.now() - ui.readyAt, fresh = el < 1200;
         const ok = h('span', { class: 'fn-ok' + (fresh ? '' : ' still'), 'aria-hidden': 'true' });
         ok.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
@@ -7288,12 +7281,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const su = st.set.setup ?? {};
         const n = [su.cogen && su.llm, v.hasKey, su.kind && su.model && su.count && su.size, su.preset, st.set.nsfw?.st].filter(Boolean).length;
         let cls = '', text;
-        if (setupDone() && !st.busy && !st.lore && v.hasKey && !lastFail()) return null;
+        if (setupDone() && !st.busy && !st.lore && v.hasKey) return null;
         if (st.busy || st.lore) { cls = 'wait'; text = `${(st.busy ?? st.lore).label}…`; }
         else if (!su.cogen || !su.llm) text = '연출 방식을 고르면 다음 단계가 열립니다.';
         else if (!v.hasKey) { cls = 'err'; text = 'NAI 키를 넣어야 그릴 수 있습니다.'; }
         else if (!setupDone()) text = `5단계 중 ${n}단계를 마쳤습니다. 남은 단계를 고르면 그릴 준비가 끝납니다.`;
-        else if (lastFail()) { cls = 'err'; text = '그리지 못한 답변이 있습니다.'; }
         return h('div', { class: 'ab' }, h('span', { class: 'ab-tx ' + cls }, text));
     }
 
