@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.36.0
+//@display-name 🎨 이매진 v5.36.1
 //@api 3.0
-//@version 5.36.0
+//@version 5.36.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.36.0';
+    const VERSION = '5.36.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3766,33 +3766,50 @@ ${t.user}` : null;
             const items = nsTrim(raw);
             if (!items.length) return;
             const size = nsSize(items);
-            if (size <= NS_BOX) return box(items, ctx);
-            if (items.length === 1 && items[0].tag) {
-                const n = items[0];
-                return split(n.kids, { wrap: [...ctx.wrap, n], path: [...ctx.path, n.name] });
-            }
             const top = items[0].k === 'head' ? items[0] : null;
             const sub = top ? { ...ctx, path: [...ctx.path, top.ti] } : ctx;
-            const heads = items.filter((it, i) => i && it.k === 'head' && it.lv > minLv);
+            const heads = items.filter((it, i) => i && it.k === 'head' && it.lv > minLv && (size > NS_BOX || !top || it.lv <= top.lv));
             if (heads.length) {
                 const lv = Math.min(...heads.map(h => h.lv));
                 const kid = top && top.lv < lv;
                 const parts = nsCutAt(items, it => it !== items[0] && it.k === 'head' && it.lv === lv);
                 if (parts.length > 1 && nsEmpty(nsRender(parts[0]))) parts.splice(0, 2, [...parts[0], ...parts[1]]);
+                if (parts.length > 1 && nsEmpty(nsRender(parts[parts.length - 1]))) parts.splice(-2, 2, [...parts[parts.length - 2], ...parts[parts.length - 1]]);
                 parts.forEach((p, i) => emit(p, kid && i ? sub : ctx, lv));
                 return;
             }
-            const big = items.some(it => it.tag && nsSize(it.kids) > NS_BOX);
-            if (top && size <= NS_BOX * 3 && !big) return box(items, ctx);
             const parts = [];
             for (const it of items) {
-                if (!it.tag && it.k === 'sep') { parts.push([]); continue; }
+                if (!it.tag && it.k === 'sep' && !/\p{L}/u.test(it.t)) { parts.push([]); continue; }
                 if (it.tag) { parts.push([it], []); continue; }
                 if (!parts.length) parts.push([]);
-                parts[parts.length - 1].push(it);
+                parts[parts.length - 1].push(it.k === 'sep' ? { ...it, k: 'text' } : it);
             }
             const real = parts.map(nsTrim).filter(p => p.length);
-            if (real.length > 1) { real.forEach((p, i) => emit(p, i ? sub : ctx, 99)); return; }
+            if (real.length > 1 && nsEmpty(nsRender(real[real.length - 1]))) {
+                const tail = real.pop().map(it => it.tag ? it : { ...it, k: it.k === 'blank' ? 'blank' : 'text' });
+                real[real.length - 1] = [...real[real.length - 1], ...tail];
+            }
+            if (real.length > 1) {
+                if (nsEmpty(nsRender(real[0]))) {
+                    const lead = real.shift();
+                    const lt = nsRender(lead).trim();
+                    const c2 = { wrap: [...ctx.wrap, { open: { t: lt }, close: { t: '' } }], path: top ? sub.path : ctx.path };
+                    real.forEach(p => emit(p, c2, minLv));
+                    return;
+                }
+                real.forEach((p, i) => emit(p, i ? sub : ctx, minLv));
+                return;
+            }
+            if (items.length === 1 && items[0].tag) {
+                const n = items[0], at = blocks.length;
+                split(n.kids, { wrap: [...ctx.wrap, n], path: [...ctx.path, n.name] });
+                if (size > NS_BOX || blocks.length - at > 1) return;
+                blocks.length = at;
+                return box(items, ctx);
+            }
+            if (size <= NS_BOX) return box(items, ctx);
+            if (top && size <= NS_BOX * 3) return box(items, ctx);
             let buf = [], n = 0, first = true;
             const out = () => { if (buf.length) box(buf, first ? ctx : sub); first = false; buf = []; n = 0; };
             for (const p of nsCutAt(items, it => !it.tag && it.k === 'blank')) {
@@ -3819,11 +3836,11 @@ ${t.user}` : null;
             const w = b.wrap ?? [];
             let k = 0;
             while (k < open.length && k < w.length && open[k].o === w[k].o) k++;
-            while (open.length > k) out.push(open.pop().c);
+            while (open.length > k) { const c = open.pop().c; if (c) out.push(c); }
             for (const x of w.slice(k)) { out.push(x.o); open.push(x); }
             out.push(b.text);
         }
-        while (open.length) out.push(open.pop().c);
+        while (open.length) { const c = open.pop().c; if (c) out.push(c); }
         return out.join('\n\n').trim();
     }
     async function nsDigest(copy) {
