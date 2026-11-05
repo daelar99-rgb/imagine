@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.46.0
+//@display-name 🎨 이매진 v5.46.1
 //@api 3.0
-//@version 5.46.0
+//@version 5.46.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.46.0';
+    const VERSION = '5.46.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -7182,8 +7182,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     st.set.cogen
                         ? sub('연출 모델 (다시 그리기 · 씬 재구성용)', '동시생성이어도 다시 그리기 · 씬 재구성 · 그룹 봇 · 이어 쓰기, 그리고 답변에 연출 블록이 빠졌을 때는 이 모델에 연출을 따로 묻습니다.')
                         : sub('연출 모델', '답변을 읽고 장면 · 대사 · 복장을 정할 모델입니다.'),
-                    llmCards('llm'),
-                    h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, '애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 둘 다 설정 › 그리기에서도 바꿀 수 있습니다.')],
+                    llmCards('llm')],
                 nextBtn(['cogen', 'llm'])]),
             step(2, 'NovelAI 키 넣기', '키 저장됨', () => [
                 keyBox(ui.reopen === 2),
