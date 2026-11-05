@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.36.1
+//@display-name 🎨 이매진 v5.36.2
 //@api 3.0
-//@version 5.36.1
+//@version 5.36.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.36.1';
+    const VERSION = '5.36.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3555,6 +3555,7 @@ ${t.user}` : null;
         if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return;
         nsArm(false);
         ns.got = true;
+        nsWaitMark(true);
         const copy = messages.map(m => ({
             role: String(m?.role ?? ''),
             memo: m?.memo ? String(m.memo) : '',
@@ -3567,6 +3568,25 @@ ${t.user}` : null;
         });
         clearTimeout(ns.back);
         ns.back = setTimeout(() => void nsBack(), 90000);
+    }
+    const NS_WAIT_SVG = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" style="flex:none!important;display:block!important;width:16px!important;height:16px!important"><circle cx="8" cy="8" r="6.5" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.5"/><path d="M8 1.5a6.5 6.5 0 0 1 6.5 6.5" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" values="0 8 8;360 8 8" dur="0.9s" repeatCount="indefinite"/></path></svg>';
+    function nsWaitMark(on) {
+        if (!root.doc) return;
+        void rootQueue(async () => {
+            const d = root.doc;
+            if (!d) return;
+            let el = await d.querySelector('.nc-ns-wait');
+            if (!on || !ns.got) { await el?.remove(); return; }
+            if (!el) {
+                const body = await d.querySelector('body');
+                if (!body) return;
+                el = await d.createElement('div');
+                await el.setClassName('nc-ns-wait');
+                await body.appendChild(el);
+            }
+            await el.setStyleAttribute(imp({ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', zIndex: 48, display: 'flex', alignItems: 'center', gap: '9px', maxWidth: 'calc(100vw - 24px)', boxSizing: 'border-box', margin: 0, padding: '9px 16px', borderRadius: '999px', background: 'rgba(15,23,42,.88)', color: '#fff', font: '600 13px/1.4 "Malgun Gothic",sans-serif', boxShadow: '0 4px 16px rgba(0,0,0,.25)', pointerEvents: 'none' }));
+            await el.setInnerHTML(NS_WAIT_SVG + `<span style="${imp({ display: 'inline', color: '#fff', font: 'inherit', margin: 0, padding: 0 })}">🎨 이매진 · 프롬프트를 받았습니다. 답변이 끝나면 창이 저절로 열립니다</span>`);
+        });
     }
     async function nsBotTexts() {
         const out = [];
@@ -3878,6 +3898,7 @@ ${t.user}` : null;
         await ns.work;
         ns.got = false;
         ns.mute = Date.now() + 10000;
+        nsWaitMark(false);
         try {
             if (ui.root?.isConnected) { if (ui.home || ui.mode !== 'prompt') goMode('prompt'); }
             else await openPanel({ mode: 'prompt' });
@@ -3950,9 +3971,8 @@ ${t.user}` : null;
                 h('div', { class: 'np-wait-hd' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), h('b', null, '채팅을 기다리는 중입니다')),
                 nsOne(2, '리수에서 NSFW · 탈옥 토글을 모두 켜고, 아무 봇에게나 채팅을 하나 보냅니다.'),
                 h('ul', null,
-                    h('li', null, '채팅을 보내고 창이 뜰 때까지 대기합니다.'),
-                    h('li', null, '아무 봇이나 괜찮습니다. 봇 글은 이매진이 알아서 뺍니다.'),
-                    h('li', null, '채팅은 하나만 보내면 됩니다. 단체 채팅은 피하세요.'))),
+                    h('li', null, '채팅을 보내면 화면 위쪽에 도는 표시가 뜨고, 답변이 끝나면 이 창이 저절로 열립니다.'),
+                    h('li', null, '아무 봇이나 괜찮습니다. 단체채팅, 유틸리티 봇은 피하세요.'))),
             h('div', { class: 'ix-acts' },
                 h('button', { class: 'ix-btn main', type: 'button', onclick: () => closePanel() }, '채팅으로 가기'),
                 link('취소', cancel)),
@@ -3970,18 +3990,6 @@ ${t.user}` : null;
                 Object.assign(ns, { view: '', cap: null, err: '' });
                 redraw();
             };
-            const marks = mi => res.filter(b => b.mi === mi).map(b => b.text);
-            const paint = (t, ms) => {
-                const m = ms.find(x => t.includes(x));
-                if (!m) return t;
-                const i = t.indexOf(m);
-                return [t.slice(0, i), h('mark', null, m), paint(t.slice(i + m.length), ms)];
-            };
-            const raw = cap.msgs ? det('raw', 'raw-box', '받은 요청 원문 보기 (뺀 글은 줄을 그어 표시)',
-                h('pre', { class: 'rq' }, cap.msgs.map((m, mi) => [
-                    h('span', { class: 'rq-role' }, `[${m.role}]`),
-                    m.segs.map(sg => sg.k === 'cut' ? h('del', null, h('span', { class: 'rq-lb' }, `${sg.lb} · 뺌`), sg.t) : paint(sg.t, marks(mi))),
-                ]))) : null;
             const adv = det('adv', 'np-adv', '고급 설정 · 넣을 글 직접 고르기',
                 pre.length ? h('div', { class: 'np-total' },
                     h('span', null, '프리셋 글 ', h('b', null, `${picked.length}개`), ' · ', h('b', null, `${joined.length.toLocaleString()}자`)),
@@ -3995,8 +4003,7 @@ ${t.user}` : null;
                 res.length ? det('more', 'np-more', `봇 글일 수 있는 조각 ${res.length}개 (빼 둠)`,
                     h('p', null, '시각 · 무작위 값이 들어 있어 봇 글과 똑같이 맞지 않은 문단입니다. 프리셋 글이라면 체크하세요.'),
                     res.map(r)) : null,
-                det('joined', 'raw-box', '합친 글 보기', h('pre', null, joined || '(고른 글이 없습니다)')),
-                raw);
+                det('joined', 'raw-box', '합친 글 보기', h('pre', null, joined || '(고른 글이 없습니다)')));
             src = [
                 h('p', { class: 'np-got' }, `✓ ${cap.at} 채팅에서 요청을 받았습니다`),
                 cap.msgs && pre.length ? nsOne(3, '아래 「저장」을 누르면 끝납니다.') : null,
@@ -5227,12 +5234,6 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 details.joined{margin-top:16px;font-size:.78rem}
 details.joined summary{width:max-content;font-weight:700;color:var(--accent2);cursor:pointer}
 details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12px;font:.74rem/1.55 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;color:var(--ink);background:var(--paper2);border:1px solid var(--line)}
-.rq{margin:0;padding:8px 10px;font:.72rem/1.55 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all;background:var(--paper3);border:1px solid var(--line);max-height:320px;overflow:auto}
-.rq-role{display:block;margin:8px 0 2px;font-weight:700;color:var(--accent2)}
-.rq-role:first-child{margin-top:0}
-.rq del{color:#9aa8bd;text-decoration-color:#d0453b}
-.rq-lb{display:inline-block;margin:0 4px 0 0;padding:0 5px;font:700 .66rem/1.6 "Malgun Gothic",sans-serif;color:#fff;background:#d0453b;text-decoration:none}
-.rq mark{color:inherit;background:#fff3c4}
 @media (max-width:600px){.np-wait{padding:12px}.np-do{padding-left:28px}}
 .ix code{font:.72rem ui-monospace,Consolas,monospace;background:var(--paper3);padding:0 3px}
 .no{flex:none;padding:1px 7px;font-size:.72rem;font-weight:700;color:#fff;background:#3a3e47}
@@ -5344,11 +5345,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 .ix .cf-seg{border-radius:20px;overflow:hidden}
 .ix .ab,.ix .sz-bar{border-radius:12px}
 .ix .np-one,.ix .np-do,.ix .np-wait,.ix .np-list,.ix .np-more,.ix .np-total,.ix .np-adv{border-radius:12px}
-.ix .np-got,.ix .rq{border-radius:8px}
+.ix .np-got{border-radius:8px}
 .ix .pr-ta,.ix .pr-pane .add,.ix details.joined pre{border-radius:10px}
 .ix .go,.ix .my-hd input[type=text]{border-radius:8px}
 .ix .pr-where{border-radius:6px}
-.ix .rq-lb{border-radius:4px}
 .ix .dlg{border-radius:16px;overflow:clip}
 .ix .ab,.ix .sz-bar{margin:18px 0 0;border:1px solid var(--line);box-shadow:0 10px 24px -14px rgba(31,45,69,.45)}
 /* 4.3.0: 선만 있는 상자는 바탕과 구분이 안 돼 그림자를 넣는다 (고른 칸의 안쪽 테두리 그림자는 그대로 둔다) */
