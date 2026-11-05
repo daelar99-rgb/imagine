@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.47.0
+//@display-name 🎨 이매진 v5.48.0
 //@api 3.0
-//@version 5.47.0
+//@version 5.48.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.47.0';
+    const VERSION = '5.48.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3584,9 +3584,7 @@ In the director instructions, TARGET MESSAGE means the reply you are writing in 
         if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return;
         const brief = await cogenBrief();
         if (!brief) return;
-        let at = messages.length;
-        while (at > 0 && messages[at - 1]?.role === 'assistant') at--;
-        messages.splice(at, 0, { role: 'system', content: brief });
+        messages.push({ role: 'system', content: brief });
         cogenLive = Date.now();
         console.log(LOG, 'cogen', `${brief.length}자`);
     }
