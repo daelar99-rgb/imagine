@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.36.2
+//@display-name 🎨 이매진 v5.37.0
 //@api 3.0
-//@version 5.36.2
+//@version 5.37.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.36.2';
+    const VERSION = '5.37.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3884,11 +3884,17 @@ ${t.user}` : null;
         const resOf = t => probes.find(b => t.startsWith(b.probe))?.lb ?? '';
         const blocks = nsSplit(msgs, resOf);
         ns.cap = { msgs, blocks, chatN, botN, msgN: copy.length, at: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) };
-        ns.pick = new Set(blocks.filter(b => !b.res).map(b => b.id));
+        ns.pick = nsAutoPick(blocks);
         ns.open.delete('raw');
         ns.open.delete('adv');
         ns.err = '';
         ns.view = 'pick';
+    }
+    const NS_PICK_RE = /\b(?:polic(?:y|ies)|d[ie]sclaimers?|reas?oning|resoning|authori[sz]ations?|thinking|restrictions?|yes|alright)\b/i;
+    function nsAutoPick(blocks) {
+        const pre = blocks.filter(b => !b.res);
+        const hit = pre.filter(b => NS_PICK_RE.test([b.text, b.title ?? '', ...(b.path ?? [])].join('\n')));
+        return new Set((hit.length ? hit : pre).map(b => b.id));
     }
     async function nsBack() {
         clearTimeout(ns.timer);
@@ -3995,7 +4001,7 @@ ${t.user}` : null;
                     h('span', null, '프리셋 글 ', h('b', null, `${picked.length}개`), ' · ', h('b', null, `${joined.length.toLocaleString()}자`)),
                     h('span', { class: 'ix-hint', style: 'margin:0' }, '채팅 · 페르소나 · 봇 글은 뺐습니다.')) : null,
                 h('div', { class: 'np-lead' },
-                    h('p', null, cap.msgs ? `요청 메시지 ${cap.msgN}개에서 채팅 ${cap.chatN}곳과 봇 · 페르소나 글 ${cap.botN}곳을 뺐습니다. ` : '', '넣을 글만 체크해 두세요.'),
+                    h('p', null, cap.msgs ? `요청 메시지 ${cap.msgN}개에서 채팅 ${cap.chatN}곳과 봇 · 페르소나 글 ${cap.botN}곳을 뺐습니다. ` : '', 'policy · disclaimer · reasoning · authorization · thinking · restrictions · yes · alright 가 든 글만 먼저 체크해 두었습니다. 넣을 글만 체크해 두세요.'),
                     h('span', { class: 'np-bulk' },
                         link('전체 선택', () => { for (const b of pre) ns.pick.add(b.id); redraw(); }, pre.every(b => ns.pick.has(b.id))),
                         link('전체 해제', () => { ns.pick.clear(); redraw(); }, !ns.pick.size))),
