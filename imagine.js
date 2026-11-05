@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.37.1
+//@display-name 🎨 이매진 v5.39.0
 //@api 3.0
-//@version 5.37.1
+//@version 5.39.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.37.1';
+    const VERSION = '5.39.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -119,7 +119,7 @@
         countMin: 2,
         countMax: 4,
         size: 'tall',
-        sv: 33,
+        sv: 34,
         bubbles: true,
         loreMax: 0,
         castMax: 0,
@@ -135,7 +135,7 @@
         mo: '80',
         tap: true,
         ubtn: 'all',
-        keepOld: false,
+        undo: false,
         setup: { llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
         introSeen: { illust: false, asset: false },
         homeTour: false,
@@ -510,6 +510,12 @@
             if (!set.comicExtra) st.set.comicExtra = st.set.extra ?? '';
             if (st.set.nsfw?.st === 'skip') st.set.nsfw = { ...st.set.nsfw, on: { illust: false, asset: false, talk: false } };
             st.set.sv = 33;
+            saveSet();
+        }
+        if (set && typeof set === 'object' && !(set.sv >= 34)) {
+            if (set.keepOld) st.set.undo = true;
+            delete st.set.keepOld;
+            st.set.sv = 34;
             saveSet();
         }
         st.set.tap = true;
@@ -3178,16 +3184,30 @@ ${t.user}` : null;
             const scroll = st.set.scroll !== 'off' && (reqs[0]?.kind ?? (isIllust() ? 'illust' : 'comic')) === 'illust' ? st.set.scroll : null;
             const spot = await commit(job, char, key, idx, out, stateChanged ? state : null, cast, stateBase, re, scroll) ?? { key, idx };
             if (spot.key !== key) { delete recs[rid]; failed.delete(key); }
-            const images = job.only ? old.images.map(x => x.name === job.only ? out[0] : x) : out;
+            const undoOn = !!st.set.undo && char.type !== 'group' && !!old?.images?.length;
+            const images = job.only
+                ? old.images.map(x => x.name === job.only ? (undoOn ? { ...out[0], prev: stripPrev(x) } : out[0]) : (undoOn ? x : stripPrev(x)))
+                : out;
+            const back = !undoOn ? null : job.only ? (old.back ?? null) : { images: old.images.map(stripPrev), plan: old.plan ?? null };
             recs[recIdOf(busy.chat, spot.key)] = {
                 key: spot.key, idx: spot.idx, chat: busy.chat, at: Date.now(), hash: msgHash(msg),
-                excerpt: excerpt(msg.data, 80), plan, images, group: char.type === 'group',
+                excerpt: excerpt(msg.data, 80), plan, images, group: char.type === 'group', ...(back ? { back } : {}),
             };
             await saveRecs(chaId, recs);
             ilPush('save', (Date.now() - busy.at) / 1000);
             if (job.mode === 'edit') editSaved = key;
             await setArtistThumb(reqs[0]?.preset ?? st.presetId, firstBytes, out[0]?.path);
-            for (const x of old?.images ?? []) if (!images.includes(x)) dropThumb(x.path);
+            const nmOf = x => String(x?.name ?? '').toLowerCase();
+            const keepNames = new Set();
+            for (const x of images) { keepNames.add(nmOf(x)); if (x.prev) keepNames.add(nmOf(x.prev)); }
+            for (const x of back?.images ?? []) keepNames.add(nmOf(x));
+            const oldImgs = old?.images ?? [];
+            const stale = [...oldImgs, ...oldImgs.map(x => x.prev).filter(Boolean), ...(old?.back?.images ?? [])].filter(x => !keepNames.has(nmOf(x)));
+            for (const x of stale) dropThumb(x.path);
+            const shown = new Set(oldImgs.map(nmOf));
+            const extra = stale.filter(x => !shown.has(nmOf(x))).map(x => x.name);
+            if (extra.length && char.type !== 'group') dropUnused(job.ci, chaId, extra);
+            if (st.set.undo) void rootQueue(paintUndo);
             failed.delete(key);
             st.ok = true;
             st.note = `${out.length}장을 그려 ${char.type === 'group' ? '패널 기록에' : '봇에'} 저장했습니다.`;
@@ -3367,7 +3387,7 @@ ${t.user}` : null;
                 if (char.additionalAssets.length !== before) await api.setCharacterToIndex(job.ci, char);
             };
             if (!ok && want.length) await drop(want)();
-            else if (ok && !reverted && gone.length && !st.set.keepOld) setTimeout(() => { inQueue(drop(gone)).catch(error => console.warn(LOG, 'drop old', error)); }, DROP_LATER);
+            else if (ok && !reverted && gone.length && !st.set.undo) setTimeout(() => { inQueue(drop(gone)).catch(error => console.warn(LOG, 'drop old', error)); }, DROP_LATER);
         }
         if (writeErr) throw writeErr;
         if (lost) throw new Error('그림을 넣을 답변을 찾지 못했습니다. 그리는 사이에 답변이나 채팅이 지워졌거나 옮겨졌습니다.');
@@ -3379,7 +3399,8 @@ ${t.user}` : null;
         const v = st.view;
         if (!v) return;
         if (st.jobs > 0 || st.busy) throw new Error('그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.');
-        const names = new Set((rec.images ?? []).map(x => x.name.toLowerCase()));
+        const held = [...(rec.images ?? []).map(x => x.prev).filter(Boolean), ...(rec.back?.images ?? [])];
+        const names = new Set([...(rec.images ?? []), ...held].map(x => x.name.toLowerCase()));
         const chat = await api.getChatFromIndex(v.ci, v.chi);
         if (chat?.isStreaming) throw new Error('답변이 나오는 중입니다. 끝난 뒤에 다시 눌러 주세요.');
         const i = findMsg(chat, rec.key, rec.idx);
@@ -3388,7 +3409,7 @@ ${t.user}` : null;
             m.data = String(m.data ?? '').replace(TAG_RE, tag => [...names].some(n => hasName(tag, n)) ? '' : tag).replace(/\s+$/, '');
             await api.setChatToIndex(v.ci, v.chi, chat);
         }
-        for (const x of rec.images ?? []) dropThumb(x.path);
+        for (const x of [...(rec.images ?? []), ...held]) dropThumb(x.path);
         if (!rec.group) {
             const char = await api.getCharacterFromIndex(v.ci);
             if (char?.chaId === v.chaId) {
@@ -3485,7 +3506,7 @@ ${t.user}` : null;
     const NS_ROLE = { system: '시스템', user: '유저', assistant: '어시스턴트' };
     const NS_CHAT_MAX = 80;
     const NS_LINE_MIN = 10;
-    const ns = { armed: false, view: '', cap: null, pick: new Set(), data: null, open: new Set(), got: false, mute: 0, timer: 0, back: 0, armT: 0, work: null, err: '', my: [] };
+    const ns = { armed: false, view: '', sub: 'src', cap: null, pick: new Set(), data: null, open: new Set(), got: false, mute: 0, timer: 0, back: 0, armT: 0, work: null, err: '', my: [] };
     const NS_ARM_MAX = 600000;
     function nsArm(on) {
         clearTimeout(ns.armT);
@@ -4066,19 +4087,26 @@ ${t.user}` : null;
             }, m.x)));
         const all = nsJoined(), c = nsCount();
         const on = st.set.nsfw?.on ?? {};
-        const appRow = (rail, name) => h('div', { class: 'cf-row sw' },
-            h('div', { class: 'cf-tx' }, h('b', null, name), h('p', null, NS_RAILS[rail].tgDesc)),
-            toggle(!!on[rail], () => { nsSet({ on: { ...on, [rail]: !on[rail] } }); redraw(); }));
-        const grp = (title, ...kids) => h('div', { class: 'cf-grp' }, h('h2', null, title), ...kids);
+        const chip = (rail, name) => h('button', {
+            class: 'ns-chip' + (on[rail] ? ' on' : ''), type: 'button', title: NS_RAILS[rail].tgDesc, 'aria-pressed': String(!!on[rail]),
+            onclick: () => { nsSet({ on: { ...on, [rail]: !on[rail] } }); redraw(); },
+        }, h('i'), name);
+        const sub = ns.view ? 'src' : (ns.sub || 'src');
+        const tab = (id, label) => h('button', {
+            type: 'button', role: 'tab', 'aria-selected': String(sub === id), class: sub === id ? 'sel' : '',
+            onclick: () => { ns.sub = id; redraw(); },
+        }, label);
         return [
             h('div', { class: 'pr-intro' }, h('b', null, 'NSFW 지침')),
-            grp('앱별 NSFW 프롬프트', h('div', { class: 'cf-card' }, appRow('illust', '삽화'), appRow('asset', '애드 에셋'), appRow('talk', '대화'))),
-            grp('NSFW 프롬프트 호환', Array.isArray(src) ? h('div', { class: 'cf-card ns-src' }, src) : src),
-            grp(['직접 쓴 글', h('small', null, `${ns.my.length}개`)],
-                my,
-                h('button', { class: 'add', type: 'button', onclick: add }, '＋ 글 추가')),
-            grp('보내는 글 미리 보기',
-                det('pjoined', 'joined', `${c.got + c.my}개 · ${all.length.toLocaleString()}자 · 펼쳐 보기`, h('pre', null, all || '(보낼 글이 없습니다)'))),
+            h('div', { class: 'ns-bar' },
+                h('span', { class: 'ns-lb2' }, '보내는 앱'),
+                chip('illust', '삽화'), chip('asset', '애드 에셋'), chip('talk', '대화'),
+                h('span', { class: 'ns-tot' }, '보내는 글 ', h('b', null, `${c.got + c.my}개`), ' · ', h('b', null, `${all.length.toLocaleString()}자`))),
+            h('div', { class: 'ns-sub3', role: 'tablist' },
+                tab('src', '가져온 글'), tab('my', `직접 쓴 글 ${ns.my.length}`), tab('pv', '미리 보기')),
+            sub === 'my' ? [my, h('button', { class: 'add', type: 'button', onclick: add }, '＋ 글 추가')]
+                : sub === 'pv' ? h('div', { class: 'ns-pv' }, h('pre', { class: 'joined-pre' }, all || '(보낼 글이 없습니다)'))
+                    : (Array.isArray(src) ? h('div', { class: 'cf-card ns-src' }, src) : src),
         ];
     }
 
@@ -4118,42 +4146,65 @@ ${t.user}` : null;
         clearTimeout(prSave.t);
         prSave.t = setTimeout(() => { if (!s.voice) void saveSet(); }, 400);
     };
+    const prOpen = new Set();
     function renderPromptApp() {
         if (ui.ptab === 'nsfw') return h('section', { class: 'ix-pane pr-pane' }, nsManage());
         const [intro, slots] = PR_SLOTS[ui.ptab] ?? PR_SLOTS.illust;
         const label = PTABS.find(([id]) => id === ui.ptab)?.[1] ?? '삽화';
-        const slot = s => {
+        const line = s => {
             const v = prGet(s), n = v.length;
             const dead = s.voice && !voice;
             const on = !prOff(s.k);
-            let cnt, stt;
-            return h('div', { class: 'cf-grp' },
-                h('h2', null, s.t),
-                h('div', { class: 'cf-card pr-slot' + (on ? '' : ' off') },
-                    h('div', { class: 'cf-row sw' },
-                        h('div', { class: 'cf-tx' },
-                            h('p', null, h('span', { class: 'pr-where' }, s.w), `${s.d} off 면 글은 남겨 두고 보내지만 않습니다.`)),
-                        toggle(on, () => { prSetOn(s.k, !on); renderNow(); }, dead)),
-                    h('div', { class: 'cf-row col' },
-                        h('textarea', {
-                            class: 'pr-ta', 'aria-label': s.t, placeholder: s.ph, disabled: dead,
-                            oninput: e => {
-                                const x = e.target.value;
-                                if (s.voice) voice?.setTtsHead?.(x); else { st.set[s.k] = x; prSave(s); }
-                                cnt.textContent = `${x.length.toLocaleString()}자`;
-                                stt.textContent = x ? '✓ 저장됨' : '비어 있음';
-                                stt.classList.toggle('ok', !!x);
-                            },
-                        }, v),
-                        h('div', { class: 'pr-ft' },
-                            cnt = h('span', { class: 'n' }, `${n.toLocaleString()}자`),
-                            stt = h('span', { class: 'pr-st' + (n ? ' ok' : '') }, n ? '✓ 저장됨' : '비어 있음'),
-                            on ? null : h('span', { class: 'pr-offn' }, 'off · 보내지 않음'),
-                            dead ? h('span', { class: 'ix-hint', style: 'margin:0' }, 'TTS 모듈을 불러오지 못해 지금은 고칠 수 없습니다.') : null))));
+            const op = prOpen.has(s.k);
+            let cnt, stt, pv, lc;
+            const tg = toggle(on, () => { prSetOn(s.k, !on); renderNow(); }, dead);
+            tg.classList.add('mini');
+            const box = h('div', { class: 'pr-ln' + (op ? ' op' : '') + (on ? '' : ' off') });
+            const body = h('div', { class: 'pr-lbody', hidden: !op },
+                h('p', { class: 'ix-hint' }, h('span', { class: 'pr-where' }, s.w), s.d),
+                h('textarea', {
+                    class: 'pr-ta', 'aria-label': s.t, placeholder: s.ph, disabled: dead,
+                    oninput: e => {
+                        const x = e.target.value;
+                        if (s.voice) voice?.setTtsHead?.(x); else { st.set[s.k] = x; prSave(s); }
+                        cnt.textContent = `${x.length.toLocaleString()}자`;
+                        lc.textContent = x ? `${x.length.toLocaleString()}자` : '';
+                        stt.textContent = x ? '✓ 저장됨' : '비어 있음';
+                        stt.classList.toggle('ok', !!x);
+                        pv.textContent = x ? x.split('\n')[0] : '비어 있음 · 눌러서 쓰기';
+                        pv.classList.toggle('empty', !x);
+                    },
+                }, v),
+                h('div', { class: 'pr-ft' },
+                    cnt = h('span', { class: 'n' }, `${n.toLocaleString()}자`),
+                    stt = h('span', { class: 'pr-st' + (n ? ' ok' : '') }, n ? '✓ 저장됨' : '비어 있음'),
+                    on ? null : h('span', { class: 'pr-offn' }, 'off · 보내지 않음'),
+                    dead ? h('span', { class: 'ix-hint', style: 'margin:0' }, 'TTS 모듈을 불러오지 못해 지금은 고칠 수 없습니다.') : null));
+            const flip = () => {
+                const open = !prOpen.has(s.k);
+                if (open) prOpen.add(s.k); else prOpen.delete(s.k);
+                box.classList.toggle('op', open);
+                body.hidden = !open;
+                head.setAttribute('aria-expanded', String(open));
+            };
+            const head = h('div', {
+                class: 'pr-lh', role: 'button', tabindex: '0', 'aria-expanded': String(op),
+                onclick: e => { if (!e.target.closest('.cf-tg')) flip(); },
+                onkeydown: e => { if (e.target === head && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flip(); } },
+            },
+                h('span', { class: 'pr-ltx' },
+                    h('b', null, s.t),
+                    pv = h('span', { class: 'pr-lpv' + (v ? '' : ' empty') }, v ? v.split('\n')[0] : '비어 있음 · 눌러서 쓰기')),
+                lc = h('span', { class: 'pr-lc' }, v ? `${n.toLocaleString()}자` : ''),
+                tg,
+                h('span', { class: 'pr-ar', 'aria-hidden': 'true' }, '⌄'));
+            box.append(head, body);
+            return box;
         };
         return h('section', { class: 'ix-pane pr-pane' },
             h('div', { class: 'pr-intro' }, h('b', null, `${label} 지침`), h('span', null, intro)),
-            slots.map(slot));
+            h('div', { class: 'pr-rule' }, 'ⓘ ', h('span', null, h('b', null, 'off'), ' 로 둔 칸은 글을 남겨 두고 보내지만 않습니다.')),
+            h('div', { class: 'cf-card' }, slots.map(line)));
     }
 
     const HIDE_DECL = 'display:none!important;--nc-hide:1;';
@@ -5464,6 +5515,96 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
   .ix .rl .vz-st::before{left:calc(50% + 13px);right:calc(13px - 50%);top:12px}
   .ix .rl .dz-th{width:46px;height:46px;font-size:1.5rem}
 }
+/* 5.38.0: 설정 한 줄 한 행 · 프롬프팅 접은 줄 · NSFW 띠 */
+.cf-tg.mini{min-height:30px;gap:6px}
+.cf-tg.mini .cf-tg-tr{width:38px;height:22px}
+.cf-tg.mini .cf-tg-tr i{width:16px;height:16px}
+.cf-tg.mini.on .cf-tg-tr i{left:19px}
+.cf-tg.mini .cf-tg-lb{min-width:0;font-size:.74rem}
+/* ── 설정 1안: 한 줄 한 행 ── */
+.cf-v1{display:grid;grid-template-columns:170px minmax(0,1fr);gap:24px;align-items:start}
+.cf-v1 nav{position:sticky;top:12px;display:flex;flex-direction:column;gap:2px}
+.cf-v1 nav a{display:block;padding:8px 12px;border-radius:10px;font-size:.84rem;color:var(--muted);text-decoration:none;font-weight:600}
+.cf-v1 nav a:hover{color:var(--accent2)}
+.cf-v1 nav a.on{background:var(--soft);color:var(--accent2);font-weight:800}
+.cf-v1 nav a i{font-style:normal;float:right;font-size:.72rem;color:#9aa8bd}
+.cf-v1 .cf-grp{scroll-margin-top:12px}
+.cf-r1{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 14px;border-top:1px solid var(--line);min-height:52px}
+.cf-card>.cf-r1:first-child{border-top:0}
+.cf-lb1{flex:1 1 180px;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:.88rem;font-weight:700;color:var(--ink)}
+.cf-info{flex:none;width:20px;height:20px;border-radius:50%;border:1px solid var(--line2);background:#fff;color:var(--muted);font-size:.7rem;font-weight:800;line-height:1;padding:0;cursor:pointer}
+.cf-info:hover{border-color:var(--accent);color:var(--accent2)}
+.cf-info.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.cf-exp{flex:1 1 100%;margin:0;padding:8px 12px;border-radius:10px;background:var(--paper2);font-size:.76rem;line-height:1.6;color:var(--muted)}
+.cf-exp[hidden]{display:none}
+.cf-tag{flex:none;padding:1px 6px;border-radius:6px;font-size:.66rem;font-weight:800;color:var(--muted);background:var(--paper3)}
+.cf-ctl1{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;max-width:100%}
+.cf-r1.wide .cf-ctl1{flex:1 1 100%}
+.cf-unit{font-size:.78rem;color:var(--muted)}
+.cf-ctl1 .cf-num{width:76px}
+.cf-sel1{flex:0 1 220px}
+.cf-hint1{margin:0;font-size:.78rem;line-height:1.6;color:var(--muted)}
+.cf-r1.cf-subrow{padding:8px 14px 8px 28px;min-height:44px}
+.cf-r1.cf-subrow .cf-lb1{font-size:.84rem}
+.cf-v1 .cf-dev{margin-top:22px}
+@media(max-width:760px){
+  .cf-v1{grid-template-columns:minmax(0,1fr);gap:12px}
+  .cf-v1 nav{position:static;flex-direction:row;overflow-x:auto;gap:6px;scrollbar-width:none}
+  .cf-v1 nav a{flex:none;border:1px solid var(--line);white-space:nowrap}
+  .cf-v1 nav a i{display:none}
+}
+/* ── 프롬프팅 3안: 접은 줄 ── */
+.pr-rule{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;padding:9px 12px;border-radius:10px;background:var(--paper2);font-size:.78rem;line-height:1.55;color:var(--muted)}
+.pr-rule b{color:var(--ink)}
+.pr-ln{border-top:1px solid var(--line)}
+.pr-ln:first-child{border-top:0}
+.pr-lh{display:flex;align-items:center;gap:10px 14px;padding:12px 14px;cursor:pointer}
+.pr-lh:hover{background:#fafcff}
+.pr-ltx{flex:1 1 auto;min-width:0}
+.pr-ltx b{display:block;font-size:.9rem;color:var(--ink)}
+.pr-lpv{display:block;margin-top:2px;font-size:.74rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-lpv.empty{font-style:italic;color:#9aa8bd}
+.pr-lc{flex:none;font-size:.72rem;font-weight:700;color:var(--muted)}
+.pr-ar{flex:none;color:var(--muted);transition:transform .15s}
+.pr-ln.op .pr-ar{transform:rotate(180deg)}
+.pr-ln.op{background:#fbfcfe}
+.pr-ln.off .pr-ltx b{color:var(--muted)}
+.pr-lbody{padding:0 14px 14px}
+.pr-lbody .ix-hint{margin:0 0 8px}
+.pr-lbody .pr-where{margin-right:6px}
+/* NSFW 탭 */
+.ns-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 14px;padding:12px 14px;border-radius:12px;background:#141c2e;color:#e8ebf1}
+.ns-lb2{font-size:.74rem;font-weight:800;color:#9aa4b6}
+.ns-chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 12px;border-radius:15px;border:1px solid #3b4766;background:#232d45;color:#cfd6e4;font-size:.8rem;font-weight:700;cursor:pointer}
+.ns-chip i{width:8px;height:8px;border-radius:50%;background:#56607a}
+.ns-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.ns-chip.on i{background:#fff}
+.ns-tot{margin-left:auto;font-size:.8rem}
+.ns-tot b{color:#fff}
+.ns-sub3{display:flex;margin:0 0 12px;border:1px solid var(--line2);border-radius:20px;overflow:hidden;width:max-content;max-width:100%}
+.ns-sub3 button{flex:1 1 auto;min-height:34px;padding:0 14px;border:0;border-left:1px solid var(--line2);background:#fff;font-size:.8rem;color:var(--ink);white-space:nowrap;cursor:pointer}
+.ns-sub3 button:first-child{border-left:0}
+.ns-sub3 button.sel{background:var(--accent);color:#fff;font-weight:700}
+.pr-pane .ns-pv{margin-top:0}
+.pr-pane .ns-pv pre{max-height:420px}
+@media(max-width:600px){
+  .pr-lh{flex-wrap:wrap}
+  .pr-ltx{flex:1 1 60%}
+  .ns-tot{margin-left:0;flex:1 1 100%}
+  .ns-sub3 button{padding:0 10px}
+}
+.cf-r1.cf-subrow{background:var(--paper2)}
+.cf-r1.cf-subrow.off{opacity:.45}
+.cf-hr{min-height:0}
+.cf-card>.gt.gt-emb>.cf-r1{border-top:1px solid var(--line)}
+.cf-card>.gt.gt-emb:first-child>.cf-r1{border-top:0}
+.cf-v1>div>.cf-grp:first-child,.cf-v1>div>.gt-emb:first-child>.cf-grp:first-child{margin-top:0}
+.gt .cf-grp>h2{margin:0 0 8px}
+.gt .cf-exp{margin:0}
+.gt .cf-info{font-size:.7rem;font-weight:800;line-height:1;color:var(--muted)}
+.gt .cf-info:hover{color:var(--accent2)}
+.gt .cf-info.on{color:#fff}
+.pr-pane .ns-pv pre{margin:0;padding:10px 12px;max-height:420px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:.74rem/1.55 ui-monospace,Consolas,monospace;background:var(--paper2);border:1px solid var(--line)}
 `;
 
     function h(tag, props, ...children) {
@@ -5917,8 +6058,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     }
     function sizeRow(label, note, options, value, [lo, hi], unit, onPick) {
         const own = !options.some(([v]) => v === value);
-        return h('div', { class: 'cf-row' },
-            h('div', { class: 'cf-tx' }, h('b', null, label), note ? h('p', null, note) : null),
+        return r1(label, note,
             h('div', { class: 'cf-pickbox' },
                 seg(options, value, v => { if (v !== value) onPick(v); }),
                 h('label', { class: 'cf-ownbox' },
@@ -5933,7 +6073,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                             e.target.value = v;
                             if (v !== value) onPick(v);
                         },
-                    }), h('span', null, unit))));
+                    }), h('span', null, unit))), { wide: true, tag: true });
     }
     function modelPick(value, onPick) {
         const own = !MODELS.some(([v]) => v === value);
@@ -5982,7 +6122,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (['tap', 'ubtn', 'vbtn', 'panelBtn', 'pc', 'mo'].includes(key)) void syncRoot(key);
         if (key === 'ubtn' || key === 'vbtn') void sizeChanged(false, true);
         if (key === 'pc' || key === 'mo') sizeChanged();
-        else if (key === 'tap' || key === 'ptOff') sizeChanged(false);
+        else if (key === 'tap' || key === 'ptOff' || key === 'undo') sizeChanged(false);
     }
 
     function renderProgress(which) {
@@ -7793,10 +7933,35 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return pane;
     }
 
+    const cfOpen = new Set(); let cfNav = '';
+    const cfTag = () => h('span', { class: 'cf-tag', title: '삽화 · 애드 에셋 · TTS · 대화가 함께 쓰는 값' }, '공통');
+    function r1(title, exp, ctl, o = {}) {
+        const on = cfOpen.has(title);
+        const p = exp ? h('p', { class: 'cf-exp', hidden: !on }, exp) : null;
+        const b = exp ? h('button', {
+            class: 'cf-info' + (on ? ' on' : ''), type: 'button', 'aria-expanded': String(on), 'aria-label': title + ' 설명',
+            onclick: () => { const x = !cfOpen.has(title); if (x) cfOpen.add(title); else cfOpen.delete(title); b.classList.toggle('on', x); b.setAttribute('aria-expanded', String(x)); p.hidden = !x; },
+        }, 'i') : null;
+        return h('div', { class: 'cf-r1' + (o.sub ? ' cf-subrow' + (o.off ? ' off' : '') : '') + (o.wide ? ' wide' : '') },
+            h('div', { class: 'cf-lb1' }, title, o.tag ? cfTag() : null, b),
+            h('div', { class: 'cf-ctl1' }, ctl), p);
+    }
+    function hint1(...kids) { return h('div', { class: 'cf-r1 cf-hr' }, h('p', { class: 'cf-hint1' }, kids)); }
+    function g1(id, title, ...rows) { return h('div', { class: 'cf-grp', id: 'cfg-' + id }, h('h2', null, title), h('div', { class: 'cf-card' }, rows)); }
+    function cfJump(el) {
+        const d = el.ownerDocument, w = d.defaultView;
+        let sc = el.parentElement;
+        while (sc && sc !== d.body && sc !== d.documentElement) {
+            const y = w.getComputedStyle(sc).overflowY;
+            if ((y === 'auto' || y === 'scroll') && sc.scrollHeight > sc.clientHeight) break;
+            sc = sc.parentElement;
+        }
+        if (sc && sc !== d.body && sc !== d.documentElement) sc.scrollTo({ top: el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - 12, behavior: 'smooth' });
+        else { const se = d.scrollingElement || d.documentElement; se.scrollTo({ top: el.getBoundingClientRect().top + se.scrollTop - 12, behavior: 'smooth' }); }
+    }
     function limitRow(label, short, more, key, unit) {
         const v = Math.max(0, parseInt(st.set[key], 10) || 0);
-        return h('div', { class: 'cf-row' },
-            h('div', { class: 'cf-tx' }, h('b', null, label), h('p', null, short), more ? h('details', null, h('summary', null, '자세히'), h('p', null, more)) : null),
+        return r1(label, [short, more].filter(Boolean).join(' '),
             h('label', { class: 'cf-ownbox' },
                 h('input', {
                     class: 'cf-num' + (v ? ' sel' : ''), type: 'text', inputmode: 'numeric', value: v ? String(v) : '', placeholder: '제한 없음', 'aria-label': label,
@@ -7804,13 +7969,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     onkeydown: e => { if (e.key === 'Enter') e.target.blur(); },
                     onchange: e => setVal(key, Math.max(0, parseInt(e.target.value, 10) || 0)),
                 }),
-                h('span', null, unit)));
+                h('span', { class: 'cf-unit' }, unit)), { tag: true });
     }
     function dynMinRow(dk = 'dynamic', mk = 'dynMin') {
         const n0 = parseInt(st.set[mk], 10), v = Number.isFinite(n0) ? Math.min(10, Math.max(1, n0)) : DYN_MIN_DEF, off = st.set[dk] === false;
         const put = n => { n = Math.min(10, Math.max(1, n)); if (n !== v) setVal(mk, n); else renderNow(); };
-        return h('div', { class: 'cf-row sw cf-subrow' + (off ? ' off' : '') },
-            h('div', { class: 'cf-tx' }, h('b', null, '심각도 기준'), h('p', null, '1~10 중 이 값 이상인 장면에만 씁니다. 낮출수록 자주 씁니다 (기본 9).')),
+        return r1('심각도 기준', '1~10 중 이 값 이상인 장면에만 씁니다. 낮출수록 자주 씁니다 (기본 9).',
             h('div', { class: 'cf-stp' },
                 h('button', { type: 'button', 'aria-label': '심각도 기준 낮추기', disabled: off || v <= 1, onclick: () => put(v - 1) }, '−'),
                 h('input', {
@@ -7819,7 +7983,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     onkeydown: e => { if (e.key === 'Enter') e.target.blur(); },
                     onchange: e => { const n = parseInt(e.target.value, 10); put(Number.isFinite(n) ? n : DYN_MIN_DEF); },
                 }),
-                h('button', { type: 'button', 'aria-label': '심각도 기준 높이기', disabled: off || v >= 10, onclick: () => put(v + 1) }, '+')));
+                h('button', { type: 'button', 'aria-label': '심각도 기준 높이기', disabled: off || v >= 10, onclick: () => put(v + 1) }, '+')), { sub: true, off });
     }
     const BK_KEYS = ['nc:set', 'nc:presets', 'nc:preset', 'nc:nsfw', 'nc:nsfwMy', 'gt:set', 'gt:my'];
     const BK_PRE = ['nc:cast:', 'nc:img:', 'nc:ast:', 'gt:bot:', 'gt:talk:'];
@@ -7984,9 +8148,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     function renderSettings() {
         const s = st.set;
         const pane = h('section', { class: 'ix-pane ix-set' });
-        const note = (short, more) => [short ? h('p', null, short) : null, more ? h('details', null, h('summary', null, '자세히'), h('p', null, more)) : null];
-        const row = (cls, title, short, more, ...ctl) => h('div', { class: 'cf-row' + (cls ? ' ' + cls : '') }, h('div', { class: 'cf-tx' }, h('b', null, title), note(short, more)), ctl);
-        const grp = (title, ...rows) => h('div', { class: 'cf-grp' }, h('h2', null, title), h('div', { class: 'cf-card' }, rows));
+        const row = (t, short, more, ctl, o) => r1(t, [short, more].filter(Boolean).join(' '), ctl, o);
+        const grp = g1;
         const toReady = h('button', { class: 'lnk', type: 'button', onclick: () => { ui.mode = 'imagine'; ui.tab = 'ready'; ui.side = ''; renderNow(); } }, '삽화 › 준비');
         const devRow = () => {
             const msg = h('span', { class: 'cf-dev-msg', role: 'status', 'aria-live': 'polite' });
@@ -8001,105 +8164,116 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     msg),
                 h('button', { class: 'cf-dev-go', type: 'button', onclick: go }, '깃허브 열기 ↗'));
         };
-        const shared = text => h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, text));
-        const genreRow = (k = 'genre') => row('sw', '장르 태그', '모델이 그림마다 장르를 고르면 그 장르의 태그를 붙입니다.',
-                    null,
-                    toggle(s[k] !== false, () => setVal(k, s[k] === false)));
-        const dynRow = (k = 'dynamic') => row('sw', '다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 그림체가 「이매진 그림체」일 때만 동작합니다.',
-                    null,
-                    toggle(s[k] !== false, () => setVal(k, s[k] === false)));
-        const ubtnRow = () => row('', '답변 아래 버튼', '봇 답변 아래에 두는 알약 버튼입니다. 「생성」을 누르면 씬 재구성으로 그립니다. 모델이 그 답변의 장면부터 다시 고르고 이어서 그립니다. 이미 그림이 있어도 같습니다. 읽기 버튼은 TTS 설정에서 따로 정합니다.',
-                    '「안 씀」이면 「생성」 칸을 두지 않고 자동 그리기와 이 창의 「삽화 목록」 탭으로만 씁니다. 삽화 › 준비를 마치기 전에 「생성」을 누르면 이 창의 삽화 › 준비를 엽니다.',
-                    seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.ubtn, v => setVal('ubtn', v)));
-        const vbtnRow = () => row('', '답변 아래 읽기 버튼', '봇 답변 아래 알약에 붙는 읽기(스피커) 칸입니다. 보관한 소리가 있으면 ↻(새로 만들기)도 붙습니다. 만들거나 트는 중에 같은 칸을 누르면 멈춥니다.',
-                    '삽화의 「생성」 버튼 설정과 따로 정합니다. 「안 씀」이면 읽기 칸을 두지 않고 자동 읽기로만 씁니다.',
-                    seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.vbtn, v => setVal('vbtn', v)));
+        const genreRow = (k = 'genre') => row('장르 태그', '모델이 그림마다 장르를 고르면 그 장르의 태그를 붙입니다.', null,
+            toggle(s[k] !== false, () => setVal(k, s[k] === false)));
+        const dynRow = (k = 'dynamic') => row('다이나믹 프롬프트', '심각한 장면을 흑백 스케치 + 강조색으로 그립니다. 그림체가 「이매진 그림체」일 때만 동작합니다.', null,
+            toggle(s[k] !== false, () => setVal(k, s[k] === false)));
+        const ubtnRow = () => row('답변 아래 버튼', '봇 답변 아래에 두는 알약 버튼입니다. 「생성」을 누르면 씬 재구성으로 그립니다. 모델이 그 답변의 장면부터 다시 고르고 이어서 그립니다. 이미 그림이 있어도 같습니다. 읽기 버튼은 TTS 설정에서 따로 정합니다.',
+            '「안 씀」이면 「생성」 칸을 두지 않고 자동 그리기와 이 창의 「삽화 목록」 탭으로만 씁니다. 삽화 › 준비를 마치기 전에 「생성」을 누르면 이 창의 삽화 › 준비를 엽니다.',
+            seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.ubtn, v => setVal('ubtn', v)));
+        const vbtnRow = () => row('답변 아래 읽기 버튼', '봇 답변 아래 알약에 붙는 읽기(스피커) 칸입니다. 보관한 소리가 있으면 ↻(새로 만들기)도 붙습니다. 만들거나 트는 중에 같은 칸을 누르면 멈춥니다.',
+            '삽화의 「생성」 버튼 설정과 따로 정합니다. 「안 씀」이면 읽기 칸을 두지 않고 자동 읽기로만 씁니다.',
+            seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.vbtn, v => setVal('vbtn', v)));
+        const SZ_MORE = ' 고른 크기는 봇의 기본 변수 nc_pc · nc_mo 에 적고 지금 채팅을 바로 다시 그려 반영합니다. 답변이 나오는 중이면 끝난 뒤에 다시 그립니다. 1.2.0 이하에서 넣은 그림은 그 답변을 다시 그려야 크기가 바뀝니다.';
         const sizeRows = () => [
-                sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.', PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
-                sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.', MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v)),
-                h('div', { class: 'cf-row' }, h('div', { class: 'cf-tx' }, note('', '고른 크기는 봇의 기본 변수 nc_pc · nc_mo 에 적고 지금 채팅을 바로 다시 그려 반영합니다. 답변이 나오는 중이면 끝난 뒤에 다시 그립니다. 1.2.0 이하에서 넣은 그림은 그 답변을 다시 그려야 크기가 바뀝니다.')))];
-        const webpRow = (k = 'webp') => row('sw', 'WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다.', null, toggle(s[k] !== false, () => setVal(k, s[k] === false)));
-        const gKey = grp('NovelAI 키',
-                row('col', 'NAI API 키', 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 키를 넣습니다.',
-                    '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
-                    keyBox(true)));
-        const gDraw = grp('그리기',
-                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '만화/삽화 · 장 수 · 연출 모델 · NAI 모델은 ', toReady, '에서, 그림체는 ', h('button', { class: 'lnk', type: 'button', onclick: () => openApp('style') }, '그림체 앱'), '에서 바꿉니다. 애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe())),
-                row('sw', '답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
-                    '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
-                    toggle(s.auto, () => setVal('auto', !s.auto))),
-                row('col', '해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
-                    sizePick(sizeNow(), v => setVal('size', v))),
-                s.kind !== 'illust' ? row('sw', '말풍선', '답변에 있는 대사를 말풍선으로 넣습니다.',
-                    '대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 줄 끝에 「speech bubble with Text: 대사」로 붙습니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
-                    toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))) : null,
-                row('sw', '유저 인풋 우선', '유저 입력이 부른 장면을 먼저 그립니다.',
-                    '유저 입력은 이 설정과 상관없이 늘 참고로 보냅니다. 켜면 첫 장(만화 한 장이면 첫 컷)은 유저 입력이 그리는 순간이고, 나머지는 그 반응입니다. 유저 입력이 다른 인물의 행동을 지시해도 그 장면을 그립니다. 첫 컷 대사는 유저 입력에서 옮길 수 있습니다. 답변과 어긋나면 답변을 따릅니다. 바로 앞이 유저 입력이 아니면(첫 메시지 · 이어 쓰기) 끈 것과 같습니다.',
-                    toggle(s.userFirst, () => setVal('userFirst', !s.userFirst))),
-                genreRow(),
-                dynRow(),
-                dynMinRow(),
-                row('sw', '다시 그려도 기존 그림 남기기', '다시 그리거나 씬 재구성해도 옛 그림을 봇 에셋에서 지우지 않습니다. 답변에는 새 그림만 보이고, 옛 그림은 삽화 목록의 「지운 답변」 필터에서 보거나 지울 수 있습니다.',
-                    null,
-                    toggle(!!s.keepOld, () => setVal('keepOld', !s.keepOld))));
-        const gChat = grp('채팅 속 그림',
-                ubtnRow(),
-                sizeRows(),
-                row('sw', '이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '두 메뉴의 버튼은 그대로 있습니다.',
-                    toggle(s.panelBtn, () => setVal('panelBtn', !s.panelBtn))),
-                s.kind === 'illust' ? row('', '다 그리면 스크롤', '삽화를 다 그린 뒤 채팅 화면을 옮길 자리입니다. 「마지막 채팅 맨 위」는 그림을 넣은 답변의 맨 위로, 「그린 그림」은 그 그림으로(여러 장이면 맨 위 그림) 갑니다. 「리수 기본」은 옮기지 않습니다.',
-                    '자동 그리기에도 똑같이 옮깁니다. 만화를 그릴 때는 옮기지 않습니다. 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼을 모두 끄면 리수 본문 화면에 접근하지 않으므로 옮기지 않습니다.',
-                    seg([['last', '마지막 채팅 맨 위'], ['fig', '그린 그림'], ['off', '리수 기본(안 옮김)']], s.scroll, v => setVal('scroll', v))) : null,
-                needRoot() ? h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' },
-                    rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
-                        : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.')) : null);
-        const gBot = grp('이 봇의 그림',
-                row('col', '봇의 기존 그림 숨기기', '이 봇의 백그라운드 임베딩 · 정규식 · Lua 트리거에서 에셋 그림을 띄우는 곳을 모델이 찾아 숨기고, 메시지 · 첫 메시지에 바로 쓴 에셋 그림({{img::…}} 등)도 화면에서 지웁니다. 이 봇에만 적용됩니다. (봇 정규식이 복잡하면 적용되지 않을 수 있습니다)',
-                    null,
-                    hideControls()));
-        const castGrp = auto => grp('등장인물 분석',
-                h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '📖 등장인물 분석과, 캐스트에 없는 인물을 로어북에서 다시 찾을 때 쓰는 제한입니다. 0 이나 빈칸이면 제한하지 않습니다. 등장인물은 모든 앱이 함께 씁니다.')),
-                auto && voice ? voice.embed([voice.castAutoRow()]) : null,
-                limitRow('로어북 글자 수', '로어북이 이 글자 수를 넘으면 뒤쪽 항목은 보내지 않습니다.',
-                    '로어북이 아주 길면 모델이 입력 길이 한도를 넘어 거절할 수 있습니다. 그럴 때 60000 같은 값을 넣습니다. 봇 설명 · 페르소나에는 따로 제한이 있습니다.',
-                    'loreMax', '자'),
-                limitRow('인물 수', '모델이 중요한 인물부터 이 수만큼만 돌려줍니다.', '제한이 없으면 모델이 외모가 나오는 인물을 모두 돌려줍니다.', 'castMax', '명'));
-        const gSave = grp('저장',
-                webpRow(),
-                row('sw', '인물 칸을 채팅 변수로 쓰기', '인물마다 지금 열두 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
-                    null,
-                    toggle(s.vars, () => setVal('vars', !s.vars))));
-        const gAsset = grp('모델 · 그림체',
-            h('div', { class: 'cf-row' }, h('p', { class: 'ix-hint', style: 'margin:0' }, '애드 에셋의 연출 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다.')));
+            sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.' + SZ_MORE, PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
+            sizeRow('모바일 화면에서 가로', '화면 폭이 768px 이하일 때, 화면 폭에 대한 비율입니다. 애드 에셋 초상화도 같은 비율로 보입니다.' + SZ_MORE, MO_SIZES, s.mo, MO_RANGE, '%', v => setVal('mo', v))];
+        const webpRow = (k = 'webp') => row('WebP 로 줄여 저장', 'PNG 대신 WebP(품질 70)로 저장해 봇 용량을 줄입니다. 그림 정보(프롬프트 · 설정 · 시드)는 EXIF 로 남깁니다.', null, toggle(s[k] !== false, () => setVal(k, s[k] === false)));
+        const gKey = grp('key', 'NovelAI 키',
+            row('NAI API 키', 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 키를 넣습니다.',
+                '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다. 리수의 플러그인 설정 칸(nai_api_key)과 같은 곳에 저장됩니다.',
+                keyBox(true), { wide: true, tag: true }));
+        const gDraw = grp('draw', '그리기',
+            hint1('만화/삽화 · 장 수 · 연출 모델 · NAI 모델은 ', toReady, '에서, 그림체는 ', h('button', { class: 'lnk', type: 'button', onclick: () => openApp('style') }, '그림체 앱'), '에서 바꿉니다. 애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe()),
+            row('답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
+                '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
+                toggle(s.auto, () => setVal('auto', !s.auto))),
+            row('해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', s.kind === 'illust' ? null : '가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
+                sizePick(sizeNow(), v => setVal('size', v)), { wide: true }),
+            s.kind !== 'illust' ? row('말풍선', '답변에 있는 대사를 말풍선으로 넣습니다.',
+                '대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 대사는 말한 사람 줄 끝에 「speech bubble with Text: 대사」로 붙습니다. 끄면 부정에 speech bubble · text 를 넣습니다.',
+                toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))) : null,
+            row('유저 인풋 우선', '유저 입력이 부른 장면을 먼저 그립니다.',
+                '유저 입력은 이 설정과 상관없이 늘 참고로 보냅니다. 켜면 첫 장(만화 한 장이면 첫 컷)은 유저 입력이 그리는 순간이고, 나머지는 그 반응입니다. 유저 입력이 다른 인물의 행동을 지시해도 그 장면을 그립니다. 첫 컷 대사는 유저 입력에서 옮길 수 있습니다. 답변과 어긋나면 답변을 따릅니다. 바로 앞이 유저 입력이 아니면(첫 메시지 · 이어 쓰기) 끈 것과 같습니다.',
+                toggle(s.userFirst, () => setVal('userFirst', !s.userFirst))),
+            genreRow(),
+            dynRow(),
+            dynMinRow(),
+            row('이전으로 되돌리기', '켜면 다시 그리거나 씬 재구성해도 이전 그림을 지우지 않고 남겨 둡니다. 그 그림에 마우스를 올리면 「↶ 되돌리기」 버튼이 보이고, 누르면 이전 그림으로 돌아가며 새로 그린 그림은 지웁니다. 한 단계만 되돌릴 수 있습니다.',
+                null,
+                toggle(!!s.undo, () => setVal('undo', !s.undo))));
+        const gChat = grp('chat', '채팅 속 그림',
+            ubtnRow(),
+            sizeRows(),
+            row('이매진 버튼을 입력칸 옆에도 두기', '왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴에 있는 이매진 버튼을 입력칸 왼쪽에도 하나 더 둡니다.', '두 메뉴의 버튼은 그대로 있습니다.',
+                toggle(s.panelBtn, () => setVal('panelBtn', !s.panelBtn))),
+            s.kind === 'illust' ? row('다 그리면 스크롤', '삽화를 다 그린 뒤 채팅 화면을 옮길 자리입니다. 「마지막 채팅 맨 위」는 그림을 넣은 답변의 맨 위로, 「그린 그림」은 그 그림으로(여러 장이면 맨 위 그림) 갑니다. 「리수 기본」은 옮기지 않습니다.',
+                '자동 그리기에도 똑같이 옮깁니다. 만화를 그릴 때는 옮기지 않습니다. 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼을 모두 끄면 리수 본문 화면에 접근하지 않으므로 옮기지 않습니다.',
+                seg([['last', '마지막 채팅 맨 위'], ['fig', '그린 그림'], ['off', '리수 기본(안 옮김)']], s.scroll, v => setVal('scroll', v))) : null,
+            needRoot() ? hint1(rootDenied() ? '리수 본문 화면 접근을 거절해서 답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤이 동작하지 않습니다. 왼쪽 사이드바 ☰ 메뉴와 채팅 ≡ 메뉴의 버튼은 그대로 쓸 수 있고, 리수를 다시 열면 다시 묻습니다.'
+                : '답변 아래 버튼 · 그림 위 버튼 · 입력칸 옆 버튼 · 다 그린 뒤 스크롤은 리수 본문 화면에 접근해야 해서, 처음 켤 때 리수가 동의를 한 번 묻습니다.') : null);
+        const gBot = grp('bot', '이 봇의 그림',
+            row('봇의 기존 그림 숨기기', '이 봇의 백그라운드 임베딩 · 정규식 · Lua 트리거에서 에셋 그림을 띄우는 곳을 모델이 찾아 숨기고, 메시지 · 첫 메시지에 바로 쓴 에셋 그림({{img::…}} 등)도 화면에서 지웁니다. 이 봇에만 적용됩니다. (봇 정규식이 복잡하면 적용되지 않을 수 있습니다)',
+                null,
+                hideControls(), { wide: true }));
+        const castGrp = auto => grp('cast', '등장인물 분석',
+            hint1('📖 등장인물 분석과, 캐스트에 없는 인물을 로어북에서 다시 찾을 때 쓰는 제한입니다. 0 이나 빈칸이면 제한하지 않습니다. 등장인물은 모든 앱이 함께 씁니다.'),
+            auto && voice ? voice.embed([voice.castAutoRow()]) : null,
+            limitRow('로어북 글자 수', '로어북이 이 글자 수를 넘으면 뒤쪽 항목은 보내지 않습니다.',
+                '로어북이 아주 길면 모델이 입력 길이 한도를 넘어 거절할 수 있습니다. 그럴 때 60000 같은 값을 넣습니다. 봇 설명 · 페르소나에는 따로 제한이 있습니다.',
+                'loreMax', '자'),
+            limitRow('인물 수', '모델이 중요한 인물부터 이 수만큼만 돌려줍니다.', '제한이 없으면 모델이 외모가 나오는 인물을 모두 돌려줍니다.', 'castMax', '명'));
+        const gSave = grp('save', '저장',
+            webpRow(),
+            row('인물 칸을 채팅 변수로 쓰기', '인물마다 지금 열두 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
+                null,
+                toggle(s.vars, () => setVal('vars', !s.vars))));
+        const gAsset = grp('asset', '모델 · 그림체',
+            hint1('애드 에셋의 연출 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다.'));
         const SECS = {
             imagine: ['삽화', () => [gKey, gDraw, gChat, gBot, castGrp(false), gSave]],
             asset: ['애드 에셋', () => [gKey, gAsset,
-                grp('초상화 크기', shared('채팅에 보이는 그림 크기는 삽화 그림과 같은 값입니다.'), sizeRows()),
-                castGrp(false), grp('저장', webpRow('acWebp'))]],
+                grp('portrait', '초상화 크기', hint1('채팅에 보이는 그림 크기는 삽화 그림과 같은 값입니다.'), sizeRows()),
+                castGrp(false), grp('save', '저장', webpRow('acWebp'))]],
             voice: ['TTS', () => voice ? [voice.embed(voice.setPart('voice'), true),
-                grp('채팅 속 버튼', vbtnRow()),
+                grp('vbtn', '채팅 속 버튼', vbtnRow()),
                 castGrp(true)] : []],
             talk: ['대화', () => voice ? [voice.embed(voice.setPart('talk')), gKey,
-                grp('그림', genreRow('talkGenre'), dynRow('talkDynamic'), dynMinRow('talkDynamic', 'talkDynMin')),
-                castGrp(true), grp('저장', webpRow('talkWebp'))] : []],
+                grp('tart', '그림', genreRow('talkGenre'), dynRow('talkDynamic'), dynMinRow('talkDynamic', 'talkDynMin')),
+                castGrp(true), grp('save', '저장', webpRow('talkWebp'))] : []],
         };
-        const gBackup = () => grp('백업',
-            row('sw', '그림 파일도 넣기', '봇에 들어 있는 이매진 삽화(nc_)와 애드 에셋 그림(c_)을 백업 파일에 함께 넣습니다. 그림이 많으면 파일이 아주 커집니다.',
+        const gBackup = () => grp('backup', '백업',
+            row('그림 파일도 넣기', '봇에 들어 있는 이매진 삽화(nc_)와 애드 에셋 그림(c_)을 백업 파일에 함께 넣습니다. 그림이 많으면 파일이 아주 커집니다.',
                 '끄면 기록만 담습니다. 그림 없이 다른 리수로 옮기면 삽화 목록에 「그림 없음」으로 보입니다.',
-                toggle(bk.img, () => { bk.img = !bk.img; bkDropUrl(); bk.msg = ''; renderNow(); }, !!bk.busy)),
-            row('col', '백업 파일', '작가(그림체) · NSFW 프롬프트 · 설정 · 목소리, 봇마다 등장인물 · 삽화 기록 · 애드 에셋 기록 · 목소리 표 · 대화 기록을 JSON 파일 하나로 만들고, 그 파일을 불러와 되돌립니다.',
+                toggle(bk.img, () => { bk.img = !bk.img; bkDropUrl(); bk.msg = ''; renderNow(); }, !!bk.busy), { tag: true }),
+            row('백업 파일', '작가(그림체) · NSFW 프롬프트 · 설정 · 목소리, 봇마다 등장인물 · 삽화 기록 · 애드 에셋 기록 · 목소리 표 · 대화 기록을 JSON 파일 하나로 만들고, 그 파일을 불러와 되돌립니다.',
                 '불러오면 파일에 있는 항목을 파일 값으로 바꿉니다. 파일에 없는 기록은 지우지 않습니다. 봇은 같은 봇(chaId)을 먼저 찾고, 없으면 이름이 같은 봇이 하나뿐일 때 그 봇에 넣습니다. 그림은 봇에 없는 이름만 넣습니다. NAI API 키 · Vertex JSON · 다른 플러그인의 저장값은 담지 않습니다.',
                 h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center' },
                     h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: () => void bkExport() }, bk.busy === 'make' ? '만드는 중…' : '백업 파일 만들기'),
                     bk.url ? h('a', { class: 'ix-btn sm main', href: bk.url, download: bk.file, style: 'text-decoration:none' }, `내려받기 (${bkSize(bk.size)})`) : null,
-                    h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: bkPick }, bk.busy === 'load' ? '불러오는 중…' : '백업 파일 불러오기'))),
-            bk.msg ? h('div', { class: 'cf-row' }, h('p', { class: 'ix-msg' + (bk.cls ? ' ' + bk.cls : ''), role: 'status', 'aria-live': 'polite', style: 'margin:0;flex:1 1 100%' }, bk.msg)) : null);
+                    h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: bkPick }, bk.busy === 'load' ? '불러오는 중…' : '백업 파일 불러오기')),
+                { wide: true, tag: true }),
+            bk.msg ? h('div', { class: 'cf-r1 cf-hr' }, h('p', { class: 'ix-msg' + (bk.cls ? ' ' + bk.cls : ''), role: 'status', 'aria-live': 'polite', style: 'margin:0;flex:1 1 100%' }, bk.msg)) : null);
         const sec = SECS[ui.mode] ?? SECS.imagine;
+        const nav = h('nav', { class: 'cf-nav1', 'aria-label': '설정 목차' });
+        const body = h('div', { class: 'cf-body1' }, sec[1](), gBackup(), devRow());
+        const gs = [...body.querySelectorAll('.cf-grp[id]')];
+        const cur = gs.some(g => g.id === cfNav) ? cfNav : gs[0]?.id ?? '';
+        for (const g of gs) {
+            const a = h('a', {
+                href: '#' + g.id, 'data-nav': g.id, class: g.id === cur ? 'on' : '',
+                onclick: e => {
+                    e.preventDefault();
+                    cfNav = g.id;
+                    for (const x of nav.querySelectorAll('a')) x.classList.toggle('on', x === a);
+                    cfJump(g);
+                },
+            }, g.querySelector('h2')?.firstChild?.textContent ?? '', h('i', null, String(g.querySelectorAll('.cf-r1:not(.cf-hr)').length)));
+            nav.append(a);
+        }
         add(pane,
             h('div', { class: 'cf-sec' }, sec[0] + ' 설정', h('small', null, '이 앱의 설정만 보입니다')),
-            sec[1](),
-            gBackup(),
-            devRow(),
+            h('div', { class: 'cf-v1' }, nav, body),
             st.sizeNote ? h('div', { class: 'sz-bar', role: 'status', 'aria-live': 'polite' }, h('span', { class: 'sz-tx ' + st.sizeNote.cls }, st.sizeNote.text)) : null,
         );
         return pane;
@@ -8274,6 +8448,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         + '@media (hover:hover) and (pointer:fine){.nc-fig.nc-fig:hover .nc-act.nc-act{opacity:1!important;visibility:visible!important;scale:1!important}'
         + '.nc-act.nc-act .nc-act-b.nc-act-b:hover{background:rgba(37,99,235,.92)!important}'
         + '.nc-act.nc-act .nc-del.nc-del:hover{background:rgba(220,38,38,.92)!important}'
+        + '.nc-act.nc-act .nc-undo.nc-undo:hover{background:rgba(234,88,12,.92)!important}'
         + '.nc-gen.nc-gen:hover,.nc-tts-btn.nc-tts-btn:hover,.nc-tts-re.nc-tts-re:hover{filter:brightness(1.3)!important}}'
         + '.nc-fig.nc-fig.nc-on .nc-act.nc-act{opacity:.92!important;visibility:visible!important;scale:1!important}';
     function figCss(ptHide) {
@@ -8284,9 +8459,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             + (s.tap ? ACT_CSS : '')
             + `@media (max-width:768px){.nc-fig,.nc-pt{width:${s.mo}vw!important;width:{{getvar::nc_mo}}vw!important}}</style>`;
     }
-    const ACT_LABEL = { panel: '🎨 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', del: '🗑 지우기' };
-    const actHtml = name => `<div class="nc-act" style="${ACT_STYLE}">`
-        + Object.entries(ACT_LABEL).map(([k, label]) => `<span class="nc-act-b nc-${k} nc-for-${name} nc-at-{{chat_index}}" style="${BTN_STYLE}">${label}</span>`).join('')
+    const ACT_LABEL = { panel: '🎨 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', undo: '↶ 되돌리기', del: '🗑 지우기' };
+    const UNDO_HIDE = imp({ display: 'none' });
+    const actHtml = (name, can) => `<div class="nc-act" style="${ACT_STYLE}">`
+        + Object.entries(ACT_LABEL).filter(([k]) => k !== 'undo' || st.set.undo).map(([k, label]) => {
+            const on = k !== 'undo' || !!can?.has(String(name).toLowerCase());
+            return `<span class="nc-act-b nc-${k} nc-for-${name} nc-at-{{chat_index}}${k === 'undo' && on ? ' nc-uv' : ''}" style="${on ? BTN_STYLE : BTN_STYLE + ';' + UNDO_HIDE}">${label}</span>`;
+        }).join('')
         + '</div>';
     const FIG_RE = /<div class="nc-fig nc-id-(nc_[a-z0-9_]+)">(<div class="nc-act">)?/gi;
     const INLAY_RE = /(<div class="nc-fig nc-id-nc_[a-z0-9_]+" style="[^"]*">(?:<div class="nc-act"[^>]*>.*?<\/div>)?\s*)<div class="risu-inlay-image">(\s*)<img\b/gi;
@@ -8368,9 +8547,15 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         }
         const acts = st.set.tap && !rootDenied();
         const fs = figStyle();
+        let can = null;
+        if (acts && st.set.undo) {
+            const uId = chaId || await curChaId().catch(() => '');
+            if (uId && recCache.has(uId)) can = undoNamesOf(recCache.get(uId));
+            else if (uId) void loadRecs(uId).then(() => rootQueue(paintUndo)).catch(() => {});
+        }
         const ptHide = !!chaId && hasPt && st.set.ptOff.includes(chaId);
         const body = content
-            .replace(FIG_RE, (m, name, had) => `<div class="nc-fig nc-id-${name}" style="${fs}">` + (had ?? (acts ? actHtml(name) : '')))
+            .replace(FIG_RE, (m, name, had) => `<div class="nc-fig nc-id-${name}" style="${fs}">` + (had ?? (acts ? actHtml(name, can) : '')))
             .replace(INLAY_RE, (m, head, sp) => `${head}<div class="risu-inlay-image" style="${WRAP_STYLE}">${sp}<img style="${IMG_STYLE}"`)
             .replace(PT_RE, (m, name) => `<div class="nc-pt nc-pt-${name}" style="${ptHide ? PT_HIDE : fs}">`)
             .replace(PT_INLAY_RE, (m, head, sp) => `${head}<div class="risu-inlay-image" style="${WRAP_STYLE}">${sp}<img style="${IMG_STYLE}"`)
@@ -8878,6 +9063,27 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         }
         await paintGen();
         await paintFigs();
+        await paintUndo();
+    }
+    async function paintUndo() {
+        const d = root.doc;
+        if (!root.on || !d || !st.set.tap || !st.set.undo) return;
+        const els = await d.querySelectorAll('.x-risu-nc-undo');
+        const n = await els.length();
+        if (!n) return;
+        const chaId = await curChaId().catch(() => '');
+        const can = chaId ? undoNamesOf(await loadRecs(chaId)) : new Set();
+        for (let i = 0; i < n; i++) {
+            const el = await els.at(i);
+            const cls = String(await el.getClassName() ?? '');
+            const name = /(?:^|\s)x-risu-nc-for-(nc_[a-z0-9_]+)/i.exec(cls)?.[1]?.toLowerCase();
+            if (!name) continue;
+            const show = can.has(name);
+            const was = /(?:^|\s)(?:x-risu-)?nc-uv(?:\s|$)/.test(cls);
+            if (show === was) continue;
+            await el.setStyleAttribute(show ? BTN_STYLE : BTN_STYLE + ';' + UNDO_HIDE);
+            await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-uv$/.test(c)).concat(show ? ['nc-uv'] : []).join(' '));
+        }
     }
 
     async function onRootClick(event) {
@@ -8913,7 +9119,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             if (!await onTop(el)) return;
             const cls = String(await el.getClassName() ?? '');
             const name = /(?:^|\s)x-risu-nc-for-(nc_[a-z0-9_]+)/i.exec(cls)?.[1];
-            const act = /(?:^|\s)x-risu-nc-(panel|draw|new|del)(?:\s|$)/.exec(cls)?.[1];
+            const act = /(?:^|\s)x-risu-nc-(panel|draw|new|undo|del)(?:\s|$)/.exec(cls)?.[1];
             if (act === 'panel') return void openPanel().catch(error => console.error(LOG, 'panel', error));
             if (name && act) await figAction(act, name, el, genIdx(cls));
             return;
@@ -9073,7 +9279,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const ci = await api.getCurrentCharacterIndex();
             const chi = await api.getCurrentChatIndex();
             const low = name.toLowerCase();
-            if (act !== 'del') {
+            if (act !== 'del' && act !== 'undo') {
                 const b = st.busy;
                 if (b && figHit(b.job, ci, chi, act, low)) { if (!b.stop) cancelAll(); return; }
                 if ([...jobsOn].some(j => figHit(j, ci, chi, act, low))) return;
@@ -9087,6 +9293,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const key = msgKeyOf(list[idx], idx, list);
             if (act !== 'del' && armed.name) disarm();
             if (queued.has(key)) { await api.alert?.('이 답변은 지금 그리는 중입니다.'); return; }
+            if (act === 'undo') { await undoImage(ci, chi, char, key, idx, low); return; }
             if (act === 'del') {
                 if (armed.name === low && !await el.hasClass(ARMED).catch(() => false)) disarm();
                 if (armed.name !== low || armed.left > 1) {
@@ -9153,20 +9360,125 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const recs = await loadRecs(char0.chaId);
         const rk = recKeyIn(recs, now, key, i, chi) || recIdOf(chatKeyOf(now, chi), key);
         const rec = recs[rk];
+        const held = [];
         if (rec) {
             const gone = (rec.images ?? []).filter(x => x.name.toLowerCase() === low);
+            for (const x of gone) if (x.prev) held.push(x.prev);
             rec.images = (rec.images ?? []).filter(x => x.name.toLowerCase() !== low);
-            for (const x of gone) dropThumb(x.path);
-            if (!rec.images.length) delete recs[rk];
+            if (!rec.images.length) { held.push(...(rec.back?.images ?? [])); delete recs[rk]; }
+            for (const x of [...gone, ...held]) dropThumb(x.path);
             await saveRecs(char0.chaId, recs);
         }
+        if (held.length && char0.type !== 'group') dropUnused(ci, char0.chaId, held.map(x => x.name), 0);
         if (ui.root?.isConnected) await refreshView().catch(() => {});
         render();
+        if (st.set.undo) void rootQueue(paintUndo);
+    }
+
+    async function undoImage(ci, chi, char0, key, idx, low) {
+        if (char0.type === 'group') return;
+        const chat = await api.getChatFromIndex(ci, chi);
+        if (!chat) return;
+        if (chat.isStreaming) { await api.alert?.('답변이 나오는 중입니다. 끝난 뒤에 다시 눌러 주세요.'); return; }
+        if (st.busy?.key === key || queued.has(key)) { await api.alert?.('이 답변을 그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.'); return; }
+        const i0 = findMsg(chat, key, idx);
+        if (i0 < 0) return;
+        const recs = await loadRecs(char0.chaId);
+        const rk = recKeyIn(recs, chat, key, i0, chi) || recIdOf(chatKeyOf(chat, chi), key);
+        const rec = recs[rk];
+        const slot = rec?.images?.find(x => x.name.toLowerCase() === low);
+        const back = slot && !slot.prev && rec.back?.images?.length ? rec.back : null;
+        if (!slot || (!slot.prev && !back)) {
+            await api.alert?.('되돌릴 이전 그림이 없습니다.');
+            void rootQueue(paintUndo);
+            return;
+        }
+        const char = await api.getCharacterFromIndex(ci);
+        if (!char || char.chaId !== char0.chaId) return;
+        const have = new Set((char.additionalAssets ?? []).map(ncLow));
+        const want = slot.prev ? [slot.prev] : back.images;
+        if (!want.every(x => have.has(String(x?.name ?? '').toLowerCase()))) {
+            for (const x of want) dropThumb(x?.path);
+            if (slot.prev) delete slot.prev; else delete rec.back;
+            await saveRecs(char0.chaId, recs);
+            await api.alert?.('이전 그림이 봇 에셋에서 지워져 되돌릴 수 없습니다.');
+            void rootQueue(paintUndo);
+            return;
+        }
+        const now = await api.getChatFromIndex(ci, chi);
+        if (!now || now.isStreaming || chatKeyOf(now, chi) !== chatKeyOf(chat, chi)) { await api.alert?.('채팅이 바뀌는 중이라 되돌리지 않았습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
+        const i = findMsg(now, key, idx);
+        if (i < 0) return;
+        const m = now.message[i];
+        let drop;
+        if (slot.prev) {
+            const prev = slot.prev;
+            if (hasName(m.data, slot.name)) m.data = String(m.data ?? '').replace(new RegExp(escapeRe(slot.name) + '(?![a-z0-9_])', 'gi'), prev.name);
+            else m.data = placeTags(m.data, [{ name: prev.name, after: prev.req?.after }], true);
+            rec.images = rec.images.map(x => x === slot ? prev : x);
+            drop = [slot];
+        } else {
+            m.data = placeTags(m.data, back.images.map(x => ({ name: x.name, after: x.req?.after })));
+            const keep = new Set(back.images.map(x => String(x.name).toLowerCase()));
+            drop = [...rec.images, ...rec.images.map(x => x.prev).filter(Boolean)].filter(x => !keep.has(String(x.name).toLowerCase()));
+            rec.images = back.images;
+            rec.plan = back.plan ?? rec.plan ?? null;
+            delete rec.back;
+        }
+        rec.at = Date.now();
+        await api.setChatToIndex(ci, chi, now);
+        await saveRecs(char0.chaId, recs);
+        for (const x of drop) dropThumb(x.path);
+        dropUnused(ci, char0.chaId, drop.map(x => x.name));
+        if (ui.root?.isConnected) await refreshView().catch(() => {});
+        render();
+        void rootQueue(paintUndo);
     }
 
     const NC_ASSET_RE = /^nc_[a-z0-9]+$/;
     const ncUsed = char => new Set(JSON.stringify({ ...char, additionalAssets: [] }).toLowerCase().match(/nc_[a-z0-9]+/g) ?? []);
     const ncLow = a => String(a?.[0] ?? '').toLowerCase();
+    function stripPrev(x) {
+        if (!x || typeof x !== 'object' || !('prev' in x)) return x;
+        const { prev, ...rest } = x;
+        return rest;
+    }
+    function heldNames(recs, used = null) {
+        const out = new Set();
+        const add = x => { if (x?.name) out.add(String(x.name).toLowerCase()); };
+        for (const rec of Object.values(recs ?? {})) {
+            if (!rec || typeof rec !== 'object' || rec.group) continue;
+            if (used && !(rec.images ?? []).some(x => used.has(String(x?.name ?? '').toLowerCase()))) continue;
+            for (const x of rec.images ?? []) add(x?.prev);
+            for (const x of rec.back?.images ?? []) add(x);
+        }
+        return out;
+    }
+    function undoNamesOf(recs) {
+        const out = new Set();
+        if (!st.set.undo) return out;
+        for (const rec of Object.values(recs ?? {})) {
+            if (!rec || typeof rec !== 'object' || rec.group) continue;
+            const all = !!rec.back?.images?.length;
+            for (const x of rec.images ?? []) if (x?.name && (all || x.prev)) out.add(String(x.name).toLowerCase());
+        }
+        return out;
+    }
+    function dropUnused(ci, chaId, names, later = DROP_LATER) {
+        const want = new Set((names ?? []).map(n => String(n).toLowerCase()).filter(n => NC_ASSET_RE.test(n)));
+        if (!want.size) return;
+        setTimeout(() => {
+            inQueue(async () => {
+                const char = await api.getCharacterFromIndex(ci);
+                if (!char || char.chaId !== chaId) return;
+                const used = ncUsed(char);
+                const held = heldNames(await loadRecs(chaId), used);
+                const before = (char.additionalAssets ?? []).length;
+                char.additionalAssets = (char.additionalAssets ?? []).filter(a => !want.has(ncLow(a)) || used.has(ncLow(a)) || held.has(ncLow(a)));
+                if (char.additionalAssets.length !== before) await api.setCharacterToIndex(ci, char);
+            }).catch(error => console.warn(LOG, 'drop unused', error));
+        }, later);
+    }
     async function goneScan() {
         const v = st.view;
         if (!v || v.group || acs.goneRun) return;
@@ -9179,7 +9491,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 const recs = await loadRecs(char.chaId);
                 const info = new Map();
                 for (const rec of Object.values(recs)) for (const x of rec?.images ?? []) info.set(String(x?.name ?? '').toLowerCase(), { title: x.title ?? '', at: rec.at ?? 0, excerpt: rec.excerpt ?? '' });
-                const list = (char.additionalAssets ?? []).filter(a => NC_ASSET_RE.test(ncLow(a)) && !used.has(ncLow(a)))
+                const held = st.set.undo ? heldNames(recs, used) : new Set();
+                const list = (char.additionalAssets ?? []).filter(a => NC_ASSET_RE.test(ncLow(a)) && !used.has(ncLow(a)) && !held.has(ncLow(a)))
                     .map(a => ({ name: a[0], path: a[1], ...(info.get(ncLow(a)) ?? {}) }));
                 list.sort((x, y) => (y.at ?? 0) - (x.at ?? 0));
                 found = { chaId: char.chaId, list };
@@ -9209,7 +9522,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         let changed = false;
         for (const [k, rec] of Object.entries(recs)) {
             if (rec?.group) continue;
-            const all = rec?.images ?? [], left = all.filter(x => !drop.has(String(x?.name ?? '').toLowerCase()));
+            const gone = x => drop.has(String(x?.name ?? '').toLowerCase());
+            for (const x of rec?.images ?? []) if (x?.prev && gone(x.prev)) { dropThumb(x.prev.path); delete x.prev; changed = true; }
+            if (rec?.back?.images?.some(gone)) { for (const x of rec.back.images) if (gone(x)) dropThumb(x.path); delete rec.back; changed = true; }
+            const all = rec?.images ?? [], left = all.filter(x => !gone(x));
             if (left.length === all.length) continue;
             for (const x of all) if (!left.includes(x)) dropThumb(x.path);
             if (left.length) rec.images = left; else delete recs[k];
@@ -14284,6 +14600,9 @@ ${art}
     function group(title, sub, ...rows) {
         return h('section', { class: 'vf-grp' }, h('h2', null, title, sub ? h('small', null, sub) : null), h('div', { class: 'vf-card' }, rows));
     }
+    const sRow = (t, d, ...c) => host.setRow ? host.setRow(t, d, c) : row(t, d, ...c);
+    const sGrp = (id, t, ...r) => host.setGrp ? host.setGrp(id, t, ...r) : group(t, null, ...r);
+    const sHint = t => host.setHint ? host.setHint(t) : h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, t));
     async function preview(voice, prompt, lang = '') {
         ui.preview = { voice, busy: true, src: '' };
         ui.pvLast = voice;
@@ -14343,43 +14662,43 @@ ${art}
         const used = cacheList.reduce((n, x) => n + (x.n || 0), 0) / 1048576;
         if (part === 'voice') return [
             msgBox(),
-            group('읽기 설정', '모든 봇 공통',
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 읽기'), h('p', null, st.set.auto
+            sGrp('vread', '읽기 설정',
+                sRow('자동 읽기', (st.set.auto
                         ? '봇 답변이 다 만들어지면 「🔊 읽기」를 누르지 않아도 바로 만들어 틉니다. 처음 켤 때 리수가 권한을 묻습니다. 거절하면 자동 읽기가 되지 않으니, 그때는 플러그인을 다시 켜고 허용해 주세요.'
-                        : '「🔊 읽기」를 누를 때만 읽습니다.')),
+                        : '「🔊 읽기」를 누를 때만 읽습니다.'),
                     seg([['on', 'on (기본)'], ['off', 'off']], st.set.auto ? 'on' : 'off', id => { set('auto', id === 'on'); void syncListen(); })),
-                row('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 모델은 글을 보고 읽을 언어를 알아서 정합니다. 이 값으로는 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, en으로 시작하면 영어, 그 밖에는 한국어)도 이 값으로 정합니다.',
+                sRow('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 모델은 글을 보고 읽을 언어를 알아서 정합니다. 이 값으로는 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, en으로 시작하면 영어, 그 밖에는 한국어)도 이 값으로 정합니다.',
                     seg([['ko-KR', '한국어'], ['ja-JP', '일본어'], ['en-US', '영어']], st.set.lang, id => set('lang', id), 'sm'),
                     h('input', { class: 'vf-num', style: 'width:110px;text-align:left', value: st.set.lang, onchange: e => set('lang', e.target.value.trim() || 'ko-KR') })),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '새 인물 목소리'), h('p', null, st.set.split === 'off'
+                sRow('새 인물 목소리', (st.set.split === 'off'
                         ? '화자를 나누지 않으면 새 인물이 생기지 않아 쓰이지 않습니다.'
                         : st.set.pick === 'hash'
                             ? '처음 나온 인물에게 성별이 맞는 기본 목소리를 이름에 따라 정해 줍니다. 모델에게 따로 묻지 않습니다.'
-                            : '처음 나온 인물이 있으면 화자를 나눈 모델에게 한 번 더 물어, 나이 · 성격에 맞는 목소리를 고르게 합니다. 확장 라이브러리 목소리를 먼저 보고, 맞는 것이 없으면 기본 30개에서 고릅니다. 목록을 아직 받지 않았으면 처음 한 번 받아 옵니다. 이미 정한 목소리는 바꾸지 않습니다.')),
+                            : '처음 나온 인물이 있으면 화자를 나눈 모델에게 한 번 더 물어, 나이 · 성격에 맞는 목소리를 고르게 합니다. 확장 라이브러리 목소리를 먼저 보고, 맞는 것이 없으면 기본 30개에서 고릅니다. 목록을 아직 받지 않았으면 처음 한 번 받아 옵니다. 이미 정한 목소리는 바꾸지 않습니다.'),
                     seg([['model', '모델이 고름 (기본)'], ['hash', '이름으로 정함']], st.set.pick, id => set('pick', id))),
-                row('요청 사이 쉼', '답변이 길거나 목소리가 셋 이상이라 요청이 나뉠 때, 그 사이에 넣는 쉼입니다. 0~2000ms',
+                sRow('요청 사이 쉼', '답변이 길거나 목소리가 셋 이상이라 요청이 나뉠 때, 그 사이에 넣는 쉼입니다. 0~2000ms',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 50, value: st.set.gap, onchange: e => set('gap', Math.max(0, Math.min(2000, Number(e.target.value) || 0))) }), 'ms')),
-                row('보관 개수', `지금 ${cacheList.length}개 · ${used.toFixed(1)}MB를 보관하고 있습니다. 넘치면 오래된 것부터 지웁니다.`,
+                sRow('보관 개수', `지금 ${cacheList.length}개 · ${used.toFixed(1)}MB를 보관하고 있습니다. 넘치면 오래된 것부터 지웁니다.`,
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 1, max: 500, value: st.set.keep, onchange: e => set('keep', Math.max(1, Math.min(500, Number(e.target.value) || DEF_SET.keep))) }), '개')),
-                row('보관한 소리', '이 기기에 저장한 소리를 모든 봇에서 지웁니다.',
+                sRow('보관한 소리', '이 기기에 저장한 소리를 모든 봇에서 지웁니다.',
                     h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기')))];
         return [
-            group('대화', '모든 봇 공통',
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '리수 싱크'), h('p', null, '리수 현재 채팅 세션과 싱크를 맞춥니다. ' + (syncOn()
+            sGrp('talk', '대화',
+                sRow('리수 싱크', ('리수 현재 채팅 세션과 싱크를 맞춥니다. ' + (syncOn()
                         ? '본편 대사의 화자를 모델이 정해 인물마다 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모으고, 대화 기록 항목에 그 인물의 로어북 키를 넣어 본편 이야기에도 함께 들어가게 합니다. 모델 요청과 입력 토큰이 늘어납니다.'
-                        : '본편 대사를 모으지 않고, 대화 기록은 채팅 로어북에 저장만 해 본편 이야기에는 들어가지 않습니다. 이미 모은 본편 대사는 그대로 씁니다.'))),
+                        : '본편 대사를 모으지 않고, 대화 기록은 채팅 로어북에 저장만 해 본편 이야기에는 들어가지 않습니다. 이미 모은 본편 대사는 그대로 씁니다.')),
                     seg([['on', 'on (기본)'], ['off', 'off']], syncOn() ? 'on' : 'off', id => setSync(id === 'on'))),
-                row('싱크 채팅 개수', '리수 싱크를 켰을 때, 등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 그 채팅의 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모읍니다. 분석한 봇의 다른 채팅은 대화 화면을 처음 열 때 그 채팅 것만 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
+                sRow('싱크 채팅 개수', '리수 싱크를 켰을 때, 등장인물 분석 때 본편 채팅의 마지막 답부터 이 개수만큼 읽어 인물마다 대사를 그 채팅의 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모읍니다. 분석한 봇의 다른 채팅은 대화 화면을 처음 열 때 그 채팅 것만 모읍니다. 0 이면 전부 읽습니다. 많을수록 모델 요청이 늘어납니다.',
                     h('span', { class: 'vf-unit' }, h('input', { class: 'vf-num', type: 'number', min: 0, max: 2000, step: 10, value: st.set.talkMain, onchange: e => { const n = Number(e.target.value); set('talkMain', e.target.value !== '' && Number.isFinite(n) ? Math.max(0, Math.min(2000, Math.round(n))) : DEF_SET.talkMain); } }), '개'))),
-            group('대화 그림', '모든 봇 공통',
-                h('div', { class: 'vf-row' }, h('p', { class: 'gt-hint', style: 'margin:0' }, '대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 그림체는 바뀌지 않습니다. 대화 그림의 종류 · 그림체 · NAI 모델 · 말풍선 · 해상도는 대화 › 준비에서 고릅니다. 대화 그림의 연출은 대화 모델이 씁니다.')),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '그림 방식'), h('p', null, st.set.talkImgSrc === 'asset'
+            sGrp('talkart', '대화 그림',
+                sHint('대화 그림 설정은 대화에만 씁니다. 삽화의 그림 종류 · 해상도 · 그림체는 바뀌지 않습니다. 대화 그림의 종류 · 그림체 · NAI 모델 · 말풍선 · 해상도는 대화 › 준비에서 고릅니다. 대화 그림의 연출은 대화 모델이 씁니다.'),
+                sRow('그림 방식', (st.set.talkImgSrc === 'asset'
                         ? '대화 모델이 봇의 그림 에셋 이름을 모두 받아 답마다 하나를 골라 무대에 겁니다.'
-                        : '답이 올 때마다 그 장면을 NovelAI 로 그려 무대에 겁니다. 한 장마다 Anlas 를 씁니다.')),
+                        : '답이 올 때마다 그 장면을 NovelAI 로 그려 무대에 겁니다. 한 장마다 Anlas 를 씁니다.'),
                     seg([['nai', 'NovelAI (기본)'], ['asset', '봇 에셋']], st.set.talkImgSrc, id => set('talkImgSrc', id))),
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '무대 맞춤'), h('p', null, st.set.talkFit === 'cover'
+                sRow('무대 맞춤', (st.set.talkFit === 'cover'
                         ? '그림을 무대에 꽉 채웁니다. 그림 위아래나 양옆이 조금 잘립니다.'
-                        : '그림 전체를 보여 줍니다. 남는 자리는 같은 그림을 흐리게 깔아 채웁니다.')),
+                        : '그림 전체를 보여 줍니다. 남는 자리는 같은 그림을 흐리게 깔아 채웁니다.'),
                     seg([['contain', '전체 보기 (추천)'], ['cover', '꽉 채우기']], st.set.talkFit, id => set('talkFit', id)))),
         ];
     }
@@ -14394,11 +14713,11 @@ ${art}
     }
     function castAutoRow() {
         const set = (k, val) => { st.set[k] = val; void saveSet(); render(); };
-        return h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '자동 등장인물 분석 (TTS · 대화)'), h('p', null, !st.set.castAuto
+        return sRow('자동 등장인물 분석 (TTS · 대화)', (!st.set.castAuto
                 ? '자동으로 분석하지 않습니다. 등장인물 탭의 「📖 등장인물 분석」 버튼을 누를 때만 목소리를 분석합니다.'
                 : st.set.split === 'off' || st.set.pick === 'hash'
                     ? '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때 목소리 분석을 한 번 합니다. 화자를 나누지 않거나 새 인물 목소리를 이름으로 정해서, 읽기 전에는 분석하지 않습니다.'
-                    : '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때나 그 봇의 답변을 처음 읽을 때 목소리 분석을 한 번 합니다. 메인 모델 요청이 한 번 늘고, 읽기라면 소리가 조금 늦게 나옵니다.')),
+                    : '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때나 그 봇의 답변을 처음 읽을 때 목소리 분석을 한 번 합니다. 메인 모델 요청이 한 번 늘고, 읽기라면 소리가 조금 늦게 나옵니다.'),
             seg([['on', 'on (기본)'], ['off', 'off']], st.set.castAuto ? 'on' : 'off', id => set('castAuto', id === 'on')));
     }
     function voiceRow(name) {
@@ -16339,7 +16658,7 @@ Rules:
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, render: renderNow, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeysOf,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
