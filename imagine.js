@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.59.0
+//@display-name 💠 이매진 v5.59.1
 //@api 3.0
-//@version 5.59.0
+//@version 5.59.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.59.0';
+    const VERSION = '5.59.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -9426,12 +9426,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             if (act === 'undo') { await undoImage(ci, chi, char, key, idx, low); return; }
             if (act === 'del') {
                 if (armed.name === low && !await el.hasClass(ARMED).catch(() => false)) disarm();
-                if (armed.name !== low || armed.left > 1) {
-                    const first = armed.name !== low;
-                    if (first) { disarm(); armed.name = low; armed.left = 2; } else { clearTimeout(armed.timer); armed.left = 1; }
+                if (armed.name !== low) {
+                    disarm();
+                    armed.name = low;
+                    armed.left = 1;
                     armed.el = el;
-                    await setLabel(el, armed.left > 1 ? '두 번 더' : '정말 지울까요?');
-                    if (first) try { await el.setStyleAttribute(BTN_STYLE + ';' + DEL_ARMED); await el.addClass(ARMED); } catch {}
+                    await setLabel(el, '정말 지울까요?');
+                    try { await el.setStyleAttribute(BTN_STYLE + ';' + DEL_ARMED); await el.addClass(ARMED); } catch {}
                     armed.timer = setTimeout(disarm, 3000);
                     return;
                 }
