@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.58.0
+//@display-name 💠 이매진 v5.59.0
 //@api 3.0
-//@version 5.58.0
+//@version 5.59.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.58.0';
+    const VERSION = '5.59.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1143,6 +1143,7 @@ ${TAG_STYLE}`;
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 or more characters in one panel only when they physically interact (hug, handing something over, face to face).
   - who: every character in this panel (1 or more, no upper limit). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
   - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
+  - layout: with 2 or more characters in who, ONE short English phrase saying where they are relative to each other, written with the same plain kind words as the count tags (girl, boy, or the creature noun such as dragon), never names, keys or @. E.g. "girl next to boy", "boy behind girl", "girl facing boy", "girl sitting on boy's lap", "boy standing over girl", "dragon looming over girl". Two of the same kind: "side by side", "facing each other", "one behind the other". It must agree with tags and camera. With 0 or 1 character write "".
   - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: first a few Danbooru tags for the expression (e.g. "worried, open mouth"), then 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". A character who speaks here gets "open mouth" or a speaking expression. No hair color, eye color, body type or clothing tags: the app adds the looks from CAST.
   - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
   - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @key" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
@@ -1264,10 +1265,10 @@ ${TAG_STYLE}`;
             : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
-            : talkOv?.v2 ? '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"cells":["C3"],"camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}'
-            : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2",' : ''}"camera":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            : talkOv?.v2 ? '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"cells":["C3"],"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}'
+            : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2",' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
-        const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].tags';
+        const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
         const nameFields = isIllust() ? 'chars[].name and bubbles[].by use' : 'panels[].who and panels[].by use';
         return `${role}
@@ -2009,7 +2010,7 @@ Rules
             for (const b of Array.isArray(img.bubbles) ? img.bubbles : [])
                 if (tidy(b?.text) && !src.includes(flatText(b.text))) console.warn(LOG, 'bubble is not verbatim', b.text);
             for (const pn of Array.isArray(img.panels) ? img.panels : []) {
-                if (CJK_RE.test(String(pn?.camera ?? '') + String(pn?.tags ?? '').replace(/@[^\s,']+/g, ''))) console.warn(LOG, 'panel prompt is not English', img.title, pn?.tags);
+                if (CJK_RE.test(String(pn?.camera ?? '') + String(pn?.layout ?? '') + String(pn?.tags ?? '').replace(/@[^\s,']+/g, ''))) console.warn(LOG, 'panel prompt is not English', img.title, pn?.tags);
                 if (tidy(pn?.text) && !src.includes(flatText(pn.text))) console.warn(LOG, 'panel text is not verbatim', pn.text);
             }
         }
@@ -2063,6 +2064,8 @@ Rules
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam = joinTags(noText(dropNone(pn.camera)));
+            const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
+            const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
             const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
             const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
@@ -2087,11 +2090,11 @@ Rules
                         name: x.name, keys, chars: [[String(x.name).toLowerCase(), labelOf(x)]],
                     });
                 });
-                v2Base = joinTags(head, cam);
+                v2Base = joinTags(head, lay, cam);
                 panelN++;
                 continue;
             }
-            const lines = [who.length ? `${head},` : '', cam ? `${cam},` : ''].filter(Boolean);
+            const lines = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
             if (who.length) {
                 for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
                 if (sayAt >= 0) lines.push(personLine(sayAt));
