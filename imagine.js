@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.62.0
+//@display-name 💠 이매진 v5.62.1
 //@api 3.0
-//@version 5.62.0
+//@version 5.62.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.62.0';
+    const VERSION = '5.62.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5675,6 +5675,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 .cf-tag{flex:none;padding:1px 6px;border-radius:6px;font-size:.66rem;font-weight:800;color:var(--muted);background:var(--paper3)}
 .cf-ctl1{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;max-width:100%}
 .cf-r1.wide .cf-ctl1{flex:1 1 100%}
+.cf-r1.end>.cf-ctl1{margin-left:auto}
 .cf-unit{font-size:.78rem;color:var(--muted)}
 .cf-ctl1 .cf-num{width:76px}
 .cf-sel1{flex:0 1 220px}
@@ -8093,7 +8094,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             class: 'cf-info' + (on ? ' on' : ''), type: 'button', 'aria-expanded': String(on), 'aria-label': title + ' 설명',
             onclick: () => { const x = !cfOpen.has(title); if (x) cfOpen.add(title); else cfOpen.delete(title); b.classList.toggle('on', x); b.setAttribute('aria-expanded', String(x)); p.hidden = !x; },
         }, 'i') : null;
-        return h('div', { class: 'cf-r1' + (o.sub ? ' cf-subrow' + (o.off ? ' off' : '') : '') + (o.wide ? ' wide' : '') },
+        return h('div', { class: 'cf-r1' + (o.sub ? ' cf-subrow' + (o.off ? ' off' : '') : '') + (o.wide ? ' wide' : '') + (o.end ? ' end' : '') },
             h('div', { class: 'cf-lb1' }, title, o.tag ? cfTag() : null, b),
             h('div', { class: 'cf-ctl1' }, ctl), p);
     }
@@ -8407,16 +8408,16 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 castGrp(true), grp('save', '저장', webpRow('talkWebp'))] : []],
         };
         const gBackup = () => grp('backup', '백업',
-            row('그림 파일도 넣기', '봇에 들어 있는 이매진 삽화(nc_)와 애드 에셋 그림(c_)을 백업 파일에 함께 넣습니다. 그림이 많으면 파일이 아주 커집니다.',
+            row('에셋 기록도 백업하기', '봇에 들어 있는 이매진 삽화(nc_)와 애드 에셋 그림(c_)을 백업 파일에 함께 넣습니다. 그림이 많으면 파일이 아주 커집니다.',
                 '끄면 기록만 담습니다. 그림 없이 다른 리수로 옮기면 삽화 목록에 「그림 없음」으로 보입니다.',
                 toggle(bk.img, () => { bk.img = !bk.img; bkDropUrl(); bk.msg = ''; renderNow(); }, !!bk.busy), { tag: true }),
             row('백업 파일', '작가(그림체) · NSFW 프롬프트 · 설정 · 목소리, 봇마다 등장인물 · 삽화 기록 · 애드 에셋 기록 · 목소리 표 · 대화 기록을 JSON 파일 하나로 만들고, 그 파일을 불러와 되돌립니다.',
                 '불러오면 파일에 있는 항목을 파일 값으로 바꿉니다. 파일에 없는 기록은 지우지 않습니다. 봇은 같은 봇을 먼저 찾고, 없으면 이름이 같은 봇이 하나뿐일 때 그 봇에 넣습니다. 그림은 봇에 없는 이름만 넣습니다. NAI API 키 · 구글 서비스 계정 키 · 다른 플러그인의 저장값은 담지 않습니다.',
-                h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center' },
+                h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end' },
                     h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: () => void bkExport() }, bk.busy === 'make' ? '만드는 중…' : '백업 파일 만들기'),
                     bk.url ? h('a', { class: 'ix-btn sm main', href: bk.url, download: bk.file, style: 'text-decoration:none' }, `내려받기 (${bkSize(bk.size)})`) : null,
                     h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: bkPick }, bk.busy === 'load' ? '불러오는 중…' : '백업 파일 불러오기')),
-                { wide: true, tag: true }),
+                { tag: true, end: true }),
             bk.msg ? h('div', { class: 'cf-r1 cf-hr' }, h('p', { class: 'ix-msg' + (bk.cls ? ' ' + bk.cls : ''), role: 'status', 'aria-live': 'polite', style: 'margin:0;flex:1 1 100%' }, bk.msg)) : null);
         const sec = SECS[ui.mode] ?? SECS.imagine;
         const nav = h('nav', { class: 'cf-nav1', 'aria-label': '설정 목차' });
