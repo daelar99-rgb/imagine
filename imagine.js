@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.61.0
+//@display-name 💠 이매진 v5.62.0
 //@api 3.0
-//@version 5.61.0
+//@version 5.62.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.61.0';
+    const VERSION = '5.62.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -5386,6 +5386,14 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 .pr-ft .n{font-size:.72rem;color:var(--muted)}
 .pr-intro+.cf-grp{margin-top:0}
 .cf-grp>h2 small{font-size:.76rem;font-weight:400;color:var(--muted)}
+.cf-fold>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer;margin:0 0 8px}
+.cf-fold>summary::-webkit-details-marker{display:none}
+.cf-fold>summary>h2{display:flex;align-items:center;gap:10px;margin:0;padding-left:2px;font-size:1rem;font-weight:700;color:var(--ink)}
+.cf-fold>summary>h2::before{content:"";flex:none;width:7px;height:7px;background:var(--accent);transform:rotate(45deg)}
+.cf-fold>summary::after{content:"▾";color:var(--muted);font-size:.8rem}
+.cf-fold[open]>summary::after{content:"▴"}
+.cf-fold>summary:hover>h2{color:var(--accent)}
+.cf-fold:not([open])>summary{margin-bottom:0}
 .pr-slot .cf-row.col{gap:0;padding-top:4px}
 .pr-slot .pr-ta{margin-top:0}
 .pr-slot.off .pr-ta{opacity:.55}
@@ -8091,6 +8099,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     }
     function hint1(...kids) { return h('div', { class: 'cf-r1 cf-hr' }, h('p', { class: 'cf-hint1' }, kids)); }
     function g1(id, title, ...rows) { return h('div', { class: 'cf-grp', id: 'cfg-' + id }, h('h2', null, title), h('div', { class: 'cf-card' }, rows)); }
+    function fold1(id, title, ...rows) {
+        const k = 'grp:' + id;
+        return h('details', { class: 'cf-grp cf-fold', id: 'cfg-' + id, open: cfOpen.has(k), ontoggle: ev => { if (ev.currentTarget.open) cfOpen.add(k); else cfOpen.delete(k); } },
+            h('summary', null, h('h2', null, title)), h('div', { class: 'cf-card' }, rows));
+    }
     function cfJump(el) {
         const d = el.ownerDocument, w = d.defaultView;
         let sc = el.parentElement;
@@ -8374,7 +8387,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             row('인물 칸을 채팅 변수로 쓰기', '인물마다 지금 열두 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
                 null,
                 toggle(s.vars, () => setVal('vars', !s.vars))));
-        const gDev = grp('dev', '개발자 설정',
+        const gDev = fold1('dev', '개발자 설정',
             hint1('시험할 때만 바꾸는 값입니다. 평소에는 그대로 두세요.'),
             row('만화 좌표', '2~4컷 만화에서 컷마다 페이지 위 자리를 정해 그립니다. 기본은 켬입니다.',
                 '그림 종류가 만화일 때만 쓰입니다. 끄면 컷 배치를 NAI 에 맡깁니다. 1컷 만화 · 삽화 · 대화 앱 만화는 이 값과 상관없습니다.',
@@ -8417,6 +8430,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     e.preventDefault();
                     cfNav = g.id;
                     for (const x of nav.querySelectorAll('a')) x.classList.toggle('on', x === a);
+                    if (g.tagName === 'DETAILS' && !g.open) g.open = true;
                     cfJump(g);
                 },
             }, g.querySelector('h2')?.firstChild?.textContent ?? '', h('i', null, String(g.querySelectorAll('.cf-r1:not(.cf-hr)').length)));
