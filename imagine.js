@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.64.1
+//@display-name 💠 이매진 v5.65.0
 //@api 3.0
-//@version 5.64.1
+//@version 5.65.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.64.1';
+    const VERSION = '5.65.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -8410,7 +8410,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             if (event.key !== 'Escape' || event.isComposing) return;
             if ((acs.edit || acs.pe) && ui.root?.querySelector('.ac-ov')) { acs.edit = null; acs.pe = null; renderNow(); return; }
             const lb = ui.root?.querySelector('.lb');
-            if (lb) lb.remove(); else if (ui.root?.classList.contains('vn-full')) voice?.talkFullSet?.(false); else closePanel();
+            if (lb) lb.remove(); else closePanel();
         });
         let ptrDown = false;
         const flush = () => setTimeout(() => { if (render.pending) render(); }, 0);
@@ -8495,7 +8495,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (!ui.root.isConnected) doc.body.append(ui.root);
         ui.home = !opts?.mode;
         ui.root.classList.remove('vn-on', 'vn-full', 'ix-zoom');
-        voice?.talkFullSet?.(false, false);
         ui.root.classList.toggle('home-on', ui.home);
         const x = () => h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: closePanel }, '×');
         if (ui.home) ui.root.replaceChildren(
@@ -12022,7 +12021,7 @@ Rules:
     ];
     const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', regen: 'submodel', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'model', talkSync: true, setup: 0, talkSetup: 0,
         talkKind: 'illust', talkSize: 'wide3', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai',
-        talkBubbles: true, ttsHead: '' };
+        talkBubbles: true, ttsHead: '', talkFull: true };
     const STYLE_MAX = 300;
     const DEF_BOT = { narrator: 'Aoede', narrStyle: '라디오 아나운서처럼 또렷하고 안정된 목소리로, 알맞은 속도로 읽어 주세요.', talkStyle: '장면의 감정에 맞게, 연기하듯 자연스럽게 말해 주세요.', voices: {} };
     const OLD_DEF = { narrator: 'Charon', narrStyle: '차분하고 또렷하게, 소설을 낭독하듯 읽어 주세요.' };
@@ -13697,8 +13696,6 @@ ${art}
         redo: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
         sync: '<path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.7"/><path d="M20 4v4.7h-4.7"/><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.3"/><path d="M4 20v-4.7h4.7"/>',
         bubx: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M9 8l6 6M15 8l-6 6"/>',
-        expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
-        shrink: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
         nsfw: '<path d="M12 3c.6 3.2 4.8 5.2 4.8 10a4.8 4.8 0 0 1-9.6 0c0-2.3 1.3-3.8 2.3-4.8.3 1.7 1.1 2.7 2.3 3-.4-2.9-.3-5.6.2-8.2z"/>',
         brush: '<path d="M9.97 17.03 21.38 5.62a1 1 0 0 0-3-3L6.97 14.03"/><path d="M11 10l3 3"/><path d="M6.5 21A3.5 3.5 0 1 0 3 17.5a2.6 2.6 0 0 1-.7 1.8A1 1 0 0 0 3 21z"/>',
     };
@@ -13839,9 +13836,6 @@ ${art}
         const nsBtn = di(nsOn ? 'on' : '', 'nsfw', 'NSFW',
             !nsHas ? 'NSFW 글이 없습니다. 프롬프팅 › NSFW 탭에서 가져오거나 직접 쓰세요' : nsOn ? 'NSFW 프롬프트 끄기 (대화 답 · 그림 연출에 NSFW 글을 넣지 않습니다)' : 'NSFW 프롬프트 켜기 (대화 답 · 그림 연출에 NSFW 글을 함께 보냅니다)',
             () => { host.setNsfwOn?.('talk', !nsOn); talkPaint(); }, { 'aria-pressed': String(nsOn), disabled: !nsHas });
-        const fullBtn = di(T.full ? 'on' : '', T.full ? 'shrink' : 'expand', T.full ? '원래대로' : '전체화면',
-            T.full ? '원래 크기로 돌아가기 (Esc)' : '대화 화면을 창 가득 넓히기 (모니터 전체는 브라우저에서 F11)',
-            () => talkFullSet(!T.full), { 'aria-pressed': String(!!T.full) });
         kids.push(h('div', { class: 'vn-dock', role: 'toolbar', 'aria-label': '대화 도구' },
             h('span', { class: 'vn-an' }, host.anlas()),
             h('div', { class: 'vn-dr' }, [['illust', '삽화'], ['comic', '만화']].map(([id, label]) => di(!assetMode && talkKindNow() === id ? 'on' : '', id, label,
@@ -13856,7 +13850,7 @@ ${art}
                         () => { st.set.talkImgSrc = assetMode ? 'nai' : 'asset'; void saveSet(); talkPaint(); },
                         { 'aria-pressed': String(assetMode), 'aria-busy': fBusy ? 'true' : null, disabled: !can, style: fBusy ? `--d:12s;--e:-${Math.min(12000, Date.now() - faceT0)}ms` : null });
                 })())
-                .concat(nsBtn, fullBtn)),
+                .concat(nsBtn)),
             low.length ? h('div', { class: 'vn-dr' }, low) : null));
         if (drawing && !assetMode) {
             const pct = talkPct(T.draw.job).pct;
@@ -13965,11 +13959,6 @@ ${art}
     function talkGrow(el) {
         el.style.height = 'auto';
         el.style.height = Math.min(el.scrollHeight, 132) + 'px';
-    }
-    function talkFullSet(on, paint = true) {
-        ui.talk.full = !!on;
-        host.ui.root?.classList.toggle('vn-full', !!on && !!host.ui.root.classList.contains('vn-on'));
-        if (paint) talkPaint();
     }
     function talkPaint() {
         if (talkListPaint()) return;
@@ -14626,13 +14615,13 @@ Rules:
     return {
         TALK_FOLDER, isMainLore, mainTried, talks, talkOf, talkSweepOnce, talkCast, facePool, stagePool, talkFaceAsk,
         talkLoreSoon, talkLoreFlush, castMainLines, talkRatesLoad, talkStop, talkKindNow, talkSizeNow, deviceCards, talkIcon,
-        paneTalk, talkGrow, talkPaint, paneTalkList, paneTalkPick, talkPickTick, talkFullSet
+        paneTalk, talkGrow, talkPaint, paneTalkList, paneTalkPick, talkPickTick
     };
     }
     const {
         TALK_FOLDER, isMainLore, mainTried, talks, talkOf, talkSweepOnce, talkCast, facePool, stagePool, talkFaceAsk,
         talkLoreSoon, talkLoreFlush, castMainLines, talkRatesLoad, talkStop, talkKindNow, talkSizeNow, deviceCards, talkIcon,
-        paneTalk, talkGrow, talkPaint, paneTalkList, paneTalkPick, talkPickTick, talkFullSet
+        paneTalk, talkGrow, talkPaint, paneTalkList, paneTalkPick, talkPickTick
     } = makeTalk();
 
     async function where() {
@@ -15404,7 +15393,7 @@ Rules:
 /* 4.7.0: 움직임 줄이기 설정에서도 삽화 탭처럼 탭 애니메이션 · 호버 페이드를 보인다 (사용자 결정, 전체 끄기 규칙 삭제) */
 `;
     const ui = { root: null, view: null, msg: '', ok: true, testing: false, preview: null, newName: '', conn: null, pick: null, gproj: '', step: 0, tstep: 0, dup: false, readyAt: 0,
-        talk: { chaId: null, tk: null, name: null, list: true, draft: '', busy: '', err: null, edit: null, voices: new Set(), voicing: new Map(), voiceQ: [], drawQ: [], playing: '', confirm: null, note: null, recast: '', view: '', sel: null, draw: null, pre: null, cmsg: null, tick: 0, hud: false, full: false, lf: 'all', lwho: '', lmenu: '', lopen: new Set(), llimit: 30, lsig: '' } };
+        talk: { chaId: null, tk: null, name: null, list: true, draft: '', busy: '', err: null, edit: null, voices: new Set(), voicing: new Map(), voiceQ: [], drawQ: [], playing: '', confirm: null, note: null, recast: '', view: '', sel: null, draw: null, pre: null, cmsg: null, tick: 0, hud: false, lf: 'all', lwho: '', lmenu: '', lopen: new Set(), llimit: 30, lsig: '' } };
     castChanged = () => render();
     const API_PAGE = 'https://console.cloud.google.com/apis/library/texttospeech.googleapis.com';
     const VERTEX_PAGE = 'https://console.cloud.google.com/apis/library/aiplatform.googleapis.com';
@@ -15747,6 +15736,11 @@ Rules:
                 sRow('보관한 소리', '이 기기에 저장한 소리를 모든 봇에서 지웁니다.',
                     h('button', { class: 'gt-b warn', type: 'button', onclick: () => void clearCache(null) }, '모두 지우기')))];
         return [
+            sGrp('talkscr', '화면',
+                sRow('전체화면', (st.set.talkFull
+                        ? '대화하기 화면을 이매진 창 가득 넓혀 여백 없이 씁니다. 입력칸도 그대로 쓸 수 있습니다. 모니터 전체를 채우려면 브라우저에서 F11 을 누르세요.'
+                        : '대화하기 화면을 다른 화면과 같은 크기의 창으로 엽니다.'),
+                    seg([['on', 'on (기본)'], ['off', 'off']], st.set.talkFull ? 'on' : 'off', id => set('talkFull', id === 'on')))),
             sGrp('talk', '대화',
                 sRow('리수 싱크', ('리수 현재 채팅 세션과 싱크를 맞춥니다. ' + (syncOn()
                         ? '본편 대사의 화자를 모델이 정해 인물마다 채팅 로어북 「' + TALK_FOLDER + '」 폴더에 모으고, 본편 이야기에도 함께 들어가게 합니다. 모델에 보내는 요청이 늘어납니다.'
@@ -16795,7 +16789,7 @@ Rules:
     await checkKey();
     wantRoot();
     await syncListen();
-    return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), talkFull: () => !!ui.talk.full, talkFullSet, talkCount: () => Object.values(ui.view?.talk ?? {}).reduce((n, log) => n + log.filter(m => m.r === 'c').length, 0), ready: () => keyKnown === true && setupOf() >= SETUP.length,
+    return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), talkFull: () => !!st.set.talkFull, talkCount: () => Object.values(ui.view?.talk ?? {}).reduce((n, log) => n + log.filter(m => m.r === 'c').length, 0), ready: () => keyKnown === true && setupOf() >= SETUP.length,
         lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false,
         talkReady, talkLit: () => talkReady(), talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
         castLlm: castMode, castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
