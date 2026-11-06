@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.55.1
+//@display-name 💠 이매진 v5.56.0
 //@api 3.0
-//@version 5.55.1
+//@version 5.56.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.55.1';
+    const VERSION = '5.56.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -845,7 +845,7 @@
         void rootQueue(() => paintBusy(true));
         if (String(v ?? '').trim()) told.delete('nokey');
     }
-    const NO_KEY_AUTO = '이매진: NAI 키가 비어 있어 새 답변을 그리지 않았습니다. 리수는 플러그인을 새 버전으로 바꿀 때 플러그인 설정을 지웁니다. 🎨 이매진 패널의 삽화 › 준비에서 키를 다시 넣어 주세요.';
+    const NO_KEY_AUTO = '이매진: NAI 키가 비어 있어 새 답변을 그리지 않았습니다. 리수는 플러그인을 새 버전으로 바꿀 때 플러그인 설정을 지웁니다. 💠 이매진 패널의 삽화 › 준비에서 키를 다시 넣어 주세요.';
 
     async function readStream(stream, onChunk) {
         const reader = stream.getReader();
@@ -3731,7 +3731,7 @@ ${plan}
                 await body.appendChild(el);
             }
             await el.setStyleAttribute(imp({ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', zIndex: 48, display: 'flex', alignItems: 'center', gap: '9px', maxWidth: 'calc(100vw - 24px)', boxSizing: 'border-box', margin: 0, padding: '9px 16px', borderRadius: '999px', background: 'rgba(15,23,42,.88)', color: '#fff', font: '600 13px/1.4 "Malgun Gothic",sans-serif', boxShadow: '0 4px 16px rgba(0,0,0,.25)', pointerEvents: 'none' }));
-            await el.setInnerHTML(NS_WAIT_SVG + `<span style="${imp({ display: 'inline', color: '#fff', font: 'inherit', margin: 0, padding: 0 })}">🎨 이매진 · 프롬프트를 받았습니다. 답변이 끝나면 창이 저절로 열립니다</span>`);
+            await el.setInnerHTML(NS_WAIT_SVG + `<span style="${imp({ display: 'inline', color: '#fff', font: 'inherit', margin: 0, padding: 0 })}">💠 이매진 · 프롬프트를 받았습니다. 답변이 끝나면 창이 저절로 열립니다</span>`);
         });
     }
     async function nsBotTexts() {
@@ -6066,13 +6066,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 upStep(3, '메뉴에서 「플러그인」', null,
                     h('div', { class: 'up-menu' }, MENU.map(m => m === '플러그인' ? upHit(h('span', { class: 'up-mi on' }, upIcon('code'), m)) : h('span', { class: 'up-mi' }, m))),
                     '설정 메뉴의 플러그인 항목'),
-                upStep(4, '「🎨 이매진」 줄의 초록색 +', '+ 는 새 버전이 있을 때만 이매진 이름 줄 오른쪽에 생깁니다.',
+                upStep(4, '「💠 이매진」 줄의 초록색 +', '+ 는 새 버전이 있을 때만 이매진 이름 줄 오른쪽에 생깁니다.',
                     h('div', { class: 'up-plug' },
                         h('b', { class: 'up-pt' }, '플러그인'),
                         h('span', { class: 'up-warn' }, '악성 플러그인 설치 시 문제가 생길 수 있습니다.'),
                         h('div', { class: 'up-list' },
                             row('📖 다른 플러그인', 'v1.0.0', false, true),
-                            row('🎨 이매진', `v${VERSION}`, true, false),
+                            row('💠 이매진', `v${VERSION}`, true, false),
                             row('📏 리사이징', 'v4.2.0', false, true))),
                     '플러그인 목록에서 이매진 줄의 초록색 더하기 버튼'),
                 upStep(5, '확인 창에서 YES', null,
@@ -8596,7 +8596,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             + ACT_CSS
             + `@media (max-width:768px){.nc-fig,.nc-pt{width:${s.mo}vw!important;width:{{getvar::nc_mo}}vw!important}}</style>`;
     }
-    const ACT_LABEL = { panel: '🎨 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', undo: '↶ 되돌리기', del: '🗑 지우기' };
+    const ACT_LABEL = { panel: '💠 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', undo: '↶ 되돌리기', del: '🗑 지우기' };
     const UNDO_OFF = imp({ opacity: '.4', cursor: 'default', background: 'rgba(0,0,0,.62)' });
     const actHtml = (name, can) => `<div class="nc-act" style="${ACT_STYLE}">`
         + Object.entries(ACT_LABEL).filter(([k]) => k !== 'undo' || st.set.undo).map(([k, label]) => {
@@ -11067,7 +11067,7 @@ Rules:
             ui.tour != null ? renderTour() : null);
     }
     const TOUR_TEXT = {
-        home: '이매진은 리수 채팅에 그림과 목소리를 더하는 앱 일곱 개를 모았습니다. 앱마다 무엇을 하는지 차례로 보여 드립니다. 삽화 · TTS 준비를 끝내면 잠겨 있던 앱이 열립니다.',
+        home: '이매진은 리수 안에서 돌아가는 작은 OS입니다. 홈 화면에 그림 · 목소리 · 대화 앱 일곱 개가 깔려 있고, 앱마다 설정을 따로 둡니다. 앱이 무엇을 하는지 한 장씩 보여 드립니다. 삽화 · TTS 준비를 끝내면 잠겨 있던 앱이 열립니다.',
         imagine: '봇 답변이 올 때마다 그 장면을 NovelAI로 그려 답변 안에 넣습니다. 만화 컷과 한 장 그림 가운데 하나를 고릅니다.',
         voice: '봇 답변을 인물마다 다른 목소리로 읽어 줍니다. 답변 아래 버튼으로 목소리를 만들고, 만든 뒤에는 언제든 다시 들을 수 있습니다.',
         asset: '봇 인물의 복장 · 감정별 그림을 한 번에 그려 봇 에셋에 넣습니다. 로어북에도 적어 두어, 봇이 답변에서 알맞은 그림을 꺼내 씁니다.',
@@ -11088,8 +11088,8 @@ Rules:
         return h('div', { class: 'ix-tour', role: 'dialog', 'aria-modal': 'true', 'aria-label': '이매진 안내' },
             h('div', { class: 'ix-tcard m-' + m },
                 h('span', { class: 'ico' }, headIcon(m)),
-                h('small', null, n ? `앱 ${n} / ${steps.length - 1}` : 'IMAGINE'),
-                h('h3', null, n ? MODES.find(([x]) => x === m)?.[1] ?? m : '이매진에 오신 것을 환영합니다'),
+                h('small', null, n ? `앱 ${n} / ${steps.length - 1}` : 'IMAGINE OS'),
+                h('h3', null, n ? MODES.find(([x]) => x === m)?.[1] ?? m : '이매진 OS에 오신 것을 환영합니다'),
                 h('p', null, TOUR_TEXT[m]),
                 last ? h('p', { class: 'ix-tnote' }, '이 안내는 홈 오른쪽 위 ? 버튼으로 다시 볼 수 있습니다.') : null,
                 h('div', { class: 'ix-tdots', 'aria-hidden': 'true' }, steps.map((x, i) => h('i', { class: i === n ? 'on' : '' }))),
@@ -16811,7 +16811,7 @@ Rules:
     }
     try {
         panelButtons.push(await api.registerButton({
-            name: '🎨 이매진', icon: SIDE_ICON, iconType: 'html', location: 'hamburger', id: 'nc-side-panel',
+            name: '💠 이매진', icon: SIDE_ICON, iconType: 'html', location: 'hamburger', id: 'nc-side-panel',
         }, onPanelButton));
     } catch (error) {
         console.warn(LOG, 'hamburger button', error);
