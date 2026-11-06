@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 🎨 이매진 v5.54.2
+//@display-name 🎨 이매진 v5.55.1
 //@api 3.0
-//@version 5.54.2
+//@version 5.55.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.54.2';
+    const VERSION = '5.55.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1451,21 +1451,13 @@ ${TAG_STYLE}`;
     }
 
     async function loadPersona(chat = null, live = false) {
+        void chat; void live;
         try {
-            const db = await api.getDatabase(['personas', 'selectedPersona']);
-            const list = Array.isArray(db?.personas) ? db.personas : [];
-            const bound = chat?.bindedPersona ? list.findIndex(p => p && p.id === chat.bindedPersona) : -1;
-            const i = bound >= 0 ? bound : Number(db?.selectedPersona ?? 0) || 0;
-            const p = list[i];
-            let name = String(p?.name ?? ''), prompt = String(p?.personaPrompt ?? '');
-            if (p && live && typeof api.parseRisuChat === 'function') {
-                try {
-                    const [n, now, saved] = await Promise.all([api.parseRisuChat('{{user}}'), api.parseRisuChat('{{persona}}'), api.parseRisuChat(prompt)]);
-                    if (typeof n === 'string' && tidy(n)) name = n;
-                    if (typeof now === 'string' && typeof saved === 'string' && now !== saved) prompt = now;
-                } catch (error) { console.warn(LOG, 'persona live', error); }
-            }
-            st.persona = p ? { name, prompt, pid: String(p.id || 'i' + i), sig: fnv(name + '\n' + prompt) } : null;
+            if (typeof api.parseRisuChat !== 'function') { st.persona = null; return null; }
+            const [n, pr] = await Promise.all([api.parseRisuChat('{{user}}'), api.parseRisuChat('{{persona}}')]);
+            const name = typeof n === 'string' && n !== '{{user}}' ? n.trim() : '';
+            const prompt = typeof pr === 'string' && pr !== '{{persona}}' ? pr : '';
+            st.persona = name ? { name, prompt, pid: 'n:' + name, sig: fnv(name + '\n' + prompt) } : null;
         } catch (error) {
             console.warn(LOG, 'persona', error);
             st.persona = null;
@@ -1575,7 +1567,8 @@ ${TAG_STYLE}`;
         const cur = ps.find(e => e.personaId === p.pid);
         if (cur && cur.personaSig === p.sig) return false;
         if (!cur) {
-            const moved = ps.find(e => e.personaSig === p.sig) ?? ps.find(e => !e.personaId && e.name === p.name);
+            const legacy = e => e.personaId && !String(e.personaId).startsWith('n:') && e.name === p.name;
+            const moved = ps.find(e => e.personaSig === p.sig) ?? ps.find(e => !e.personaId && e.name === p.name) ?? ps.find(legacy);
             if (moved) { moved.personaId = p.pid; moved.personaSig = p.sig; return true; }
         }
         if (st.personaFail === p.sig) return false;
@@ -3798,10 +3791,6 @@ ${plan}
         }
         const perTs = [persona?.prompt ?? ''];
         if (canParse) perTs.push(await parse('{{persona}}'));
-        try {
-            const db = await api.getDatabase(['personas']);
-            for (const p of Array.isArray(db?.personas) ? db.personas : []) perTs.push(String(p?.personaPrompt ?? ''));
-        } catch (error) { console.warn(LOG, 'nsfw personas', error); }
         const join = ts => ts.map(flat).filter(t => t.length >= 4).join('\n\u0000\n');
         return [
             { lb: '채팅', all: join(chatTs) },
@@ -11079,13 +11068,13 @@ Rules:
     }
     const TOUR_TEXT = {
         home: '이매진은 리수 채팅에 그림과 목소리를 더하는 앱 일곱 개를 모았습니다. 앱마다 무엇을 하는지 차례로 보여 드립니다. 삽화 · TTS 준비를 끝내면 잠겨 있던 앱이 열립니다.',
-        imagine: '봇 답변이 올 때마다 그 장면을 NovelAI로 그려 답변 안에 넣습니다. 만화 컷과 한 장 그림 가운데 하나를 고릅니다. 준비를 마치고 자동 그리기를 켜 두면 이름 옆 초록 점이 켜집니다.',
-        voice: '봇 답변을 인물마다 다른 목소리로 읽어 줍니다. 답변 아래 버튼으로 목소리를 만들고, 만든 뒤에는 언제든 다시 들을 수 있습니다. 준비를 마치고 자동 읽기를 켜 두면 이름 옆 초록 점이 켜집니다.',
-        asset: '봇 인물의 복장 · 감정별 그림을 한 번에 그려 봇 에셋에 넣습니다. 로어북에도 적어 두어, 봇이 답변에서 알맞은 그림을 꺼내 씁니다. 삽화 준비를 끝내면 열립니다.',
-        talk: '봇 인물과 그림 · 목소리가 있는 화면에서 바로 대화합니다. 말을 건넬 때마다 무대 그림이 바뀌고, 답은 인물의 목소리로 들을 수 있습니다. 삽화 준비와 TTS 준비를 모두 끝내면 열립니다.',
+        imagine: '봇 답변이 올 때마다 그 장면을 NovelAI로 그려 답변 안에 넣습니다. 만화 컷과 한 장 그림 가운데 하나를 고릅니다.',
+        voice: '봇 답변을 인물마다 다른 목소리로 읽어 줍니다. 답변 아래 버튼으로 목소리를 만들고, 만든 뒤에는 언제든 다시 들을 수 있습니다.',
+        asset: '봇 인물의 복장 · 감정별 그림을 한 번에 그려 봇 에셋에 넣습니다. 로어북에도 적어 두어, 봇이 답변에서 알맞은 그림을 꺼내 씁니다.',
+        talk: '봇 인물과 그림 · 목소리가 있는 화면에서 바로 대화합니다. 말을 건넬 때마다 무대 그림이 바뀌고, 답은 인물의 목소리로 들을 수 있습니다.',
         prompt: '모델에게 보내는 지시문을 앱마다 직접 고칩니다. 지시문마다 on/off 토글이 있고, NSFW 프롬프트도 여기서 앱마다 켜고 끕니다.',
-        style: '그림에 쓸 그림체를 만들고 고칩니다. NovelAI 그림을 넣으면 그 그림의 그림체를 가져옵니다. 삽화 · 애드 에셋 · 대화가 이 목록에서 그림체를 고릅니다. 삽화 준비를 끝내면 열립니다.',
-        myvoice: '기본 목소리에 지시문을 더해 원하는 느낌의 목소리를 저장합니다. 저장한 목소리는 TTS · 대화의 목소리 고르기 창에 「만든 목소리」로 나옵니다. 저장에는 요금이 들지 않습니다. TTS 준비를 끝내면 열립니다.',
+        style: '그림에 쓸 그림체를 만들고 고칩니다. NovelAI 그림을 넣으면 그 그림의 그림체를 가져옵니다. 삽화 · 애드 에셋 · 대화가 이 목록에서 그림체를 고릅니다.',
+        myvoice: '기본 목소리에 지시문을 더해 원하는 느낌의 목소리를 저장합니다. 저장한 목소리는 TTS · 대화의 목소리 고르기 창에 「만든 목소리」로 나옵니다. 저장에는 요금이 들지 않습니다.',
     };
     function renderTour() {
         const steps = ['home', ...MODES.map(([m]) => m)];
@@ -12747,44 +12736,14 @@ Rules:
         }
     }
     const PERSONA_MAX = 3000;
-    async function rawPersona() {
-        try {
-            const db = await api.getDatabase(['personas', 'selectedPersona']);
-            const list = Array.isArray(db?.personas) ? db.personas : [];
-            const chat = await Promise.resolve(api.getChatFromIndex(await api.getCurrentCharacterIndex(), await api.getCurrentChatIndex())).catch(() => null);
-            const bound = chat?.bindedPersona ? list.findIndex(p => p && p.id === chat.bindedPersona) : -1;
-            return String(list[bound >= 0 ? bound : Number(db?.selectedPersona ?? 0) || 0]?.personaPrompt ?? '');
-        } catch { return ''; }
-    }
-    const CBS_BLOCK = /^\{\{\s*(#(if|if_pure|when|unless)\b|:else\b|else\s*\}\}|\/)/i;
-    function unblock(text) {
-        let out = '', i = 0;
-        while (i < text.length) {
-            const a = text.indexOf('{{', i);
-            if (a < 0) { out += text.slice(i); break; }
-            out += text.slice(i, a);
-            let depth = 0, j = a;
-            for (; j < text.length; j++) {
-                if (text.startsWith('{{', j)) { depth++; j++; }
-                else if (text.startsWith('}}', j)) { depth--; j++; if (!depth) break; }
-            }
-            const tag = text.slice(a, j + 1);
-            if (!CBS_BLOCK.test(tag)) out += tag;
-            i = j + 1;
-        }
-        return out;
-    }
     async function personaOf() {
         const name = await userName();
         let prompt = '';
         try {
-            let v = String((await api.parseRisuChat?.('{{persona}}')) ?? '').trim();
-            const raw = await rawPersona();
-            if (/\{\{\s*#(if|if_pure|when|unless)\b/i.test(raw) && String((await api.parseRisuChat?.(raw)) ?? '').trim() === v) v = String((await api.parseRisuChat?.(unblock(raw))) ?? '').trim() || v;
+            const v = String((await api.parseRisuChat?.('{{persona}}')) ?? '').trim();
             if (v !== '{{persona}}') prompt = plain(v.replace(/\{\{user\}\}/gi, name || 'User')).slice(0, PERSONA_MAX);
         } catch {}
-        const raw = await rawPersona();
-        return { name, prompt, sig: name ? hash(name + '\n' + (raw.trim() || prompt)) : '' };
+        return { name, prompt, sig: name ? hash(name + '\n' + prompt) : '' };
     }
     function botContextOf(char, chat, entries, user) {
         const fill = t => String(t ?? '').replace(/\{\{char\}\}/gi, char?.name ?? '').replace(/\{\{user\}\}/gi, user || 'User');
