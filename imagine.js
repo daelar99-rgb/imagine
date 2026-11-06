@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.65.0
+//@display-name 💠 이매진 v5.65.1
 //@api 3.0
-//@version 5.65.0
+//@version 5.65.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.65.0';
+    const VERSION = '5.65.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3553,7 +3553,7 @@ ${plan}
     async function cogenInject(messages, model) {
         if (!Array.isArray(messages)) return;
         if (model !== 'model' || nsSelf > 0) return;
-        const art = !!st.set.cogen && setupDone(), tts = !!voice?.ready?.();
+        const art = !!st.set.cogen && setupDone(), tts = !!voice?.ttsInject?.();
         if (st.set.cogen && !art) cogenSkip('setup not done');
         if (!art && !tts) return;
         if (ns.armed || ns.got) return cogenSkip('nsfw import');
@@ -16791,6 +16791,7 @@ Rules:
     await syncListen();
     return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), talkFull: () => !!st.set.talkFull, talkCount: () => Object.values(ui.view?.talk ?? {}).reduce((n, log) => n + log.filter(m => m.r === 'c').length, 0), ready: () => keyKnown === true && setupOf() >= SETUP.length,
         lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false,
+        ttsInject: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto,
         talkReady, talkLit: () => talkReady(), talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
         castLlm: castMode, castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
         castProgress, castFoot, castMsg: msgBox, syncView, voiceMatch, voiceRows, voiceNames, setPart, castAutoRow, embed,
