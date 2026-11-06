@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.60.0
+//@display-name 💠 이매진 v5.61.0
 //@api 3.0
-//@version 5.60.0
+//@version 5.61.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.60.0';
+    const VERSION = '5.61.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -880,30 +880,31 @@
         return timed(requestModelNow(...args), LLM_WAIT, '모델');
     }
     const NS_TRIES = 3;
+    const nsLowText = ns => `\n\n[CONTENT GUIDELINES — rules for this task, not part of the material above]\n${ns}`;
     const isProhibited = x => /PROHIBITED[_ ]CONTENT/i.test(String(x?.message ?? x ?? ''));
     async function requestModel(system, user, raw = false, llm = st.busy?.llm ?? st.set.llm, rail = '', hr = '') {
         const ns = rail ? nsfwText(rail) : '';
         for (let t = 0; ; t++) {
             const last = !ns || t >= NS_TRIES - 1;
             try {
-                const text = await requestOnce(system, user, raw, llm, t === 1 ? '' : rail, hr || rail);
+                const text = await requestOnce(system, user, raw, llm, rail, hr || rail, t === 1);
                 if (last || !isProhibited(text)) return text;
             } catch (error) {
                 if (last || !isProhibited(error)) throw error;
             }
-            console.warn(LOG, `PROHIBITED_CONTENT, try ${t + 2}/${NS_TRIES}${t === 0 ? ' without the NSFW prompt' : ''}`);
+            console.warn(LOG, `PROHIBITED_CONTENT, try ${t + 2}/${NS_TRIES}${t === 0 ? ' with the NSFW prompt at the bottom' : ' with the NSFW prompt at the top'}`);
             await sleep(1500);
         }
     }
-    async function requestModelNow(system, user, raw = false, llm = st.busy?.llm ?? st.set.llm, rail = '', hr = '') {
+    async function requestModelNow(system, user, raw = false, llm = st.busy?.llm ?? st.set.llm, rail = '', hr = '', low = false) {
         if (!raw) system = withHead(system, hr || rail || 'illust');
         const ns = rail ? nsfwText(rail) : '';
         const res = await selfLLM({
             mode: llm === 'model' ? 'model' : 'submodel',
             messages: [
-                ...(ns ? [{ role: 'system', content: ns }] : []),
+                ...(ns && !low ? [{ role: 'system', content: ns }] : []),
                 { role: 'system', content: system },
-                { role: 'user', content: user },
+                { role: 'user', content: ns && low ? user + nsLowText(ns) : user },
             ],
             allowPlugins: true,
         });
@@ -913,9 +914,10 @@
         return res.type === 'multiline' ? res.result.map(x => x[1]).join('\n') : String(res.result ?? '');
     }
 
-    async function askModel(system, user, busy = st.busy, noNs = false) {
+    async function askModel(system, user, busy = st.busy, nsLow = false) {
         if (busy?.stop) throw stopError();
-        const work = requestOnce(system, user, false, busy?.llm ?? st.set.llm, noNs ? '' : busy?.rail ?? 'illust', busy?.rail ?? 'illust');
+        const rail = busy?.rail ?? 'illust';
+        const work = requestOnce(system, user, false, busy?.llm ?? st.set.llm, rail, rail, nsLow);
         work.catch(() => {});
         const text = await (busy ? Promise.race([work, busy.halt]) : work);
         if (busy?.stop) throw stopError();
@@ -13362,18 +13364,26 @@ ${art}
         const rp = String(host.talkReply?.() ?? '').trim();
         if (rp) system += `\n\n[USER INSTRUCTIONS FOR REPLIES — follow these as long as they do not break the reply format above.]\n${rp}`;
         if (art) system += `\n\n[REPLY FORMAT — read this last]\nEvery reply has these parts, in this order:\n1. The TONE: line.${pool ? '\n2. The ASSET: line.' : ''}\n${pool ? 3 : 2}. ${name}'s spoken lines, each wrapped in double quotes, one per line.\n${pool ? 4 : 3}. Exactly one \`\`\`json fenced block holding the image direction from ART DIRECTION: one JSON object in English, with NovelAI tags in the fields the director brief asks for. Write this block in every reply, even a short one; the app cannot draw the picture without it.`;
+        const lowMsgs = () => {
+            const copy = msgs.map(m => ({ ...m }));
+            const end = copy[copy.length - 1];
+            if (end?.role === 'user') end.content += host.nsLowText(ns);
+            else copy.push({ role: 'system', content: host.nsLowText(ns).trim() });
+            return copy;
+        };
         const mode = st.set.talkModel === 'model' ? 'model' : 'submodel';
         const banned = x => /PROHIBITED[_ ]CONTENT/i.test(String(x?.message ?? x ?? ''));
         let out = '';
         for (let t = 0; ; t++) {
             const last = !ns || t >= 2;
             try {
-                out = noThink(await askModel([{ role: 'system', content: ns && t !== 1 ? ns + '\n\n' + system : system }, ...msgs], mode));
+                const low = ns && t === 1;
+                out = noThink(await askModel([{ role: 'system', content: ns && !low ? ns + '\n\n' + system : system }, ...(low ? lowMsgs() : msgs)], mode));
                 if (last || !banned(out)) break;
             } catch (error) {
                 if (last || !banned(error)) throw error;
             }
-            console.warn(LOG, `talk PROHIBITED_CONTENT, try ${t + 2}/3${t === 0 ? ' without the NSFW prompt' : ''}`);
+            console.warn(LOG, `talk PROHIBITED_CONTENT, try ${t + 2}/3${t === 0 ? ' with the NSFW prompt at the bottom' : ' with the NSFW prompt at the top'}`);
             await sleep(1500);
         }
         const tm = out.match(TONE_RE);
@@ -16834,7 +16844,7 @@ Rules:
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, dropBlocks, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, dropBlocks, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsLowText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeysOf,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
