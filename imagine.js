@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.59.1
+//@display-name 💠 이매진 v5.60.0
 //@api 3.0
-//@version 5.59.1
+//@version 5.60.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.59.1';
+    const VERSION = '5.60.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -119,7 +119,7 @@
         countMin: 2,
         countMax: 4,
         size: 'tall',
-        sv: 37,
+        sv: 38,
         bubbles: true,
         comicCoords: true,
         loreMax: 0,
@@ -471,6 +471,7 @@
                 Object.assign(x, { pos: ARTIST5.pos, neg: ARTIST5.neg, steps: ARTIST5.steps, scale: ARTIST5.scale, cfgRescale: ARTIST5.cfgRescale, sampler: ARTIST5.sampler });
                 save('nc:presets', st.presets);
             }],
+            [38, false, () => { st.set.comicCoords = true; }],
         ];
         if (set && typeof set === 'object') for (const [n, needPresets, run, bump = true] of SV_STEPS) {
             if (set.sv >= n || (needPresets && !st.presets.length)) continue;
@@ -7429,7 +7430,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const busy = st.busy?.key === a.key || queued.has(a.key) || !v.hasKey;
         const at = (a.rec?.images ?? []).indexOf(x), po = st.promptOpen.get(a.key);
         const open = !!po?.has(at);
-        const only = (a.rec?.images?.length ?? 0) >= 2 ? x.name : undefined;
+        const only = x.name;
         return h('div', { class: 'menu', role: 'menu' },
             h('div', { class: 'menu-h' }, `「${x.title || '그림'}」`),
             h('button', { type: 'button', role: 'menuitem', disabled: busy, onclick: () => { ui.menu = ''; draw(a.i, 'draw', a.key, null, x.name); } },
@@ -8336,9 +8337,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             row('말풍선', '만화에 답변의 대사를 말풍선으로 넣습니다.',
                 '그림 종류가 만화일 때만 쓰입니다. 삽화는 이 값과 상관없이 말풍선을 넣지 않습니다. 대사는 줄이거나 번역하지 않고 답변 그대로(같은 언어로) 옮기며, 한 그림에 최대 4개입니다. 끄면 말풍선과 글자를 그리지 않게 합니다.',
                 toggle(s.bubbles, () => setVal('bubbles', !s.bubbles))),
-            row('만화 좌표', '2~4컷 만화에서 컷마다 페이지 위 자리를 정해 그립니다.',
-                '그림 종류가 만화일 때만 쓰입니다. 켜면 컷마다 들어갈 자리를 정해 그립니다. 끄면 컷 배치를 NAI 에 맡깁니다. 1컷 만화 · 삽화 · 대화 앱 만화는 이 값과 상관없습니다.',
-                toggle(s.comicCoords !== false, () => setVal('comicCoords', s.comicCoords === false))),
             row('유저 인풋 우선', '유저 입력이 부른 장면을 먼저 그립니다.',
                 '유저 입력은 이 설정과 상관없이 늘 참고로 보냅니다. 켜면 첫 장(만화 한 장이면 첫 컷)은 유저 입력이 그리는 순간이고, 나머지는 그 반응입니다. 유저 입력이 다른 인물의 행동을 지시해도 그 장면을 그립니다. 첫 컷 대사는 유저 입력에서 옮길 수 있습니다. 답변과 어긋나면 답변을 따릅니다. 바로 앞이 유저 입력이 아니면(첫 메시지 · 이어 쓰기) 끈 것과 같습니다.',
                 toggle(s.userFirst, () => setVal('userFirst', !s.userFirst))),
@@ -8374,10 +8372,15 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             row('인물 칸을 채팅 변수로 쓰기', '인물마다 지금 열두 칸과 그 밖의 특징, 장소 · 시간 · 백그라운드를 채팅 변수에 적습니다.',
                 null,
                 toggle(s.vars, () => setVal('vars', !s.vars))));
+        const gDev = grp('dev', '개발자 설정',
+            hint1('시험할 때만 바꾸는 값입니다. 평소에는 그대로 두세요.'),
+            row('만화 좌표', '2~4컷 만화에서 컷마다 페이지 위 자리를 정해 그립니다. 기본은 켬입니다.',
+                '그림 종류가 만화일 때만 쓰입니다. 끄면 컷 배치를 NAI 에 맡깁니다. 1컷 만화 · 삽화 · 대화 앱 만화는 이 값과 상관없습니다.',
+                toggle(s.comicCoords !== false, () => setVal('comicCoords', s.comicCoords === false))));
         const gAsset = grp('asset', '모델 · 그림체',
             hint1('애드 에셋의 연출 모델 · NAI 모델 · 그림체 · 감정은 애드 에셋 › 준비에서 고릅니다.'));
         const SECS = {
-            imagine: ['삽화', () => [gKey, gDraw, gChat, gBot, castGrp(false), gSave]],
+            imagine: ['삽화', () => [gKey, gDraw, gChat, gBot, castGrp(false), gSave, gDev]],
             asset: ['애드 에셋', () => [gKey, gAsset,
                 grp('portrait', '초상화 크기', hint1('채팅에 보이는 그림 크기는 삽화 그림과 같은 값입니다.'), sizeRows()),
                 castGrp(false), grp('save', '저장', webpRow('acWebp'))]],
@@ -9449,18 +9452,19 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 }
                 name = rec.images.find(x => x.name.toLowerCase() === low).name;
             } else if (list[idx].role !== 'char') return;
-            let only = act === 'draw' ? name : undefined;
+            let only = act === 'draw' ? name : undefined, n;
             if (act === 'new') {
                 const recs1 = await loadRecs(char.chaId);
                 const imgs = recs1[recKeyIn(recs1, chat, key, idx, chi)]?.images ?? [];
                 const hit = imgs.find(x => x.name.toLowerCase() === low);
-                if (hit && imgs.length >= 2) only = hit.name;
+                if (hit) only = hit.name;
+                else n = Math.max(1, (String(list[idx].data ?? '').match(TAG_RE) ?? []).length);
             }
             if (!(await naiKey())) { await openSettings(); return; }
             const fig = { act, name: low };
             const job = act === 'draw'
                 ? { ci, chi, idx, key, mode: 'draw', only, label: '그림 다시 그리는 중', alertFail: true, fig }
-                : { ci, chi, idx, key, mode: 'new', only, label: '씬 재구성 중', alertFail: true, fig };
+                : { ci, chi, idx, key, mode: 'new', only, n, label: '씬 재구성 중', alertFail: true, fig };
             enqueue(job).catch(() => {});
         } catch (error) {
             console.error(LOG, 'fig action', error);
