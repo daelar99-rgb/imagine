@@ -15886,7 +15886,7 @@ Rules:
                     h('div', { class: 'gt-acts' }, MY_SAMPLES.map(([label, g, base, text]) => h('button', { class: 'gt-b sm', type: 'button', onclick: () => { Object.assign(f, { gender: g, base, prompt: text }); render(); } }, label))),
                     ta),
                 h('div', { class: 'vf-row' },
-                    h('div', { class: 'vf-tx' }, h('p', null, '저장은 이 플러그인 저장소에만 하고 요금이 들지 않습니다. 미리 듣기는 구글 서비스 계정 키가 있어야 하고, 한 번 읽는 만큼 요금이 듭니다.')),
+                    h('div', { class: 'vf-tx' }, h('p', null, '저장은 이 플러그인 안에만 하고 요금이 들지 않습니다. 미리 듣기는 구글 서비스 계정 키가 있어야 하고, 한 번 읽는 만큼 요금이 듭니다.')),
                     h('div', { class: 'gt-acts' },
                         h('button', { class: 'gt-b sm', type: 'button', 'data-pv': '', disabled: pv?.busy, onclick: () => void preview(f.base, f.prompt, f.lang) }, '▶ 미리 듣기'),
                         f.id ? h('button', { class: 'gt-b sm', type: 'button', onclick: () => { ui.my = null; render(); } }, '고치기 그만두기') : null,
