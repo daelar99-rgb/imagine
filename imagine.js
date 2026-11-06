@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.56.0
+//@display-name 💠 이매진 v5.57.0
 //@api 3.0
-//@version 5.56.0
+//@version 5.57.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.56.0';
+    const VERSION = '5.57.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -13704,6 +13704,7 @@ ${art}
         mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
         zoom: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
         redo: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+        sync: '<path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.7"/><path d="M20 4v4.7h-4.7"/><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.3"/><path d="M4 20v-4.7h4.7"/>',
         bubx: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M9 8l6 6M15 8l-6 6"/>',
         nsfw: '<path d="M12 3c.6 3.2 4.8 5.2 4.8 10a4.8 4.8 0 0 1-9.6 0c0-2.3 1.3-3.8 2.3-4.8.3 1.7 1.1 2.7 2.3 3-.4-2.9-.3-5.6.2-8.2z"/>',
         brush: '<path d="M9.97 17.03 21.38 5.62a1 1 0 0 0-3-3L6.97 14.03"/><path d="M11 10l3 3"/><path d="M6.5 21A3.5 3.5 0 1 0 3 17.5a2.6 2.6 0 0 1-.7 1.8A1 1 0 0 0 3 21z"/>',
@@ -14374,16 +14375,29 @@ Rules:
         const talked = names.filter(n => v.talk[n]?.length).sort((a, b) => lastAt(b) - lastAt(a));
         const order = [...talked, ...names.filter(n => !v.talk[n]?.length)];
         const run = busy ? runState(busy) : null;
+        const castOn = !!run && busy === cast, mainOn = !!run && busy !== cast;
+        const pct = run ? `${run.pct}%` : '';
         const an = h('button', {
-            class: 'vn-ca' + (run ? ' run' : ''), type: 'button', disabled: !!cast && !mine, style: `--p:${run?.pct ?? 0}%`,
-            title: !mine ? '등장인물 재분석' : busy === cast ? '등장인물 분석 멈추기' : '본편 대사 모으기 멈추기', onclick: () => void castClick(),
+            class: 'vn-pc vn-pcc' + (castOn ? ' run' : ''), type: 'button', disabled: (!!cast && !mine) || mainOn, style: `--p:${castOn ? run.pct : 0}%`,
+            title: castOn ? '등장인물 분석 멈추기' : '등장인물 재분석', onclick: () => void castClick(),
         },
-            h('span', { class: 'vn-cai' }, talkIcon('redo', 2.2), talkIcon('book', 2)),
-            h('span', { class: 'vn-cat' },
-                h('b', { class: 'vn-pka' }, run ? `📖 ${run.pct}%` : '등장인물 재분석'),
-                h('small', { class: 'vn-pkb' }, run ? run.text : cast ? '다른 봇의 분석이 끝나면 쓸 수 있습니다' : '로어북에서 대화 상대를 찾습니다'),
-                h('span', { class: 'vn-cabar', 'aria-hidden': 'true' }, h('i'))),
-            h('span', { class: 'vn-stop' }, '멈추기'));
+            h('span', { class: 'vn-pci0' }, talkIcon('redo', 2.2)), h('span', { class: 'vn-pci1' }, talkIcon('book', 2)),
+            h('span', { class: 'vn-pka' }, castOn ? pct : '등장인물 재분석'),
+            h('span', { class: 'vn-pcx', 'aria-hidden': 'true' }, '✕'));
+        const syncClick = () => {
+            const r = talkRunOf(ui.view);
+            if (r && r === mainRun) { r.cancel(); return; }
+            if (r) return;
+            setSync(!syncOn());
+        };
+        const sc = h('button', {
+            class: 'vn-pc vn-sc' + (syncOn() ? ' on' : '') + (mainOn ? ' run' : ''), type: 'button', disabled: castOn, style: `--p:${mainOn ? run.pct : 0}%`,
+            'aria-pressed': syncOn() ? 'true' : 'false', title: mainOn ? '본편 대사 모으기 멈추기' : '리수 현재 채팅 세션과 싱크를 맞춥니다', onclick: syncClick,
+        },
+            h('span', { class: 'vn-pci0' }, h('span', { class: 'vn-scd' })), h('span', { class: 'vn-pci1' }, talkIcon('sync', 2.2)),
+            h('span', { class: 'vn-pka' }, mainOn ? pct : syncOn() ? '리수 싱크 ON' : '리수 싱크 OFF'),
+            h('span', { class: 'vn-pcx', 'aria-hidden': 'true' }, '✕'));
+        const pb = h('small', { class: 'vn-pkb' + (run ? ' live' : '') }, run ? run.text : cast ? '다른 봇의 분석이 끝나면 쓸 수 있습니다' : '로어북에서 대화 상대를 찾습니다');
         const row = (n, i) => {
             const log = v.talk[n] ?? [];
             const top = i === 0 && log.length > 0;
@@ -14393,26 +14407,35 @@ Rules:
                 h('span', { class: 'vn-ir' }, log.length ? [h('small', null, talkAgo(lastAt(n))), h('em', null, `${log.length}`)] : h('em', { class: 'new' }, '새 대화')));
         };
         return [h('div', { class: 'vn-pick' },
-            an,
-            h('div', { class: 'vn-sync' },
-                h('span', { class: 'vn-synct' }, h('b', null, '리수 싱크'), h('small', null, '리수 현재 채팅 세션과 싱크를 맞춥니다')),
-                host.toggle(syncOn(), () => setSync(!syncOn()), mine)),
+            h('div', { class: 'vn-crow' }, an, sc, pb),
             order.length ? h('div', { class: 'vn-lh' }, h('div', null, h('b', null, '대화 상대'), h('span', { class: 'vn-ln' }, '(새 채팅에서는 대화 내용이 초기화됩니다)')), h('span', null, `${order.length}명 · 최근 순`)) : null,
             order.length ? h('div', { class: 'vn-lst', role: 'list' }, order.map(row)) : null)];
     }
     function talkPickTick() {
-        const el = ui.root?.querySelector('.vn-pick .vn-ca');
+        const row = ui.root?.querySelector('.vn-pick .vn-crow');
         const run = talkRunOf(ui.view);
-        if (!el || !run) { clearInterval(talkPickId); talkPickId = 0; return; }
+        if (!row || !run) { clearInterval(talkPickId); talkPickId = 0; return; }
         const { pct, text } = runState(run);
-        el.classList.add('run');
-        el.disabled = false;
-        el.title = run === cast ? '등장인물 분석 멈추기' : '본편 대사 모으기 멈추기';
+        const isCast = run === cast;
+        const el = row.querySelector(isCast ? '.vn-pcc' : '.vn-sc'), other = row.querySelector(isCast ? '.vn-sc' : '.vn-pcc');
+        if (other) {
+            other.classList.remove('run');
+            other.style.setProperty('--p', '0%');
+            other.disabled = true;
+            const oa = other.querySelector('.vn-pka');
+            if (oa) oa.textContent = other.classList.contains('vn-sc') ? (syncOn() ? '리수 싱크 ON' : '리수 싱크 OFF') : '등장인물 재분석';
+        }
+        if (el) {
+            el.classList.add('run');
+            el.disabled = false;
+            el.title = isCast ? '등장인물 분석 멈추기' : '본편 대사 모으기 멈추기';
+            el.style.setProperty('--p', pct + '%');
+            const a = el.querySelector('.vn-pka');
+            if (a) a.textContent = `${pct}%`;
+        }
         ui.root.querySelectorAll('.vn-pick .vn-it').forEach(b => { b.disabled = true; });
-        el.style.setProperty('--p', pct + '%');
-        const a = el.querySelector('.vn-pka'), b = el.querySelector('.vn-pkb');
-        if (a) a.textContent = `📖 ${pct}%`;
-        if (b) { b.textContent = text; b.classList.remove('err'); }
+        const b = row.querySelector('.vn-pkb');
+        if (b) { b.textContent = text; b.classList.remove('err'); b.classList.add('live'); }
         if (!talkPickId) talkPickId = setInterval(talkPickTick, 500);
     }
     function talkPick(name) {
@@ -16588,28 +16611,27 @@ Rules:
 .gt .vn-who span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gt .vn-who em,.gt .vn-pick b>em{flex:none;margin-left:4px;padding:1px 5px;border-radius:6px;font-style:normal;font-size:9.5px;font-weight:900;color:var(--ink2);background:#ffc93c;vertical-align:1px}
 .gt .vn-pick{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
-.gt .vn-ca{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border-radius:12px;border:1.5px dashed #a9cdf2;background:#f7fbff;color:var(--sky);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}
-.gt .vn-ca:hover:not(:disabled),.gt .vn-ca:focus-visible{border-color:var(--sky);box-shadow:0 0 0 3px rgba(43,149,240,.15)}
-.gt .vn-ca:disabled{opacity:.5;cursor:default}
-.gt .vn-cai{flex:none;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--skl)}
-.gt .vn-cai .vn-ic svg{width:17px;height:17px}
-.gt .vn-cai .vn-ic+.vn-ic,.gt .vn-ca.run .vn-cai .vn-ic:first-child{display:none}
-.gt .vn-ca.run .vn-cai .vn-ic+.vn-ic{display:grid}
-.gt .vn-cat{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px}
-.gt .vn-cat b{font-size:12.5px}
-.gt .vn-cat small{font-size:11px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.gt .vn-cat small.err{color:#d0453b;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
-.gt .vn-cabar{display:none;height:5px;margin-top:4px;border-radius:3px;background:#d6e6f7;overflow:hidden}
-.gt .vn-cabar i{display:block;height:100%;width:var(--p,0%);border-radius:3px;background:linear-gradient(90deg,var(--sky),#62bdff);transition:width .4s}
-.gt .vn-stop{display:none;flex:none;padding:5px 10px;border-radius:8px;border:1px solid #a8d3ff;background:#fff;color:var(--sky);font-size:11.5px;font-weight:800}
-.gt .vn-ca.run{border-style:solid;border-color:var(--sky);background:var(--skl);color:var(--sky)}
-.gt .vn-ca.run:hover,.gt .vn-ca.run:focus-visible{box-shadow:0 0 0 3px rgba(43,149,240,.18)}
-.gt .vn-ca.run .vn-cai{background:#d6ecff}
-.gt .vn-ca.run :is(.vn-cabar,.vn-stop){display:block}
-.gt .vn-sync{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 12px;border-radius:12px;border:1px solid #dbe9f7;background:#fff}
-.gt .vn-synct{display:flex;flex-direction:column;gap:1px;min-width:0}
-.gt .vn-synct b{font-size:13px}
-.gt .vn-synct small{font-size:11.5px;color:var(--mut)}
+/* 5.57.0: 대화 상대 화면 맨 위 한 줄. 바깥 테두리 없이 「등장인물 재분석」 칩 · 「리수 싱크」 칩 · 상태 글을 나란히 둔다 */
+.gt .vn-crow{display:flex;align-items:center;gap:8px;min-height:36px}
+.gt .vn-pc{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 13px 0 10px;border-radius:99px;border:1.5px solid #cfe3f7;background:#fff;color:var(--sky);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;overflow:hidden;white-space:nowrap;transition:border-color .15s,box-shadow .15s}
+.gt .vn-pc>*{position:relative}
+.gt .vn-pc:hover:not(:disabled),.gt .vn-pc:focus-visible{border-color:var(--sky);box-shadow:0 0 0 3px rgba(43,149,240,.15)}
+.gt .vn-pc:disabled{opacity:.5;cursor:default}
+.gt .vn-pci0,.gt .vn-pci1{display:grid;place-items:center}
+.gt .vn-pc .vn-ic svg{width:15px;height:15px}
+.gt .vn-pci1,.gt .vn-pc.run .vn-pci0{display:none}
+.gt .vn-pc.run .vn-pci1{display:grid}
+.gt .vn-scd{width:7px;height:7px;border-radius:50%;background:#c4d3e3}
+.gt .vn-sc.on{background:var(--sky);border-color:var(--sky);color:#fff}
+.gt .vn-sc.on .vn-scd{background:#fff}
+.gt .vn-pcx{display:none;font-size:11px;font-weight:900;opacity:.7}
+/* 일하는 칩: 바탕 전체가 왼쪽부터 --p 만큼 차오른다 */
+.gt .vn-pc.run{min-width:104px;border-color:var(--sky);background:#fff;color:#1d5bc4;font-variant-numeric:tabular-nums}
+.gt .vn-pc.run::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--p,0%);background:linear-gradient(90deg,#9fd0ff,#cfe7ff);transition:width .4s}
+.gt .vn-pc.run .vn-pcx{display:inline}
+.gt .vn-crow .vn-pkb{flex:1 1 auto;min-width:0;font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt .vn-crow .vn-pkb.live{color:#1d5bc4;font-weight:600}
+.gt .vn-crow .vn-pkb.err{color:#d0453b;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 .gt .vn-lh{display:flex;align-items:baseline;justify-content:space-between;margin:2px 4px -4px;font-size:12px;color:var(--mut)}
 .gt .vn-lh b{font-size:14px;font-weight:900;color:var(--ink2)}
 .gt .vn-lh span{font-weight:600}
