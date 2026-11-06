@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.62.1
+//@display-name 💠 이매진 v5.62.3
 //@api 3.0
-//@version 5.62.1
+//@version 5.62.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.62.1';
+    const VERSION = '5.62.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -8144,14 +8144,22 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     }
     const BK_KEYS = ['nc:set', 'nc:presets', 'nc:preset', 'nc:nsfw', 'nc:nsfwMy', 'gt:set', 'gt:my'];
     const BK_PRE = ['nc:cast:', 'nc:img:', 'nc:ast:', 'gt:bot:', 'gt:talk:'];
-    const bk = { img: false, busy: '', msg: '', cls: '', url: '', file: '', size: 0 };
+    const bk = { busy: '', msg: '', cls: '' };
     const bkPre = k => BK_PRE.find(p => k.startsWith(p)) ?? '';
     const bkIdOf = k => { const p = bkPre(k); return p ? k.slice(p.length).split('|')[0] : ''; };
-    const bkPic = (name, made) => /^nc_[a-z0-9]+$/i.test(name) || (/^c_[a-z0-9_]+$/i.test(name) && made.includes(name));
     const bkSize = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
-    const bkB64 = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
     const bkUnB64 = s => { const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
-    const bkDropUrl = () => { if (bk.url) URL.revokeObjectURL(bk.url); bk.url = ''; bk.size = 0; };
+    function bkSave(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const a = doc.createElement('a');
+        a.href = url;
+        a.download = name;
+        a.style.display = 'none';
+        doc.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+    }
     const bkSay = (msg, cls = '') => { bk.msg = msg; bk.cls = cls; renderNow(); };
     async function bkBots() {
         const out = new Map();
@@ -8165,7 +8173,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     async function bkExport() {
         if (bk.busy) return;
         bk.busy = 'make';
-        bkDropUrl();
         bkSay('백업 파일을 만드는 중입니다…');
         try {
             const data = {};
@@ -8186,33 +8193,11 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 else if (live.size) { delete data[k]; gone++; }
             }
             const file = { app: 'imagine', kind: 'backup', version: VERSION, at: Date.now(), bots, data };
-            let pics = 0;
-            if (bk.img) {
-                file.images = {};
-                for (const [id, b] of live) {
-                    if (b.group) continue;
-                    const c = await api.getCharacterFromIndex(b.i);
-                    if (!c || c.chaId !== id) continue;
-                    const made = Array.isArray(data['nc:ast:' + id]?.made) ? data['nc:ast:' + id].made : [];
-                    const list = [];
-                    for (const x of c.additionalAssets ?? []) {
-                        const [name, path, ext] = Array.isArray(x) ? x : [];
-                        if (!name || !path || !bkPic(String(name), made)) continue;
-                        try {
-                            const raw = await api.readImage(path);
-                            list.push([String(name), String(ext || ''), bkB64(raw instanceof Uint8Array ? raw : new Uint8Array(raw))]);
-                        } catch (error) { console.warn(LOG, 'backup image', name, error); }
-                    }
-                    if (list.length) { file.images[id] = list; bots[id] = b.name; pics += list.length; }
-                }
-            }
             const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
             const d = new Date();
-            bk.url = URL.createObjectURL(blob);
-            bk.size = blob.size;
-            bk.file = `imagine_backup_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`;
+            bkSave(blob, `imagine_backup_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`);
             bk.busy = '';
-            bkSay(`백업 파일을 만들었습니다. 기록 ${Object.keys(data).length}개 · 봇 ${Object.keys(bots).length}개${bk.img ? ` · 그림 ${pics}장` : ''}이 들어 있습니다.${gone ? ` 지운 봇의 기록 ${gone}개는 뺐습니다.` : ''} 「내려받기」를 눌러 저장하세요.`, 'ok');
+            bkSay(`백업 파일(${bkSize(blob.size)})을 내려받았습니다. 기록 ${Object.keys(data).length}개 · 봇 ${Object.keys(bots).length}개가 들어 있습니다.${gone ? ` 지운 봇의 기록 ${gone}개는 뺐습니다.` : ''} 저장되지 않았으면 한 번 더 눌러 주세요.`, 'ok');
         } catch (error) {
             console.warn(LOG, 'backup', error);
             bk.busy = '';
@@ -8408,14 +8393,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 castGrp(true), grp('save', '저장', webpRow('talkWebp'))] : []],
         };
         const gBackup = () => grp('backup', '백업',
-            row('에셋 기록도 백업하기', '봇에 들어 있는 이매진 삽화(nc_)와 애드 에셋 그림(c_)을 백업 파일에 함께 넣습니다. 그림이 많으면 파일이 아주 커집니다.',
-                '끄면 기록만 담습니다. 그림 없이 다른 리수로 옮기면 삽화 목록에 「그림 없음」으로 보입니다.',
-                toggle(bk.img, () => { bk.img = !bk.img; bkDropUrl(); bk.msg = ''; renderNow(); }, !!bk.busy), { tag: true }),
             row('백업 파일', '작가(그림체) · NSFW 프롬프트 · 설정 · 목소리, 봇마다 등장인물 · 삽화 기록 · 애드 에셋 기록 · 목소리 표 · 대화 기록을 JSON 파일 하나로 만들고, 그 파일을 불러와 되돌립니다.',
-                '불러오면 파일에 있는 항목을 파일 값으로 바꿉니다. 파일에 없는 기록은 지우지 않습니다. 봇은 같은 봇을 먼저 찾고, 없으면 이름이 같은 봇이 하나뿐일 때 그 봇에 넣습니다. 그림은 봇에 없는 이름만 넣습니다. NAI API 키 · 구글 서비스 계정 키 · 다른 플러그인의 저장값은 담지 않습니다.',
+                '불러오면 파일에 있는 항목을 파일 값으로 바꿉니다. 파일에 없는 기록은 지우지 않습니다. 봇은 같은 봇을 먼저 찾고, 없으면 이름이 같은 봇이 하나뿐일 때 그 봇에 넣습니다. 예전 백업 파일에 그림이 들어 있으면 봇에 없는 이름의 그림만 넣습니다. NAI API 키 · 구글 서비스 계정 키 · 다른 플러그인의 저장값은 담지 않습니다.',
                 h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end' },
                     h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: () => void bkExport() }, bk.busy === 'make' ? '만드는 중…' : '백업 파일 만들기'),
-                    bk.url ? h('a', { class: 'ix-btn sm main', href: bk.url, download: bk.file, style: 'text-decoration:none' }, `내려받기 (${bkSize(bk.size)})`) : null,
                     h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: bkPick }, bk.busy === 'load' ? '불러오는 중…' : '백업 파일 불러오기')),
                 { tag: true, end: true }),
             bk.msg ? h('div', { class: 'cf-r1 cf-hr' }, h('p', { class: 'ix-msg' + (bk.cls ? ' ' + bk.cls : ''), role: 'status', 'aria-live': 'polite', style: 'margin:0;flex:1 1 100%' }, bk.msg)) : null);
