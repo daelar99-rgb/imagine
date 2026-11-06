@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.57.0
+//@display-name 💠 이매진 v5.57.1
 //@api 3.0
-//@version 5.57.0
+//@version 5.57.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,18 +12,18 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.57.0';
-    const DEV_URL = 'https://github.com/daelar99-rgb';
-    const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
-    const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
+    const VERSION = '5.57.1';
+    const DEV_URL = 'https://github.com/daelar99-rgb';   
+    const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';   
+    const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';   
     const GH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
     const doc = document;
 
     const DEFAULT_POS = '0.4::artist:solipsist ::, 0.2::artist:ebora ::, 0.8::artist:tianliang duohe fangdongye ::, 0.9::artist:freng ::, 0.9::artist:modare ::, 0.3::artist:balecxi ::, 0.3::artist:miyu ::, 0.2::artist:chamchami (cham22) ::, 1.2::artist:xipa ::, 0.4::artist:satou kukki ::, 0.9::artist:sohn woohyoung ::, 1.2::artist:ryusei hasida ::, 0.8::artist:healthyman ::, 0.8::artist:channel (caststation) ::, 0.8::artist:conto ::, 0.4::artist:mizumizuni ::, 0.6::artist:ie (raarami) ::, 0.5::artist:jp06 ::, 1.2::artist:horikoshi kohei ::, year 2026, year 2025, -5::artist collaboration ::, -1::flat color ::, masterpiece, very aesthetic, highres, incredibly absurdres, best quality, best illustration, 0.4::blender (medium), photorealistic ::, high complexity, glossy cloth, 2::sound effects ::, motion blur, motion lines,';
     const DEFAULT_NEG = 'dithering, halftone, screentone, negative space, blank page, logo, watermark, too many watermarks, reference, signature, artist name, subtitles, captions, dated, chibi, artistic error, scan artifacts, jpeg artifacts, aliasing, film grain, heavy film grain, chromatic aberration, digital dissolve, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, 4koma, detailed nose, fat, muscular, athletic, toned body, 2::mutated, mutation, deformed, distorted, disfigured, bad anatomy ::, unnatural hair, bad face, mob face, cloned face, distorted face, poorly drawn face, ugly, bad eyes, empty eyes, extra eyes, lazy eye, asymmetrical eyes, cross-eyed, bad proportions, wrong body proportions, unrealistic proportions, distorted body, long neck, wrong head size, bad limbs, missing limbs, extra limbs, amputee, bad arm, 2::bad hands, malformed hands, poorly drawn hands, bad hand structure, extra digits, fewer digits, extra fingers, fused fingers ::, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, unrealistic colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, duplicate, worst quality, bad quality, messy details, fewer details, bad portrait, bad illustration, awkward, bad posture, simple background,';
     const DEFAULT_PRESET = { id: 'default', name: '프리셋1 (v5f)', pos: DEFAULT_POS, neg: DEFAULT_NEG };
-    const OLD_DEFAULT_NAME = '기본 작가';
-    const OLD_PRESET2_NAME = '프리셋2 (v4f)';
+    const OLD_DEFAULT_NAME = '기본 작가';   
+    const OLD_PRESET2_NAME = '프리셋2 (v4f)';   
     const PRESET2_POS = '2::artist:imamura ryou::, 1.5::artist:loliconder::, 1.5::artist:shigure s::, 1.5::artist:jabara tornado::, ::artist:teshima nari::, 0.5::artist:kerorira::, ::artist:fellatrix::, 2::artist:meme50 ::, 6::jaggy lines, cel shading, anime coloring::, -2::artist collaboration::, year 2025, year 2024, year 2023, -2::flat color, monochrome, upscaled, blurry::, -2::signature, artist name, artist socials, censored::, highres, absurdres, masterpiece, very aesthetic, best illustration';
     const PRESET2_NEG = 'logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist:xinzoruo, 2::artist:milkpanda::, artist:khyle., artist:bkub, artist:gaoo (frpjx283), 15::artist collaboration::, variant set, large variant set, 4koma, 2koma, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, empty eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, unsatisfactory, displeasing, very displeasing, bad illustration, bad portrait, puckered lips, thick lips, bags under eyes';
     const PRESET2 = { id: 'preset2', name: '프리셋2 (v4.5f)', pos: PRESET2_POS, neg: PRESET2_NEG };
@@ -94,76 +94,76 @@
     const MAX_RECORDS_ALL = 800;
     const DEFAULT_SET = {
         model: 'nai-diffusion-4-5-full',
-        auto: true,
-        llm: 'submodel',
-        acLlm: 'submodel',
-        acPresetId: '',
-        acModel: '',
-        acWebp: true,
-        talkNaiModel: '',
-        talkWebp: true,
-        talkGenre: true,
-        talkDynamic: true,
-        talkDynMin: 9,
-        talkHead: '',
-        talkExtra: '',
-        comicHead: '',
-        comicExtra: '',
-        acHead: '',
-        talkReply: '',
-        prOff: {},
-        vbtn: 'all',
-        kind: 'comic',
-        count: 1,
-        countMode: 'fixed',
-        countMin: 2,
-        countMax: 4,
-        size: 'tall',
-        sv: 36,
+        auto: true,          
+        llm: 'submodel',     
+        acLlm: 'submodel',   
+        acPresetId: '',      
+        acModel: '',         
+        acWebp: true,        
+        talkNaiModel: '',    
+        talkWebp: true,      
+        talkGenre: true,     
+        talkDynamic: true,   
+        talkDynMin: 9,       
+        talkHead: '',        
+        talkExtra: '',       
+        comicHead: '',       
+        comicExtra: '',      
+        acHead: '',          
+        talkReply: '',       
+        prOff: {},           
+        vbtn: 'all',         
+        kind: 'comic',       
+        count: 1,            
+        countMode: 'fixed',  
+        countMin: 2,         
+        countMax: 4,         
+        size: 'tall',        
+        sv: 36,              
         bubbles: true,
-        comicCoords: true,
-        loreMax: 0,
-        castMax: 0,
-        userFirst: false,
-        dynamic: true,
-        dynMin: 9,
-        genre: true,
+        comicCoords: true,   
+        loreMax: 0,          
+        castMax: 0,          
+        userFirst: false,    
+        dynamic: true,       
+        dynMin: 9,           
+        genre: true,         
         steps: 28,
         scale: 5,
         cfgRescale: 0,
         sampler: 'k_euler_ancestral',
-        pc: '480',
-        mo: '80',
-        tap: true,
-        ubtn: 'all',
-        cogen: true,
-        undo: false,
-        setup: { cogen: false, llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },
-        introSeen: { illust: false, asset: false },
-        homeTour: false,
-        assetOff: [],
-        ptOff: [],
-        scroll: 'last',
-        panelBtn: true,
-        webp: true,
-        vars: true,
-        head: '',
-        nsfw: { st: '', on: { illust: true, asset: true, talk: true } },
-        extra: '',
+        pc: '480',           
+        mo: '80',            
+        tap: true,           
+        ubtn: 'all',         
+        cogen: true,         
+        undo: false,         
+        setup: { cogen: false, llm: false, acLlm: false, model: false, kind: false, count: false, preset: false },   
+        introSeen: { illust: false, asset: false },   
+        homeTour: false,     
+        assetOff: [],        
+        ptOff: [],           
+        scroll: 'last',      
+        panelBtn: true,      
+        webp: true,          
+        vars: true,          
+        head: '',            
+        nsfw: { st: '', on: { illust: true, asset: true, talk: true } },   
+        extra: '',           
     };
 
     const st = {
         set: { ...DEFAULT_SET },
         presets: BUILTIN_PRESETS.map(p => ({ ...p })),
         presetId: ARTIST1.id,
-        view: null,
+        view: null,          
         busy: null,
         lore: null,
         note: '', err: '', ok: false,
-        promptOpen: new Map(),
-        drafts: {},
-        persona: null,
-        personaFail: '',
+        promptOpen: new Map(),   
+        drafts: {},          
+        persona: null,       
+        personaFail: '',     
         jobs: 0,
     };
     const castCache = new Map();
@@ -273,7 +273,7 @@
         return Object.assign(new Error('중단했습니다.'), { isStop: true });
     }
 
-    let sizeMoved = false;
+    let sizeMoved = false;   
     async function loadPrefs() {
         const [set, presets, presetId] = await Promise.all([
             api.pluginStorage.getItem('nc:set').catch(() => null),
@@ -313,7 +313,7 @@
         st.set.assetOff = Array.isArray(st.set.assetOff) ? [...new Set(st.set.assetOff.filter(x => typeof x === 'string' && x))] : [];
         st.set.ptOff = Array.isArray(st.set.ptOff) ? [...new Set(st.set.ptOff.filter(x => typeof x === 'string' && x))] : [];
         if (Array.isArray(presets) && presets.length) st.presets = presets.filter(p => p && p.id);
-        let moved = null;
+        let moved = null;   
         const SV_STEPS = [
             [3, false, () => {
                 for (const p of st.presets) if (p.neg === NEG_V12) p.neg = DEFAULT_NEG;
@@ -1122,7 +1122,7 @@ ${TAG_STYLE}`;
         const was = setupDone();
         st.set = { ...st.set, setup: { ...st.set.setup, [k]: true } };
         saveSet();
-        if (!was && setupDone()) ui.readyAt = Date.now();
+        if (!was && setupDone()) ui.readyAt = Date.now();   
     }
     const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 4, 2);
 
@@ -1152,7 +1152,7 @@ ${TAG_STYLE}`;
         sad: 'melancholy, dim lighting',
         suspense: 'suspense, dramatic lighting, shadow',
         daily: 'slice of life, warm lighting',
-        nsfw: '2::nsfw::',
+        nsfw: '2::nsfw::',   
     };
     const GENRE_RULE = `- genre: the mood of this image (for a comic page: the page as a whole), one of: action (combat, an attack, a chase, a fast dash), romance (flirting, a confession, a kiss, a tender moment), comedy (a gag, a silly reaction), horror (fear, gore, something creepy), sad (grief, tears, loneliness), suspense (tension, a mystery, a threat before it strikes), daily (calm everyday life), nsfw (sexual content, nudity, an explicit or erotic scene; pick it over romance when the image shows any of these), none (unclear or mixed). The app adds that genre's tags itself, so do not write genre or motion tags into scene or tags.`;
     const monoNow = () => (talkOv ? st.set.talkDynamic : st.set.dynamic) !== false && [ARTIST3.id, ARTIST4.id].includes(preset()?.id);
@@ -1932,7 +1932,7 @@ Rules
     function dropNegBias(text) {
         const parts = String(text ?? '').split(',');
         const out = [];
-        let open = '';
+        let open = '';   
         for (const raw of parts) {
             const lead = /^\s*/.exec(raw)[0];
             let body = raw.slice(lead.length);
@@ -1943,10 +1943,10 @@ Rules
             const closer = cm ? '::' : '';
             if (cm) body = body.slice(0, cm.index);
             if (NEG_BIAS_TAGS.includes(body.trim().toLowerCase())) {
-                if (opener && closer) continue;
-                if (opener) { open = opener; continue; }
-                if (closer) {
-                    if (open) open = '';
+                if (opener && closer) continue;                       
+                if (opener) { open = opener; continue; }               
+                if (closer) {                                          
+                    if (open) open = '';                               
                     else if (out.length) out[out.length - 1] = out[out.length - 1].replace(/\s*$/, '::');
                     continue;
                 }
@@ -2793,7 +2793,7 @@ Rules
             : e.P + n * e.I + part(e.S);
         return { done, total, e, n, sec };
     }
-    const LORE_STAGES = ['로어북 읽기', '모델 분석', '인물 정리'];
+    const LORE_STAGES = ['로어북 읽기', '모델 분석', '인물 정리'];   
 
     function cancelAll() {
         gen++;
@@ -3456,7 +3456,7 @@ ${t.user}` : null;
         await saveRecs(v.chaId, recs);
     }
 
-    const autoSeen = new Map();
+    const autoSeen = new Map();   
     const seenKeyOf = (ev, msg) => `${ev.char?.chaId}|${chatKeyOf(ev.chat, ev.chatIndex)}|${msgKeyOf(msg, ev.messageIndex, ev.chat.message)}`;
     function markSeen(key, hash) {
         autoSeen.set(key, hash);
@@ -3629,8 +3629,8 @@ ${plan}
         talk: { tgLabel: 'NSFW 프롬프트 켜기', tgDesc: '대화 답을 만들고, 대화 그림을 연출하고, 대화 등장인물을 분석할 때 고른 글을 함께 보냅니다. 목소리 분석에는 넣지 않습니다.' },
     };
     const NS_ROLE = { system: '시스템', user: '유저', assistant: '어시스턴트' };
-    const NS_CHAT_MAX = 80;
-    const NS_LINE_MIN = 10;
+    const NS_CHAT_MAX = 80;   
+    const NS_LINE_MIN = 10;   
     const ns = { armed: false, view: '', sub: 'src', cap: null, pick: new Set(), data: null, open: new Set(), got: false, mute: 0, timer: 0, back: 0, armT: 0, work: null, err: '', my: [] };
     const NS_ARM_MAX = 600000;
     function nsArm(on) {
@@ -5812,7 +5812,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (st.view && !st.view.hasKey) return ['키 없음', 'bad'];
         if (!setupDone()) return ['준비 전', ''];
         if (st.err || [...failed.values()].some(f => f.chat === st.view?.chatKey)) return ['실패', 'bad'];
-        return null;
+        return null; 
     }
 
     const HEAD_ICON = {
@@ -5935,7 +5935,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 
     async function openLink(url, msg) {
         let w = null;
-        try { w = window.open(url, '_blank'); } catch { }
+        try { w = window.open(url, '_blank'); } catch { }   
         if (w) { try { w.opener = null; } catch { } return; }
         msg.textContent = await copyText(url)
             ? `새 창이 막혀 주소(${url})를 클립보드에 복사했습니다. 브라우저 주소창에 붙여 넣어 주세요.`
@@ -5949,7 +5949,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return 0;
     };
     async function checkUpdate() {
-        if (upd.checked || upd.busy) return;
+        if (upd.checked || upd.busy) return;   
         upd.busy = true;
         try {
             upd.skip = String(await api.pluginStorage.getItem('nc:updSkip').catch(() => '') ?? '');
@@ -6114,9 +6114,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             h('span', null, '그림은 봇의 추가 에셋에 nc_… 이름으로 저장됩니다'));
     }
 
-    const armedKeys = new Map();
+    const armedKeys = new Map();   
     function armButton(label, armedLabel, onFire, cls = 'ix-btn sm warn', key = '', need = 2) {
-        let left = 0, timer = 0, kids = null;
+        let left = 0, timer = 0, kids = null;   
         const stage = n => n > 1 ? (armedLabel.includes('한 번 더') ? armedLabel.replace('한 번 더', '두 번 더') : '두 번 더') : armedLabel;
         const arm = (n, ms) => {
             left = n;
@@ -6406,7 +6406,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 const type = String.fromCharCode(b[p], b[p + 1], b[p + 2], b[p + 3]), len = dv.getUint32(p + 4, true);
                 if (type === 'EXIF') {
                     let d = b.subarray(p + 8, p + 8 + len);
-                    if (d[0] === 0x45 && d[1] === 0x78 && d[4] === 0 && d[5] === 0) d = d.subarray(6);
+                    if (d[0] === 0x45 && d[1] === 0x78 && d[4] === 0 && d[5] === 0) d = d.subarray(6);   
                     return tiffTexts(d);
                 }
                 p += 8 + len + (len & 1);
@@ -6469,7 +6469,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             if (sig === 'stealth_pngcomp') data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
             const text = new TextDecoder().decode(data);
             let j;
-            try { j = JSON.parse(text); } catch { return { parameters: text }; }
+            try { j = JSON.parse(text); } catch { return { parameters: text }; }   
             if (!j || typeof j !== 'object') return {};
             const out = {};
             for (const k of ['Description', 'Software', 'Source']) if (typeof j[k] === 'string') out[k] = j[k];
@@ -6766,7 +6766,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             renderNow();
             let reply = '';
             try { reply = await requestModel(PICK_SYS, s.prompt, true, st.set.llm); } catch (error) { s.err = String(error?.message || error); }
-            if (ui.scan !== s) return;
+            if (ui.scan !== s) return;   
             s.reply = reply;
             Object.assign(s, parsePicks(reply, list));
             await analyze(s, s.picks, s.fallback ? 'fallback' : 'model');
@@ -6781,7 +6781,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 s.group = r.g; s.src = { name: a.name, why: s.picks.find(p => p.name === a.name)?.why || '', via: 'user' };
                 s.phase = 'done'; s.choose = false;
                 autoAdd(r.g, s);
-            } else { noteTry(s, a.name, r.why); s.msg = failMsg(a, r); s.phase = back; s.choose = false; }
+            } else { noteTry(s, a.name, r.why); s.msg = failMsg(a, r); s.phase = back; s.choose = false; }   
             renderNow();
         }
         const isImg = f => /^image\/(png|webp|jpeg)$/.test(f.type) || /\.(png|webp|jpe?g)$/i.test(f.name);
@@ -6800,7 +6800,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 else f.bad[info.kind === 'none' || info.kind === 'other' ? info.kind : 'broken'].push(name);
                 f.n++;
             }
-            if (ui.files !== f) return;
+            if (ui.files !== f) return;   
             const groups = groupStyles(srcs);
             if (groups[0]) {
                 f.cleaning = true; renderNow();
@@ -6914,7 +6914,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         }
         const clearBtn = (title, onclick) => h('button', { class: 'ps-clr', type: 'button', title, onclick }, '결과 지우기');
         function botParts() {
-            if (ui.scan && ui.scan.chaId !== st.view?.chaId) ui.scan = null;
+            if (ui.scan && ui.scan.chaId !== st.view?.chaId) ui.scan = null;   
             const s = ui.scan, n = usable().length, out = { tiles: [], tray: [] };
             if (!n) return out;
             out.tiles.push(askTile(`「${botName()}」 그림체 가져오기`, `에셋 ${n}장 중 인물 그림 하나로`, startScan, '에셋에서 그림체 찾기'));
@@ -6930,7 +6930,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     : [`모델이 고른 ${s.picks.map(p => `「${p.name}」`).join(' · ')}에서 `, h('span', { class: 'ps-miss', style: 'color:var(--bad)' }, '쓸 수 있는 인물 그림을 찾지 못했습니다.'), ' 「다른 에셋으로」를 눌러 다른 에셋을 골라 보세요.'],
                 h('button', { class: 'lnk', type: 'button', style: 'margin-left:8px', 'aria-expanded': s.choose ? 'true' : 'false', onclick: () => { s.choose = !s.choose; if (!s.choose) s.msg = ''; renderNow(); } }, s.choose ? '고르기 닫기' : '다른 에셋으로'),
                 clearBtn('이 결과로 넣은 그림체를 목록에서 뺍니다', () => { dropAdds(ui.scan); ui.scan = null; renderNow(); })));
-            out.tray.push(msgBox(s));
+            out.tray.push(msgBox(s));   
             if (s.choose) out.tray.push(assetGrid(s, a => pickOther(s, a), s.src?.name, '누르면 그 그림을 바로 읽어 그림체를 하나 더 넣습니다'));
             out.tray.push(scanBox(s), cleanBox(g?.clean));
             return out;
@@ -7152,10 +7152,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (!v) { noChat(pane); return pane; }
         const su = st.set.setup ?? {};
         const done = [!!(su.cogen && su.llm), v.hasKey, !!(su.kind && su.model && su.count && su.size), !!su.preset, !!st.set.nsfw?.st];
-        const cur = done.indexOf(false);
+        const cur = done.indexOf(false);   
         const stateOf = i => cur >= 0 && i > cur ? 'lock' : done[i] && ui.reopen !== i + 1 ? 'done' : 'cur';
         let hinted = false;
-        if (v.hasKey) void acAnlas();
+        if (v.hasKey) void acAnlas();   
         const END = 6;
         const step = (n, title, sum, body) => {
             const state = n === END ? (cur < 0 ? 'done' : 'lock') : stateOf(n - 1);
@@ -8713,7 +8713,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         for (const line of lines) {
             const key = keyOf(line);
             if (!Object.prototype.hasOwnProperty.call(values, key)) { out.push(line); continue; }
-            if (!seen.has(key)) out.push(key + '=' + values[key]);
+            if (!seen.has(key)) out.push(key + '=' + values[key]);   
             seen.add(key);
         }
         const add = Object.keys(values).filter(k => !seen.has(k)).map(k => k + '=' + values[k]);
@@ -10040,13 +10040,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     const AC_HUES = ['#3d5afe', '#c2185b', '#00897b', '#ef6c00', '#7b1fa2', '#2e7d32', '#0277bd', '#6d4c41'];
     const acInitial = s => ([...String(s || '?').trim()][0] ?? '?').toUpperCase();
     const AC_VIEW_DEF = '2::cowboy shot::, standing, looking at viewer';
-    const AC_VIEW_OLD = ['cowboy shot, standing, looking at viewer'];
+    const AC_VIEW_OLD = ['cowboy shot, standing, looking at viewer'];   
     const AC_AST = () => ({
         picked: null, outfits: null, extra: [], botOutfits: null, count: 10, custom: null, customText: '', special: null, specials: [], why: '', ref: true, view: AC_VIEW_DEF,
         gn: '', gnEdited: false, step: 1, edits: {}, refName: {}, slugs: {}, slugBy: {}, enNames: {}, asked: false, made: [],
-        prompts: {},
-        refOf: {},
-        spKeys: [],
+        prompts: {},   
+        refOf: {},     
+        spKeys: [],    
     });
     const astCache = new Map();
     const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -10099,14 +10099,14 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     const acHas = () => acHave.get(st.view?.chaId) ?? new Map();
 
     const acs = {
-        nsOpen: false,
+        nsOpen: false,   
         run: null, edit: null, pe: null, asking: false, askErr: '', tr: false, msg: '', msgOk: false, cu: false, cuAt: 0, cuErr: '', cuNeed: false, cuH: '',
         an: null, anAt: 0, anBusy: false, anErr: '', anShow: false, anFlash: false, quota: null, anT0: 0,
         refs: new Map(), times: [], timer: 0, fail: new Map(), menu: '', who: '', outfit: '', adv: false, trErr: '', lw: 'all',
         reopen: 0, reopenCha: '', llmOpen: false,
-        ren: false,
-        sp: false, spAt: 0, spErr: '',
-        fOpen: false, mOpen: false, finAt: 0,
+        ren: false,   
+        sp: false, spAt: 0, spErr: '',   
+        fOpen: false, mOpen: false, finAt: 0,   
     };
 
     const acCast = () => (st.view?.cast?.list ?? []).filter(e => e && e.on !== false);
@@ -10375,7 +10375,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const ci = await api.getCurrentCharacterIndex();
             const now = await api.getCharacterFromIndex(ci);
             if (now?.chaId !== run.chaId) throw Object.assign(new Error('봇이 바뀌어 멈췄습니다. 이 봇의 채팅으로 돌아와 애드 에셋을 다시 누르면 남은 칸부터 그립니다.'), { moved: true });
-            run.ci = ci;
+            run.ci = ci;   
             run.cur = t;
             run.curAt = Date.now();
             render();
@@ -10436,7 +10436,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const names = [...new Set(run.tasks.map(t => t.e.name))];
             const hv = acHave.get(run.chaId) ?? new Map(), all = st.view?.chaId === run.chaId && acPlan(a).every(t => hv.has(t.name));
             acs.msg = run.single ? `${run.tasks[0].name}을(를) 다시 그렸습니다.`
-                : all ? ''
+                : all ? ''   
                 : `애드 에셋을 마쳤습니다. ${names.join(' · ')} ${names.length}명, ${run.n}장을 봇에 넣고 인물마다 로어북 「외형」 · 「에셋」을 썼습니다.`;
             if (note === 'put' && acs.msg && !run.single) acs.msg += ' 글로벌노트에 에셋 목록을 넣었습니다.';
             if (all && !run.single) acs.finAt = Date.now();
@@ -11130,7 +11130,7 @@ Rules:
         renderNow();
         if (m === 'asset') void acAnlas();
         if (vMode(m) && !vMode(was)) voice.onOpen().catch(error => console.warn(LOG, 'voice open', error)).finally(renderNow);
-    }
+    }    
     const acListNames = a => { const have = acHas(); return a ? a.made.filter(n => have.has(n)) : []; };
     const AC_TABS = [
         ['make', () => '준비'],
@@ -11273,7 +11273,7 @@ Rules:
         const hint = (...kids) => h('p', { class: 'ix-hint', style: 'margin:0 0 10px' }, ...kids);
         const step = (n, title, sum, body) => {
             if (n === 4 && noSp) return null;
-            if (n === 6) return null;
+            if (n === 6) return null;   
             const at = noCast ? 1 : a.step;
             let s = n === ro ? 'cur' : n < at ? 'done' : n === at ? 'cur' : 'lock';
             if (n === 8 && s === 'cur' && !st.set.nsfw?.st && !run && !fin) s = 'lock';
@@ -11758,7 +11758,7 @@ Rules:
             const cur = acs.run?.cur?.name === t.n && !acs.run.stop;
             const item = (label, small, fn, cls) => h('button', { type: 'button', class: cls, onclick: () => { acs.menu = ''; fn(); } }, h('b', null, label), h('small', null, small));
             const task = open ? acTaskOf(a, g.e, g.slug, t.n) : null;
-            const refN = task ? acRefPick(a, task, acHas()) : null;
+            const refN = task ? acRefPick(a, task, acHas()) : null;   
             const menu = open ? h('div', { class: 'menu as-menu', role: 'menu' },
                 item('크게 보기', '그림을 크게 엽니다', () => { renderNow(); void showBig(t.path); }),
                 task ? item('🔁 다시 그리기', `${a.prompts[t.n] ? '고친 프롬프트' : '같은 프롬프트'} · ${refN ? `레퍼런스 ${refN} 넣어` : '레퍼런스 없이'} 이 한 장만 새로`, () => { if (!acStart(a, [task], true)) say('지금은 그릴 수 없습니다. 다른 그림을 다 그린 뒤에 눌러 주세요.', false); }) : null,
@@ -11983,7 +11983,7 @@ Rules:
     const langKey = c => /^ja/i.test(String(c ?? '')) ? 'ja' : /^en/i.test(String(c ?? '')) ? 'en' : 'ko';
     const LANG_CODE = { ko: 'ko-KR', ja: 'ja-JP', en: 'en-US' };
     const LIB_TTL = 24 * 3600 * 1000;
-    const LIB_PAGES = 42;
+    const LIB_PAGES = 42; 
     const LIB_MODEL = 'gemini-3.8-flash-tts';
     const RATE = 24000;
     const TEXT_BYTES = 3800;
@@ -12038,7 +12038,7 @@ Rules:
     ];
     const DEF_SET = { model: 'gemini-3.8-flash-tts', lang: 'ko-KR', regen: 'submodel', read: 'talk', keep: 300, gap: 250, castAuto: true, auto: true, castLlm: 'model', talkModel: 'model', talkSync: true, setup: 0, talkSetup: 0,
         talkKind: 'illust', talkSize: 'wide3', talkPreset: '', talkFit: 'contain', talkMain: 100, talkImgSrc: 'nai',
-        talkBubbles: true, ttsHead: '' };
+        talkBubbles: true, ttsHead: '' };   
     const STYLE_MAX = 300;
     const DEF_BOT = { narrator: 'Aoede', narrStyle: '라디오 아나운서처럼 또렷하고 안정된 목소리로, 알맞은 속도로 읽어 주세요.', talkStyle: '장면의 감정에 맞게, 연기하듯 자연스럽게 말해 주세요.', voices: {} };
     const OLD_DEF = { narrator: 'Charon', narrStyle: '차분하고 또렷하게, 소설을 낭독하듯 읽어 주세요.' };
@@ -12340,7 +12340,7 @@ Rules:
         await loadLib();
         if (lib.busy || (!force && lib.voices && Date.now() - lib.at < LIB_TTL)) return lib.voices;
         Object.assign(lib, { busy: true, page: 0, err: '' });
-        onPage(0);
+        onPage(0); 
         try {
             const { token, project } = await accessToken();
             if (!project) throw new Error('키 JSON 에 project_id 가 없어 목소리 목록을 받을 수 없습니다.');
@@ -13158,7 +13158,7 @@ Rules:
 - Write each asset name exactly as listed, character for character. Use "" when no asset fits a character.
 Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
     const faceAsking = new Set();
-    let faceT0 = 0;
+    let faceT0 = 0;   
     function faceSig(v, names) {
         const ext = v.fkeys ?? [];
         return hash(JSON.stringify([names.map(n => [n, v.bot.voices[n]?.aliases ?? []]), ext.map(e => [e.names, e.keys]), (v.faces?.list ?? []).map(f => f.name).sort()]));
@@ -13392,7 +13392,7 @@ ${art}
         return { text, tone, asset, plan };
     }
     const loreWait = new Map();
-    let loreJob = Promise.resolve();
+    let loreJob = Promise.resolve();   
     function talkLoreSoon(tk, ci, name, tries = 0) {
         if (loreShut) return;
         const w = loreWait.get(tk) ?? { ci, names: new Set(), timer: 0, tries: 0 };
@@ -16407,7 +16407,7 @@ Rules:
         Object.assign(ui.talk, { cmsg: null });
         if (!ui.talk.voices.size) { ui.talk.voicing.clear(); ui.talk.voiceQ.length = 0; }
         void talkRatesLoad();
-        ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : Math.min(setupOf(), 1);
+        ui.step = keyKnown === true ? Math.min(setupOf(), SETUP.length) : Math.min(setupOf(), 1);   
         ui.tstep = Math.min(talkSetupOf(), TSETUP.length);
         try {
             const d = root.asked ? await rootDoc() : null;
@@ -16612,7 +16612,8 @@ Rules:
 .gt .vn-who em,.gt .vn-pick b>em{flex:none;margin-left:4px;padding:1px 5px;border-radius:6px;font-style:normal;font-size:9.5px;font-weight:900;color:var(--ink2);background:#ffc93c;vertical-align:1px}
 .gt .vn-pick{display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto}
 /* 5.57.0: 대화 상대 화면 맨 위 한 줄. 바깥 테두리 없이 「등장인물 재분석」 칩 · 「리수 싱크」 칩 · 상태 글을 나란히 둔다 */
-.gt .vn-crow{display:flex;align-items:center;gap:8px;min-height:36px}
+/* 5.57.1: 휴대폰처럼 폭이 좁으면 상태 글이 칩 아래 줄로 내려가 전부 보이게 한다(말줄임 없음) */
+.gt .vn-crow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-height:36px}
 .gt .vn-pc{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 13px 0 10px;border-radius:99px;border:1.5px solid #cfe3f7;background:#fff;color:var(--sky);font:inherit;font-size:12.5px;font-weight:800;cursor:pointer;overflow:hidden;white-space:nowrap;transition:border-color .15s,box-shadow .15s}
 .gt .vn-pc>*{position:relative}
 .gt .vn-pc:hover:not(:disabled),.gt .vn-pc:focus-visible{border-color:var(--sky);box-shadow:0 0 0 3px rgba(43,149,240,.15)}
@@ -16629,9 +16630,9 @@ Rules:
 .gt .vn-pc.run{min-width:104px;border-color:var(--sky);background:#fff;color:#1d5bc4;font-variant-numeric:tabular-nums}
 .gt .vn-pc.run::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--p,0%);background:linear-gradient(90deg,#9fd0ff,#cfe7ff);transition:width .4s}
 .gt .vn-pc.run .vn-pcx{display:inline}
-.gt .vn-crow .vn-pkb{flex:1 1 auto;min-width:0;font-size:11.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt .vn-crow .vn-pkb{flex:1 1 170px;min-width:0;font-size:11.5px;line-height:1.45;color:var(--mut);overflow-wrap:anywhere}
 .gt .vn-crow .vn-pkb.live{color:#1d5bc4;font-weight:600}
-.gt .vn-crow .vn-pkb.err{color:#d0453b;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.gt .vn-crow .vn-pkb.err{color:#d0453b}
 .gt .vn-lh{display:flex;align-items:baseline;justify-content:space-between;margin:2px 4px -4px;font-size:12px;color:var(--mut)}
 .gt .vn-lh b{font-size:14px;font-weight:900;color:var(--ink2)}
 .gt .vn-lh span{font-weight:600}
