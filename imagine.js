@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.62.4
+//@display-name 💠 이매진 v5.63.0
 //@api 3.0
-//@version 5.62.4
+//@version 5.63.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.62.4';
+    const VERSION = '5.63.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -472,6 +472,7 @@
                 save('nc:presets', st.presets);
             }],
             [38, false, () => { st.set.comicCoords = true; }],
+            [39, false, () => { if (st.set.talkKind === 'comic2') st.set.talkKind = 'comic'; }],
         ];
         if (set && typeof set === 'object') for (const [n, needPresets, run, bump = true] of SV_STEPS) {
             if (set.sv >= n || (needPresets && !st.presets.length)) continue;
@@ -1185,10 +1186,8 @@ ${TAG_STYLE}`;
   3. else that fighter fights bare-handed (a fighting stance, fists, a punch or kick; it does not have to land): its trail (e.g. "blue impact trail", "orange shockwave").
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
-    const V2_CELL_RULE = `  - cells: where each who entry sits, ONE cell code per who entry in the same order, on a 5x5 grid laid over this portrait image. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, C2 and C4 for one above the other, B4 and D2 for one low and one high). With 3 or more, give each one a different cell (e.g. B3, C3 and D3 side by side; B3 and D3 on both sides of one at C4). Two characters who interact face each other from opposite sides. With 1 character write ["C3"]: the app sends no position for a single character.`;
     const PANEL_CELL_RULE = `  - cell: where this panel sits on the page, as ONE cell code on a 5x5 grid laid over the whole image: the center of the panel's frame. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. 2 panels on a portrait page "C2" and "C4" (stacked), on a landscape page "B3" and "D3" (side by side); 3 panels "C1", "B4", "D4" (one wide panel on top, two below) or "C1", "C3", "C5" (stacked); 4 panels "B2", "D2", "B4", "D4" (2x2) or "C1", "B3", "D3", "C5". The app places the panel's characters and action at that spot of the page.`;
-    const comicRules = () => talkOv?.v2 ? PANEL_RULES.comic.replace('COMIC PAGE (2 to 4 panels, all drawn in this one image;', 'COMIC PAGE (exactly 1 panel that fills this whole portrait image, no panel split;')
-        .replace('\n  - Targets:', `\n${V2_CELL_RULE}\n  - Targets:`) : comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic;
+    const comicRules = () => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
@@ -1264,11 +1263,9 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
-            : talkOv?.v2 ? '- panels: always exactly 1 entry per image (one full-page panel, never split). Image 1 and image 2 together carry the story: image 1 the setup, image 2 what follows.'
             : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
-            : talkOv?.v2 ? '{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],"cells":["C3"],"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}'
             : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2",' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
@@ -2043,17 +2040,17 @@ Rules
         const labels = new Map();
         const labelOf = x => { if (!labels.has(x.key)) labels.set(x.key, tidy(x.e?.canon) || `char${numOf(x)}`); return labels.get(x.key); };
         const looks = new Map();
-        const canonHead = (x, withTag) => {
+        const canonHead = x => {
             const tag = tidy(x.e?.canon);
             if (!tag) return [];
             const bare = canonBare(tag);
-            return withTag ? [tag, bare] : bare.toLowerCase() === tag.toLowerCase() ? [] : [bare];
+            return bare.toLowerCase() === tag.toLowerCase() ? [] : [bare];
         };
         const kindOf = x => x.e ? x.type : x.name;
-        let panelN = 0, v2Base = '';
+        let panelN = 0;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
-            if (panelN >= (talkOv?.v2 ? 1 : 4)) break;
+            if (panelN >= 4) break;
             const who = [];
             for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
                 const e = findCast(cast, name);
@@ -2079,24 +2076,8 @@ Rules
             const say = line ? `speech bubble with Text: ${line} ` : '';
             const personLine = k => {
                 const [tg, prose] = splitAct(acts[k]);
-                return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k], false), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+                return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
-            if (talkOv?.v2 && who.length >= 2) {
-                const cells = Array.isArray(pn.cells) ? pn.cells : [];
-                const keys = who.map(x => x.key);
-                who.forEach((x, k) => {
-                    const [tg, prose] = splitAct(acts[k]);
-                    const at = xyOfCell(cells[k]) ?? { x: 0.5, y: 0.5 };
-                    slots.push({
-                        prompt: [mergeTags(canonHead(x, true), kindOf(x), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN),
-                        uc: k ? '' : tidy(pn.uc), x: at.x, y: at.y, kind: 'char', type: x.type,
-                        name: x.name, keys, chars: [[String(x.name).toLowerCase(), labelOf(x)]],
-                    });
-                });
-                v2Base = joinTags(head, lay, cam);
-                panelN++;
-                continue;
-            }
             const lines = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
             if (who.length) {
                 for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
@@ -2121,7 +2102,7 @@ Rules
             delete sl.keys;
         }
         const pslots = slots.filter(sl => sl.kind === 'panel');
-        const panelCoords = !talkOv?.v2 && pslots.length >= 2 && comicCoordsNow();
+        const panelCoords = pslots.length >= 2 && comicCoordsNow();
         if (panelCoords) {
             const given = pslots.map(sl => xyOfCell(sl.cell));
             const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
@@ -2132,12 +2113,11 @@ Rules
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const single = panelN === 1;
-        if (talkOv?.v2) neg = joinTags(neg, 'multiple panels, panel border');
         return {
-            base: joinTags(v2Base, dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 4, 2),
-            useCoords: !!v2Base || panelCoords, panelCoords,
+            useCoords: panelCoords, panelCoords,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
             preset: p.id,
@@ -2867,8 +2847,7 @@ Rules
         try { return await fn(); } finally { talkOv = null; }
     }
     function talkOvOf(o) {
-        const v2 = o.kind === 'comic2';
-        return { kind: o.kind === 'comic' || v2 ? 'comic' : 'illust', v2, size: v2 ? 'tall' : sizeWH(o.size) ? o.size : 'wide', preset: st.presets.some(p => p.id === o.preset) ? o.preset : st.presets[0]?.id ?? '', bubbles: o.bubbles !== false };
+        return { kind: o.kind === 'comic' || o.kind === 'comic2' ? 'comic' : 'illust', size: sizeWH(o.size) ? o.size : 'wide', preset: st.presets.some(p => p.id === o.preset) ? o.preset : st.presets[0]?.id ?? '', bubbles: o.bubbles !== false };
     }
     async function talkNai(job, req, i = 1) {
         job.stage = 1;
@@ -2895,7 +2874,7 @@ Rules
         ilPush('img', (Date.now() - job.at) / 1000);
         return { path, ext, seed, req };
     }
-    function talkPrompt(char, cast, state, log, name, v2) {
+    function talkPrompt(char, cast, state, log, name) {
         const msgs = log.slice(-TALK_LOG_MAX).map(x => ({ role: x.r === 'u' ? 'user' : 'char', data: String(x.t ?? ''), name }));
         const idx = msgs.findLastIndex(m => m.role === 'char');
         if (idx < 0) return null;
@@ -2905,10 +2884,8 @@ Rules
 ${sceneText(chat, idx, input)}`);
         console.log(LOG, 'talk scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
         const user = comicUser(char, chat, idx, cast, state, st.persona?.name, input, false, null, '', sc)
-            + `\n\n# TALK SCENE\nThis is a one-on-one spoken conversation between ${st.persona?.name || 'User'} and ${name}. ${v2
-                ? `Draw the moment of the target message as 2 images: two portrait comic pages shown side by side, image 1 on the left and image 2 on the right, in story order (image 2 continues right after image 1). Each page is one single panel that fills the whole page (no panel split). ${name} is the main subject.`
-                : `Draw the moment of the target message as 1 image${isIllust() ? '' : ' (one comic page)'} with ${name} as the main subject.`}`;
-        return { system: comicSystem(false, !!input, false, false, v2 ? 2 : 1), user, sc, msgs, idx };
+            + `\n\n# TALK SCENE\nThis is a one-on-one spoken conversation between ${st.persona?.name || 'User'} and ${name}. Draw the moment of the target message as 1 image${isIllust() ? '' : ' (one comic page)'} with ${name} as the main subject.`;
+        return { system: comicSystem(false, !!input, false, false, 1), user, sc, msgs, idx };
     }
     const talkPlanBad = v => Array.isArray(v.images) && v.images.some(x => x && typeof x === 'object') ? '' : '모델이 그림 연출을 돌려주지 않았습니다.';
     function talkPlanOf(text) {
@@ -2934,7 +2911,7 @@ ${sceneText(chat, idx, input)}`);
             const was = talkOv;
             talkOv = talkOvOf(o);
             try {
-                const t = talkPrompt(char, cast, state, log, o.name, o.kind === 'comic2');
+                const t = talkPrompt(char, cast, state, log, o.name);
                 return t ? `${t.system}
 
 ${t.user}` : null;
@@ -2949,8 +2926,6 @@ ${t.user}` : null;
         const castLlm = o.llm === 'submodel' ? 'submodel' : 'model', talkLlm = o.talkLlm === 'model' ? 'model' : 'submodel';
         job.llm = castLlm;
         talkJob(job, o.plan ? false : talkLlm);
-        const v2 = o.kind === 'comic2';
-        if (v2) job.est.n = 2;
         return inQueue(() => talkWith(o, job, async () => {
             const char = await api.getCharacterFromIndex(o.ci);
             if (!char || char.chaId !== o.chaId) throw new Error('대화 중인 봇을 찾지 못했습니다.');
@@ -2988,7 +2963,7 @@ ${t.user}` : null;
             job.at = Date.now();
             const state = readState((await talkChatOf(o.ci, char, o.tk))?.chat ?? null);
             const base0 = JSON.parse(JSON.stringify(state));
-            const t = talkPrompt(char, cast, state, o.log ?? [], o.name, v2);
+            const t = talkPrompt(char, cast, state, o.log ?? [], o.name);
             if (!t) throw new Error('그릴 답이 없습니다.');
             const { sc, msgs, idx } = t;
             let plan = o.plan ? JSON.parse(JSON.stringify(o.plan)) : null;
@@ -3004,17 +2979,13 @@ ${t.user}` : null;
             const fresh = await resolveUnknown(char, plan, cast, state, here, job);
             if (job.stop) throw stopError();
             if (applyState(plan, cast, state, fresh, null) || fresh.size || fresh.changed) await saveCast(chaId, cast);
-            const imgs = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object').slice(0, v2 ? 2 : 1)
+            const imgs = (Array.isArray(plan.images) ? plan.images : []).filter(x => x && typeof x === 'object').slice(0, 1)
                 .map(img => tidy(plan.genre) && !tidy(img.genre) ? { ...img, genre: plan.genre } : img);
             if (!imgs.length) throw new Error('모델이 그림 연출을 돌려주지 않았습니다.');
             checkLang(imgs, plainText(msgs[idx].data, 8000));
             if (job.est.P && !o.plan) ilPush(planKey(talkLlm), (Date.now() - job.at) / 1000);
             job.est.n = imgs.length;
             const out = await talkNai(job, buildReq(imgs[0], cast, state), 1);
-            if (imgs[1]) {
-                const out2 = await talkNai(job, buildReq(imgs[1], cast, state), 2);
-                Object.assign(out, { path2: out2.path, ext2: out2.ext, seed2: out2.seed, req2: out2.req });
-            }
             await talkStateSave(o, base0, state, cast).catch(error => console.warn(LOG, 'talk state', error));
             return out;
         }));
@@ -5007,9 +4978,6 @@ body.ix-on:has(.ix.vn-on){padding-top:12px;padding-bottom:12px}
 /* 3.22.0: 그리드 칸 안의 max-height:100% 는 칸 높이를 따라 늘어나 그림이 화면 아래로 잘렸다. 창 크기(vw · vh)로 직접 막는다 */
 .lb{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;background:rgba(0,0,0,.88);cursor:zoom-out}
 .lb img{display:block;width:auto;height:auto;max-width:calc(100vw - 32px);max-height:calc(100vh - 64px);max-height:calc(100dvh - 64px);object-fit:contain;box-shadow:0 10px 40px rgba(0,0,0,.6)}
-.lb-two{display:flex;justify-content:center;align-items:center;gap:0;max-width:calc(100vw - 32px)}
-.lb-two img{max-width:calc(50vw - 16px)}
-.lb-two img+img{box-shadow:-3px 0 0 #000,0 10px 40px rgba(0,0,0,.6)}
 .lb-tip{font-size:.76rem;color:#c7cdd6}
 .lb-x{position:absolute;top:10px;right:10px;width:38px;height:38px;padding:0;font-size:1.2rem;line-height:1;color:#fff;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);cursor:pointer}
 .lb-x:hover{background:rgba(255,255,255,.25)}
@@ -7615,13 +7583,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             });
         }
     }
-    async function showBig(path, path2 = '') {
+    async function showBig(path) {
         try {
             const url = await thumbUrl(path);
-            const url2 = path2 ? await thumbUrl(path2) : '';
             const lb = h('div', { class: 'lb', role: 'dialog', 'aria-label': '크게 보기', onclick: () => lb.remove() },
                 h('button', { class: 'lb-x', type: 'button', 'aria-label': '닫기' }, '✕'),
-                url2 ? h('div', { class: 'lb-two' }, h('img', { src: url, alt: '' }), h('img', { src: url2, alt: '' })) : h('img', { src: url, alt: '' }),
+                h('img', { src: url, alt: '' }),
                 h('span', { class: 'lb-tip' }, '아무 곳이나 누르거나 Esc 를 누르면 닫힙니다'));
             ui.root.append(lb);
         } catch {}
@@ -13720,7 +13687,6 @@ ${art}
         send: '<path d="M12 19V5M6 11l6-6 6 6"/>',
         illust: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10" r="2.6"/><path d="M6.5 20c.8-3.2 3-5 5.5-5s4.7 1.8 5.5 5"/>',
         comic: '<path d="M3 3h8v8H3zM13 3h8v5h-8zM3 13h8v8H3z"/><path d="M14 11h7v6h-3l-2 3v-3h-2z"/>',
-        comic2: '<path d="M3 3h8v18H3zM13 3h8v18h-8zM3 12h8M13 12h8"/>',
         mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
         zoom: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
         redo: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
@@ -13729,7 +13695,7 @@ ${art}
         nsfw: '<path d="M12 3c.6 3.2 4.8 5.2 4.8 10a4.8 4.8 0 0 1-9.6 0c0-2.3 1.3-3.8 2.3-4.8.3 1.7 1.1 2.7 2.3 3-.4-2.9-.3-5.6.2-8.2z"/>',
         brush: '<path d="M9.97 17.03 21.38 5.62a1 1 0 0 0-3-3L6.97 14.03"/><path d="M11 10l3 3"/><path d="M6.5 21A3.5 3.5 0 1 0 3 17.5a2.6 2.6 0 0 1-.7 1.8A1 1 0 0 0 3 21z"/>',
     };
-    const talkKindNow = () => st.set.talkKind === 'comic' || st.set.talkKind === 'comic2' ? st.set.talkKind : 'illust';
+    const talkKindNow = () => st.set.talkKind === 'comic' || st.set.talkKind === 'comic2' ? 'comic' : 'illust';
     const talkSizeNow = () => st.set.talkSize === 'square' ? 'square' : 'wide3';
     const DEVICE_SVG = {
         wide3: '<rect x="3" y="4" width="46" height="29" rx="3" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M20 41h18M29 33v8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><rect x="40" y="18" width="21" height="27" rx="3" class="tb" stroke="currentColor" stroke-width="2.4"/><circle cx="50.5" cy="41" r="1.3" fill="currentColor"/>',
@@ -13818,11 +13784,8 @@ ${art}
         const shown = src?.r === 'c' && !src.img?.path && talkPending(name, src.at) ? log.slice(0, log.indexOf(src)).findLast(m => m.img?.path) ?? src : src;
         if (shown?.img?.path) {
             const [w, ht] = host.sizeWH(shown.img.size) ?? host.SIZES.wide;
-            const shot = (path, alt) => h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': path, alt, style: shown.img.kind === 'asset' ? null : `aspect-ratio:${w}/${ht};--hw:${ht / w}` });
             kids.push(h('img', { class: 'vn-blur', 'data-path': shown.img.path, alt: '' }),
-                shown.img.path2
-                    ? h('div', { class: 'vn-pair' }, shot(shown.img.path, `${name}와의 대화 장면 (왼쪽)`), shot(shown.img.path2, `${name}와의 대화 장면 (오른쪽)`))
-                    : shot(shown.img.path, `${name}와의 대화 장면`));
+                h('img', { class: 'vn-shot' + (st.set.talkFit === 'cover' ? ' cover' : ''), 'data-path': shown.img.path, alt: `${name}와의 대화 장면`, style: shown.img.kind === 'asset' ? null : `aspect-ratio:${w}/${ht}` }));
         } else if (src) {
             kids.push(h('div', { class: 'vn-noimg', role: 'img', 'aria-label': '그림이 없는 말' }, talkIcon('pic', 1.4)));
         } else {
@@ -13835,7 +13798,7 @@ ${art}
         const grp = (label, list) => list.length ? h('div', { class: 'vn-dg', role: 'group', 'aria-label': label }, h('b', null, label), h('div', null, list)) : null;
         const acts = [];
         const hasImg = !!src?.img?.path;
-        acts.push(di('', 'zoom', '크게', !hasImg ? '크게 볼 그림이 없습니다' : src.img.path2 ? '두 장 함께 크게 보기' : '크게 보기', () => void host.showBig(src.img.path, src.img.path2), { disabled: !hasImg || drawing }));
+        acts.push(di('', 'zoom', '크게', !hasImg ? '크게 볼 그림이 없습니다' : '크게 보기', () => void host.showBig(src.img.path), { disabled: !hasImg || drawing }));
         const drawC = T.view && src?.r === 'c' ? src : lastC;
         if (drawing) acts.push(di('run dr', 'halt', '멈춤', T.draw.redo ? '다시 그리기 멈추기' : '그리기 멈추기', () => T.draw?.job?.cancel?.(), { style: `--p:${talkPct(T.draw.job).pct}%` }));
         else {
@@ -13871,8 +13834,8 @@ ${art}
             () => { host.setNsfwOn?.('talk', !nsOn); talkPaint(); }, { 'aria-pressed': String(nsOn), disabled: !nsHas });
         kids.push(h('div', { class: 'vn-dock', role: 'toolbar', 'aria-label': '대화 도구' },
             h('span', { class: 'vn-an' }, host.anlas()),
-            h('div', { class: 'vn-dr' }, [['illust', '삽화'], ['comic', '만화'], ['comic2', '만화v2']].map(([id, label]) => di(!assetMode && talkKindNow() === id ? 'on' : '', id, label,
-                assetMode ? `봇 에셋을 끄고 NovelAI ${label}로 그리기` : id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : id === 'comic2' ? '다음 그림부터 세로 만화 두 장(장마다 한 컷)을 좌우로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
+            h('div', { class: 'vn-dr' }, [['illust', '삽화'], ['comic', '만화']].map(([id, label]) => di(!assetMode && talkKindNow() === id ? 'on' : '', id, label,
+                assetMode ? `봇 에셋을 끄고 NovelAI ${label}로 그리기` : id === 'comic' ? '다음 그림부터 컷이 나뉜 만화 한 장으로 그립니다' : '다음 그림부터 컷 없는 한 장 그림으로 그립니다',
                 () => { if (!assetMode && talkKindNow() === id) return; if (assetMode) st.set.talkImgSrc = 'nai'; st.set.talkKind = id; void saveSet(); talkPaint(); }, { 'aria-pressed': String(!assetMode && talkKindNow() === id) }))
                 .concat((() => {
                     const cnt = v.stage?.list?.length ?? 0;
@@ -14050,7 +14013,7 @@ ${art}
         const redo = mode === 'redo' && !!entry.img?.req;
         const kind = talkKindNow();
         const was = redo ? entry.img.kind ?? entry.img.req.kind ?? 'illust' : '';
-        const size = kind === 'comic2' ? 'tall' : redo && was === kind ? entry.img.size ?? talkSizeNow() : talkSizeNow();
+        const size = redo && was === kind ? entry.img.size ?? talkSizeNow() : talkSizeNow();
         const o = { ...talkArtOpts(v, name, log.slice(0, idx + 1), kind, size), plan: mode !== 'redo' && entry.plan && entry.planKind === kind ? entry.plan : null };
         const job = {};
         T.draw = { name, at, job, redo: mode === 'redo' };
@@ -14066,9 +14029,8 @@ ${art}
                 cur.img = { path: out.path, ext: out.ext, seed: out.seed, req: out.req, kind, size };
                 delete cur.plan;
                 delete cur.planKind;
-                if (out.path2) Object.assign(cur.img, { path2: out.path2, ext2: out.ext2, seed2: out.seed2, req2: out.req2 });
                 void saveTalk(v.tk, v.talk);
-                for (const p of old) if (p !== out.path && p !== out.path2) host.dropThumb(p);
+                for (const p of old) if (p !== out.path) host.dropThumb(p);
             }
         } catch (error) {
             if (!error?.isStop) {
@@ -14287,7 +14249,7 @@ Rules:
         return out;
     }
     const tlFace = (faces, n) => h('i', { class: 'tl-fc', 'aria-hidden': 'true' }, [...String(n).trim()][0] ?? '?', faces.has(n) ? h('img', { 'data-path': faces.get(n), alt: '' }) : null);
-    const TL_KIND = { illust: '삽화', comic: '만화', comic2: '만화v2' };
+    const TL_KIND = { illust: '삽화', comic: '만화', comic2: '만화' };
     function talkListCard(v, x, faces, newest, asset) {
         const T = ui.talk;
         const { name, m, u } = x;
@@ -14295,16 +14257,16 @@ Rules:
         const img = m.img?.path ? m.img : null;
         const drawing = (T.draw?.name === name && T.draw.at === m.at) || (T.pre?.name === name && T.pre.at === m.at);
         const waiting = !drawing && T.drawQ.some(q => q.name === name && q.at === m.at);
-        const paths = img ? [img.path, img.path2].filter(Boolean) : [];
+        const paths = img ? [img.path].filter(Boolean) : [];
         const voiced = cached.has(talkHash(v.chaId, name, m.t, m.tone));
         const vo = T.playing === m.at ? '🔊 트는 중' : T.voicing.has(m.at) ? '🔊 만드는 중' : voiced ? '🔊 목소리' : '';
         const open = T.lopen.has(key);
         const mi = paths.findIndex((p, i) => T.lmenu === key + '#' + i);
         const wide = (() => { const [w, ht] = host.sizeWH(img?.size) ?? []; return w > ht; })();
         const tile = (p, i) => h('div', { class: 'tile' + (wide ? ' wide' : '') },
-            h('button', { class: 'im', type: 'button', 'aria-label': '크게 보기', onclick: () => void host.showBig(img.path, img.path2 ?? '') }, h('img', { 'data-path': p, alt: name })),
+            h('button', { class: 'im', type: 'button', 'aria-label': '크게 보기', onclick: () => void host.showBig(img.path) }, h('img', { 'data-path': p, alt: name })),
             h('div', { class: 'cap' },
-                h('div', null, h('b', null, paths.length > 1 ? `${name} · ${i ? '오른쪽' : '왼쪽'}` : name), h('span', null, TL_KIND[img.kind ?? img.req?.kind] ?? '그림')),
+                h('div', null, h('b', null, name), h('span', null, TL_KIND[img.kind ?? img.req?.kind] ?? '그림')),
                 h('button', {
                     class: 'more' + (mi === i ? ' on' : ''), type: 'button', 'aria-label': '그림 메뉴', 'aria-expanded': String(mi === i),
                     onclick: () => { T.lmenu = mi === i ? '' : key + '#' + i; render(); },
@@ -14543,7 +14505,7 @@ Rules:
             const last = pool ? [...new Set((v.talk[name] ?? []).filter(m => m.r !== 'u' && m.img?.asset).map(m => m.img.asset).reverse())].slice(0, 3) : [];
             const kind = talkKindNow();
             const art = !assetMode
-                ? await host.talkBrief(talkArtOpts(v, name, v.talk[name] ?? [], kind, kind === 'comic2' ? 'tall' : talkSizeNow())) : null;
+                ? await host.talkBrief(talkArtOpts(v, name, v.talk[name] ?? [], kind, talkSizeNow())) : null;
             const system = talkSystem(name, user, String(rec?.style ?? '').trim(), talkContext(w.char, name, rec, entries, user, main, p.prompt), pool, last, art || '');
             const got = await talkAsk(system, v.talk[name] ?? [], name, rec, pool, !!art);
             reply = got.text;
@@ -16328,8 +16290,7 @@ Rules:
         return [
             vzSub('그림 종류 · 모델', '그림 연출은 대화 모델이 답과 함께 씁니다. 삽화 설정은 바뀌지 않습니다.'),
             h('div', { class: 'vz-cards' },
-                wizCard('comic2', '만화v2', '연출 한 번으로 세로 만화 두 장을 그려 무대에 왼쪽 · 오른쪽으로 겁니다. 장마다 컷은 하나입니다. 크기는 세로 832×1216 으로 정해져 있고, NAI 요청은 두 번입니다.', talkKindNow(), val => set('talkKind', val), true),
-                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 아래 「말풍선」 칸에서 켜고 끕니다.', talkKindNow(), val => set('talkKind', val)),
+                wizCard('comic', '만화', '답의 장면을 컷이 나뉜 만화 한 장으로 그립니다. 가로 그림이라 대개 2컷입니다. 말풍선은 아래 「말풍선」 칸에서 켜고 끕니다.', talkKindNow(), val => set('talkKind', val), true),
                 wizCard('illust', '삽화', '답의 장면을 컷 없는 한 장 그림으로 그립니다.', talkKindNow(), val => set('talkKind', val))),
             h('div', { class: 'vf-card', style: 'margin-top:14px' },
                 h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, 'NAI 모델'), h('p', null, '대화 그림을 그릴 NovelAI 모델입니다. 삽화 · 애드 에셋 모델과 따로 고릅니다.')),
@@ -16338,7 +16299,7 @@ Rules:
                         ? '만화 컷에 대사 말풍선을 넣습니다.'
                         : '말풍선 없이 그림만 그립니다.')),
                     seg([['on', 'on (기본)'], ['off', 'off']], st.set.talkBubbles !== false ? 'on' : 'off', id => set('talkBubbles', id === 'on'))) : null,
-                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '기기'), h('p', null, talkKindNow() === 'comic2' ? '만화v2 는 세로 832×1216 두 장으로 정해져 있어 이 값을 쓰지 않습니다. 삽화 · 만화로 그릴 때 씁니다.' : '대화를 주로 보는 기기를 고릅니다. 모바일은 정사각 1024×1024, PC · 태블릿은 가로 1344×768 로 그립니다.')),
+                h('div', { class: 'vf-row col' }, h('div', { class: 'vf-tx' }, h('b', null, '기기'), h('p', null, '대화를 주로 보는 기기를 고릅니다. 모바일은 정사각 1024×1024, PC · 태블릿은 가로 1344×768 로 그립니다.')),
                     deviceCards(talkSizeNow(), id => set('talkSize', id)))),
         ];
     }
@@ -16354,7 +16315,7 @@ Rules:
             h('ul', { class: 'fn-ck' },
                 li(st.set.castLlm === 'submodel' ? '등장인물은 보조 모델이 분석합니다' : '등장인물은 메인 모델이 분석합니다'),
                 li(st.set.talkModel === 'model' ? '대화의 답은 메인 모델이 만듭니다' : '대화의 답은 보조 모델이 만듭니다'),
-                li(talkAssetMode() ? '봇 에셋에서 답에 맞는 그림을 골라 겁니다' : `${talkKindNow() === 'comic2' ? '만화v2(세로 두 장)' : talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 그림체 ${pr?.name || '이름 없음'} · 연출은 대화 모델`),
+                li(talkAssetMode() ? '봇 에셋에서 답에 맞는 그림을 골라 겁니다' : `${talkKindNow() === 'comic' ? '만화' : '삽화'}로 그립니다 · 그림체 ${pr?.name || '이름 없음'} · 연출은 대화 모델`),
                 li(keyKnown === true ? `답을 ${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} 목소리로 읽어 줍니다 (TTS 설정과 같음)` : '목소리로 들으려면 TTS › 준비에서 키를 넣어야 합니다')),
             h('div', { class: 'fn-go' },
                 h('button', { class: 'ix-btn main', type: 'button', onclick: () => { ui.talk.list = true; host.ui.ttab = 'talk'; render(); } }, '💬 대화하기')));
@@ -16580,12 +16541,6 @@ Rules:
 .gt .vn-blur{position:absolute;inset:-24px;width:calc(100% + 48px);height:calc(100% + 48px);object-fit:cover;filter:blur(18px) brightness(.75);transform:scale(1.08)}
 .gt .vn-shot{position:absolute;left:50%;top:0;bottom:0;height:100%;width:auto;max-width:100%;object-fit:contain;transform:translateX(-50%);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 0 40px rgba(0,0,0,.45)}
 .gt .vn-shot.cover{left:0;right:0;width:100%;max-width:none;object-fit:cover;transform:none;box-shadow:none}
-.gt .vn-pair{position:absolute;inset:0;display:flex;justify-content:center;align-items:center;gap:0;container-type:size}
-/* 5.12.0: 그림 상자 높이를 그림 크기에 맞춘다. 무대 폭에 막히면 상자가 위아래로 남아 가운데 선이 빈 곳까지 그어졌다 */
-.gt .vn-pair .vn-shot{position:static;flex:0 0 auto;height:min(100cqh,calc(50cqw * var(--hw,1.5)));width:auto;max-width:50%;transform:none}
-.gt .vn-pair .vn-shot.cover{flex:1 1 0;height:100%;width:auto;max-width:none;min-width:0;object-fit:cover;align-self:stretch}
-/* 5.6.2: 두 장 가운데 검은 선. 5.6.3: 테두리는 오른쪽 그림 안쪽 폭을 줄여 높이가 어긋났다. 자리를 차지하지 않는 그림자로 긋는다 */
-.gt .vn-pair .vn-shot+.vn-shot{box-shadow:-3px 0 0 #000,0 0 40px rgba(0,0,0,.45)}
 .gt .vn-noimg{position:absolute;inset:0;display:grid;place-items:center;background:#e6edf5;color:#a3b3c8}
 .gt .vn-noimg>.vn-ic svg{width:72px;height:72px}
 .gt .vn-hello{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:64px 20px 72px;color:#fff;text-align:center}
