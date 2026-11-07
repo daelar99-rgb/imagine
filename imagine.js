@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.68.2
+//@display-name 💠 이매진 v5.68.4
 //@api 3.0
-//@version 5.68.2
+//@version 5.68.4
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.68.2';
+    const VERSION = '5.68.4';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2064,8 +2064,8 @@ Rules
     const dropGaze = text => tidy(String(text ?? '').split(',').filter(s => !/^(looking (?!back\b)|eye contact$|staring\b|gazing\b)/.test(tagCore(s))).join(',').replace(/,\s*,/g, ','));
     const dropViewer = text => tidy(String(text ?? '').replace(/\blooking at (the )?viewer\b,?/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,|,\s*$/g, ''));
     const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 80);
-    const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?(?:\b(?:tailless\s+)?speech bubble with\s+|\b[a-z0-9][\w.\-() ]*'s\s+)?\btext:[^,\n]*/gi, '');
-    const SAY_RE = /(?:\b(?:tailless )?speech bubble with |\b[A-Za-z0-9][\w.\-() ]*'s )?\b[Tt]ext:/;
+    const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?(?:\bhead next to speech bubble\s*\+\s*)?(?:\b(?:tailless\s+)?speech bubble with\s+|\b[a-z0-9][\w.\-() ]*'s\s+)?\btext:[^,\n]*/gi, '');
+    const SAY_RE = /(?:\bhead next to speech bubble \+ )?(?:\b(?:tailless )?speech bubble with |\b[A-Za-z0-9][\w.\-() ]*'s )?\b[Tt]ext:/;
     const endComma = t => {
         const s = String(t ?? '');
         return SAY_RE.test(s.slice(s.lastIndexOf('\n') + 1)) ? `${s.replace(/\s+$/, '')} ` : `${s.replace(/[,\s]+$/, '')}, `;
@@ -2162,7 +2162,7 @@ Rules
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = line && who.length ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-            const say = line ? `speech bubble with Text: ${line} ` : '';
+            const say = line ? `head next to speech bubble${TAG_JOIN}speech bubble with Text: ${line} ` : '';
             const personLine = k => {
                 const [tg, prose] = splitAct(acts[k]);
                 return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
@@ -2966,9 +2966,23 @@ Rules
     }
     function talkAssetPrune(ci, chaId, live) {
         return inQueue(async () => {
-            const char = await api.getCharacterFromIndex(ci);
-            if (!char || char.chaId !== chaId || !Array.isArray(char.additionalAssets)) return 0;
-            const keep = new Set(live ?? []), now = Date.now();
+            let char = Number.isInteger(ci) ? await api.getCharacterFromIndex(ci) : null;
+            if (!char || char.chaId !== chaId) {
+                char = null;
+                for (let i = 0; ; i++) {
+                    const c = await api.getCharacterFromIndex(i);
+                    if (!c) break;
+                    if (c.chaId === chaId) { char = c; ci = i; break; }
+                }
+                if (!char) {
+                    console.log(LOG, 'talk asset prune skipped: bot not found', chaId);
+                    return 0;
+                }
+            }
+            if (char.type === 'group' || !Array.isArray(char.additionalAssets)) return 0;
+            const got = typeof live === 'function' ? await live() : live;
+            if (!Array.isArray(got)) return -1;
+            const keep = new Set(got), now = Date.now();
             const before = char.additionalAssets.length;
             char.additionalAssets = char.additionalAssets.filter(a => !isTalkAsset(a?.[0]) || keep.has(a?.[1]) || now - talkAssetAt(a[0]) < TALK_FRESH);
             const n = before - char.additionalAssets.length;
@@ -6684,7 +6698,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             /^(heterochromia|ahoge|bangs|sidelocks|ponytail|twintails|braid|hair bun|bob cut)$/,
         ];
         const HAIR_EYE_RE = /^(?!detail(ed)? |beautiful detail(ed)? )[a-z -]+ (hair|eyes)$/;
-        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', '4koma', '2koma', 'speech bubble', 'tailless speech bubble', 'english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
+        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', '4koma', '2koma', 'speech bubble', 'tailless speech bubble', 'head next to speech bubble','english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
         const norm = s => s.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
         const coreOf = raw => norm(raw.replace(/^[{[]+/, '').replace(/[}\]]+$/, ''));
         const isSubject = c => SUBJECT_RE.some(r => r.test(c)) || HAIR_EYE_RE.test(c);
@@ -13211,29 +13225,36 @@ Rules:
     };
     async function talkAssetSync(ci, chaId) {
         try {
-            const keys = await api.pluginStorage.keys();
-            if (!Array.isArray(keys)) return false;
-            const own = tk => tk === chaId || tk.startsWith(chaId + '|');
-            const stored = new Set(keys.map(String).filter(k => k.startsWith('gt:talk:')).map(k => k.slice(8)).filter(own));
-            const tks = new Set([...stored, ...[...talks.keys()].filter(own)]);
-            const live = [];
-            for (const tk of tks) {
-                if (talks.has(tk)) talkPaths(await talks.get(tk), live);
-                if (!stored.has(tk)) continue;
-                const t = await api.pluginStorage.getItem('gt:talk:' + tk);
-                if (!t || typeof t !== 'object') {
-                    console.log(LOG, 'talk asset sync skipped: storage read null', tk);
-                    return false;
-                }
-                talkPaths(t, live);
-            }
-            const n = await host.talkAssetPrune(ci, chaId, live);
+            const n = await host.talkAssetPrune(ci, chaId, () => talkLiveOf(chaId));
+            if (n < 0) return false;
             if (n) console.log(LOG, 'talk assets pruned', n);
             return true;
         } catch (error) {
             console.warn(LOG, 'talk asset sync', error);
             return false;
         }
+    }
+    async function talkLiveOf(chaId) {
+        const keys = await api.pluginStorage.keys();
+        if (!Array.isArray(keys) || !keys.length) {
+            console.log(LOG, 'talk asset sync skipped: key list empty');
+            return null;
+        }
+        const own = tk => tk === chaId || tk.startsWith(chaId + '|');
+        const stored = new Set(keys.map(String).filter(k => k.startsWith('gt:talk:')).map(k => k.slice(8)).filter(own));
+        const tks = new Set([...stored, ...[...talks.keys()].filter(own)]);
+        const live = [];
+        for (const tk of tks) {
+            if (talks.has(tk)) talkPaths(await talks.get(tk), live);
+            if (!stored.has(tk)) continue;
+            const t = await api.pluginStorage.getItem('gt:talk:' + tk);
+            if (!t || typeof t !== 'object') {
+                console.log(LOG, 'talk asset sync skipped: storage read null', tk);
+                return null;
+            }
+            talkPaths(t, live);
+        }
+        return live;
     }
     let talkSwept = false;
     async function talkSweepOnce() {
