@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.68.0
+//@display-name 💠 이매진 v5.68.1
 //@api 3.0
-//@version 5.68.0
+//@version 5.68.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.68.0';
+    const VERSION = '5.68.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2944,7 +2944,39 @@ Rules
     function talkOvOf(o) {
         return { kind: o.kind === 'comic' || o.kind === 'comic2' ? 'comic' : 'illust', size: sizeWH(o.size) ? o.size : 'wide', preset: st.presets.some(p => p.id === o.preset) ? o.preset : st.presets[0]?.id ?? '', bubbles: o.bubbles !== false };
     }
-    async function talkNai(job, req, i = 1) {
+    const TALK_PRE = 'nc_tk';
+    const TALK_ASSET_RE = /^nc_tk[a-z0-9]{12}$/;
+    const TALK_FRESH = 120000;
+    const isTalkAsset = name => TALK_ASSET_RE.test(String(name ?? '').toLowerCase());
+    const talkAssetAt = name => parseInt(String(name).slice(TALK_PRE.length, TALK_PRE.length + 8), 36) || 0;
+    async function talkAssetAdd(o, path, ext) {
+        if (!o || !Number.isInteger(o.ci) || !path) return '';
+        try {
+            const char = await api.getCharacterFromIndex(o.ci);
+            if (!char || char.chaId !== o.chaId || char.type === 'group') return '';
+            const name = TALK_PRE + uid();
+            char.additionalAssets ??= [];
+            char.additionalAssets.push([name, path, ext]);
+            await api.setCharacterToIndex(o.ci, char);
+            return name;
+        } catch (error) {
+            console.warn(LOG, 'talk asset add', error);
+            return '';
+        }
+    }
+    function talkAssetPrune(ci, chaId, live) {
+        return inQueue(async () => {
+            const char = await api.getCharacterFromIndex(ci);
+            if (!char || char.chaId !== chaId || !Array.isArray(char.additionalAssets)) return 0;
+            const keep = new Set(live ?? []), now = Date.now();
+            const before = char.additionalAssets.length;
+            char.additionalAssets = char.additionalAssets.filter(a => !isTalkAsset(a?.[0]) || keep.has(a?.[1]) || now - talkAssetAt(a[0]) < TALK_FRESH);
+            const n = before - char.additionalAssets.length;
+            if (n) await api.setCharacterToIndex(ci, char);
+            return n;
+        });
+    }
+    async function talkNai(job, req, i = 1, o = null) {
         job.stage = 1;
         job.i = i;
         job.at = Date.now();
@@ -2966,8 +2998,9 @@ Rules
         saving.catch(() => {});
         const path = await Promise.race([saving, job.halt]);
         if (job.stop) throw stopError();
+        const name = await talkAssetAdd(o, path, ext);
         ilPush('img', (Date.now() - job.at) / 1000);
-        return { path, ext, seed, req };
+        return { path, ext, seed, req, name };
     }
     function talkPrompt(char, cast, state, log, name) {
         const msgs = log.slice(-TALK_LOG_MAX).map(x => ({ role: x.r === 'u' ? 'user' : 'char', data: String(x.t ?? ''), name }));
@@ -3080,14 +3113,14 @@ ${t.user}` : null;
             checkLang(imgs, plainText(msgs[idx].data, 8000));
             if (job.est.P && !o.plan) ilPush(planKey(talkLlm), (Date.now() - job.at) / 1000);
             job.est.n = imgs.length;
-            const out = await talkNai(job, buildReq(imgs[0], cast, state), 1);
+            const out = await talkNai(job, buildReq(imgs[0], cast, state), 1, o);
             await talkStateSave(o, base0, state, cast).catch(error => console.warn(LOG, 'talk state', error));
             return out;
         }));
     }
     function talkRedraw(o, job) {
         talkJob(job, false);
-        return inQueue(() => talkWith(o, job, () => talkNai(job, o.req)));
+        return inQueue(() => talkWith(o, job, () => talkNai(job, o.req, 1, o)));
     }
 
     async function runJob(job) {
@@ -9703,7 +9736,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 const info = new Map();
                 for (const rec of Object.values(recs)) for (const x of rec?.images ?? []) info.set(String(x?.name ?? '').toLowerCase(), { title: x.title ?? '', at: rec.at ?? 0, excerpt: rec.excerpt ?? '' });
                 const held = st.set.undo ? heldNames(recs, used) : new Set();
-                const list = (char.additionalAssets ?? []).filter(a => NC_ASSET_RE.test(ncLow(a)) && !used.has(ncLow(a)) && !held.has(ncLow(a)))
+                const list = (char.additionalAssets ?? []).filter(a => NC_ASSET_RE.test(ncLow(a)) && !isTalkAsset(ncLow(a)) && !used.has(ncLow(a)) && !held.has(ncLow(a)))
                     .map(a => ({ name: a[0], path: a[1], ...(info.get(ncLow(a)) ?? {}) }));
                 list.sort((x, y) => (y.at ?? 0) - (x.at ?? 0));
                 found = { chaId: char.chaId, list };
@@ -9724,7 +9757,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const char = await api.getCharacterFromIndex(v.ci);
         if (char?.chaId !== v.chaId) throw new Error('지금 봇이 바뀌었습니다');
         const used = ncUsed(char);
-        const drop = new Set(names.map(n => String(n).toLowerCase()).filter(n => NC_ASSET_RE.test(n) && !used.has(n)));
+        const drop = new Set(names.map(n => String(n).toLowerCase()).filter(n => NC_ASSET_RE.test(n) && !isTalkAsset(n) && !used.has(n)));
         const before = (char.additionalAssets ?? []).length;
         char.additionalAssets = (char.additionalAssets ?? []).filter(a => !drop.has(ncLow(a)));
         const n = before - char.additionalAssets.length;
@@ -13155,7 +13188,35 @@ Rules:
         })());
         return talks.get(tk);
     }
-    const saveTalk = (tk, t) => api.pluginStorage.setItem('gt:talk:' + tk, t).catch(error => console.warn(LOG, 'save talk', error));
+    const saveTalk = (tk, t, ci) => api.pluginStorage.setItem('gt:talk:' + tk, t).then(() => talkAssetSoon(tk, ci), error => console.warn(LOG, 'save talk', error));
+    const talkAssetTimers = new Map();
+    function talkAssetSoon(tk, ci, ms = 5000) {
+        const chaId = String(tk ?? '').split('|')[0];
+        if (!Number.isInteger(ci) || !chaId) return;
+        clearTimeout(talkAssetTimers.get(chaId));
+        talkAssetTimers.set(chaId, setTimeout(() => { talkAssetTimers.delete(chaId); void talkAssetSync(ci, chaId); }, ms));
+    }
+    async function talkAssetSync(ci, chaId) {
+        try {
+            const keys = await api.pluginStorage.keys();
+            if (!Array.isArray(keys)) return;
+            const own = tk => tk === chaId || tk.startsWith(chaId + '|');
+            const tks = new Set([...keys.map(String).filter(k => k.startsWith('gt:talk:')).map(k => k.slice(8)), ...talks.keys()].filter(own));
+            const live = [];
+            for (const tk of tks) {
+                const t = talks.has(tk) ? await talks.get(tk) : await api.pluginStorage.getItem('gt:talk:' + tk);
+                if (!t || typeof t !== 'object') continue;
+                for (const log of Array.isArray(t) ? [t] : Object.values(t)) {
+                    if (!Array.isArray(log)) continue;
+                    for (const m of log) for (const p of [m?.img?.path, m?.img?.path2]) if (p) live.push(p);
+                }
+            }
+            const n = await host.talkAssetPrune(ci, chaId, live);
+            if (n) console.log(LOG, 'talk assets pruned', n);
+        } catch (error) {
+            console.warn(LOG, 'talk asset sync', error);
+        }
+    }
     let talkSwept = false;
     async function talkSweepOnce() {
         if (talkSwept) return;
@@ -13164,22 +13225,26 @@ Rules:
             const keys = await api.pluginStorage.keys();
             if (!Array.isArray(keys) || !keys.length) return;
             for (const k of keys) if (String(k).startsWith('nc:talkState:')) await Promise.resolve(api.pluginStorage.removeItem(k)).catch(() => {});
-            const live = new Set();
+            const live = new Set(), ciOf = new Map();
             for (let i = 0; ; i++) {
                 const c = await api.getCharacterFromIndex(i);
                 if (!c) break;
+                ciOf.set(c.chaId, i);
                 (c.chats ?? []).forEach((chat, j) => live.add(talkKeyOf(c.chaId, chat, j)));
             }
             if (!live.size) return;
             let n = 0;
+            const bots = new Set();
             for (const k of keys) {
                 const m = /^gt:talk:(.+)$/.exec(String(k));
                 if (!m || !m[1].includes('|') || live.has(m[1])) continue;
                 await Promise.resolve(api.pluginStorage.removeItem(k)).catch(() => {});
                 talks.delete(m[1]);
+                bots.add(m[1].split('|')[0]);
                 n++;
             }
             if (n) console.log(LOG, 'talk sweep', n);
+            for (const chaId of bots) if (ciOf.has(chaId)) talkAssetSoon(chaId, ciOf.get(chaId), 1000);
         } catch (error) {
             console.warn(LOG, 'talk sweep', error);
         }
@@ -14147,11 +14212,13 @@ ${art}
             const cur = v.talk[name]?.find(m => m.at === at);
             if (cur) {
                 const old = [cur.img?.path, cur.img?.path2].filter(Boolean);
-                cur.img = { path: out.path, ext: out.ext, seed: out.seed, req: out.req, kind, size };
+                cur.img = { path: out.path, ext: out.ext, seed: out.seed, req: out.req, kind, size, ...(out.name ? { name: out.name } : {}) };
                 delete cur.plan;
                 delete cur.planKind;
-                void saveTalk(v.tk, v.talk);
+                void saveTalk(v.tk, v.talk, v.ci);
                 for (const p of old) if (p !== out.path) host.dropThumb(p);
+            } else {
+                talkAssetSoon(v.tk, v.ci, 125000);
             }
         } catch (error) {
             if (!error?.isStop) {
@@ -14283,7 +14350,7 @@ Rules:
             talkVoiceNext();
         }
         m.t = text;
-        void saveTalk(v.tk, v.talk);
+        void saveTalk(v.tk, v.talk, v.ci);
         talkPaint();
         talkLoreSoon(v.tk, v.ci, name);
         if (m.r === 'c') { await dropAudio(old).catch(() => {}); talkMark(); }
@@ -14306,7 +14373,7 @@ Rules:
         const [m] = log.splice(i, 1);
         for (const p of [m.img?.path, m.img?.path2]) if (p) host.dropThumb(p);
         if (T.view === at) T.view = '';
-        void saveTalk(v.tk, v.talk);
+        void saveTalk(v.tk, v.talk, v.ci);
         talkMark();
         talkPaint();
         talkLoreSoon(v.tk, v.ci, name);
@@ -14452,7 +14519,7 @@ Rules:
         }
         T.view = '';
         T.lmenu = '';
-        void saveTalk(v.tk, v.talk);
+        void saveTalk(v.tk, v.talk, v.ci);
         render();
     }
     function talkToList() {
@@ -14584,7 +14651,7 @@ Rules:
         T.drawQ = T.drawQ.filter(q => q.name !== name);
         T.voiceQ = T.voiceQ.filter(q => q.name !== name);
         T.view = '';
-        void saveTalk(v.tk, v.talk);
+        void saveTalk(v.tk, v.talk, v.ci);
         talkPaint();
         talkLoreSoon(v.tk, v.ci, name);
     }
@@ -14613,7 +14680,7 @@ Rules:
             const ta = ui.root?.querySelector('.tk-ta');
             if (ta) { ta.value = ''; ta.style.height = ''; if (window.matchMedia?.('(pointer: coarse)').matches) ta.blur(); else ta.focus(); }
             talkPush(v.talk, name, 'u', text);
-            void saveTalk(v.tk, v.talk);
+            void saveTalk(v.tk, v.talk, v.ci);
         }
         talkPaint();
         let reply = '';
@@ -14640,7 +14707,7 @@ Rules:
             talkPush(v.talk, name, 'c', got.text, got.tone);
             if (got.plan) Object.assign(v.talk[name].at(-1), { plan: got.plan, planKind: kind });
             if (assetMode) { const img = talkAssetImg(v, name, got.asset, pool); if (img) v.talk[name].at(-1).img = img; }
-            void saveTalk(v.tk, v.talk);
+            void saveTalk(v.tk, v.talk, v.ci);
             talkLoreSoon(v.tk, w.ci, name);
             if (!speak || assetMode) T.view = '';
             if (!assetMode) void talkArt(v, name, v.talk[name].at(-1), 'new', true);
@@ -16951,7 +17018,7 @@ Rules:
 
     await loadPrefs();
     await nsLoad();
-    voice = await startVoice({ ui, rootDoc, dropBlocks, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsLowText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
+    voice = await startVoice({ ui, rootDoc, dropBlocks, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsLowText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkAssetPrune, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeysOf,
         presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn, vdl: () => !!st.set.vdl, saveFile: bkSave }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
