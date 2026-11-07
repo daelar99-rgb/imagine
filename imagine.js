@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.68.1
+//@display-name 💠 이매진 v5.68.2
 //@api 3.0
-//@version 5.68.1
+//@version 5.68.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.68.1';
+    const VERSION = '5.68.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -13190,31 +13190,49 @@ Rules:
     }
     const saveTalk = (tk, t, ci) => api.pluginStorage.setItem('gt:talk:' + tk, t).then(() => talkAssetSoon(tk, ci), error => console.warn(LOG, 'save talk', error));
     const talkAssetTimers = new Map();
-    function talkAssetSoon(tk, ci, ms = 5000) {
+    const TALK_SYNC_RETRY = 15000;
+    function talkAssetSoon(tk, ci, ms = 5000, left = 2) {
         const chaId = String(tk ?? '').split('|')[0];
         if (!Number.isInteger(ci) || !chaId) return;
         clearTimeout(talkAssetTimers.get(chaId));
-        talkAssetTimers.set(chaId, setTimeout(() => { talkAssetTimers.delete(chaId); void talkAssetSync(ci, chaId); }, ms));
+        talkAssetTimers.set(chaId, setTimeout(() => {
+            talkAssetTimers.delete(chaId);
+            void talkAssetSync(ci, chaId).then(ok => {
+                if (ok === false && left > 0 && !talkAssetTimers.has(chaId)) talkAssetSoon(chaId, ci, TALK_SYNC_RETRY, left - 1);
+            });
+        }, ms));
     }
+    const talkPaths = (t, out) => {
+        if (!t || typeof t !== 'object') return;
+        for (const log of Array.isArray(t) ? [t] : Object.values(t)) {
+            if (!Array.isArray(log)) continue;
+            for (const m of log) for (const p of [m?.img?.path, m?.img?.path2]) if (p) out.push(p);
+        }
+    };
     async function talkAssetSync(ci, chaId) {
         try {
             const keys = await api.pluginStorage.keys();
-            if (!Array.isArray(keys)) return;
+            if (!Array.isArray(keys)) return false;
             const own = tk => tk === chaId || tk.startsWith(chaId + '|');
-            const tks = new Set([...keys.map(String).filter(k => k.startsWith('gt:talk:')).map(k => k.slice(8)), ...talks.keys()].filter(own));
+            const stored = new Set(keys.map(String).filter(k => k.startsWith('gt:talk:')).map(k => k.slice(8)).filter(own));
+            const tks = new Set([...stored, ...[...talks.keys()].filter(own)]);
             const live = [];
             for (const tk of tks) {
-                const t = talks.has(tk) ? await talks.get(tk) : await api.pluginStorage.getItem('gt:talk:' + tk);
-                if (!t || typeof t !== 'object') continue;
-                for (const log of Array.isArray(t) ? [t] : Object.values(t)) {
-                    if (!Array.isArray(log)) continue;
-                    for (const m of log) for (const p of [m?.img?.path, m?.img?.path2]) if (p) live.push(p);
+                if (talks.has(tk)) talkPaths(await talks.get(tk), live);
+                if (!stored.has(tk)) continue;
+                const t = await api.pluginStorage.getItem('gt:talk:' + tk);
+                if (!t || typeof t !== 'object') {
+                    console.log(LOG, 'talk asset sync skipped: storage read null', tk);
+                    return false;
                 }
+                talkPaths(t, live);
             }
             const n = await host.talkAssetPrune(ci, chaId, live);
             if (n) console.log(LOG, 'talk assets pruned', n);
+            return true;
         } catch (error) {
             console.warn(LOG, 'talk asset sync', error);
+            return false;
         }
     }
     let talkSwept = false;
