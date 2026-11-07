@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.67.2
+//@display-name 💠 이매진 v5.68.0
 //@api 3.0
-//@version 5.67.2
+//@version 5.68.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.67.2';
+    const VERSION = '5.68.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -113,6 +113,7 @@
         talkReply: '',
         prOff: {},
         vbtn: 'all',
+        vdl: false,
         kind: 'comic',
         count: 1,
         countMode: 'fixed',
@@ -6374,7 +6375,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (key === 'pc' || key === 'mo') st.sizeNote = { cls: 'wait', text: SIZE_WAIT };
         renderNow();
         if (['ubtn', 'vbtn', 'panelBtn', 'pc', 'mo'].includes(key)) void syncRoot(key);
-        if (key === 'ubtn' || key === 'vbtn') void sizeChanged(false, true);
+        if (key === 'ubtn' || key === 'vbtn' || key === 'vdl') void sizeChanged(false, true);
         if (key === 'pc' || key === 'mo') sizeChanged();
         else if (key === 'ptOff' || key === 'undo') sizeChanged(false);
     }
@@ -8397,6 +8398,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const vbtnRow = () => row('답변 아래 읽기 버튼', '봇 답변 아래 알약에 붙는 읽기(스피커) 칸입니다. 보관한 소리가 있으면 ↻(새로 만들기)도 붙습니다. 만들거나 트는 중에 같은 칸을 누르면 멈춥니다.',
             '삽화의 「생성」 버튼 설정과 따로 정합니다. 「안 씀」이면 읽기 칸을 두지 않고 자동 읽기로만 씁니다.',
             seg([['all', '모든 답변'], ['last', '마지막 답변'], ['none', '안 씀']], s.vbtn, v => setVal('vbtn', v)));
+        const vdlRow = () => row('내려받기 버튼', '켜면 답변 아래 읽기 알약에 ⤓(내려받기) 칸을 붙입니다. 누르면 그 답변의 소리를 WAV 파일로 저장합니다.',
+            '소리를 만든 답변에만 보입니다. 읽기 버튼이 「안 씀」이면 알약이 없어 이 칸도 보이지 않습니다.',
+            toggle(!!s.vdl, () => setVal('vdl', !s.vdl)));
         const SZ_MORE = ' 바꾸면 지금 채팅의 그림에 바로 반영합니다. 답변이 나오는 중이면 끝난 뒤에 반영합니다.';
         const sizeRows = () => [
             sizeRow('PC 화면에서 가로', '화면 폭이 768px 보다 넓을 때의 그림 가로 길이입니다. 애드 에셋 초상화도 같은 크기로 보입니다.' + SZ_MORE, PC_SIZES, s.pc, PC_RANGE, 'px', v => setVal('pc', v)),
@@ -8467,7 +8471,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 grp('portrait', '초상화 크기', hint1('채팅에 보이는 그림 크기는 삽화 그림과 같은 값입니다.'), sizeRows()),
                 castGrp(false), grp('save', '저장', webpRow('acWebp'))]],
             voice: ['TTS', () => voice ? [voice.embed(voice.setPart('voice'), true),
-                grp('vbtn', '채팅 속 버튼', vbtnRow()),
+                grp('vbtn', '채팅 속 버튼', vbtnRow(), vdlRow()),
                 castGrp(true)] : []],
             talk: ['대화', () => voice ? [voice.embed(voice.setPart('talk')), gKey,
                 grp('tart', '그림', genreRow('talkGenre'), dynRow('talkDynamic'), dynMinRow('talkDynamic', 'talkDynMin')),
@@ -8677,7 +8681,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         + '.nc-act.nc-act .nc-act-b.nc-act-b:hover{background:rgba(37,99,235,.92)!important}'
         + '.nc-act.nc-act .nc-del.nc-del:hover{background:rgba(220,38,38,.92)!important}'
         + '.nc-act.nc-act .nc-undo.nc-undo:hover{background:rgba(234,88,12,.92)!important}'
-        + '.nc-gen.nc-gen:hover,.nc-tts-btn.nc-tts-btn:hover,.nc-tts-re.nc-tts-re:hover{filter:brightness(1.3)!important}}'
+        + '.nc-gen.nc-gen:hover,.nc-tts-btn.nc-tts-btn:hover,.nc-tts-re.nc-tts-re:hover,.nc-tts-dl.nc-tts-dl:hover{filter:brightness(1.3)!important}}'
         + '.nc-fig.nc-fig.nc-on .nc-act.nc-act{opacity:.92!important;visibility:visible!important;scale:1!important}';
     function figCss(ptHide) {
         const s = st.set;
@@ -14887,7 +14891,8 @@ Rules:
     const SPK_SVG = ico(15, '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>');
     const PLAY_SVG = ico(13, '<path d="M7 4.5v15l12-7.5z"/>', true);
     const RE_SVG = ico(14, '<path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 4v5h-5"/>');
-    const STOP_SVG = ico(12, '<rect x="6" y="6" width="12" height="12" rx="1.5"/>', true);
+    const DL_SVG = ico(14, '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>');
+    const STOP_SVG = ico(12,'<rect x="6" y="6" width="12" height="12" rx="1.5"/>', true);
     const TTS_ICON = { idle: SPK_SVG, need: SPK_SVG, have: PLAY_SVG, play: STOP_SVG, bad: SPK_SVG };
     const BAR_STYLE = imp({ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', margin: '8px 0 2px' });
     const SEG_BASE = { alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', minWidth: '40px', minHeight: '28px', margin: '0', padding: '3px 12px',
@@ -14905,7 +14910,8 @@ Rules:
     function segHtml() {
         if (rootDenied() || keyKnown !== true) return '';
         return `<span class="nc-tts-btn nc-tts-at-{{chat_index}}" title="읽기" style="${imp({ ...SEG_BASE, display: 'flex', ...SEG_LOOKS.idle })}">${SPK_SVG}생성</span>`
-            + `<span class="nc-tts-re nc-tts-at-{{chat_index}}" title="새로 만들기" style="${imp({ ...RE_SEG, display: 'none' })}">${RE_SVG}</span>`;
+            + `<span class="nc-tts-re nc-tts-at-{{chat_index}}" title="새로 만들기" style="${imp({ ...RE_SEG, display: 'none' })}">${RE_SVG}</span>`
+            + (host.vdl?.() ? `<span class="nc-tts-dl nc-tts-at-{{chat_index}}" title="내려받기" style="${imp({ ...RE_SEG, display: 'none' })}">${DL_SVG}</span>` : '');
     }
     function slotHtml() {
         if (rootDenied() || keyKnown !== true) return '';
@@ -14993,8 +14999,11 @@ Rules:
                 if (g.gauge) runTexts.set(idx, g.text);
             }
             await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-tts-s-/.test(c)).concat(mark).join(' '));
-            const re = await (await el.getParent())?.querySelector('.x-risu-nc-tts-re');
+            const box = await el.getParent();
+            const re = await box?.querySelector('.x-risu-nc-tts-re');
             await re?.setStyleAttribute(imp({ ...RE_SEG, display: g.re ? 'flex' : 'none' }));
+            const dl = await box?.querySelector('.x-risu-nc-tts-dl');
+            await dl?.setStyleAttribute(imp({ ...RE_SEG, display: g.re ? 'flex' : 'none' }));
         }
     }
     function paintSoon(force = false) {
@@ -15066,7 +15075,7 @@ Rules:
     async function onRootClick(event) {
         const d = root.doc;
         if (event.button !== 0 || !root.on || !d) return;
-        for (const [sel, act] of [['.x-risu-nc-tts-btn', 'go'], ['.x-risu-nc-tts-re', 're']]) {
+        for (const [sel, act] of [['.x-risu-nc-tts-btn', 'go'], ['.x-risu-nc-tts-re', 're'], ['.x-risu-nc-tts-dl', 'dl']]) {
             const els = await d.querySelectorAll(sel);
             for (let i = 0, n = await els.length(); i < n; i++) {
                 const el = await els.at(i);
@@ -15082,6 +15091,7 @@ Rules:
         if (doubleTap(act + ':' + idx)) return;
         try {
             const w = await where();
+            if (act === 'dl') { await saveAt(w, idx); return; }
             if (act === 'go' && playing && playing.ci === w.ci && playing.chi === w.chi && playing.idx === idx) { await stopPlay(); return; }
             const j = jobAt(w.ci, w.chi, idx);
             if (j) {
@@ -15096,6 +15106,15 @@ Rules:
         } catch (error) {
             console.error(LOG, 'click', error);
         }
+    }
+    async function saveAt(w, idx) {
+        const msg = msgOf(w, idx);
+        if (!msg) return;
+        const k = keyOf(w.char?.chaId ?? '', msg);
+        const data = await getAudio(k);
+        if (!data) { await dropAudio(k); paintSoon(true); return; }
+        const bot = String(w.char?.name ?? '').replace(/[\\/:*?"<>|\x00-\x1f]/g, '').trim().slice(0, 40) || 'imagine';
+        host.saveFile?.(new Blob([unb64(data)], { type: 'audio/wav' }), `${bot}_${idx}.wav`);
     }
     async function readAt(w, idx, re) {
         const msg = msgOf(w, idx);
@@ -16934,7 +16953,7 @@ Rules:
     await nsLoad();
     voice = await startVoice({ ui, rootDoc, dropBlocks, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsLowText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeysOf,
-        presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn }).catch(error => { console.error(LOG, 'voice', error); return null; });
+        presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn, vdl: () => !!st.set.vdl, saveFile: bkSave }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
     const panelButtons = [];
