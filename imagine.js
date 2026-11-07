@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.65.1
+//@display-name 💠 이매진 v5.67.2
 //@api 3.0
-//@version 5.65.1
+//@version 5.67.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.65.1';
+    const VERSION = '5.67.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -221,6 +221,87 @@
     const planOf = s => { const all = [...String(s ?? '').matchAll(/<nc-plan>([\s\S]*?)(?:<\/nc-plan>|$)/gi)]; return all.length ? all[all.length - 1][1] : ''; };
     const stripOurs = s => dropBlocks(String(s ?? '')).replace(TAG_RE, '').replace(/\s+$/, '');
     const stripKeepTts = s => { const [body, tts] = cutTts(String(s ?? '')); return stripOurs(body) + tts; };
+    const BLK_MAX = 80;
+    const BLK_FRESH = 10 * 60 * 1000;
+    const blk = { gen: 0, cur: null, maps: new Map(), timers: new Map() };
+    const blockBody = (s, name) => { const all = [...String(s ?? '').matchAll(new RegExp(`<${name}>([\\s\\S]*?)(?:<\\/${name}>|$)`, 'gi'))]; return all.length ? all[all.length - 1][1] : ''; };
+    function blkOpen(live) {
+        blk.cur = { gen: ++blk.gen, tts: '', plan: '', closed: false, at: Date.now(), live: !!live, chaId: '', key: '' };
+    }
+    function blkCut(text) {
+        if (typeof text !== 'string') return text;
+        const cur = blk.cur && Date.now() - blk.cur.at < BLK_FRESH ? blk.cur : null;
+        if (!/<nc-(?:plan|tts)>/i.test(text)) return cur?.live ? text.replace(BIT_RE, '') : text;
+        if (!cur) blkOpen(false);
+        const c = blk.cur;
+        const tts = blockBody(text, 'nc-tts'), plan = blockBody(text, 'nc-plan');
+        if (tts) c.tts = tts;
+        if (plan) c.plan = plan;
+        c.closed = /<\/nc-plan>/i.test(text);
+        c.at = Date.now();
+        if (c.key) blkPut(c.chaId, c.key, c);
+        return text.replace(BLOCK_RE, '').replace(BIT_RE, '');
+    }
+    async function blkMap(chaId) {
+        if (!chaId) return {};
+        if (!blk.maps.has(chaId)) {
+            const v = await api.pluginStorage.getItem('nc:blk:' + chaId).catch(() => null);
+            if (!blk.maps.has(chaId)) blk.maps.set(chaId, v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+        }
+        return blk.maps.get(chaId);
+    }
+    function blkSave(chaId) {
+        clearTimeout(blk.timers.get(chaId));
+        blk.timers.set(chaId, setTimeout(() => {
+            blk.timers.delete(chaId);
+            const m = blk.maps.get(chaId);
+            if (!m) return;
+            const keys = Object.keys(m).sort((a, b) => (m[b]?.at ?? 0) - (m[a]?.at ?? 0));
+            for (const k of keys.slice(BLK_MAX)) delete m[k];
+            if (keys.length) save('nc:blk:' + chaId, m);
+            else void Promise.resolve(api.pluginStorage.removeItem('nc:blk:' + chaId)).catch(() => {});
+        }, 2000));
+    }
+    function blkPut(chaId, key, c) {
+        const m = blk.maps.get(chaId);
+        if (!m) return;
+        m[key] = { tts: c.tts, plan: c.plan, closed: c.closed, at: c.at, hash: c.hash || m[key]?.hash || '' };
+        blkSave(chaId);
+    }
+    const blkHash = msg => stripOurs(msg?.data).trim() ? msgHash(msg) : '';
+    function blkFind(m, key, hash) {
+        const hit = m[key];
+        if (hit && (!hit.hash || !hash || !key.startsWith('#') || hit.hash === hash)) return key;
+        if (!hash) return '';
+        return Object.keys(m).find(k => m[k]?.hash === hash) ?? '';
+    }
+    async function blkClaim(chaId, chat, idx) {
+        const c = blk.cur, list = chat?.message ?? [];
+        if (!c || c.key || !chaId || (!c.tts && !c.plan) || Date.now() - c.at > BLK_FRESH) return;
+        if (idx !== list.length - 1 || list[idx]?.role !== 'char') return;
+        await blkMap(chaId);
+        if (blk.cur !== c || c.key) return;
+        c.chaId = chaId;
+        c.key = msgKeyOf(list[idx], idx, list);
+        c.hash = blkHash(list[idx]);
+        blkPut(chaId, c.key, c);
+    }
+    async function blocksOf(chaId, chat, idx) {
+        const list = chat?.message ?? [], msg = list[idx];
+        if (!msg) return { tts: '', plan: '', closed: false };
+        await blkClaim(chaId, chat, idx);
+        const m = await blkMap(chaId), k = blkFind(m, msgKeyOf(msg, idx, list), blkHash(msg));
+        if (k) return m[k];
+        return { tts: blockBody(msg.data, 'nc-tts'), plan: planOf(msg.data), closed: /<\/nc-plan>/i.test(String(msg.data ?? '')) };
+    }
+    async function blkDropPlan(chaId, key, hash = '') {
+        const m = await blkMap(chaId);
+        key = blkFind(m, key, hash);
+        if (!key || !m[key]?.plan) return;
+        m[key] = { ...m[key], plan: '' };
+        if (blk.cur?.key === key && blk.cur.chaId === chaId) blk.cur.plan = '';
+        blkSave(chaId);
+    }
     const msgHash = m => fnv(stripOurs(m?.data));
     const tidy = s => String(s ?? '').replace(/\s+/g, ' ').trim().replace(/^,+|,+$/g, '').trim();
     const lookOf = s => String(s ?? '').split(',').map(tidy).filter(t => t && !/^(?:[?？]+|\(?unknown\)?)$/i.test(t)).join(', ');
@@ -984,7 +1065,8 @@
         const s = String(text).replace(/<(think|thinking|thoughts)>[\s\S]*?<\/\1>/gi, '').replace(/<details\s[^>]*data-pm-thinking[^>]*>[\s\S]*?<\/details>/gi, '');
         const parts = [...[...s.matchAll(/```[\w-]*\s*([\s\S]*?)```/g)].map(m => m[1]), s];
         let first, broken = '', cut = false;
-        for (const part of parts) {
+        for (const [pi, part] of parts.entries()) {
+            if (!want && first && !cut && pi === parts.length - 1) return first;
             for (let a = part.indexOf('{'); a >= 0; a = part.indexOf('{', a + 1)) {
                 if (!/^\{\s*["“}]/.test(part.slice(a, a + 64))) continue;
                 const body = jsonObjectAt(part, a);
@@ -993,13 +1075,13 @@
                 if (v === undefined) v = tryJson(part.slice(a, part.lastIndexOf('}') + 1));
                 if (v === undefined) v = tryJson(part.slice(a, part.lastIndexOf('}') + 1).replace(/[“”]/g, '"'));
                 if (v === undefined) {
-                    if (!body) { cut = true; break; }
+                    if (!body) { cut = true; if (!want) break; continue; }
                     broken ||= jsonError(body) || 'invalid JSON';
                     continue;
                 }
                 if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
                 if (want && want in v) return v;
-                first ??= v;
+                if (!cut) first ??= v;
             }
         }
         if (cut) throw askError('응답이 중간에 끊겨 JSON이 닫히지 않았습니다.', want === 'cast'
@@ -1457,6 +1539,11 @@ ${TAG_STYLE}`;
         return lines.join('\n');
     }
 
+    function castPersonaOf(cast) {
+        const ps = (cast?.list ?? []).filter(e => e?.persona);
+        const e = ps.length === 1 ? ps[0] : null;
+        return e && tidy(e.name) ? { name: e.name, prompt: '', pid: e.personaId || '', sig: e.personaSig || '' } : null;
+    }
     async function loadPersona(chat = null, live = false) {
         void chat; void live;
         try {
@@ -1597,7 +1684,7 @@ ${TAG_STYLE}`;
             const raw = got.find(x => x.persona === true) ?? got[0];
             if (!raw) throw new Error('모델이 페르소나를 돌려주지 않았습니다.');
             const e = castEntry({ ...raw, persona: true }, tidy(p.name) || tidy(raw.name) || 'User', p);
-            if (cur) Object.assign(cur, e, { id: cur.id, key: TMP_KEY.test(cur.key) && !TMP_KEY.test(e.key) ? e.key : cur.key, keys: cur.keys, on: cur.on });
+            if (cur) { Object.assign(cur, e, { id: cur.id, key: TMP_KEY.test(cur.key) && !TMP_KEY.test(e.key) ? e.key : cur.key, keys: cur.keys, on: cur.on }); uniqKeys(cast.list, new Set(cast.list.filter(x => x !== cur))); }
             else { cast.list.push(e); uniqKeys(cast.list, new Set(cast.list.filter(x => x !== e))); }
             console.log(LOG, 'persona', cur ? 'reread' : 'new', p.name);
             return true;
@@ -1688,6 +1775,7 @@ Return entries only for the characters in this list that the character sheet, lo
             console.warn(LOG, 'lookup', error);
         }
         for (const [x, fresh] of found) {
+            if (!fresh.same) fresh.lookup = true;
             if (!x.key) {
                 const to = fresh.same?.key ?? (fresh.key = freshKey(cast.list, fresh.key));
                 renamePlan(plan, x.name, to);
@@ -1732,7 +1820,7 @@ Return entries only for the characters in this list that the character sheet, lo
         const freshIds = new Set(fresh.map(e => e.key).filter(k => !TMP_KEY.test(k)));
         const same = e => freshIds.has(e.key) || [e.name, ...(e.aliases ?? [])].some(n => freshKeys.has(nameKey(n)));
         const otherPersona = o => o.persona && o.personaId && !fresh.some(e => e.personaId === o.personaId);
-        for (const old of left) if (old.src === 'edit' || (old.src === 'chat' && !same(old)) || otherPersona(old)) { out.push(old); kept.add(old); }
+        for (const old of left) if (old.src === 'edit' || ((old.src === 'chat' || old.lookup) && !same(old)) || otherPersona(old)) { out.push(old); kept.add(old); }
         uniqKeys(out, kept);
         cast.list = out;
         cast.at = Date.now();
@@ -2469,6 +2557,7 @@ Rules
 
     let naiStreamOff = false;
     const midStreamError = () => new Error('NAI 그림을 받는 도중에 연결이 끊겼습니다. Anlas 가 두 번 나가지 않게 다시 보내지 않았습니다. 다시 시도해 주세요.');
+    const naiOddError = () => new Error('NAI 가 보낸 그림을 읽지 못했습니다. Anlas 가 두 번 나가지 않게 다시 보내지 않았습니다. 다시 시도해 주세요.');
     const naiLate = () => Object.assign(new Error('NAI 응답이 오지 않아 기다리기를 그만두었습니다. NAI 가 늦게라도 그림을 만들었다면 Anlas 가 나갔을 수 있어 다시 보내지 않았습니다. 다시 시도해 주세요.'), { timeout: true });
     async function naiStream(key, body, stopped, onStep) {
         const sb = { ...body, parameters: { ...body.parameters, stream: 'msgpack' } };
@@ -2524,17 +2613,15 @@ Rules
             if (error.naiEvent) throw error;
             if (error.timeout) { try { await reader?.cancel(); } catch {} if (stopped()) return null; throw naiLate(); }
             if (stopped()) return null;
-            console.warn(LOG, 'NAI stream broke, back to old endpoint', error);
+            console.warn(LOG, 'NAI stream broke', error);
             naiStreamOff = true;
-            if (firstAt) throw midStreamError();
-            return null;
+            throw firstAt ? midStreamError() : naiOddError();
         }
         if (!finalImg) {
             if (stopped()) return null;
-            console.warn(LOG, 'NAI stream ended without final, back to old endpoint');
+            console.warn(LOG, 'NAI stream ended without final');
             naiStreamOff = true;
-            if (firstAt) throw midStreamError();
-            return null;
+            throw firstAt ? midStreamError() : naiOddError();
         }
         console.log(LOG, 'NAI stream ms', { first: firstAt ? firstAt - t0 : null, final: Date.now() - t0 });
         return await firstImage(finalImg);
@@ -2550,6 +2637,7 @@ Rules
         }
         let flaky = 0;
         for (let attempt = 0; ; attempt++) {
+            if (stopped()) throw stopError();
             let res, buf;
             try {
                 [res, buf] = await timed((async () => {
@@ -2563,12 +2651,13 @@ Rules
                 if (res.ok) return await firstImage(buf);
             } catch (error) {
                 if (error.timeout) throw naiLate();
-                if (flaky++ < 2 && !stopped()) { console.warn(LOG, 'NAI retry', error); await sleep(3000); continue; }
+                if (stopped()) throw stopError();
+                if (flaky++ < 2) { console.warn(LOG, 'NAI retry', error); await sleep(3000); continue; }
                 throw error;
             }
             const error = naiError(res.status, new TextDecoder().decode(buf));
-            if (stopped()) throw error;
-            if (res.status === 429 && attempt < 3 && !stopped()) { await sleep(4000 + attempt * 3000); continue; }
+            if (stopped()) throw stopError();
+            if (res.status === 429 && attempt < 3) { await sleep(4000 + attempt * 3000); continue; }
             if ((res.status === 408 || res.status >= 500) && flaky++ < 2) { console.warn(LOG, 'NAI retry', error); await sleep(3000); continue; }
             throw error;
         }
@@ -2705,16 +2794,21 @@ Rules
     const inQueue = fn => { const p = queue.then(fn); queue = p.catch(() => {}); return p; };
     let gen = 0;
     const queued = new Map();
+    const qKey = (ci, chi, key) => `${ci}:${chi}>${key}`;
+    const busyOn = (ci, chi, key) => !!st.busy && st.busy.key === key && st.busy.ci === ci && st.busy.chi === chi;
+    const queuedOn = (ci, chi, key) => queued.has(qKey(ci, chi, key));
+    const drawingOn = (ci, chi, key) => busyOn(ci, chi, key) || queuedOn(ci, chi, key);
     const failed = new Map();
     const jobsOn = new Set();
     function enqueue(job) {
-        const live = j => j.key === job.key && (!j.only || !job.only || j.only === job.only) && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
+        const live = j => j.key === job.key && j.ci === job.ci && j.chi === job.chi && (!j.only || !job.only || j.only === job.only) && j.gen === gen && !(st.busy?.job === j && st.busy.stop);
         if (job.key && [...jobsOn].some(live)) { console.info(LOG, 'skip duplicate job', job.key); return Promise.resolve(); }
         job.gen = gen;
         job.chatKeyP ??= Promise.resolve(api.getChatFromIndex(job.ci, job.chi)).then(c => c ? chatKeyOf(c, job.chi) : '', () => '');
         st.jobs++;
         if (job.key) failed.delete(job.key);
-        if (job.key) queued.set(job.key, (queued.get(job.key) ?? 0) + 1);
+        const qk = qKey(job.ci, job.chi, job.key);
+        if (job.key) queued.set(qk, (queued.get(qk) ?? 0) + 1);
         jobsOn.add(job);
         render();
         void rootQueue(() => paintBusy());
@@ -2722,10 +2816,10 @@ Rules
         queue = p.catch(() => {}).finally(() => {
             st.jobs--;
             jobsOn.delete(job);
-            if (job.key) { const n = (queued.get(job.key) ?? 1) - 1; if (n > 0) queued.set(job.key, n); else queued.delete(job.key); }
+            if (job.key) { const n = (queued.get(qk) ?? 1) - 1; if (n > 0) queued.set(qk, n); else queued.delete(qk); }
             render();
             void rootQueue(() => paintBusy());
-        });
+        }).catch(error => console.warn(LOG, 'queue tail', error));
         return p;
     }
 
@@ -3075,7 +3169,7 @@ ${t.user}` : null;
                     render();
                 }
                 const live = job.ci === await api.getCurrentCharacterIndex() && job.chi === await api.getCurrentChatIndex();
-                const persona = await loadPersona(chat, live);
+                const persona = live ? await loadPersona(chat, live) : (st.persona = castPersonaOf(cast));
                 if ((cast.list.length || cast.tried) && await ensurePersona(char, cast, persona, busy)) await saveCast(chaId, cast);
                 if (busy.stop) throw stopError();
                 if (busy.label === '페르소나 다시 분석 중') {
@@ -3104,13 +3198,14 @@ ${t.user}` : null;
                 const emphasize = !!input && !!st.set.userFirst && !redo;
                 const prev = prevPromptOf(recs, chat, busy.chat, key, idx);
                 console.log(LOG, 'prev', prev ? `${prev.length}자` : '(none)');
-                const raw = job.only ? '' : planOf(msg.data);
+                const got = job.only ? null : await blocksOf(chaId, chat, idx);
+                const raw = got?.plan ?? '';
                 if (raw) {
                     try {
                         const v = parseJson(raw, 'images');
                         if (Array.isArray(v?.images) && v.images.some(x => x && typeof x === 'object')) { plan = v; cogen = true; }
                     } catch (error) { console.warn(LOG, 'cogen plan', error?.message ?? error); }
-                    console.log(LOG, 'cogen plan', cogen ? `${plan.images.length} image(s)` : `broken → ask (${raw.length}자, ${String(msg.data ?? '').includes('</nc-plan>') ? 'closed' : 'not closed'})`);
+                    console.log(LOG, 'cogen plan', cogen ? `${plan.images.length} image(s)` : `broken → ask (${raw.length}자, ${got?.closed ? 'closed' : 'not closed'})`);
                 } else if (!job.only && st.set.cogen) console.log(LOG, 'cogen plan', 'none in reply → ask');
                 const sc = cogen ? sceneCast(cast.list, '') : sceneCast(cast.list, sceneText(chat, idx, input));
                 console.log(LOG, 'scene', sc.all ? `(all ${sc.scene.length})` : `${sc.scene.map(e => e.key).join(', ')} | other ${sc.rest.length}`);
@@ -3363,7 +3458,7 @@ ${t.user}` : null;
             const i = findMsg(chat, key, idx);
             if (i < 0) return false;
             apply(chat.message[i]);
-            spot = { idx: i, key: msgKeyOf(chat.message[i], i, chat.message) };
+            spot = { idx: i, key: msgKeyOf(chat.message[i], i, chat.message), hash: blkHash(chat.message[i]) };
             if (state && i === lastBotIndex(chat)) writeStateInto(chat, mergeState(readState(chat), stateBase, state, false, re), cast);
             await api.setChatToIndex(job.ci, job.chi, chat);
             if (put && scroll) void scrollAfterDraw(want, i, scroll);
@@ -3391,6 +3486,7 @@ ${t.user}` : null;
                 if (t === waits.length - 1) waits.push(400);
             }
         }
+        if (first && ok && spot && !job.only) void blkDropPlan(char0.chaId, spot.key, spot.hash).catch(error => console.warn(LOG, 'blk drop', error));
         if (isChar) {
             const drop = names => async () => {
                 const char = await api.getCharacterFromIndex(job.ci);
@@ -3481,16 +3577,19 @@ ${t.user}` : null;
     let settleTimer = null;
     let cogenLive = 0;
     const COGEN_WAIT = 10 * 60 * 1000;
-    function onFinalOutput(ev) {
+    async function onFinalOutput(ev) {
         cogenLive = 0;
+        try { await blkClaim(ev?.char?.chaId, ev?.chat, ev?.messageIndex); } catch (error) { console.warn(LOG, 'blk claim', error); }
         return onOutput(ev);
     }
     function onOutputText(content) {
+        let text = content;
+        try { text = blkCut(content); } catch (error) { console.warn(LOG, 'blk cut', error); }
         try {
             if (ns.got) {
                 clearTimeout(ns.timer);
                 ns.timer = setTimeout(() => void nsBack(), 2500);
-            } else if (st.set.auto && setupDone() && !ns.armed && Date.now() >= ns.mute) {
+            } else if (!ns.armed && Date.now() >= ns.mute && (blk.cur?.tts || blk.cur?.plan || st.set.auto && setupDone())) {
                 clearTimeout(settleTimer);
                 settleTimer = setTimeout(() => {
                     settleTimer = null;
@@ -3498,12 +3597,24 @@ ${t.user}` : null;
                 }, 2500);
             }
         } catch {}
-        try { return wrapPortraits(content); } catch { return content; }
+        try { return wrapPortraits(text); } catch { return text; }
     }
     async function checkLatest() {
         const ev = await latestOf();
         if (!ev) return;
-        if (cogenLive && Date.now() - cogenLive < COGEN_WAIT && !String(ev.chat.message[ev.messageIndex]?.data ?? '').includes('</nc-plan>')) return;
+        if (cogenLive && Date.now() - cogenLive < COGEN_WAIT && !blk.cur?.closed) {
+            const msg = ev.chat?.message?.[ev.messageIndex];
+            if (ev.chat?.isStreaming || !((msg?.time ?? 0) >= cogenLive)) {
+                if (ev.chat?.isStreaming && !settleTimer) settleTimer = setTimeout(() => {
+                    settleTimer = null;
+                    retired().then(old => old ? null : checkLatest()).catch(error => console.warn(LOG, 'output settle', error));
+                }, 3000);
+                return;
+            }
+            cogenLive = 0;
+        }
+        try { await blkClaim(ev.char?.chaId, ev.chat, ev.messageIndex); } catch (error) { console.warn(LOG, 'blk claim', error); }
+        if (!st.set.auto || !setupDone()) return;
         await onOutput(ev);
     }
     function stripProcess(text) {
@@ -3553,14 +3664,16 @@ ${plan}
     async function cogenInject(messages, model) {
         if (!Array.isArray(messages)) return;
         if (model !== 'model' || nsSelf > 0) return;
-        const art = !!st.set.cogen && setupDone(), tts = !!voice?.ttsInject?.();
-        if (st.set.cogen && !art) cogenSkip('setup not done');
+        const art = !!st.set.cogen && !!st.set.auto && setupDone(), tts = !!voice?.ttsInject?.();
+        if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return art || tts ? cogenSkip('no chat history in request') : undefined;
+        const retry = messages.some(m => nsText(m).includes(COGEN_MARK));
+        blkOpen(retry);
+        if (st.set.cogen && !art) cogenSkip(st.set.auto ? 'setup not done' : 'auto draw off');
         if (!art && !tts) return;
         if (ns.armed || ns.got) return cogenSkip('nsfw import');
         if (talkOv) return cogenSkip('talk app open');
         if (await retired()) return;
-        if (messages.some(m => nsText(m).includes(COGEN_MARK))) return cogenSkip('already in request (retry)');
-        if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return cogenSkip('no chat history in request');
+        if (retry) return cogenSkip('already in request (retry)');
         const ctx = await cogenChat();
         if (!ctx) return;
         const plan = art ? await cogenBrief(ctx) : null;
@@ -3572,6 +3685,7 @@ ${plan}
         while (at > 0 && messages[at - 1]?.role === 'assistant') at--;
         messages.splice(at, 0, { role: 'system', content: brief });
         if (plan) cogenLive = Date.now();
+        if (blk.cur) blk.cur.live = true;
         console.log(LOG, 'cogen', `${brief.length}자`, plan ? 'plan' : '', voiceCast ? 'tts' : '');
     }
     async function cogenChat() {
@@ -4302,10 +4416,21 @@ ${plan}
     const HIDE_OPEN = `<span style=${HIDE_DECL}>`;
     const HIDE_CLOSE = '</span><!--/nc-hide-->';
     const HIDE_BG = 'background-image:none!important;--nc-hide:1;';
-    const hasHide = s => String(s ?? '').includes('--nc-hide:1;');
+    const HIDE_MARK_RE = /--nc-hide\s*:\s*1\s*;/i;
+    const hasHide = s => HIDE_MARK_RE.test(String(s ?? ''));
+    const HIDE_DECL_RE = 'display\\s*:\\s*none\\s*!\\s*important\\s*;\\s*--nc-hide\\s*:\\s*1\\s*;';
+    const HIDE_BG_RE = 'background-image\\s*:\\s*none\\s*!\\s*important\\s*;\\s*--nc-hide\\s*:\\s*1\\s*;';
+    const HIDE_ATTR_FUZZY = new RegExp('\\s+style=(["\']?)' + HIDE_DECL_RE + '\\1\\s*(?=([\\s\\S]?))', 'gi');
+    const HIDE_OPEN_FUZZY = new RegExp('<span\\s+style=(["\']?)' + HIDE_DECL_RE + '\\1\\s*>', 'gi');
+    const HIDE_CLOSE_FUZZY = /<\/span>\s*<!--\s*\/nc-hide\s*-->/gi;
+    const HIDE_REST_FUZZY = new RegExp(HIDE_DECL_RE + '|' + HIDE_BG_RE, 'gi');
     const unhide = s => {
-        const t = String(s ?? '').replace(new RegExp(' style=' + escapeRe(HIDE_DECL) + ' (?=[A-Za-z_:@{$])', 'g'), ' ');
-        return [HIDE_ATTR, HIDE_OPEN, HIDE_CLOSE, HIDE_DECL, HIDE_BG].reduce((x, m) => x.split(m).join(''), t);
+        let t = String(s ?? '').replace(new RegExp(' style=' + escapeRe(HIDE_DECL) + ' (?=[A-Za-z_:@{$])', 'g'), ' ');
+        t = [HIDE_ATTR, HIDE_OPEN, HIDE_CLOSE].reduce((x, m) => x.split(m).join(''), t);
+        if (!hasHide(t)) return t;
+        t = t.replace(HIDE_OPEN_FUZZY, '').replace(HIDE_CLOSE_FUZZY, '');
+        t = t.replace(HIDE_ATTR_FUZZY, (m, q, next) => /[A-Za-z_:@{$]/.test(next) ? ' ' : '');
+        return t.replace(HIDE_REST_FUZZY, '');
     };
     const HIDE_IMAGE = /background(-image)?\s*:[^;]*url\(|<img\b|<video\b|<picture\b|url\(|\{\{\s*(raw|img|image|asset|source|inlay|inlayed|bg|emotion|path)\s*::|\.(webp|png|jpe?g|gif|avif)\b|object-fit|background-size/i;
     const HIDE_LINE = /<(img|video|picture)\b|url\(|\{\{\s*(raw|img|image|asset|source|inlay|inlayed|bg|emotion|path)\s*::|\.(webp|png|jpe?g|gif|avif)\b/i;
@@ -4315,7 +4440,7 @@ ${plan}
     const isTokenLimit = error => !error?.isStop && TOKEN_LIMIT.test(String(error?.message ?? error ?? ''));
 
     const botHidden = char => hasHide(char?.backgroundHTML)
-        || (char?.customscript ?? []).some(s => hasHide(s?.out))
+        || (char?.customscript ?? []).some(s => s && !isResizeMark(s.comment) && hasHide(s.out))
         || (Array.isArray(char?.triggerscript) ? char.triggerscript : []).some(t => hasHide(t?.effect?.[0]?.code));
 
     function setAssetOff(chaId, on) {
@@ -4366,7 +4491,9 @@ Report one hide item per image. Pick the kind that hides it most cleanly:
 - "cbs": a CBS that outputs an image by itself, outside any HTML tag, e.g. "{{img::$1}}", "{{image::smile}}", "{{asset::bg}}", "{{emotion::…}}". find is the whole CBS, copied verbatim.
 
 Rules:
-- find is copied character for character from that target and occurs exactly once in it. If the same text occurs more than once, extend find with the characters that follow until it is unique (a "tag" find still starts at "<").
+- find is copied character for character from that target.
+- For "rule" and "cbs", find occurs exactly once in that target. If the same text occurs more than once, extend find with the characters that follow until it is unique.
+- For "tag", if the very same opening tag occurs several times in one target (for example once in each {{#if}} branch), report it once as just that opening tag with its attributes: every verbatim copy in that target is hidden. Extend a "tag" find with the characters that follow only when you want to hide some copies and not others. A repeated "tag" find must include at least one attribute, never a bare tag name such as "<div>".
 - Do not hide small UI icons, emoji, buttons, borders, decorative patterns or text.
 - Do not touch elements whose class starts with "nc-" (another plugin's pictures). Image frames with "ix-" classes or {{getvar::imagine_…}} sizes are this card's images resized by a plugin: hide them like any other image.
 - If a target has no image, report nothing for it. If nothing should be hidden, return an empty list.
@@ -4435,14 +4562,20 @@ Output a single JSON object only:
         if (!find.trim()) return 'find is empty';
         const at = t.text.indexOf(find);
         if (at < 0) return 'find was not found verbatim in that target';
-        if (t.text.indexOf(find, at + 1) >= 0) return 'find occurs more than once in that target';
-        if (t.lua && !luaStrings(t.text).some(([a, b]) => a <= at && at + find.length <= b)) return 'in a Lua trigger, find must lie inside one Lua string literal';
+        const inLua = a => luaStrings(t.text).some(([x, y]) => x <= a && a + find.length <= y);
         if (kind === 'tag') {
             const m = /^<([a-zA-Z][\w-]*)/.exec(find);
             if (!m) return 'a "tag" find must start with "<" and the tag name';
             if (/^(html|head|body|style|script|br|hr)$/i.test(m[1])) return `<${m[1]}> cannot be hidden`;
-            return { kind, at, pos: at + m[0].length };
+            const ats = [at];
+            for (let i = t.text.indexOf(find, at + find.length); i >= 0; i = t.text.indexOf(find, i + find.length)) ats.push(i);
+            if (ats.length > 1 && !/^<[a-zA-Z][\w-]*\s+[^\s>]/.test(find)) return 'find occurs more than once and has no attribute; a repeated "tag" find must include its attributes';
+            if (t.lua && !ats.every(inLua)) return 'in a Lua trigger, find must lie inside one Lua string literal';
+            const more = ats.slice(1).map(a => ({ at: a, pos: a + m[0].length }));
+            return { kind, at, pos: at + m[0].length, ...(more.length ? { more } : {}) };
         }
+        if (t.text.indexOf(find, at + 1) >= 0) return 'find occurs more than once in that target';
+        if (t.lua && !inLua(at)) return 'in a Lua trigger, find must lie inside one Lua string literal';
         if (kind === 'rule') {
             const body = find.trimEnd();
             if (!body.endsWith('{') || body.length < 2) return 'a "rule" find must be the selector ending with "{"';
@@ -4463,10 +4596,13 @@ Output a single JSON object only:
         for (const item of Array.isArray(res?.hide) ? res.hide : []) {
             const r = checkHide(item, byId, luaMode);
             if (typeof r === 'string') { bad.push({ target: String(item?.target ?? '?'), find: String(item?.find ?? ''), error: r }); continue; }
-            const key = `${item.target}@${r.kind === 'cbs' ? r.at : r.pos}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            ok.push({ target: item.target, ...r });
+            const { more = [], ...first } = r;
+            for (const one of [first, ...more.map(x => ({ kind: r.kind, ...x }))]) {
+                const key = `${item.target}@${one.kind === 'cbs' ? one.at : one.pos}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                ok.push({ target: item.target, ...one });
+            }
         }
         return { ok, bad };
     }
@@ -4533,6 +4669,11 @@ Output a single JSON object only:
         throw lastError;
     }
 
+    function hideCommit(job) {
+        if (job.stop) throw stopError();
+        job.saving = true;
+        render();
+    }
     async function runHide() {
         const v = st.view;
         if (!v || v.group || hide.job) return;
@@ -4554,6 +4695,7 @@ Output a single JSON object only:
             if (job.stop) throw stopError();
             const targets = hideTargets(char);
             if (!targets.length) {
+                hideCommit(job);
                 setAssetOff(job.chaId, true);
                 await redrawChat().catch(error => console.warn(LOG, 'hide redraw', error));
                 if (st.view?.chaId === job.chaId) st.view.hidden = true;
@@ -4592,6 +4734,7 @@ Output a single JSON object only:
             }
             if (job.stop) throw stopError();
             if (!ok.length) {
+                hideCommit(job);
                 setAssetOff(job.chaId, true);
                 await redrawChat().catch(error => console.warn(LOG, 'hide redraw', error));
                 if (st.view?.chaId === job.chaId) st.view.hidden = true;
@@ -4599,8 +4742,7 @@ Output a single JSON object only:
                 return;
             }
             hideStage(job, '봇에 저장하는 중', [0.95, 1]);
-            if (job.stop) throw stopError();
-            job.saving = true;
+            hideCommit(job);
             const n = await inQueue(() => saveHide(job, byId, ok));
             setAssetOff(job.chaId, true);
             await redrawChat().catch(error => console.warn(LOG, 'hide redraw', error));
@@ -4650,23 +4792,32 @@ Output a single JSON object only:
         if (!v || hide.job) return;
         hide.msg = null;
         try {
-            let n = await inQueue(async () => {
+            const r = await inQueue(async () => {
                 const char = await api.getCharacterFromIndex(v.ci);
                 if (!char || char.chaId !== v.chaId) throw new Error('봇을 읽지 못했습니다.');
-                let k = 0;
-                if (hasHide(char.backgroundHTML)) { char.backgroundHTML = unhide(char.backgroundHTML); k++; }
-                for (const s of char.customscript ?? []) if (s && hasHide(s.out)) { s.out = unhide(s.out); k++; }
+                let k = 0, left = 0;
+                const fix = (a, set) => {
+                    if (!hasHide(a)) return;
+                    const b = unhide(a);
+                    if (b !== String(a)) { set(b); k++; }
+                    if (hasHide(b)) left++;
+                };
+                fix(char.backgroundHTML, x => { char.backgroundHTML = x; });
+                for (const s of char.customscript ?? []) if (s && !isResizeMark(s.comment)) fix(s.out, x => { s.out = x; });
                 for (const t of Array.isArray(char.triggerscript) ? char.triggerscript : []) {
                     const fx = t?.effect?.[0];
-                    if (fx && hasHide(fx.code)) { fx.code = unhide(fx.code); k++; }
+                    if (fx) fix(fx.code, x => { fx.code = x; });
                 }
                 if (k) await api.setCharacterToIndex(v.ci, char);
-                return k;
+                return { k, left };
             });
+            let n = r.k;
             if (setAssetOff(v.chaId, false)) n++;
             v.hidden = false;
             await redrawChat().catch(error => console.warn(LOG, 'unhide redraw', error));
-            hide.msg = { cls: 'ok', chaId: v.chaId, text: n ? '숨긴 그림을 다시 보이게 했습니다.' : '숨김 표식이 남아 있지 않아 바꿀 것이 없었습니다.' };
+            hide.msg = r.left
+                ? { cls: 'warn', chaId: v.chaId, text: `${n ? '숨긴 그림을 다시 보이게 했습니다. 다만 ' : ''}${r.left}곳은 다른 도구가 숨김 표식을 고쳐 놓아 걷지 못했습니다. 그 봇의 정규식 · 트리거를 직접 확인해 주세요.` }
+                : { cls: 'ok', chaId: v.chaId, text: n ? '숨긴 그림을 다시 보이게 했습니다.' : '숨김 표식이 남아 있지 않아 바꿀 것이 없었습니다.' };
         } catch (error) {
             console.error(LOG, 'unhide', error);
             hide.msg = { cls: 'err', chaId: v.chaId, text: '되돌리지 못했습니다: ' + (error?.message || error) };
@@ -6620,11 +6771,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const isMine = a => a.mine || made.has(a.name) || !!astCache.get(st.view?.chaId)?.made?.includes(a.name);
         const usable = () => (st.view?.assets ?? []).filter(a => !isMine(a));
         const assetOf = name => usable().find(a => a.name === name);
-        const SKIP = { bg: '배경 · 사물 그림', nohuman: '인물 태그 없음', noinfo: 'NovelAI 그림 정보 없음', same: '이미 있는 그림체와 같음' };
+        const SKIP = { bg: '배경 · 사물 그림', nohuman: '인물 태그 없음', noinfo: 'NovelAI 그림 정보 없음', same: '이미 있는 그림체와 같음', fail: '읽다가 문제가 생김' };
         const WHY_MSG = {
             bg: '배경 · 사물 그림(no humans)이라서 그림체를 가져오지 않습니다.',
             nohuman: '인물 태그가 없는 그림이라서 건너뜁니다. 인물이 그려진 그림을 골라 주세요.',
             noinfo: 'NovelAI 그림 정보가 없습니다. 그림 정보를 지운 그림이거나 NovelAI로 그린 그림이 아닐 수 있습니다.',
+            fail: '그림 정보를 정리하다가 문제가 생겨 건너뜁니다. 다른 그림을 골라 주세요.',
         };
         function failMsg(a, r) {
             if (r.why === 'same') return `「${a.name}」의 그림체는 이미 있는 그림체 「${r.same.name}」${josa(r.same.name, '과', '와')} 같아서 넣지 않습니다. 다른 그림을 골라 주세요.`;
@@ -6717,6 +6869,14 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             return data instanceof Uint8Array ? data : new Uint8Array(data);
         }
         async function readOne(s, a) {
+            try { return await readOneRaw(s, a); } catch (error) {
+                console.warn(LOG, 'style read', error);
+                if (ui.scan !== s) return null;
+                s.cur = null;
+                return { why: 'fail' };
+            }
+        }
+        async function readOneRaw(s, a) {
             s.phase = 'read'; s.cur = a; renderNow();
             let info;
             try { info = await readImageInfo(await readBytes(a.path)); } catch (error) { console.warn(LOG, 'style read', error); info = { kind: 'broken' }; }
@@ -7349,8 +7509,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const v = st.view;
         const key = a.key;
         const imgs = a.rec?.images ?? [];
-        const busyHere = st.busy?.key === key;
-        const waiting = queued.has(key) && !busyHere;
+        const busyHere = busyOn(v.ci, v.chi, key);
+        const waiting = queuedOn(v.ci, v.chi, key) && !busyHere;
         const fail = failed.get(key);
         const mx = imgs.find(x => ui.menu === key + '|' + x.name);
         const art = h('article', { class: 'ans' + (mx ? ' on' : '') },
@@ -7410,7 +7570,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 
     function renderMenu(a, x) {
         const v = st.view;
-        const busy = st.busy?.key === a.key || queued.has(a.key) || !v.hasKey;
+        const busy = drawingOn(v.ci, v.chi, a.key) || !v.hasKey;
         const at = (a.rec?.images ?? []).indexOf(x), po = st.promptOpen.get(a.key);
         const open = !!po?.has(at);
         const only = x.name;
@@ -7427,7 +7587,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 renderNow();
             } },
                 open ? '📝 프롬프트 창 닫기' : '📝 프롬프트 직접 고치기', h('small', null, '그림에 쓴 프롬프트를 열어 고친 뒤 그 글로 다시 그립니다')),
-            st.busy?.key === a.key || queued.has(a.key)
+            drawingOn(v.ci, v.chi, a.key)
                 ? h('button', { type: 'button', role: 'menuitem', class: 'del', disabled: true }, '🗑 이 그림 지우기', h('small', null, '이 답변을 그리는 중이라 지금은 지울 수 없습니다'))
                 : delButton(['🗑 이 그림 지우기', h('small', null, '채팅 · 봇 에셋에서 이 한 장을 뺍니다')], '한 번 더 누르면 지웁니다', async () => {
                 ui.menu = '';
@@ -7898,6 +8058,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 st.loreRate = isObj(r) ? r : {};
             }
             const char = await api.getCharacterFromIndex(v.ci);
+            if (!char || char.chaId !== v.chaId) throw new Error('그사이 봇 목록이 바뀌어 읽지 않았습니다. 다시 눌러 주세요.');
             const fresh = await readLore(char, busy, v.chi);
             if (!fresh.length) throw new Error('모델이 인물을 하나도 돌려주지 않았습니다.');
             if (busy.askSec > 0 && busy.chars > 0) {
@@ -8114,12 +8275,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 h('button', { type: 'button', 'aria-label': '심각도 기준 높이기', disabled: off || v >= 10, onclick: () => put(v + 1) }, '+')), { sub: true, off });
     }
     const BK_KEYS = ['nc:set', 'nc:presets', 'nc:preset', 'nc:nsfw', 'nc:nsfwMy', 'gt:set', 'gt:my'];
-    const BK_PRE = ['nc:cast:', 'nc:img:', 'nc:ast:', 'gt:bot:', 'gt:talk:'];
+    const BK_BOT_SET = ['assetOff', 'ptOff'];
     const bk = { busy: '', msg: '', cls: '' };
-    const bkPre = k => BK_PRE.find(p => k.startsWith(p)) ?? '';
-    const bkIdOf = k => { const p = bkPre(k); return p ? k.slice(p.length).split('|')[0] : ''; };
     const bkSize = n => n < 1048576 ? Math.max(1, Math.round(n / 1024)) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
-    const bkUnB64 = s => { const b = atob(s); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+    const bkSetOnly = v => { const o = { ...v }; for (const k of BK_BOT_SET) delete o[k]; return o; };
+    const bkCanon = v => Array.isArray(v) ? v.map(bkCanon) : isObj(v) ? Object.fromEntries(Object.keys(v).sort().map(k => [k, bkCanon(v[k])])) : v;
+    const bkSame = (a, b) => JSON.stringify(bkCanon(a)) === JSON.stringify(bkCanon(b));
+    const bkBusyWork = () => st.jobs > 0 || !!st.busy || !!st.lore || !!acs.run || !!acs.cu || !!voice?.busy?.();
     function bkSave(blob, name) {
         const url = URL.createObjectURL(blob);
         const a = doc.createElement('a');
@@ -8132,51 +8294,33 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
     const bkSay = (msg, cls = '') => { bk.msg = msg; bk.cls = cls; renderNow(); };
-    async function bkBots() {
-        const out = new Map();
-        for (let i = 0; i < 100000; i++) {
-            const c = await api.getCharacterFromIndex(i);
-            if (!c) break;
-            if (c.chaId && !out.has(c.chaId)) out.set(c.chaId, { i, name: String(c.name ?? ''), group: c.type === 'group' });
-        }
-        return out;
-    }
     async function bkExport() {
         if (bk.busy) return;
         bk.busy = 'make';
         bkSay('백업 파일을 만드는 중입니다…');
         try {
             const data = {};
-            for (const k of BK_KEYS) { const v = await api.pluginStorage.getItem(k).catch(() => null); if (v != null) data[k] = v; }
-            const keys = await api.pluginStorage.keys().catch(() => []);
-            for (const k of (Array.isArray(keys) ? keys : []).map(String)) {
-                if (!bkPre(k)) continue;
+            for (const k of BK_KEYS) {
                 const v = await api.pluginStorage.getItem(k).catch(() => null);
-                if (v != null) data[k] = v;
+                if (v == null) continue;
+                data[k] = k === 'nc:set' && isObj(v) ? bkSetOnly(v) : v;
             }
-            const live = await bkBots();
-            const bots = {};
-            let gone = 0;
-            for (const k of Object.keys(data)) {
-                const id = bkIdOf(k);
-                if (!id) continue;
-                if (live.has(id)) bots[id] = live.get(id).name;
-                else if (live.size) { delete data[k]; gone++; }
-            }
-            const file = { app: 'imagine', kind: 'backup', version: VERSION, at: Date.now(), bots, data };
+            const file = { app: 'imagine', kind: 'backup', scope: 'settings', version: VERSION, at: Date.now(), data };
             const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
             const d = new Date();
             bkSave(blob, `imagine_backup_${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.json`);
             bk.busy = '';
-            bkSay(`백업 파일(${bkSize(blob.size)})을 내려받았습니다. 설정과 봇 ${Object.keys(bots).length}개의 이매진 기록, 모두 ${Object.keys(data).length}개가 들어 있습니다.${gone ? ` 지운 봇의 기록 ${gone}개는 뺐습니다.` : ''} 저장되지 않았으면 한 번 더 눌러 주세요.`, 'ok');
+            bkSay(`백업 파일(${bkSize(blob.size)})을 내려받았습니다. 그림체 · 프롬프트 · 설정 · 만든 목소리가 들어 있습니다. 저장되지 않았으면 한 번 더 눌러 주세요.`, 'ok');
         } catch (error) {
             console.warn(LOG, 'backup', error);
             bk.busy = '';
             bkSay('백업 파일을 만들지 못했습니다: ' + (error?.message ?? error), 'err');
         }
     }
+    const BK_BUSY_MSG = '그림을 그리거나 분석 · 목소리 작업을 하는 중이라 불러오지 않았습니다. 작업이 끝난 뒤 다시 불러와 주세요.';
     function bkPick() {
         if (bk.busy) return;
+        if (bkBusyWork()) { bkSay(BK_BUSY_MSG, 'err'); return; }
         const input = doc.createElement('input');
         input.type = 'file';
         input.accept = '.json,application/json';
@@ -8185,6 +8329,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     }
     async function bkImport(f) {
         if (bk.busy) return;
+        if (bkBusyWork()) { bkSay(BK_BUSY_MSG, 'err'); return; }
         bk.busy = 'load';
         bkSay('백업 파일을 읽는 중입니다…');
         try {
@@ -8192,64 +8337,29 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             try { file = JSON.parse(await f.text()); } catch { throw new Error('JSON 파일이 아닙니다.'); }
             if (!isObj(file) || file.app !== 'imagine' || file.kind !== 'backup' || !isObj(file.data)) throw new Error('이매진 백업 파일이 아닙니다.');
             if (verCmp(file.version, VERSION) > 0) throw new Error(`이매진 v${file.version} 에서 만든 파일입니다. 이매진을 v${file.version} 이상으로 올린 뒤 불러오세요.`);
-            const live = await bkBots();
-            const byName = new Map();
-            for (const [id, b] of live) { const n = b.name.trim(); if (n) byName.set(n, byName.has(n) ? '' : id); }
-            const names = isObj(file.bots) ? file.bots : {};
-            const mapId = id => live.has(id) ? id : byName.get(String(names[id] ?? '').trim()) || '';
-            let wrote = 0, same = 0, skipped = 0;
-            const lost = new Set();
-            for (const [k0, v] of Object.entries(file.data)) {
-                if (v == null) continue;
-                const p = bkPre(k0);
-                if (!p && !BK_KEYS.includes(k0)) continue;
-                let k = k0;
-                if (p) {
-                    const id = bkIdOf(k0);
-                    const to = id ? mapId(id) : '';
-                    if (!to) { lost.add(id); skipped++; continue; }
-                    k = p + to + k0.slice(p.length + id.length);
-                }
+            if (bkBusyWork()) { bk.busy = ''; bkSay(BK_BUSY_MSG, 'err'); return; }
+            let wrote = 0, same = 0, old = isObj(file.images) ? Object.keys(file.images).length : 0;
+            for (const [k, v0] of Object.entries(file.data)) {
+                if (v0 == null) continue;
+                if (!BK_KEYS.includes(k)) { old++; continue; }
                 const cur = await api.pluginStorage.getItem(k).catch(() => null);
-                if (cur != null && JSON.stringify(cur) === JSON.stringify(v)) { same++; continue; }
+                let v = v0;
+                if (k === 'nc:set') {
+                    if (!isObj(v0)) continue;
+                    v = { ...v0 };
+                    for (const b of BK_BOT_SET) { if (isObj(cur) && cur[b] !== undefined) v[b] = cur[b]; else delete v[b]; }
+                }
+                if (cur != null && bkSame(cur, v)) { same++; continue; }
                 await api.pluginStorage.setItem(k, v);
                 wrote++;
             }
-            let pics = 0;
-            if (isObj(file.images)) {
-                await inQueue(async () => {
-                    for (const [id, list] of Object.entries(file.images)) {
-                        const to = mapId(id);
-                        if (!to) { lost.add(id); continue; }
-                        const b = live.get(to);
-                        if (!b || b.group || !Array.isArray(list)) continue;
-                        const c = await api.getCharacterFromIndex(b.i);
-                        if (!c || c.chaId !== to) continue;
-                        c.additionalAssets ??= [];
-                        const have = new Set(c.additionalAssets.map(x => String(x?.[0] ?? '').toLowerCase()));
-                        let n = 0;
-                        for (const x of list) {
-                            const [name, ext, data] = Array.isArray(x) ? x : [];
-                            if (typeof name !== 'string' || typeof data !== 'string' || !/^(nc|c)_[a-z0-9_]+$/i.test(name) || have.has(name.toLowerCase())) continue;
-                            const path = await api.saveAsset(bkUnB64(data));
-                            c.additionalAssets.push([name, path, String(ext || 'png')]);
-                            have.add(name.toLowerCase());
-                            n++;
-                        }
-                        if (n) { await api.setCharacterToIndex(b.i, c); pics += n; }
-                    }
-                });
-            }
-            castCache.clear(); recCache.clear(); astCache.clear();
             await loadPrefs();
             await nsLoad();
             await voice?.reload?.();
             await refreshView().catch(error => console.warn(LOG, 'backup view', error));
-            const lostNames = [...lost].map(id => String(names[id] ?? '').trim() || id).filter(Boolean);
             bk.busy = '';
-            bkSay(`불러왔습니다. ${wrote ? `기록 ${wrote}개를 파일 값으로 바꿨습니다.` : '바뀐 기록이 없습니다.'}${same ? ` 같은 기록 ${same}개는 그대로입니다.` : ''}`
-                + (pics ? ` 그림 ${pics}장을 봇에 넣었습니다.` : '')
-                + (lost.size ? ` 이 리수에 없는 봇(${lostNames.slice(0, 3).join(', ')}${lostNames.length > 3 ? ` 외 ${lostNames.length - 3}개` : ''})의 기록 ${skipped}개는 건너뛰었습니다. 봇을 먼저 들여온 뒤 다시 불러오면 들어갑니다.` : '')
+            bkSay(`불러왔습니다. ${wrote ? `설정 ${wrote}개를 파일 값으로 바꿨습니다.` : '바뀐 설정이 없습니다.'}${same ? ` 같은 설정 ${same}개는 그대로입니다.` : ''}`
+                + (old ? ' 예전 백업 파일에 들어 있던 봇별 기록(등장인물 · 삽화 · 대화 기록 등)은 불러오지 않았습니다.' : '')
                 + ' 리수를 새로 고치면 모든 화면에 반영됩니다.', 'ok');
         } catch (error) {
             console.warn(LOG, 'restore', error);
@@ -8302,7 +8412,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
                 toggle(s.auto, () => setVal('auto', !s.auto))),
             row('동시생성', '켜면 메인 모델이 답변을 쓰면서 그 답변의 삽화 연출도 함께 씁니다. 연출 모델에 따로 묻지 않아 그림이 빨리 시작됩니다.',
-                '메인 모델에 보내는 글이 조금 길어집니다. 함께 쓴 연출은 채팅 화면에 보이지 않습니다. 연출을 받지 못한 답변과 그룹 봇 · 이어 쓰기 · 씬 재구성은 연출 모델이 따로 맡습니다. 삽화 › 준비 ② 연출 방식에서 고른 값과 같습니다(기본 켬).',
+                '메인 모델에 보내는 글이 조금 길어집니다. 함께 쓴 연출은 채팅 화면에 보이지 않습니다. 자동 그리기를 끄면 메인 모델에 연출을 붙이지 않습니다. 연출을 받지 못한 답변과 그룹 봇 · 이어 쓰기 · 씬 재구성은 연출 모델이 따로 맡습니다. 삽화 › 준비 ② 연출 방식에서 고른 값과 같습니다(기본 켬).',
                 toggle(!!s.cogen, () => setVal('cogen', !s.cogen))),
             row('해상도', '모든 그림이 이 크기로 나옵니다. 목록에 없는 크기는 직접 입력칸에 가로×세로(64의 배수)로 적습니다.', '만화일 때 가로 · 정사각이면 모델이 2컷을 우선하고 3~4컷은 피합니다.',
                 sizePick(sizeNow(), v => setVal('size', v)), { wide: true }),
@@ -8364,8 +8474,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 castGrp(true), grp('save', '저장', webpRow('talkWebp'))] : []],
         };
         const gBackup = () => grp('backup', '백업',
-            row('백업 파일', '작가(그림체) · NSFW 프롬프트 · 설정 · 목소리, 봇마다 등장인물 · 삽화 기록 · 애드 에셋 목록 · 목소리 표 · 대화 기록을 JSON 파일 하나로 만들고, 그 파일을 불러와 되돌립니다. 에셋 기록(삽화 · 애드 에셋 그림 파일)은 담지 않습니다.',
-                '불러오면 파일에 있는 항목을 파일 값으로 바꿉니다. 파일에 없는 기록은 지우지 않습니다. 봇은 같은 봇을 먼저 찾고, 없으면 이름이 같은 봇이 하나뿐일 때 그 봇에 넣습니다. 예전 백업 파일에 그림이 들어 있으면 봇에 없는 이름의 그림만 넣습니다. NAI API 키 · 구글 서비스 계정 키 · 다른 플러그인의 저장값은 담지 않습니다.',
+            row('백업 파일', '그림체 · 프롬프트(NSFW 포함) · 해상도 같은 설정 · 만든 목소리를 JSON 파일 하나로 만들고, 그 파일을 불러와 되돌립니다. 봇마다 쌓이는 기록(등장인물 · 삽화 기록 · 애드 에셋 목록 · 목소리 표 · 대화 기록)과 그림 파일은 담지 않습니다.',
+                '불러오면 파일에 있는 설정을 파일 값으로 바꿉니다. 파일에 없는 설정은 지우지 않고, 봇마다 켠 그림 숨기기는 지금 값을 그대로 둡니다. 예전 백업 파일에 봇별 기록이 들어 있어도 불러오지 않습니다. 그림을 그리거나 분석 · 애드 에셋 · 목소리 작업을 하는 중에는 불러오지 않습니다. NAI API 키 · 구글 서비스 계정 키 · 다른 플러그인의 저장값은 담지 않습니다.',
                 h('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end' },
                     h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: () => void bkExport() }, bk.busy === 'make' ? '만드는 중…' : '백업 파일 만들기'),
                     h('button', { class: 'ix-btn sm', type: 'button', disabled: !!bk.busy, onclick: bkPick }, bk.busy === 'load' ? '불러오는 중…' : '백업 파일 불러오기')),
@@ -8804,7 +8914,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     const panSel = () => st.set.panelBtn ? '.nc-panbtn' : '';
     const inRect = (r, e) => !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
     const HOVER_SEL = '.nc-panbtn:hover, .x-risu-nc-gen:hover, .x-risu-nc-act-b:hover, .x-risu-nc-fig:hover';
-    const hoverKey = cls => String(cls ?? '').split(/\s+/).filter(c => c && c !== 'x-risu-nc-on' && c !== 'x-risu-nc-armed').sort().join(' ');
+    const HOVER_STATE_RE = /^(x-risu-)?nc-(s-[\w-]+|uv|on|armed|u-on|u-off)$/;
+    const hoverKey = cls => String(cls ?? '').split(/\s+/).filter(c => c && !HOVER_STATE_RE.test(c)).sort().join(' ');
     async function hoverCheck(d, event) {
         const ours = (async () => {
             const seen = new Set();
@@ -9279,7 +9390,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const msg = chat?.message?.[idx];
             if (msg?.role !== 'char') return;
             const key = msgKeyOf(msg, idx, chat.message);
-            if (queued.has(key)) return;
+            if (queuedOn(ci, chi, key)) return;
             enqueue({ ci, chi, idx, key, mode: 'new', label: '씬 재구성 중', alertFail: true }).catch(() => {});
         } catch (error) {
             console.error(LOG, 'gen click', error);
@@ -9394,7 +9505,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             if (idx < 0) return;
             const key = msgKeyOf(list[idx], idx, list);
             if (act !== 'del' && armed.name) disarm();
-            if (queued.has(key)) { await api.alert?.('이 답변은 지금 그리는 중입니다.'); return; }
+            if (queuedOn(ci, chi, key)) { await api.alert?.('이 답변은 지금 그리는 중입니다.'); return; }
             if (act === 'undo') { await undoImage(ci, chi, char, key, idx, low); return; }
             if (act === 'del') {
                 if (armed.name === low && !await el.hasClass(ARMED).catch(() => false)) disarm();
@@ -9444,7 +9555,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const chat = await api.getChatFromIndex(ci, chi);
         if (!chat) return;
         if (chat.isStreaming) { await api.alert?.('답변이 나오는 중입니다. 끝난 뒤에 다시 눌러 주세요.'); return; }
-        if (st.busy?.key === key || queued.has(key)) { await api.alert?.('이 답변을 그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.'); return; }
+        if (drawingOn(ci, chi, key)) { await api.alert?.('이 답변을 그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.'); return; }
         if (findMsg(chat, key, idx) < 0) return;
         const now = await api.getChatFromIndex(ci, chi);
         if (!now || now.isStreaming || chatKeyOf(now, chi) !== chatKeyOf(chat, chi)) { await api.alert?.('채팅이 바뀌는 중이라 지우지 않았습니다. 잠시 뒤 다시 눌러 주세요.'); return; }
@@ -9453,14 +9564,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const m = now.message[i];
         m.data = String(m.data ?? '').replace(TAG_RE, tag => tag.toLowerCase().includes(`::${low}}}`) ? '' : tag).replace(/\s+$/, '');
         await api.setChatToIndex(ci, chi, now);
-        if (char0.type !== 'group') {
-            const char = await api.getCharacterFromIndex(ci);
-            if (char?.chaId === char0.chaId && !ncUsed(char).has(low)) {
-                const before = (char.additionalAssets ?? []).length;
-                char.additionalAssets = (char.additionalAssets ?? []).filter(a => String(a?.[0] ?? '').toLowerCase() !== low);
-                if (char.additionalAssets.length !== before) await api.setCharacterToIndex(ci, char);
-            }
-        }
         const recs = await loadRecs(char0.chaId);
         const rk = recKeyIn(recs, now, key, i, chi) || recIdOf(chatKeyOf(now, chi), key);
         const rec = recs[rk];
@@ -9473,7 +9576,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             for (const x of [...gone, ...held]) dropThumb(x.path);
             await saveRecs(char0.chaId, recs);
         }
-        if (held.length && char0.type !== 'group') dropUnused(ci, char0.chaId, held.map(x => x.name), 0);
+        if (char0.type !== 'group') dropUnused(ci, char0.chaId, [low, ...held.map(x => x.name)], 0);
         if (ui.root?.isConnected) await refreshView().catch(() => {});
         render();
         if (st.set.undo) void rootQueue(paintUndo);
@@ -9484,7 +9587,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const chat = await api.getChatFromIndex(ci, chi);
         if (!chat) return;
         if (chat.isStreaming) { await api.alert?.('답변이 나오는 중입니다. 끝난 뒤에 다시 눌러 주세요.'); return; }
-        if (st.busy?.key === key || queued.has(key)) { await api.alert?.('이 답변을 그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.'); return; }
+        if (drawingOn(ci, chi, key)) { await api.alert?.('이 답변을 그리는 중입니다. 다 그린 뒤에 다시 눌러 주세요.'); return; }
         const i0 = findMsg(chat, key, idx);
         if (i0 < 0) return;
         const recs = await loadRecs(char0.chaId);
@@ -10377,8 +10480,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             let ext = isWebp(bytes) ? 'webp' : 'png';
             if (st.set.acWebp !== false && ext === 'png') { const w = await toWebp(bytes); if (w) { bytes = w; ext = 'webp'; } }
             const path = await api.saveAsset(bytes);
-            if (ref && refN) a.refOf[t.name] = refN; else delete a.refOf[t.name];
-            await acCommit(a, run, t, path, ext);
+            await acCommit(a, run, t, path, ext, ref && refN ? refN : '');
             if (run.first) { run.first = false; void setArtistThumb(run.p.id, bytes, path); }
             acs.fail.delete(t.name);
             acs.times.push((Date.now() - run.curAt) / 1000);
@@ -10430,7 +10532,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         renderNow();
     }
 
-    async function acCommit(a, run, t, path, ext) {
+    async function acCommit(a, run, t, path, ext, refN = '') {
         let char = await api.getCharacterFromIndex(run.ci);
         if (char?.chaId !== run.chaId) {
             const ci = await api.getCurrentCharacterIndex();
@@ -10455,6 +10557,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         a.made = made;
         for (const [k, n] of Object.entries(a.refName)) if (drop.has(n) && n !== t.name) delete a.refName[k];
         for (const [k, n] of Object.entries(a.refOf)) if ((drop.has(k) || drop.has(n)) && k !== t.name) delete a.refOf[k];
+        if (refN) a.refOf[t.name] = refN; else delete a.refOf[t.name];
         if (t.emo.special && !a.spKeys.includes(t.emo.key)) a.spKeys = [...a.spKeys, t.emo.key].slice(-50);
         for (const p of gone) if (p !== path) dropThumb(p);
         saveAst(run.chaId);
@@ -12183,6 +12286,7 @@ Rules:
     }
     async function checkKey() {
         try { const sa = await account(); keyKnown = !!sa; } catch { keyKnown = true; }
+        wantRoot();
         return keyKnown;
     }
 
@@ -12260,6 +12364,7 @@ Rules:
         const useLib = voicesOf(r).some(isLib);
         for (let attempt = 0; ; attempt++) {
             if (job?.stop) throw stopError();
+            if (attempt) headers.Authorization = 'Bearer ' + (await accessToken()).token;
             const [res, j] = await timed((async () => {
                 const r = await api.nativeFetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
                 return [r, await r.json().catch(() => null)];
@@ -12495,9 +12600,16 @@ KNOWN SPEAKERS: ${knownOf(bot)}
         }
         return { labels: out, styles, list: items };
     }
-    function ttsOf(data) {
-        const m = [...String(data ?? '').matchAll(/<nc-tts>([\s\S]*?)(?:<\/nc-tts>|$)/gi)].pop();
-        return m ? parseLabels(m[1]) : null;
+    function ttsOf(body) {
+        return body ? parseLabels(body) : null;
+    }
+    async function ttsBlockOf(job) {
+        try {
+            const chat = await api.getChatFromIndex(job.ci, job.chi);
+            const list = chat?.message ?? [];
+            if (list[job.idx] && (list[job.idx].chatId ?? null) === (job.msg?.chatId ?? null)) return (await blocksOf(job.chaId, chat, job.idx)).tts;
+        } catch (error) { console.warn(LOG, 'tts block', error); }
+        return blockBody(job.msg?.data, 'nc-tts');
     }
     const normQ = s => String(s ?? '').replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
     function alignLabels(parts, list) {
@@ -12598,7 +12710,7 @@ Rules:
             paintSoon(true);
             try { ({ labels, styles } = await askLabels(parts, count, bot, botName, job.botNote, regenMode())); } catch (error) { console.warn(LOG, 'label', error); }
         } else if (count) {
-            const got = ttsOf(job.msg?.data);
+            const got = ttsOf(await ttsBlockOf(job));
             if (got) { labels = alignLabels(parts, got.list); styles = got.styles; }
         }
         for (const x of labels.values()) x.speaker = canonName(bot, x.speaker);
@@ -13576,7 +13688,8 @@ ${art}
             if (parts.length) parts.push(silence(Number(st.set.gap) || 0));
             parts.push(await synth({ voice, text: c, prompt, turns: [] }, job));
         }
-        if (!job?.stop) talkRateAdd((Date.now() - t0) / 1000, body.length);
+        if (job?.stop) throw stopError();
+        talkRateAdd((Date.now() - t0) / 1000, body.length);
         const wav = wavOf(parts);
         await putAudio(k, chaId, wav).catch(error => console.warn(LOG, 'talk cache', error));
         return b64(wav);
@@ -14065,12 +14178,19 @@ ${art}
             return;
         }
     }
+    const revoicing = new Set();
     async function talkRevoice(v, name, m) {
         const T = ui.talk;
+        if (revoicing.has(m.at)) return;
         if (T.voicing.has(m.at)) { talkQuiet(); talkMark(); talkPaint(); return; }
         if (T.playing === m.at) talkQuiet();
-        await dropAudio(talkHash(v.chaId, name, m.t, m.tone));
-        talkMark();
+        revoicing.add(m.at);
+        try {
+            await dropAudio(talkHash(v.chaId, name, m.t, m.tone));
+            talkMark();
+        } finally {
+            revoicing.delete(m.at);
+        }
         await talkReplay(v.chaId, name, m.t, m.at, m.tone);
     }
     const RECAST_SYSTEM = `You recast the text-to-speech voice of one character in a roleplay story.
@@ -14967,7 +15087,7 @@ Rules:
             if (j) {
                 if (j === busy) j.stop = true;
                 if (cast?.job === j) cast.cancel();
-                else jobs.splice(jobs.indexOf(j), 1);
+                else if (j !== busy) { const at = jobs.indexOf(j); if (at >= 0) jobs.splice(at, 1); }
                 paintSoon(true);
                 return;
             }
@@ -16415,10 +16535,16 @@ Rules:
         for (const j of [busy, ...jobs, ...ui.talk.voices]) if (j) j.stop = true;
         jobs.length = 0;
         try { talkStop(); } catch {}
+        const rootStop = rootQueue(stopRoot);
+        const listenStop = (async () => {
+            if (!listenOn) return;
+            listenOn = false;
+            try { await api.removeRisuChatListener?.('output', onChatOutput); } catch {}
+        })();
         await Promise.race([talkLoreFlush(), sleep(3000)]).catch(() => {});
         loreShut = true;
         try { doc.getElementById('nc-voice-style')?.remove(); } catch {}
-        await rootQueue(stopRoot);
+        await Promise.all([rootStop, listenStop]);
     }
     const WIZ_CSS = `
 .gt{--sky:#2b95f0;--skl:#e9f5ff;--ink2:#1f2d45;--mut:#6d7c95;--ln:#dbe5f0;--co:#ff6b5e;--ok:#14b386;--sun:#ffc93c}
@@ -16800,7 +16926,8 @@ Rules:
         myCount: () => myList().length,
         setupOk: () => setupOf() >= SETUP.length,
         ttsBrief,
-        reload: async () => { await loadSet(); await loadMy(); st.bots.clear(); talks.clear(); } };
+        reload: async () => { await loadSet(); await loadMy(); st.bots.clear(); talks.clear(); },
+        busy: () => !!busy || jobs.length > 0 || !!cast || !!ui.talk.busy };
     }
 
     await loadPrefs();
