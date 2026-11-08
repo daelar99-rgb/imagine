@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.69.2
+//@display-name 💠 이매진 v5.69.3
 //@api 3.0
-//@version 5.69.2
+//@version 5.69.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.69.2';
+    const VERSION = '5.69.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -52,8 +52,7 @@
     };
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
-    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border, tilted koma box';
-    const PANEL_TAG = 'dynamic koma';
+    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border';
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -1288,17 +1287,17 @@ ${TAG_STYLE}`;
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
     const PANEL_CELL_RULE = `  - cell: where this panel sits on the page, as ONE cell code on a 5x5 grid laid over the whole image: the center of the panel's frame. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. 2 panels on a portrait page "C2" and "C4" (stacked), on a landscape page "B3" and "D3" (side by side); 3 panels "C1", "B4", "D4" (one wide panel on top, two below) or "C1", "C3", "C5" (stacked); 4 panels "B2", "D2", "B4", "D4" (2x2) or "C1", "B3", "D3", "C5". The app places the panel's characters and action at that spot of the page.`;
     const FRAME_TAGS = {
-        wide: 'wide panel',
-        tall: 'tall panel',
-        small: 'small panel',
-        slanted: 'slanted panel border',
-        broken: 'broken panel border',
-        jagged: 'jagged panel border',
-        borderless: 'borderless panel',
-        inset: 'inset panel',
+        wide: 'wide koma',
+        tall: 'tall koma',
+        small: 'small koma',
+        tilted: 'tilted koma box',
+        broken: 'broken koma border',
+        jagged: 'jagged koma border',
+        borderless: 'borderless koma',
+        inset: 'inset koma',
         burst: 'outside border',
     };
-    const FRAME_ALIAS = { horizontal: 'wide', vertical: 'tall', narrow: 'tall', diagonal: 'slanted', tilted: 'slanted', asymmetric: 'slanted', cracked: 'broken', shattered: 'broken', torn: 'broken', spiky: 'jagged', zigzag: 'jagged', frameless: 'borderless', overlay: 'inset', overlapping: 'inset', popout: 'burst', breaking: 'burst' };
+    const FRAME_ALIAS = { horizontal: 'wide', vertical: 'tall', narrow: 'tall', diagonal: 'tilted', slanted: 'tilted', asymmetric: 'tilted', cracked: 'broken', shattered: 'broken', torn: 'broken', spiky: 'jagged', zigzag: 'jagged', frameless: 'borderless', overlay: 'inset', overlapping: 'inset', popout: 'burst', breaking: 'burst' };
     function frameTags(v, emph) {
         const keys = [];
         for (const w of String(v ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean)) {
@@ -2203,7 +2202,7 @@ Rules
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam0 = joinTags(noText(dropNone(pn.camera)));
-            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, framed ? frameTags(pn.frame, emph) : '', src.length >= 2 ? PANEL_TAG : '');
+            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, framed ? frameTags(pn.frame, emph) : '');
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
@@ -6749,7 +6748,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             /^(heterochromia|ahoge|bangs|sidelocks|ponytail|twintails|braid|hair bun|bob cut)$/,
         ];
         const HAIR_EYE_RE = /^(?!detail(ed)? |beautiful detail(ed)? )[a-z -]+ (hair|eyes)$/;
-        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', 'tilted koma box', 'dynamic koma', '4koma', '2koma', 'speech bubble', 'tailless speech bubble', 'head next to speech bubble','english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
+        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', 'tilted koma box', '4koma', '2koma', 'speech bubble', 'tailless speech bubble', 'head next to speech bubble','english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
         const norm = s => s.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
         const coreOf = raw => norm(raw.replace(/^[{[]+/, '').replace(/[}\]]+$/, ''));
         const isSubject = c => SUBJECT_RE.some(r => r.test(c)) || HAIR_EYE_RE.test(c);
