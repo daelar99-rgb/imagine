@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.70.2
+//@display-name 💠 이매진 v5.71.0
 //@api 3.0
-//@version 5.70.2
+//@version 5.71.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.70.2';
+    const VERSION = '5.71.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2282,7 +2282,7 @@ Rules
                 if (out.some(x => x.key === key)) continue;
                 if (!people.has(key)) {
                     if (people.size >= MAX_SLOTS) continue;
-                    people.set(key, { key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other', label: tidy(e?.canon) || `char${people.size + 1}`, tags: [], prose: [], says: [], centers: [] });
+                    people.set(key, { key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other', label: tidy(e?.canon) || `char${people.size + 1}`, centers: [] });
                 }
                 out.push(people.get(key));
             }
@@ -2291,44 +2291,49 @@ Rules
         const whos = src.map(whoOf);
         const refs = [...people.values()].flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, x.label])).sort((a, b) => b[0].length - a[0].length);
         const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
+        const plusOf = t => tagsOf(t).join('+');
+        const andOf = t => tagsOf(t).join(' and ');
         const komas = [], ucs = [];
         src.forEach((pn, i) => {
             const who = whos[i], spot = spots[i], emph = !!spot.emph;
             const [first, ...rest] = tagsOf(frameTags(pn.frame, emph));
             const cam0 = joinTags(noText(dropNone(pn.camera)));
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
-            const parts = [`${komaPosOf(spot)} ${first || 'koma'}`, rest, emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, CJK_RE.test(layRaw) ? '' : refOf(layRaw)];
+            const segs = [...rest, emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', plusOf(cam0), CJK_RE.test(layRaw) ? '' : plusOf(refOf(layRaw))];
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
+            let say = '';
             if (!who.length) {
-                parts.push(refOf(noText(rawActs[0] ?? '')), line ? `Text: ${line}` : '');
-                komas.push(joinTags(parts));
+                segs.push(plusOf(refOf(noText(rawActs[0] ?? ''))));
+                if (line) say = `Text: ${line}`;
             } else {
-                komas.push(joinTags(parts));
                 const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
                 const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
                 const sayAt = line ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-                who.forEach((x, k) => {
-                    const [tg, prose] = splitAct(refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
-                    x.tags.push(tg);
-                    if (prose) x.prose.push(prose);
-                    if (k === sayAt) x.says.push(`head next to speech bubble, speech bubble with Text: ${line} `);
-                    x.centers.push({ x: spot.x, y: spot.y });
+                const acts = who.map((x, k) => {
+                    const act = andOf(refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
+                    const head = act.toLowerCase().startsWith(x.label.toLowerCase()) ? '' : `${x.label} `;
+                    return act ? `${head}${act}` : '';
                 });
+                const order = who.map((_, k) => k).filter(k => k !== sayAt).concat(sayAt >= 0 ? [sayAt] : []);
+                segs.push(...order.map(k => acts[k]));
+                if (sayAt >= 0) say = `${who[sayAt].label} head next to speech bubble+speech bubble with Text: ${line}`;
+                who.forEach(x => x.centers.push({ x: spot.x, y: spot.y }));
             }
+            const body = [...segs.map(tidy).filter(Boolean), say].filter(Boolean).join('+');
+            komas.push({ text: `${komaPosOf(spot)} ${first || 'koma'}${body ? `: ${body}` : ''}`, say: !!say });
             if (tidy(pn.uc)) ucs.push(tidy(pn.uc));
         });
         const slots = [...people.values()].filter(x => x.centers.length).map(x => {
             const ident = x.e ? identTags(x.type, x.e.look, k => wearOf(x.e, state, k), k => noneOf(x.e, state, k)) : [x.type === 'other' ? x.name : x.type];
             if (tidy(x.e?.canon)) ident.unshift(tidy(x.e.canon), canonBare(x.e.canon));
-            const body = [mergeTags(ident, x.tags).join(', '), ...x.prose].filter(Boolean).join(', ');
-            return { prompt: x.says.reduce((s, t) => `${s}, ${t}`, body), uc: '', x: x.centers[0].x, y: x.centers[0].y, centers: x.centers, kind: 'char', type: x.type, name: x.name };
+            return { prompt: mergeTags(ident).join(', '), uc: '', x: x.centers[0].x, y: x.centers[0].y, centers: x.centers, kind: 'char', type: x.type, name: x.name };
         });
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const kinds = [...people.values()].filter(x => x.centers.length).map(x => x.e ? x.type : x.name);
         return {
-            base: joinTags(kinds.length ? kindCount(kinds) : 'no humans', dropTags(p.pos, ['sound effects']), COMIC_TAGS, dropNone(img.scene), `${src.length} koma`, komas),
+            base: tidy(`${joinTags(kinds.length ? kindCount(kinds) : 'no humans', dropTags(p.pos, ['sound effects']), COMIC_TAGS, dropNone(img.scene), `${src.length} koma`)}, ${komas.map(k => `${k.text}${k.say ? ' ' : ', '}`).join('')}`),
             neg: joinTags(neg, img.uc, ucs, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: clampInt(src.length, 2, 5, 2),
             useCoords: slots.length >= 1, komaCoords: true,
