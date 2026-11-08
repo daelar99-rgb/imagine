@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.97.0
+//@display-name 💠 이매진 v5.98.0
 //@api 3.0
-//@version 5.97.0
+//@version 5.98.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.97.0';
+    const VERSION = '5.98.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -354,33 +354,40 @@
         : wide ? ['B3', 'D3'] : ['C2', 'C4'];
     const laneOf = (xy, G, wide) => wide ? axisAt(xy.x, G.cols) : axisAt(xy.y, G.rows);
     const lanesApart = (list, G, wide) => new Set(list.map(xy => laneOf(xy, G, wide))).size === list.length;
-    function panelDefaults(pslots, wide, G = GRID5) {
+    const onEdge = (xy, G) => { const c = axisAt(xy.x, G.cols), r = axisAt(xy.y, G.rows); return c === 0 || c === G.cols - 1 || r === 0 || r === G.rows - 1; };
+    function panelDefaults(pslots, wide, G = GRID5, fixed = new Set()) {
         const story = pslots.filter(sl => !sl.emph);
-        const cells = story.length === 1 ? [centerCell(G)] : panelCellsOf(story.length, wide).map(c => cellIn(c, G));
-        story.forEach((sl, k) => Object.assign(sl, xyOfCell(cells[k], G)));
-        const used = new Set(story.map(sl => `${sl.x},${sl.y}`));
-        const rowsUsed = new Set(story.map(sl => laneOf(sl, G, wide)));
+        if (!story.every(sl => fixed.has(sl))) {
+            const cells = story.length === 1 ? [centerCell(G)] : panelCellsOf(story.length, wide).map(c => cellIn(c, G));
+            story.forEach((sl, k) => Object.assign(sl, xyOfCell(cells[k], G)));
+        }
+        const used = new Set(pslots.filter(sl => !sl.emph || fixed.has(sl)).map(sl => `${sl.x},${sl.y}`));
         const cellXY = (c, r) => ({ x: r3((Math.min(G.cols - 1, Math.max(0, c)) + 0.5) / G.cols), y: r3((Math.min(G.rows - 1, Math.max(0, r)) + 0.5) / G.rows) });
+        const free = xy => !used.has(`${xy.x},${xy.y}`);
+        const all = Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => cellXY(c, r))).flat();
         let ej = 0;
         pslots.forEach(sl => {
             if (!sl.emph) return;
-            const base = story[Math.min(ej++, story.length - 1)] ?? pslots[0];
+            const k = ej++;
+            if (fixed.has(sl)) return;
+            const base = story[Math.min(k, story.length - 1)] ?? pslots[0];
             const bc = axisAt(base.x, G.cols), br = axisAt(base.y, G.rows);
-            const free = xy => !used.has(`${xy.x},${xy.y}`) && !rowsUsed.has(laneOf(xy, G, wide));
-            const all = Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => cellXY(c, r))).flat();
+            const n = wide ? G.rows : G.cols, pos = wide ? br : bc;
+            const at = i => wide ? cellXY(bc, i) : cellXY(i, br);
+            const side = k % 2 === 0 ? 1 : -1;
+            const seq = [];
+            for (const sd of [side, -side]) for (let i = sd > 0 ? n - 1 : 0; sd > 0 ? i > pos : i < pos; i -= sd) seq.push(i);
             const near = xy => (axisAt(xy.x, G.cols) - bc) ** 2 + (axisAt(xy.y, G.rows) - br) ** 2;
-            const at = [[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([dx, dy]) => cellXY(bc + dx, br + dy)).find(free)
-                ?? all.filter(free).sort((a, b) => near(a) - near(b))[0]
-                ?? all.find(xy => !used.has(`${xy.x},${xy.y}`));
-            Object.assign(sl, at);
-            used.add(`${at.x},${at.y}`);
-            rowsUsed.add(laneOf(at, G, wide));
+            const got = seq.map(at).find(free) ?? all.filter(free).sort((a, b) => near(a) - near(b))[0] ?? cellXY(bc, br);
+            Object.assign(sl, got);
+            used.add(`${got.x},${got.y}`);
         });
     }
     const SPREAD_STEPS = [[-1, 0], [1, 0], [0, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
     function spreadKomaSlots(komas, G = GRID5, wide = false) {
         const used = new Set();
-        const d2 = (a, b) => Math.abs(laneOf(a, G, wide) - laneOf(b, G, wide));
+        const along = (a, b) => wide ? Math.abs(axisAt(a.y, G.rows) - axisAt(b.y, G.rows)) : Math.abs(axisAt(a.x, G.cols) - axisAt(b.x, G.cols));
+        const d2 = (a, b, same) => same ? along(a, b) : Math.abs(laneOf(a, G, wide) - laneOf(b, G, wide));
         for (const km of komas) {
             if (km.slots.length < 2) { used.add(`${km.x},${km.y}`); continue; }
             const others = komas.filter(o => o !== km);
@@ -390,7 +397,8 @@
             const cand = [...SPREAD_STEPS.map(([dx, dy]) => [kc + dx, kr + dy]), ...far]
                 .filter(([c, r]) => c >= 0 && c < G.cols && r >= 0 && r < G.rows)
                 .map(([c, r]) => ({ x: r3((c + 0.5) / G.cols), y: r3((r + 0.5) / G.rows) }))
-                .filter(xy => others.every(o => d2(xy, km) < d2(xy, o) - 1e-9));
+                .filter(xy => km.emph || !onEdge(xy, G))
+                .filter(xy => others.every(o => { const same = laneOf(o, G, wide) === laneOf(km, G, wide); return d2(xy, km, same) < d2(xy, o, same) - 1e-9; }));
             const mine = [];
             for (const sl of km.slots) {
                 const at = cand.find(xy => !used.has(`${xy.x},${xy.y}`))
@@ -1354,7 +1362,7 @@ ${TAG_STYLE}`;
     const cellRuleOne = G => { const c = k => cellIn(k, G);
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
     const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
-        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left. Every panel gets a different column letter: no two panels share a column, so each panel sits at least one column left or right of every other panel' : 'earlier panels sit higher. Every panel gets a different row number: no two panels share a row, so each panel sits at least one row above or below every other panel'}. Pick a layout that fits the canvas and the beats, e.g. ${wide
+        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left. The 2 story panels get different column letters: each sits at least one column left or right of the other' : 'earlier panels sit higher. The 2 story panels get different row numbers: each sits at least one row above or below the other'}. Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
             ? `2 story panels ${q(['B3', 'D3'])} (side by side) or ${q(['B2', 'D4'])} (left high, right low)`
             : `2 story panels ${q(['C2', 'C4'])} (stacked) or ${q(['B2', 'D4'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
@@ -1392,6 +1400,7 @@ ${TAG_STYLE}`;
             return parts.length ? `${komaPosOf(x, y)} koma: ${parts.join(TAG_JOIN)}` : `${komaPosOf(x, y)} koma`;
         }).join(', ');
     }
+    const SHOT_CLASH = /^(?:(?:extreme |medium )?close[- ]?up(?: shot)?|medium shot|cowboy shot|upper body|portrait|bust(?: shot)?|wide shot)$/;
     const EMPH_VIEWS = ['cross-section', 'three-quarter view', 'from above', 'from below', 'from side', 'from behind', 'pov', 'dutch angle'];
     function viewOf(v) {
         const t = tidy(v).toLowerCase().replace(/_/g, ' ');
@@ -1400,7 +1409,7 @@ ${TAG_STYLE}`;
         return EMPH_VIEWS.find(x => t.includes(x)) ?? (/cross ?section|x-?ray/.test(t) ? 'cross-section' : /three quarter|3\/4/.test(t) ? 'three-quarter view' : '');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel, on a row (a column on a landscape page) no other panel uses. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell in the same row (the same column on a landscape page) as that story panel, toward the page edge. Only emph panels may sit on the outer ring of the grid. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
   - view: emph entries only ("" on story panels). One tag for how the detail is seen, fitted to the situation: ${EMPH_VIEWS.join(', ')}.`;
     const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
@@ -2309,7 +2318,9 @@ Rules
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam0 = joinTags(noText(dropNone(pn.camera)));
             const view = emph ? viewOf(pn.view) : '';
-            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', view && !tagsOf(cam0).some(t => t.toLowerCase() === view) ? view : '', cam0);
+            const tallWide = !emph && src.length >= 2 && h > w;
+            const camIn = tallWide ? joinTags(tagsOf(cam0).filter(t => !SHOT_CLASH.test(tagCore(t)))) : cam0;
+            const cam = joinTags(tallWide ? 'wide shot' : '', emph && !/close-up/i.test(camIn) ? 'extreme close-up' : '', view && !tagsOf(camIn).some(t => t.toLowerCase() === view) ? view : '', camIn);
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
@@ -2378,9 +2389,21 @@ Rules
         const panelCoords = komas.length >= 2 && comicCoordsNow();
         if (panelCoords) {
             const given = komas.map(km => xyOfCell(km.cell, G));
-            const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length && lanesApart(given, G, w > h);
-            if (ok) komas.forEach((km, k) => Object.assign(km, given[k]));
-            else panelDefaults(komas, w > h, G);
+            const wide = w > h, key = xy => `${xy.x},${xy.y}`;
+            const sk = komas.map((km, k) => k).filter(k => !komas[k].emph);
+            const fixed = new Set();
+            if (sk.every(k => given[k] && !onEdge(given[k], G)) && lanesApart(sk.map(k => given[k]), G, wide)) {
+                sk.forEach(k => { Object.assign(komas[k], given[k]); fixed.add(komas[k]); });
+                const seen = new Set(sk.map(k => key(given[k])));
+                let ej = 0;
+                komas.forEach((km, k) => {
+                    if (!km.emph) return;
+                    const base = given[sk[Math.min(ej++, sk.length - 1)]], xy = given[k];
+                    if (!xy || seen.has(key(xy)) || laneOf(xy, G, wide) !== laneOf(base, G, wide)) return;
+                    Object.assign(km, xy); fixed.add(km); seen.add(key(xy));
+                });
+            }
+            panelDefaults(komas, wide, G, fixed);
         }
         const single = komas.length === 1;
         komas.forEach(km => { for (const sl of km.slots) { sl.x = km.x; sl.y = km.y; } });
@@ -2391,7 +2414,7 @@ Rules
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
             base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}panels, manga, panel borders::, 0.5::diagonal border, black border::` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`),
-            neg: ((t) => single ? t : joinTags(String(t).split(',').filter(s => !['white border', 'thick border'].includes(tagCore(s))).join(','), 'white border', '0.5::thick border::'))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
+            neg: ((t) => single ? t : joinTags(String(t).split(',').filter(s => !['white border', 'thick border'].includes(tagCore(s))).join(','), 'white border', 'thick border'))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
             slots, w, h, panels: komaN,
             ...(panelCoords ? { grid: [G.cols, G.rows] } : {}),
             useCoords: panelCoords, panelCoords,
