@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.84.0
+//@display-name 💠 이매진 v5.85.0
 //@api 3.0
-//@version 5.84.0
+//@version 5.85.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.84.0';
+    const VERSION = '5.85.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2228,7 +2228,7 @@ Rules
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam0 = joinTags(noText(dropNone(pn.camera)));
-            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, framed ? frameTags(pn.frame, emph) : '');
+            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0);
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
@@ -2282,19 +2282,12 @@ Rules
             else panelDefaults(komas, w > h);
         }
         const single = komas.length === 1;
-        const fallback = komas.length >= 2 && !panelCoords ? panelCellsOf(komas.length, w > h).map(xyOfCell) : null;
-        const spots = komas.map((km, k) => ({ ...km, ...(fallback?.[k] ?? {}) }));
-        komas.forEach((km, k) => {
-            for (const sl of km.slots) {
-                sl.x = km.x; sl.y = km.y;
-                if (!single && !panelCoords) sl.prompt = `${komaPosOf(spots[k].x, spots[k].y)} koma,\n${sl.prompt}`;
-            }
-        });
+        komas.forEach(km => { for (const sl of km.slots) { sl.x = km.x; sl.y = km.y; } });
         let neg = removeTokens(p.neg, ['2koma', '3koma', '4koma', '5koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, single ? '' : `${komaN}koma`, single ? '' : BORDER_TAGS[emphOf({ emph: img.diagonal }) ? 'diagonal' : 'straight']),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, single ? '' : BORDER_TAGS[emphOf({ emph: img.diagonal }) ? 'diagonal' : 'straight']),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: komaN,
             useCoords: panelCoords, panelCoords,
