@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.91.0
+//@display-name 💠 이매진 v5.92.0
 //@api 3.0
-//@version 5.91.0
+//@version 5.92.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.91.0';
+    const VERSION = '5.92.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -369,7 +369,8 @@
     const KOMA_MAX = STORY_MAX + 1;
     const slotNo = (sl, k) => sl?.kind === 'panel' && Number.isInteger(sl.koma) ? sl.koma + 1 : k + 1;
     const emphOf = pn => pn?.emph === true || String(pn?.emph).toLowerCase() === 'true';
-    const SLOT_MAX = 6;
+    const slotCapOf = model => /^nai-diffusion-5/.test(String(model ?? '')) ? 32 : 6;
+    const slotMaxNow = () => slotCapOf(talkOv ? talkNaiModelOf() : st.set.model);
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -2305,7 +2306,7 @@ Rules
                 slots: made,
             });
         }
-        let room = SLOT_MAX - komas.length;
+        let room = slotMaxNow() - komas.length;
         for (const km of komas) {
             km.slots = km.slots.filter(sl => sl.lead || room-- > 0);
             for (const sl of km.slots) { delete sl.lead; slots.push(sl); }
@@ -2522,6 +2523,8 @@ Rules
     const spaceNum = t => typeof t === 'string' ? t.replace(/(?<=[A-Za-z][^,+:\n]*\d)::/g, ' ::') : t;
     function naiBody(req, seed, s = st.set) {
         req = { ...req, base: spaceNum(req.base), neg: spaceNum(req.neg), slots: (req.slots ?? []).map(sl => ({ ...sl, prompt: spaceNum(sl.prompt), uc: spaceNum(sl.uc) })) };
+        const cap = slotCapOf(s.model);
+        if (req.slots.length > cap) { console.log(LOG, 'slots', `${req.slots.length} → ${cap} (${s.model})`); req.slots = req.slots.slice(0, cap); }
         const coords = coordsOn(req);
         const at = sl => coords && ((sl.kind ?? 'char') === 'char' || sl.kind === 'panel') ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: 0.5, y: 0.5 };
         const slots = req.slots ?? [];
