@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.80.0
+//@display-name 💠 이매진 v5.81.0
 //@api 3.0
-//@version 5.80.0
+//@version 5.81.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.80.0';
+    const VERSION = '5.81.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -52,7 +52,8 @@
     };
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
-    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, diagonal black border';
+    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga';
+    const BORDER_TAGS = { straight: 'black border', diagonal: 'diagonal black border' };
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -1255,6 +1256,7 @@ ${TAG_STYLE}`;
   - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: first a few Danbooru tags for the expression (e.g. "worried, open mouth"), then 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". A character who speaks here gets "open mouth" or a speaking expression. No hair color, eye color, body type or clothing tags: the app adds the looks from CAST.
   - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
   - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @key" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
+- diagonal: true when the page's panel borders should slant (action, a chase, a shock, tension snapping); false for calm or dialogue pages, which get straight borders.
 - Never use number words for panels (first, second, top panel...): the order of the panels array is the reading order.`,
     };
 
@@ -1263,9 +1265,9 @@ ${TAG_STYLE}`;
         action: 'action, motion lines, motion blur',
         romance: 'romance, soft lighting',
         comedy: 'comedy, emphasis lines',
-        horror: 'horror (theme), ominous, dark, shadow',
+        horror: 'horror (theme), ominous, dark',
         sad: 'melancholy, dim lighting',
-        suspense: 'suspense, dramatic lighting, shadow',
+        suspense: 'suspense, dramatic lighting',
         daily: 'slice of life, warm lighting',
         nsfw: '2::nsfw::',
     };
@@ -1409,7 +1411,7 @@ ${TAG_STYLE}`;
             : `- panels: 2 to 5 entries in total, chosen per image${comicCoordsNow() ? ' (an emph entry counts toward the 5, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3-5 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2-3 and avoid 4-5.`}${n > 1 ? ' Neighbouring images never have the same number of panels (e.g. 3, then 2, then 4).' : ''}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
-            : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2","frame":"tall","emph":false,' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2","frame":"tall","emph":false,' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -2291,7 +2293,7 @@ Rules
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, layout),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, single ? '' : BORDER_TAGS[emphOf({ emph: img.diagonal }) ? 'diagonal' : 'straight'], layout),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2),
             useCoords: panelCoords, panelCoords,
