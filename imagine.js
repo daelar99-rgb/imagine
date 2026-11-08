@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.93.0
+//@display-name 💠 이매진 v5.94.0
 //@api 3.0
-//@version 5.93.0
+//@version 5.94.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.93.0';
+    const VERSION = '5.94.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -315,13 +315,34 @@
         if (!Number.isFinite(n)) return 0.5;
         return [0.1, 0.3, 0.5, 0.7, 0.9].reduce((a, b) => Math.abs(b - n) < Math.abs(a - n) ? b : a);
     };
-    const CELL_COLS = 'ABCDE';
-    const CELL_RE = /^\s*([A-E])\s*([1-5])\s*$/i;
-    const xyOfCell = cell => {
+    const CELL_COLS = 'ABCDEFGHI';
+    const CELL_RE = /^\s*([A-I])[-\s]*([1-9])\s*$/i;
+    const GRID5 = { cols: 5, rows: 5 };
+    const freeformOf = model => /^nai-diffusion-5/.test(String(model ?? ''));
+    const naiModelNow = () => talkOv ? talkNaiModelOf() : st.set.model;
+    function gridOf(w, h, model) {
+        w = Number(w); h = Number(h);
+        if (!freeformOf(model) || !(w > 0 && h > 0) || w === h) return { ...GRID5 };
+        const raw = 5 * Math.max(w, h) / Math.min(w, h);
+        let n = Math.round(raw);
+        if (n % 2 === 0) n += raw >= n ? 1 : -1;
+        n = Math.min(9, Math.max(5, n));
+        return w > h ? { cols: n, rows: 5 } : { cols: 5, rows: n };
+    }
+    const gridOfReq = req => Array.isArray(req?.grid) && req.grid[0] > 0 && req.grid[1] > 0 ? { cols: req.grid[0], rows: req.grid[1] } : { ...GRID5 };
+    const r3 = n => Math.round(n * 1000) / 1000;
+    const axisAt = (v, n) => { const i = Math.floor(Number(v) * n); return Number.isFinite(i) ? Math.min(n - 1, Math.max(0, i)) : Math.floor(n / 2); };
+    const snapXY = (x, y, G = GRID5) => ({ x: r3((axisAt(x, G.cols) + 0.5) / G.cols), y: r3((axisAt(y, G.rows) + 0.5) / G.rows) });
+    const xyOfCell = (cell, G = GRID5) => {
         const m = CELL_RE.exec(String(cell ?? ''));
-        return m ? { x: (1 + CELL_COLS.indexOf(m[1].toUpperCase()) * 2) / 10, y: (1 + (m[2] - 1) * 2) / 10 } : null;
+        if (!m) return null;
+        const c = CELL_COLS.indexOf(m[1].toUpperCase()), r = Number(m[2]) - 1;
+        return c < G.cols && r < G.rows ? { x: r3((c + 0.5) / G.cols), y: r3((r + 0.5) / G.rows) } : null;
     };
-    const cellOf = (x, y) => CELL_COLS[Math.round((grid(x) - 0.1) / 0.2)] + (Math.round((grid(y) - 0.1) / 0.2) + 1);
+    const cellOf = (x, y, G = GRID5) => CELL_COLS[axisAt(x, G.cols)] + (axisAt(y, G.rows) + 1);
+    const cellIn = (code5, G) => { const xy = xyOfCell(code5); return xy ? cellOf(xy.x, xy.y, G) : code5; };
+    const centerCell = G => CELL_COLS[Math.floor(G.cols / 2)] + (Math.floor(G.rows / 2) + 1);
+    const lastCell = G => CELL_COLS[G.cols - 1] + G.rows;
     const charSlotsOf = req => (req?.slots ?? []).filter(sl => (sl.kind ?? 'char') === 'char');
     const panelSlotsOf = req => (req?.slots ?? []).filter(sl => sl.kind === 'panel');
     const coordsOn = req => !!req?.useCoords && ((req.panels ?? 1) === 1
@@ -331,32 +352,34 @@
         : n === 4 ? ['B2', 'D2', 'B4', 'D4']
         : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
         : wide ? ['B3', 'D3'] : ['C2', 'C4'];
-    function panelDefaults(pslots, wide) {
+    function panelDefaults(pslots, wide, G = GRID5) {
         const story = pslots.filter(sl => !sl.emph);
-        const cells = story.length === 1 ? ['C3'] : panelCellsOf(story.length, wide);
-        story.forEach((sl, k) => Object.assign(sl, xyOfCell(cells[k])));
+        const cells = story.length === 1 ? [centerCell(G)] : panelCellsOf(story.length, wide).map(c => cellIn(c, G));
+        story.forEach((sl, k) => Object.assign(sl, xyOfCell(cells[k], G)));
         const used = new Set(story.map(sl => `${sl.x},${sl.y}`));
+        const cellXY = (c, r) => ({ x: r3((Math.min(G.cols - 1, Math.max(0, c)) + 0.5) / G.cols), y: r3((Math.min(G.rows - 1, Math.max(0, r)) + 0.5) / G.rows) });
         pslots.forEach((sl, k) => {
             if (!sl.emph) return;
             const base = pslots[k - 1] ?? story[0];
-            const fit = n => Math.min(0.9, Math.max(0.1, Math.round(n * 10) / 10));
-            const at = [[0.2, 0.2], [-0.2, 0.2], [0.2, -0.2], [-0.2, -0.2]].map(([dx, dy]) => ({ x: fit(base.x + dx), y: fit(base.y + dy) }))
+            const bc = axisAt(base.x, G.cols), br = axisAt(base.y, G.rows);
+            const at = [[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([dx, dy]) => cellXY(bc + dx, br + dy))
                 .find(xy => !used.has(`${xy.x},${xy.y}`))
-                ?? [0.1, 0.3, 0.5, 0.7, 0.9].flatMap(y => [0.1, 0.3, 0.5, 0.7, 0.9].map(x => ({ x, y }))).find(xy => !used.has(`${xy.x},${xy.y}`));
+                ?? Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => cellXY(c, r))).flat().find(xy => !used.has(`${xy.x},${xy.y}`));
             Object.assign(sl, at);
             used.add(`${at.x},${at.y}`);
         });
     }
-    const SPREAD_STEPS = [[-0.2, 0], [0.2, 0], [0, 0], [0, -0.2], [0, 0.2], [-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]];
-    function spreadKomaSlots(komas) {
-        const fit = n => Math.round(n * 10) / 10;
+    const SPREAD_STEPS = [[-1, 0], [1, 0], [0, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
+    function spreadKomaSlots(komas, G = GRID5) {
         const used = new Set();
-        const d2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+        const d2 = (a, b) => ((a.x - b.x) * G.cols) ** 2 + ((a.y - b.y) * G.rows) ** 2;
         for (const km of komas) {
             if (km.slots.length < 2) { used.add(`${km.x},${km.y}`); continue; }
             const others = komas.filter(o => o !== km);
-            const cand = SPREAD_STEPS.map(([dx, dy]) => ({ x: fit(km.x + dx), y: fit(km.y + dy) }))
-                .filter(xy => xy.x >= 0.1 && xy.x <= 0.9 && xy.y >= 0.1 && xy.y <= 0.9)
+            const kc = axisAt(km.x, G.cols), kr = axisAt(km.y, G.rows);
+            const cand = SPREAD_STEPS.map(([dx, dy]) => [kc + dx, kr + dy])
+                .filter(([c, r]) => c >= 0 && c < G.cols && r >= 0 && r < G.rows)
+                .map(([c, r]) => ({ x: r3((c + 0.5) / G.cols), y: r3((r + 0.5) / G.rows) }))
                 .filter(xy => others.every(o => d2(xy, km) < d2(xy, o) - 1e-9));
             for (const sl of km.slots) {
                 const at = cand.find(xy => !used.has(`${xy.x},${xy.y}`)) ?? { x: km.x, y: km.y };
@@ -370,7 +393,7 @@
     const slotNo = (sl, k) => sl?.kind === 'panel' && Number.isInteger(sl.koma) ? sl.koma + 1 : k + 1;
     const emphOf = pn => pn?.emph === true || String(pn?.emph).toLowerCase() === 'true';
     const slotCapOf = model => /^nai-diffusion-5/.test(String(model ?? '')) ? 32 : 6;
-    const slotMaxNow = () => slotCapOf(talkOv ? talkNaiModelOf() : st.set.model);
+    const slotMaxNow = () => slotCapOf(naiModelNow());
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -1266,7 +1289,7 @@ ${TAG_STYLE}`;
 - scene: the background and details only, in this order: "indoors" or "outdoors", then a simple place tag (e.g. "indoors, classroom"), then detail tags (lighting, time, weather, mood, background objects). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color; add only what this moment shows besides it. Danbooru tags plus up to 3 short sentences when tags alone cannot show the moment. No character appearance, no camera / framing (it goes in chars[].tags), no count tags (the app adds 1girl / 1boy counts itself), no names.
 - chars[].tags: first a few Danbooru tags: expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then framing (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — then camera angle). Then the pose and action as 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, cowboy shot, from side, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". Name another character in the image only as @ followed by its chars[].name (e.g. "behind @boudica", "hugging @gojo from behind"), never a bare name; the app turns each @name into that character's label. For interactions also add source#, target# or mutual# tags (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
-- cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 3 or more, give each one a different cell (e.g. B3, C3 and D3 side by side; B3 and D3 on both sides of one at C4 in the middle; B4, D4 and C2 for one behind; A3, B3, D3 and E3 for four in a row). With 1 character write "C3": the app sends no position for a single character.`,
+{{CELL_RULE}}`,
         comic: `COMIC PAGE (2 to 3 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color. No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 or more characters in one panel only when they physically interact (hug, handing something over, face to face).
@@ -1312,7 +1335,13 @@ ${TAG_STYLE}`;
   3. else that fighter fights bare-handed (a fighting stance, fists, a punch or kick; it does not have to land): its trail (e.g. "blue impact trail", "orange shockwave").
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
-    const PANEL_CELL_RULE = `  - cell: where this panel sits on the page, as ONE cell code on a 5x5 grid laid over the whole image: the center of the panel's frame. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. 2 panels on a portrait page "C2" and "C4" (stacked), on a landscape page "B3" and "D3" (side by side); 3 panels "C1", "B4", "D4" (one wide panel on top, two below) or "C1", "C3", "C5" (stacked), on a landscape page "B2", "D2", "C4". The app places the panel's characters and action at that spot of the page.`;
+    const gridWords = G => `a ${G.cols}x${G.rows} grid (${G.cols} columns, ${G.rows} rows) laid over the ${G.cols === G.rows ? '' : 'whole '}canvas${G.cols === G.rows ? '' : ', so each cell is about square on the image'}. Letter A-${CELL_COLS[G.cols - 1]} = column, left to right; number 1-${G.rows} = row, top to bottom; A1 is the top-left corner, ${centerCell(G)} the center, ${lastCell(G)} the bottom-right corner.`;
+    const cellRuleOne = G => { const c = k => cellIn(k, G);
+        return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
+    const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
+        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. ${wide
+            ? `2 panels ${q(['B3', 'D3'])} (side by side); 3 panels ${q(['B2', 'D2', 'C4'])} (two on top, one wide panel below) or ${q(['A3', 'C3', 'E3'])} (in a row)`
+            : `2 panels ${q(['C2', 'C4'])} (stacked); 3 panels ${q(['C1', 'B4', 'D4'])} (one wide panel on top, two below) or ${q(['C1', 'C3', 'C5'])} (stacked)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
         wide: 'wide koma',
         tall: 'tall koma',
@@ -1350,8 +1379,8 @@ ${TAG_STYLE}`;
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
   - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). It is an extra entry right after the panel it enlarges, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel. At most 1 per page. It is extra and does not count toward the 3 story panels: a page can have 3 story panels plus 1 emph entry.`;
-    const comicRules = () => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
-    const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
+    const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
+    const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
         const t = tidy(v).toLowerCase();
@@ -1404,6 +1433,7 @@ ${TAG_STYLE}`;
         const size = sizeNow();
         const [w, h] = sizeWH(size) ?? SIZES.tall;
         const shape = w > h ? 'landscape' : w < h ? 'portrait' : 'square';
+        const G = gridOf(w, h, naiModelNow());
         const role = withInput
             ? (isIllust()
                 ? 'You are an illustration director. You turn what the user just wrote in a roleplay (USER PRIORITY STAGING: their own character\'s action or line, or what they direct or narrate other characters doing) and how the reply answers it (TARGET MESSAGE) into NovelAI prompts for standalone illustrations: one moment per image, no panels, no speech bubbles, no text.'
@@ -1430,8 +1460,8 @@ ${TAG_STYLE}`;
             ? '- panels: always 1.'
             : `- panels: 2 to 3 story entries, chosen per image${comicCoordsNow() ? ', plus at most 1 emph entry (extra, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2.`}${n > 1 ? ' Neighbouring images never have the same number of panels (e.g. 3, then 2, then 3).' : ''}`;
         const imageSchema = isIllust()
-            ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
-            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2","frame":"tall","emph":false,' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            ? `{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"${centerCell(G)}"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}`
+            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B3' : 'C2', G)}","frame":"tall","emph":false,` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -1449,7 +1479,7 @@ ${pick}
 ${panelChoice}
 ${isIllust() ? '- List every character who is in frame in this moment in chars, however many there are: when the TARGET MESSAGE shows three or more people together (e.g. two hugging one from both sides), list them all. Someone who is not in frame may still appear as "out of frame, hand" inside scene and is NOT listed in chars. NovelAI draws at most 6 entries (a monster counts as one), so with more than 6 list the 6 most important.\n- A monster or creature that is a main subject of the moment (dragon, slime, golem, beast, a summoned or holographic monster) is listed in chars too, as one more entry with "type":"monster" (at most 1 monster). Its name is a short English name (e.g. "dragon"), its tags start with the creature tag and describe its looks, size and action (e.g. "dragon, giant, holographic, breathing fire, wings spread"), and its cell is where it is. Do not describe it in scene then, and never list it in state.cast.\n- DIRECTION: when two entries interact (talking, kissing, hugging, handing something over, holding hands, arguing, fighting, a spell or beam aimed at the other, ...), the direction must read clearly. Use the ACTUAL action of this moment, never a different one: never add attacking or fighting tags to a scene that is not a fight. One-way action: the actor gets source#<action>, the other gets target#<action> (e.g. "source#talking" / "target#talking", "source#headpat" / "target#headpat", "source#punching" / "target#punching"). Both do it together: both get mutual#<action> (e.g. "mutual#kiss", "mutual#hug", "mutual#holding hands"). Give both "facing another" in tags and "looking at another, looking at the <role of the other>" in gaze when they face each other (skip "facing another" for a hug from behind or similar). Put their cells on opposite sides so they face each other across the canvas (e.g. B3 and D3; B4 and D2 for a big monster behind), and when one aims something at the other, write it toward the other one (e.g. "reaching toward the dragon", "beam toward the dragon"). With 3 or more entries, each one-way action still pairs actors with a target.' : '- Different panels may show different characters.'}
 
-${panelRules()}
+${panelRules(G, w > h)}
 
 ${bubbleRules(4, withInput)}
 
@@ -2206,6 +2236,7 @@ Rules
     function buildComicReq(img, cast, state) {
         const p = preset();
         const [w, h] = sizeWH(sizeNow()) ?? SIZES.tall;
+        const G = gridOf(w, h, naiModelNow());
         const slots = [];
         const nums = new Map();
         const numOf = x => { if (!nums.has(x.key)) nums.set(x.key, nums.size + 1); return nums.get(x.key); };
@@ -2323,15 +2354,15 @@ Rules
         }
         const panelCoords = komas.length >= 2 && comicCoordsNow();
         if (panelCoords) {
-            const given = komas.map(km => xyOfCell(km.cell));
+            const given = komas.map(km => xyOfCell(km.cell, G));
             const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
             if (ok) komas.forEach((km, k) => Object.assign(km, given[k]));
-            else panelDefaults(komas, w > h);
+            else panelDefaults(komas, w > h, G);
         }
         const single = komas.length === 1;
         komas.forEach(km => { for (const sl of km.slots) { sl.x = km.x; sl.y = km.y; } });
         const slotCoords = panelCoords && perPerson;
-        if (slotCoords) spreadKomaSlots(komas);
+        if (slotCoords) spreadKomaSlots(komas, G);
         let neg = removeTokens(p.neg, ['2koma', '3koma', '4koma', '5koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
@@ -2339,6 +2370,7 @@ Rules
             base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}pannels, manga, panel borders. white border::, 0.5::diagonal border::` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: komaN,
+            ...(panelCoords ? { grid: [G.cols, G.rows] } : {}),
             useCoords: panelCoords, panelCoords,
             ...(slotCoords ? { slotCoords: true } : {}),
             title: tidy(img.title).slice(0, 30),
@@ -2451,6 +2483,7 @@ Rules
         const one = panels === 1;
         const p = preset();
         const [w, h] = sizeWH(sizeNow()) ?? SIZES.tall;
+        const G = gridOf(w, h, naiModelNow());
         const chars = [];
         const seen = new Set();
         let monsters = 0;
@@ -2480,7 +2513,7 @@ Rules
         const ilRef = t => ilRefs.reduce((r, [n, k]) => r.replace(new RegExp(`@${escapeRe(n)}`, 'gi'), k), String(t ?? '')).replace(/@(?=\S)/g, '');
         const slots = chars.map(({ c, e, monster }) => {
             if (monster) {
-                const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
+                const at = xyOfCell(c.cell, G) ?? snapXY(c.x ?? 0.5, c.y ?? 0.5, G);
                 return { prompt: withGaze(c, dropViewer(ilRef(c.tags))), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type: 'monster', name: tidy(c.name) || 'monster' };
             }
             const type = e?.type ?? (['girl', 'boy', 'other'].includes(c.type) ? c.type : 'girl');
@@ -2488,7 +2521,7 @@ Rules
                 : identTags(type, c.look, k => isNone(slotVal(k, c[k])) ? '' : slotVal(k, c[k]), k => isNone(slotVal(k, c[k])));
             if (tidy(e?.canon)) ident.unshift(tidy(e.canon), canonBare(e.canon));
             const tags = one ? withGaze(c, dropViewer(dropNone(ilRef(c.tags)))) : '';
-            const at = xyOfCell(c.cell) ?? { x: grid(c.x), y: grid(c.y) };
+            const at = xyOfCell(c.cell, G) ?? snapXY(c.x ?? 0.5, c.y ?? 0.5, G);
             return { prompt: mergeTags(ident, tags).join(', '), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type, name: e?.name ?? tidy(c.name) };
         });
         if (bubblesNow()) {
@@ -2511,7 +2544,7 @@ Rules
         if (!bubblesNow()) negParts.push('speech bubble, text, english text');
         if (one) negParts.push('comic, multiple panels, panel borders');
         return {
-            base, neg: joinTags(negParts), slots, w, h, panels,
+            base, neg: joinTags(negParts), slots, w, h, panels, grid: [G.cols, G.rows],
             useCoords: one && types.length >= 2,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
@@ -2526,7 +2559,10 @@ Rules
         const cap = slotCapOf(s.model);
         if (req.slots.length > cap) { console.log(LOG, 'slots', `${req.slots.length} → ${cap} (${s.model})`); req.slots = req.slots.slice(0, cap); }
         const coords = coordsOn(req);
-        const at = sl => coords && ((sl.kind ?? 'char') === 'char' || sl.kind === 'panel') ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: 0.5, y: 0.5 };
+        const free = freeformOf(s.model);
+        const at = sl => coords && ((sl.kind ?? 'char') === 'char' || sl.kind === 'panel')
+            ? (free ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: grid(sl.x ?? 0.5), y: grid(sl.y ?? 0.5) })
+            : { x: 0.5, y: 0.5 };
         const slots = req.slots ?? [];
         const g = presetGen(st.presets.find(p => p.id === req.preset) ?? preset());
         const body = {
@@ -7802,19 +7838,22 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (!chars.length) return null;
         const free = coordsOn(req);
         const box = h('div', { class: 'co' });
+        const G = gridOfReq(req);
         const rw = Number(req.w) > 0 && Number(req.h) > 0 ? req.w / req.h : 1;
-        const cw = Math.round(34 * Math.max(1, rw)), ch = Math.round(34 * Math.max(1, 1 / rw));
-        const plStyle = `grid-template-columns:repeat(5,${cw}px);grid-template-rows:repeat(5,${ch}px)`;
+        const cw = Math.round(170 * Math.max(1, rw) / G.cols), ch = Math.round(170 * Math.max(1, 1 / rw) / G.rows);
+        const plStyle = `grid-template-columns:repeat(${G.cols},${cw}px);grid-template-rows:repeat(${G.rows},${ch}px)`;
+        const josa = (code, withB, noB) => /[013678]$/.test(code) ? withB : noB;
+        const axisHint = `A~${CELL_COLS[G.cols - 1]} 는 왼쪽에서 오른쪽, 1~${G.rows}${josa(String(G.rows), "은", "는")} 위에서 아래`;
         let act = 0;
         const paint = () => {
             box.replaceChildren();
             const cells = [];
-            for (let r = 1; r <= 5; r++) for (const col of CELL_COLS) {
+            for (let r = 1; r <= G.rows; r++) for (const col of CELL_COLS.slice(0, G.cols)) {
                 const code = col + r;
-                const here = free ? chars.map((sl, k) => [sl, k]).filter(([sl]) => cellOf(sl.x, sl.y) === code) : [];
+                const here = free ? chars.map((sl, k) => [sl, k]).filter(([sl]) => cellOf(sl.x, sl.y, G) === code) : [];
                 cells.push(h('button', {
                     class: 'co-c', type: 'button', title: code, 'aria-label': `${code} 칸`, disabled: !free || !!locked,
-                    onclick: () => { const xy = xyOfCell(code); for (const sl of mates(chars[act])) { sl.x = xy.x; sl.y = xy.y; } paint(); },
+                    onclick: () => { const xy = xyOfCell(code, G); for (const sl of mates(chars[act])) { sl.x = xy.x; sl.y = xy.y; } paint(); },
                 }, here.map(([, k]) => h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1)))));
             }
             add(box,
@@ -7826,13 +7865,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                             class: 'co-chip' + (free && k === act ? ' on' : ''), type: 'button', disabled: !free || !!locked,
                             onclick: () => { act = k; paint(); },
                         }, h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1)),
-                            `${multi ? `${byKoma ? k + 1 : slotNo(sl, k)}컷${sl.name ? ` (${sl.name})` : ''}` : sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y)}` : ''}`)),
+                            `${multi ? `${byKoma ? k + 1 : slotNo(sl, k)}컷${sl.name ? ` (${sl.name})` : ''}` : sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y, G)}` : ''}`)),
                         h('p', { class: 'ix-hint', style: 'margin:0' }, free && multi && !byKoma
-                            ? '점을 고른 뒤 칸을 누르면 그 컷의 그 인물이 페이지의 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래입니다. 컷 칸 모양은 NAI 가 정합니다.'
+                            ? `점을 고른 뒤 칸을 누르면 그 컷의 그 인물이 페이지의 그 자리로 옮겨 갑니다. ${axisHint}입니다. 컷 칸 모양은 NAI 가 정합니다.`
                             : free && multi
-                            ? '점을 고른 뒤 칸을 누르면 그 컷의 장면이 페이지의 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래입니다. 컷 칸 모양은 NAI 가 정합니다.'
+                            ? `점을 고른 뒤 칸을 누르면 그 컷의 장면이 페이지의 그 자리로 옮겨 갑니다. ${axisHint}입니다. 컷 칸 모양은 NAI 가 정합니다.`
                             : free
-                            ? '점을 고른 뒤 칸을 누르면 그 인물이 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래이고 C3 이 가운데입니다.'
+                            ? `점을 고른 뒤 칸을 누르면 그 인물이 그 자리로 옮겨 갑니다. ${axisHint}이고 ${centerCell(G)}${josa(centerCell(G), "이", "가")} 가운데입니다.`
                             : '인물이 1명이면 자리를 따로 정하지 않습니다. 이때 인물은 대개 그림 가운데에 그려집니다.'))));
         };
         paint();
