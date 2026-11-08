@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.68.4
+//@display-name 💠 이매진 v5.69.0
 //@api 3.0
-//@version 5.68.4
+//@version 5.69.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.68.4';
+    const VERSION = '5.69.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -329,6 +329,22 @@
     const panelCellsOf = (n, wide) => n >= 4 ? ['B2', 'D2', 'B4', 'D4']
         : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
         : wide ? ['B3', 'D3'] : ['C2', 'C4'];
+    function panelDefaults(pslots, wide) {
+        const story = pslots.filter(sl => !sl.emph);
+        const cells = story.length === 1 ? ['C3'] : panelCellsOf(story.length, wide);
+        story.forEach((sl, k) => Object.assign(sl, xyOfCell(cells[k])));
+        const used = new Set(story.map(sl => `${sl.x},${sl.y}`));
+        pslots.forEach((sl, k) => {
+            if (!sl.emph) return;
+            const base = pslots[k - 1] ?? story[0];
+            const fit = n => Math.min(0.9, Math.max(0.1, Math.round(n * 10) / 10));
+            const at = [[0.2, 0.2], [-0.2, 0.2], [0.2, -0.2], [-0.2, -0.2]].map(([dx, dy]) => ({ x: fit(base.x + dx), y: fit(base.y + dy) }))
+                .find(xy => !used.has(`${xy.x},${xy.y}`))
+                ?? [0.1, 0.3, 0.5, 0.7, 0.9].flatMap(y => [0.1, 0.3, 0.5, 0.7, 0.9].map(x => ({ x, y }))).find(xy => !used.has(`${xy.x},${xy.y}`));
+            Object.assign(sl, at);
+            used.add(`${at.x},${at.y}`);
+        });
+    }
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -1217,7 +1233,7 @@ ${TAG_STYLE}`;
         saveSet();
         if (!was && setupDone()) ui.readyAt = Date.now();
     }
-    const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 4, 2);
+    const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 5, 2);
 
     const PANEL_RULES = {
         one: `PANELS = 1 (one moment, no panel borders)
@@ -1270,7 +1286,30 @@ ${TAG_STYLE}`;
   4. else (any character or monster, even standing still): its movement trail, the path of its body's motion (e.g. "red motion trail", "green speed lines", "purple afterimage trail").
   A fighter with a weapon ALWAYS gets rule 1 (a weapon trail), even when they also use magic or fists. When 2 and 3 both apply, use their main action. Every fighter uses a DIFFERENT color from the others. The color must be a real hue (red, orange, yellow, green, blue, purple, pink, gold, ...), never white, black, grey or silver: those do not stand out in a monochrome image. Never use eyes, blood, fire or other objects. Example: ["Aria: yellow sword trail", "Kain: purple magic effects", "Goblin: green motion trail"]. The app draws a dynamic image as a monochrome sketch with only these in color. Keep writing every other color as usual everywhere (scene, tags, state.cast); the app removes them itself. Empty list when severity is below ${dynMinNow()}.`;
     const PANEL_CELL_RULE = `  - cell: where this panel sits on the page, as ONE cell code on a 5x5 grid laid over the whole image: the center of the panel's frame. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. 2 panels on a portrait page "C2" and "C4" (stacked), on a landscape page "B3" and "D3" (side by side); 3 panels "C1", "B4", "D4" (one wide panel on top, two below) or "C1", "C3", "C5" (stacked); 4 panels "B2", "D2", "B4", "D4" (2x2) or "C1", "B3", "D3", "C5". The app places the panel's characters and action at that spot of the page.`;
-    const comicRules = () => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic;
+    const FRAME_TAGS = {
+        wide: 'wide panel',
+        tall: 'tall panel',
+        small: 'small panel',
+        slanted: 'slanted panel border',
+        broken: 'broken panel border',
+        jagged: 'jagged panel border',
+        borderless: 'borderless panel',
+        inset: 'inset panel',
+        burst: 'outside border',
+    };
+    const FRAME_ALIAS = { horizontal: 'wide', vertical: 'tall', narrow: 'tall', diagonal: 'slanted', tilted: 'slanted', asymmetric: 'slanted', cracked: 'broken', shattered: 'broken', torn: 'broken', spiky: 'jagged', zigzag: 'jagged', frameless: 'borderless', overlay: 'inset', overlapping: 'inset', popout: 'burst', breaking: 'burst' };
+    function frameTags(v, emph) {
+        const keys = [];
+        for (const w of String(v ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean)) {
+            const k = FRAME_TAGS[w] ? w : FRAME_ALIAS[w];
+            if (k && !keys.includes(k)) keys.push(k);
+        }
+        if (emph && !keys.length) keys.push('inset');
+        return keys.slice(0, 2).map(k => FRAME_TAGS[k]).join(', ');
+    }
+    const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). It is an extra entry right after the panel it enlarges, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel. At most 1 per page.`;
+    const comicRules = () => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
@@ -1346,10 +1385,10 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
-            : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
+            : `- panels: 2 to 4 entries, chosen per image${comicCoordsNow() ? ' (plus an emph entry, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
-            : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2",' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2","frame":"tall","emph":false,' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -2137,9 +2176,19 @@ Rules
         };
         const kindOf = x => x.e ? x.type : x.name;
         let panelN = 0;
+        const coordMode = comicCoordsNow();
+        const isEmph = pn => coordMode && (pn.emph === true || String(pn.emph).toLowerCase() === 'true');
+        const src = [];
+        let storyN = 0, emphN = 0;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
-            if (panelN >= 4) break;
+            if (isEmph(pn)) { if (emphN || !storyN) continue; emphN++; }
+            else { if (storyN >= 4) continue; storyN++; }
+            src.push(pn);
+        }
+        const framed = coordMode && src.length >= 2;
+        for (const pn of src) {
+            const emph = isEmph(pn);
             const who = [];
             for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
                 const e = findCast(cast, name);
@@ -2152,7 +2201,8 @@ Rules
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const cam = joinTags(noText(dropNone(pn.camera)));
+            const cam0 = joinTags(noText(dropNone(pn.camera)));
+            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, framed ? frameTags(pn.frame, emph) : '');
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
@@ -2174,7 +2224,7 @@ Rules
             } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
             slots.push({
                 prompt: endComma(lines.join('\n')),
-                uc: tidy(pn.uc), x: 0.5, y: 0.5, cell: tidy(pn.cell), kind: 'panel', type: types[0] ?? 'other',
+                uc: tidy(pn.uc), x: 0.5, y: 0.5, cell: tidy(pn.cell), kind: 'panel', type: types[0] ?? 'other', ...(emph ? { emph: true } : {}),
                 name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
                 chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
             });
@@ -2195,8 +2245,8 @@ Rules
         if (panelCoords) {
             const given = pslots.map(sl => xyOfCell(sl.cell));
             const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
-            const dflt = panelCellsOf(pslots.length, w > h);
-            pslots.forEach((sl, k) => Object.assign(sl, ok ? given[k] : xyOfCell(dflt[k])));
+            if (ok) pslots.forEach((sl, k) => Object.assign(sl, given[k]));
+            else panelDefaults(pslots, w > h);
         }
         for (const sl of slots) delete sl.cell;
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
@@ -2205,7 +2255,7 @@ Rules
         return {
             base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 4, 2),
+            slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 5, 2),
             useCoords: panelCoords, panelCoords,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
