@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.76.0
+//@display-name 💠 이매진 v5.77.0
 //@api 3.0
-//@version 5.76.0
+//@version 5.77.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.76.0';
+    const VERSION = '5.77.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -345,6 +345,7 @@
             used.add(`${at.x},${at.y}`);
         });
     }
+    const KOMA_MAX = 4;
     const SLOT_MAX = 6;
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
@@ -1234,7 +1235,7 @@ ${TAG_STYLE}`;
         saveSet();
         if (!was && setupDone()) ui.readyAt = Date.now();
     }
-    const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 5, 2);
+    const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 1, KOMA_MAX, 2);
 
     const PANEL_RULES = {
         one: `PANELS = 1 (one moment, no panel borders)
@@ -1242,7 +1243,7 @@ ${TAG_STYLE}`;
 - chars[].tags: first a few Danbooru tags: expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then framing (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — then camera angle). Then the pose and action as 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, cowboy shot, from side, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". Name another character in the image only as @ followed by its chars[].name (e.g. "behind @boudica", "hugging @gojo from behind"), never a bare name; the app turns each @name into that character's label. For interactions also add source#, target# or mutual# tags (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
 - cell: where each character sits, as a cell code on a 5x5 grid laid over the canvas. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. B3 and D3 side by side, B4 and D2 for one low and one high). With 3 or more, give each one a different cell (e.g. B3, C3 and D3 side by side; B3 and D3 on both sides of one at C4 in the middle; B4, D4 and C2 for one behind; A3, B3, D3 and E3 for four in a row). With 1 character write "C3": the app sends no position for a single character.`,
-        comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
+        comic: `COMIC PAGE (1 to 4 panels, all drawn in this one image; with 2 or more the app adds the manga page / panel border tags; with 1 panel the image is one moment with no panel borders; the app adds each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color. No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 or more characters in one panel only when they physically interact (hug, handing something over, face to face).
   - who: every character in this panel (1 or more, no upper limit). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
@@ -1323,7 +1324,7 @@ ${TAG_STYLE}`;
         }).join(', ');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). It is an extra entry right after the panel it enlarges, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel. At most 1 per page.`;
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). It is an extra entry right after the panel it enlarges, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel. At most 1 per page, and it counts toward the 4 panels: a page with 4 story panels has no emph entry.`;
     const comicRules = () => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = () => [isIllust() ? PANEL_RULES.one : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
@@ -1402,7 +1403,7 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
-            : `- panels: 2 to 4 entries, chosen per image${comicCoordsNow() ? ' (plus an emph entry, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
+            : `- panels: 1 to 4 entries in total, chosen per image${comicCoordsNow() ? ' (an emph entry counts toward the 4, see emph)' : ''}. 1 for a single strong moment (one picture, no panel borders), 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 1-2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
             : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2","frame":"tall","emph":false,' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
@@ -2196,14 +2197,15 @@ Rules
         const komas = [];
         const coordMode = comicCoordsNow();
         const isEmph = pn => coordMode && (pn.emph === true || String(pn.emph).toLowerCase() === 'true');
-        const src = [];
+        let src = [];
         let storyN = 0, emphN = 0;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
             if (isEmph(pn)) { if (emphN || !storyN) continue; emphN++; }
-            else { if (storyN >= 4) continue; storyN++; }
+            else { if (storyN >= KOMA_MAX) continue; storyN++; }
             src.push(pn);
         }
+        if (src.length > KOMA_MAX) src = src.filter(pn => !isEmph(pn));
         const framed = coordMode && src.length >= 2;
         const place = joinTags(dropNone(img.scene));
         for (const pn of src) {
@@ -2288,7 +2290,7 @@ Rules
         return {
             base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, layout),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: single ? 1 : clampInt(komas.length, 2, 5, 2),
+            slots, w, h, panels: single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2),
             useCoords: panelCoords, panelCoords,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
@@ -7481,7 +7483,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 keyBox(ui.reopen === 2),
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 로 시작하는 키를 넣으세요.')]),
             step(3, '그림 종류 · 모델 · 장 수 · 해상도', `${kindName()} · ${modelName(st.set.model)} · ${countLabel()} · ${sizeName(sizeNow())}`, () => [
-                radio([['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']],
+                radio([['comic', '🗯️', '만화 (V5 이상)', '한 장에 1~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']],
                     st.set.kind, k => { st.set = { ...st.set, kind: k }; saveSet(); renderNow(); }),
                 sub('NAI 모델', '삽화 전용 NAI 모델입니다. 애드 에셋 · 대화 그림 모델과 따로 고릅니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
@@ -8345,7 +8347,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                         num('리스케일', 'cfgRescale', '0', '1', '0.02'))),
                 stepWarn,
                 h('div', { style: 'display:grid;gap:3px;font-size:.76rem;color:var(--muted)' }, '샘플러 (노이즈 스케줄은 karras 고정)', samplerBox),
-                h('p', { class: 'ix-hint' }, '만화(2~4컷)를 그릴 때는 만화용 태그를 붙이고, 만화와 맞지 않는 태그 몇 개를 그 그림에서만 뺍니다. 저장된 그림체 프롬프트는 바뀌지 않습니다.')));
+                h('p', { class: 'ix-hint' }, '만화(1~4컷)를 그릴 때는 만화용 태그를 붙이고, 만화와 맞지 않는 태그 몇 개를 그 그림에서만 뺍니다. 저장된 그림체 프롬프트는 바뀌지 않습니다.')));
         return pane;
     }
 
@@ -8591,7 +8593,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 toggle(s.vars, () => setVal('vars', !s.vars))));
         const gDev = fold1('dev', '개발자 설정',
             hint1('시험할 때만 바꾸는 값입니다. 평소에는 그대로 두세요.'),
-            row('만화 좌표', '2~4컷 만화에서 컷마다 페이지 위 자리를 정해 그립니다. 기본은 켬입니다.',
+            row('만화 좌표', '두 컷 이상인 만화에서 컷마다 페이지 위 자리를 정해 그립니다. 기본은 켬입니다.',
                 '그림 종류가 만화일 때만 쓰입니다. 끄면 컷 배치를 NAI 에 맡깁니다. 1컷 만화 · 삽화 · 대화 앱 만화는 이 값과 상관없습니다.',
                 toggle(s.comicCoords !== false, () => setVal('comicCoords', s.comicCoords === false))));
         const gAsset = grp('asset', '모델 · 그림체',
