@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.69.3
+//@display-name 💠 이매진 v5.70.0
 //@api 3.0
-//@version 5.69.3
+//@version 5.70.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.69.3';
+    const VERSION = '5.70.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -325,6 +325,7 @@
     const panelSlotsOf = req => (req?.slots ?? []).filter(sl => sl.kind === 'panel');
     const coordsOn = req => !!req?.useCoords && ((req.panels ?? 1) === 1
         ? charSlotsOf(req).length >= 2
+        : req.komaCoords ? charSlotsOf(req).length >= 1
         : !!req.panelCoords && panelSlotsOf(req).length >= 2);
     const panelCellsOf = (n, wide) => n >= 4 ? ['B2', 'D2', 'B4', 'D4']
         : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
@@ -2187,6 +2188,7 @@ Rules
             src.push(pn);
         }
         const framed = coordMode && src.length >= 2;
+        if (framed) return buildKomaReq(img, cast, state, src, isEmph);
         for (const pn of src) {
             const emph = isEmph(pn);
             const who = [];
@@ -2257,6 +2259,79 @@ Rules
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 5, 2),
             useCoords: panelCoords, panelCoords,
+            title: tidy(img.title).slice(0, 30),
+            after: tidy(img.after).slice(0, 80),
+            preset: p.id,
+            kind: 'comic',
+        };
+    }
+    const komaPosOf = xy => [xy.y <= 0.3 ? 'top' : xy.y >= 0.7 ? 'bottom' : 'middle', xy.x <= 0.3 ? 'left' : xy.x >= 0.7 ? 'right' : ''].filter(Boolean).join(' ');
+    function buildKomaReq(img, cast, state, src, isEmph) {
+        const p = preset();
+        const [w, h] = sizeWH(sizeNow()) ?? SIZES.tall;
+        const spots = src.map(pn => ({ x: 0.5, y: 0.5, ...(isEmph(pn) ? { emph: true } : {}) }));
+        const given = src.map(pn => xyOfCell(pn.cell));
+        if (given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length) spots.forEach((s, k) => Object.assign(s, given[k]));
+        else panelDefaults(spots, w > h);
+        const people = new Map();
+        const whoOf = pn => {
+            const out = [];
+            for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
+                const e = findCast(cast, name);
+                const key = e?.id ?? name.toLowerCase();
+                if (out.some(x => x.key === key)) continue;
+                if (!people.has(key)) {
+                    if (people.size >= MAX_SLOTS) continue;
+                    people.set(key, { key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other', label: tidy(e?.canon) || `char${people.size + 1}`, tags: [], prose: [], says: [], centers: [] });
+                }
+                out.push(people.get(key));
+            }
+            return out;
+        };
+        const whos = src.map(whoOf);
+        const refs = [...people.values()].flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, x.label])).sort((a, b) => b[0].length - a[0].length);
+        const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
+        const komas = [], ucs = [];
+        src.forEach((pn, i) => {
+            const who = whos[i], spot = spots[i], emph = !!spot.emph;
+            const [first, ...rest] = tagsOf(frameTags(pn.frame, emph));
+            const cam0 = joinTags(noText(dropNone(pn.camera)));
+            const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
+            const parts = [`${komaPosOf(spot)} ${first || 'koma'}`, rest, emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, CJK_RE.test(layRaw) ? '' : refOf(layRaw)];
+            const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
+            const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
+            if (!who.length) {
+                parts.push(refOf(noText(rawActs[0] ?? '')), line ? `Text: ${line}` : '');
+                komas.push(joinTags(parts));
+            } else {
+                komas.push(joinTags(parts));
+                const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
+                const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
+                const sayAt = line ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
+                who.forEach((x, k) => {
+                    const [tg, prose] = splitAct(refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
+                    x.tags.push(tg);
+                    if (prose) x.prose.push(prose);
+                    if (k === sayAt) x.says.push(`${x.label}'s text: ${line} `);
+                    x.centers.push({ x: spot.x, y: spot.y });
+                });
+            }
+            if (tidy(pn.uc)) ucs.push(tidy(pn.uc));
+        });
+        const slots = [...people.values()].filter(x => x.centers.length).map(x => {
+            const ident = x.e ? identTags(x.type, x.e.look, k => wearOf(x.e, state, k), k => noneOf(x.e, state, k)) : [x.type === 'other' ? x.name : x.type];
+            if (tidy(x.e?.canon)) ident.unshift(tidy(x.e.canon), canonBare(x.e.canon));
+            const body = [mergeTags(ident, x.tags).join(', '), ...x.prose].filter(Boolean).join(', ');
+            return { prompt: x.says.reduce((s, t) => `${s}, ${t}`, body), uc: '', x: x.centers[0].x, y: x.centers[0].y, centers: x.centers, kind: 'char', type: x.type, name: x.name };
+        });
+        let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
+        if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
+        const kinds = [...people.values()].filter(x => x.centers.length).map(x => x.e ? x.type : x.name);
+        return {
+            base: joinTags(kinds.length ? kindCount(kinds) : 'no humans', dropTags(p.pos, ['sound effects']), COMIC_TAGS, dropNone(img.scene), `${src.length} koma`, komas),
+            neg: joinTags(neg, img.uc, ucs, bubblesNow() ? '' : 'speech bubble, text, english text'),
+            slots, w, h, panels: clampInt(src.length, 2, 5, 2),
+            useCoords: slots.length >= 1, komaCoords: true,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
             preset: p.id,
@@ -2359,7 +2434,7 @@ Rules
     function buildReqRaw(img, cast, state) {
         if (!isIllust() && Array.isArray(img.panels)) {
             const req = buildComicReq(img, cast, state);
-            if (req.slots.length) return req;
+            if (req.slots.length || req.komaCoords) return req;
         }
         const panels = panelsOf(img);
         const one = panels === 1;
@@ -2440,6 +2515,7 @@ Rules
         req = { ...req, base: spaceNum(req.base), neg: spaceNum(req.neg), slots: (req.slots ?? []).map(sl => ({ ...sl, prompt: spaceNum(sl.prompt), uc: spaceNum(sl.uc) })) };
         const coords = coordsOn(req);
         const at = sl => coords && ((sl.kind ?? 'char') === 'char' || sl.kind === 'panel') ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: 0.5, y: 0.5 };
+        const ats = sl => coords && Array.isArray(sl.centers) && sl.centers.length ? sl.centers.map(c => ({ x: grid(c.x), y: grid(c.y) })) : [at(sl)];
         const slots = req.slots ?? [];
         const g = presetGen(st.presets.find(p => p.id === req.preset) ?? preset());
         const body = {
@@ -2473,12 +2549,12 @@ Rules
                 prefer_brownian: true,
                 characterPrompts: slots.map(sl => ({ prompt: sl.prompt, uc: sl.uc ?? '', center: at(sl), enabled: true })),
                 v4_prompt: {
-                    caption: { base_caption: req.base, char_captions: slots.map(sl => ({ char_caption: sl.prompt, centers: [at(sl)] })) },
+                    caption: { base_caption: req.base, char_captions: slots.map(sl => ({ char_caption: sl.prompt, centers: ats(sl) })) },
                     use_coords: coords,
                     use_order: true,
                 },
                 v4_negative_prompt: {
-                    caption: { base_caption: req.neg, char_captions: slots.map(sl => ({ char_caption: sl.uc ?? '', centers: [at(sl)] })) },
+                    caption: { base_caption: req.neg, char_captions: slots.map(sl => ({ char_caption: sl.uc ?? '', centers: ats(sl) })) },
                     legacy_uc: false,
                 },
                 negative_prompt: req.neg,
