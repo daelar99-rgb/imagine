@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.96.1
+//@display-name 💠 이매진 v5.97.0
 //@api 3.0
-//@version 5.96.1
+//@version 5.97.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.96.1';
+    const VERSION = '5.97.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1392,8 +1392,16 @@ ${TAG_STYLE}`;
             return parts.length ? `${komaPosOf(x, y)} koma: ${parts.join(TAG_JOIN)}` : `${komaPosOf(x, y)} koma`;
         }).join(', ');
     }
+    const EMPH_VIEWS = ['cross-section', 'three-quarter view', 'from above', 'from below', 'from side', 'from behind', 'pov', 'dutch angle'];
+    function viewOf(v) {
+        const t = tidy(v).toLowerCase().replace(/_/g, ' ');
+        if (!t || t === 'none') return '';
+        if (EMPH_VIEWS.includes(t)) return t;
+        return EMPH_VIEWS.find(x => t.includes(x)) ?? (/cross ?section|x-?ray/.test(t) ? 'cross-section' : /three quarter|3\/4/.test(t) ? 'three-quarter view' : '');
+    }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel, on a row (a column on a landscape page) no other panel uses. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.`;
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel, on a row (a column on a landscape page) no other panel uses. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
+  - view: emph entries only ("" on story panels). One tag for how the detail is seen, fitted to the situation: ${EMPH_VIEWS.join(', ')}.`;
     const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
@@ -1476,7 +1484,7 @@ ${TAG_STYLE}`;
             : `- panels: exactly 2 story entries per image (setup → reaction)${comicCoordsNow() ? `, then 0 to 2 emph entries as the 3rd and 4th entries (see emph). Story entries always come first.${n > 1 ? ' Neighbouring images never have the same number of emph entries (e.g. 1, then 0, then 2).' : ''}` : '. No more, no fewer.'}`;
         const imageSchema = isIllust()
             ? `{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"${centerCell(G)}"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}`
-            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B3' : 'C2', G)}","frame":"tall","emph":false,` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B3' : 'C2', G)}","frame":"tall","emph":false,"view":"",` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -2300,7 +2308,8 @@ Rules
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam0 = joinTags(noText(dropNone(pn.camera)));
-            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0);
+            const view = emph ? viewOf(pn.view) : '';
+            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', view && !tagsOf(cam0).some(t => t.toLowerCase() === view) ? view : '', cam0);
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
@@ -2346,7 +2355,7 @@ Rules
                 })];
             }
             komas.push({
-                cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph) : [], shot: joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0),
+                cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph) : [], shot: cam,
                 x: 0.5, y: 0.5, ...(emph ? { emph: true } : {}),
                 slots: made,
             });
@@ -2382,7 +2391,7 @@ Rules
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
             base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}panels, manga, panel borders::, 0.5::diagonal border, black border::` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`),
-            neg: ((t) => single ? t : joinTags(removeTokens(t, ['white border']), 'white border'))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
+            neg: ((t) => single ? t : joinTags(String(t).split(',').filter(s => !['white border', 'thick border'].includes(tagCore(s))).join(','), 'white border', '0.5::thick border::'))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
             slots, w, h, panels: komaN,
             ...(panelCoords ? { grid: [G.cols, G.rows] } : {}),
             useCoords: panelCoords, panelCoords,

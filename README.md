@@ -1,8 +1,15 @@
-# 💠 이매진 v5.96.1
+# 💠 이매진 v5.97.0
 
 봇 답변을 읽고 장면을 골라 NovelAI로 그린 뒤, 그 장면이 나온 문단 아래에 넣어 주는 RisuAI 플러그인입니다.
 삽화·만화를 그리고, 봇이 두고 쓸 감정별 표정 그림을 애드 에셋으로 한 번에 만듭니다.
 v4.0.0부터는 제미니 TTS로 답변을 소리 내어 읽는 「TTS」 앱(v5.24.1까지 이름은 「음성」)도 함께 들어 있습니다.
+
+## 강조 컷 시점 태그 · 부정 프롬프트에 thick border (v5.97.0)
+
+- 강조 컷에는 장면에 맞는 시점 태그 하나가 extreme close-up 뒤에 붙습니다. 연출 모델이 cross-section, three-quarter view, from above, from below, from side, from behind, pov, dutch angle 중에서 고릅니다.
+- 이야기 컷에는 시점 태그를 붙이지 않습니다. 카메라에 같은 태그가 이미 있으면 다시 넣지 않습니다.
+- 2koma 이상인 만화는 부정 프롬프트 끝에 `white border` 다음으로 `0.5::thick border::`를 넣습니다. 컷 테두리가 지나치게 굵어지지 않게 합니다.
+- 작가 부정 프롬프트에 `thick border`가 가중치와 함께 들어 있어도 한 번만 들어갑니다. 한 장면 그림(삽화, 1koma)에는 넣지 않습니다.
 
 ## 만화 부정 프롬프트에 white border (v5.96.1)
 
