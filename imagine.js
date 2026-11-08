@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.95.1
+//@display-name 💠 이매진 v5.96.0
 //@api 3.0
-//@version 5.95.1
+//@version 5.96.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.95.1';
+    const VERSION = '5.96.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -361,9 +361,10 @@
         const used = new Set(story.map(sl => `${sl.x},${sl.y}`));
         const rowsUsed = new Set(story.map(sl => laneOf(sl, G, wide)));
         const cellXY = (c, r) => ({ x: r3((Math.min(G.cols - 1, Math.max(0, c)) + 0.5) / G.cols), y: r3((Math.min(G.rows - 1, Math.max(0, r)) + 0.5) / G.rows) });
-        pslots.forEach((sl, k) => {
+        let ej = 0;
+        pslots.forEach(sl => {
             if (!sl.emph) return;
-            const base = pslots[k - 1] ?? story[0];
+            const base = story[Math.min(ej++, story.length - 1)] ?? pslots[0];
             const bc = axisAt(base.x, G.cols), br = axisAt(base.y, G.rows);
             const free = xy => !used.has(`${xy.x},${xy.y}`) && !rowsUsed.has(laneOf(xy, G, wide));
             const all = Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => cellXY(c, r))).flat();
@@ -401,8 +402,9 @@
             }
         }
     }
-    const STORY_MAX = 3;
-    const KOMA_MAX = STORY_MAX + 1;
+    const STORY_MAX = 2;
+    const EMPH_MAX = 2;
+    const KOMA_MAX = STORY_MAX + EMPH_MAX;
     const slotNo = (sl, k) => sl?.kind === 'panel' && Number.isInteger(sl.koma) ? sl.koma + 1 : k + 1;
     const emphOf = pn => pn?.emph === true || String(pn?.emph).toLowerCase() === 'true';
     const slotCapOf = model => /^nai-diffusion-5/.test(String(model ?? '')) ? 32 : 6;
@@ -1303,11 +1305,11 @@ ${TAG_STYLE}`;
 - chars[].tags: first a few Danbooru tags: expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then framing (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — then camera angle). Then the pose and action as 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, cowboy shot, from side, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". Name another character in the image only as @ followed by its chars[].name (e.g. "behind @boudica", "hugging @gojo from behind"), never a bare name; the app turns each @name into that character's label. For interactions also add source#, target# or mutual# tags (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
 {{CELL_RULE}}`,
-        comic: `COMIC PAGE (2 to 3 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
+        comic: `COMIC PAGE (2 story panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color. No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 or more characters in one panel only when they physically interact (hug, handing something over, face to face).
   - who: every character in this panel (1 or more, no upper limit). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
-  - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3 panels, use close-ups too (face, hands, a key object).
+  - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera.
   - layout: with 2 or more characters in who, ONE short English phrase saying where they are relative to each other, written with the same plain kind words as the count tags (girl, boy, or the creature noun such as dragon), never names, keys or @. E.g. "girl next to boy", "boy behind girl", "girl facing boy", "girl sitting on boy's lap", "boy standing over girl", "dragon looming over girl". Two of the same kind: "side by side", "facing each other", "one behind the other". It must agree with tags and camera. With 0 or 1 character write "".
   - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: first a few Danbooru tags for the expression (e.g. "worried, open mouth"), then 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". A character who speaks here gets "open mouth" or a speaking expression. No hair color, eye color, body type or clothing tags: the app adds the looks from CAST.
   - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
@@ -1353,8 +1355,8 @@ ${TAG_STYLE}`;
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
     const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
         return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left. Every panel gets a different column letter: no two panels share a column, so each panel sits at least one column left or right of every other panel' : 'earlier panels sit higher. Every panel gets a different row number: no two panels share a row, so each panel sits at least one row above or below every other panel'}. Pick a layout that fits the canvas and the beats, e.g. ${wide
-            ? `2 panels ${q(['B3', 'D3'])} (side by side); 3 panels ${q(['A3', 'C3', 'E3'])} (in a row) or ${q(['A1', 'C3', 'E5'])} (a staircase)`
-            : `2 panels ${q(['C2', 'C4'])} (stacked); 3 panels ${q(['C1', 'C3', 'C5'])} (stacked) or ${q(['B1', 'D3', 'B5'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
+            ? `2 story panels ${q(['B3', 'D3'])} (side by side) or ${q(['B2', 'D4'])} (left high, right low)`
+            : `2 story panels ${q(['C2', 'C4'])} (stacked) or ${q(['B2', 'D4'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
         wide: 'wide koma',
         tall: 'tall koma',
@@ -1391,7 +1393,7 @@ ${TAG_STYLE}`;
         }).join(', ');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). It is an extra entry right after the panel it enlarges, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel, on a row (a column on a landscape page) no other panel uses. At most 1 per page. It is extra and does not count toward the 3 story panels: a page can have 3 story panels plus 1 emph entry.`;
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel, on a row (a column on a landscape page) no other panel uses. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.`;
     const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
@@ -1471,7 +1473,7 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
-            : `- panels: 2 to 3 story entries, chosen per image${comicCoordsNow() ? ', plus at most 1 emph entry (extra, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2.`}${n > 1 ? ' Neighbouring images never have the same number of panels (e.g. 3, then 2, then 3).' : ''}`;
+            : `- panels: exactly 2 story entries per image (setup → reaction)${comicCoordsNow() ? `, then 0 to 2 emph entries as the 3rd and 4th entries (see emph). Story entries always come first.${n > 1 ? ' Neighbouring images never have the same number of emph entries (e.g. 1, then 0, then 2).' : ''}` : '. No more, no fewer.'}`;
         const imageSchema = isIllust()
             ? `{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"${centerCell(G)}"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}`
             : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B3' : 'C2', G)}","frame":"tall","emph":false,` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
@@ -2266,14 +2268,13 @@ Rules
         const komas = [];
         const coordMode = comicCoordsNow();
         const isEmph = pn => coordMode && emphOf(pn);
-        let src = [];
-        let storyN = 0, emphN = 0;
+        const storyPn = [], emphPn = [];
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
-            if (isEmph(pn)) { if (emphN || !storyN) continue; emphN++; }
-            else { if (storyN >= STORY_MAX) continue; storyN++; }
-            src.push(pn);
+            if (isEmph(pn)) { if (emphPn.length < EMPH_MAX) emphPn.push(pn); }
+            else if (storyPn.length < STORY_MAX) storyPn.push(pn);
         }
+        let src = storyPn.length === STORY_MAX ? [...storyPn, ...emphPn] : storyPn;
         const framed = coordMode && src.length >= 2;
         const perPerson = framed;
         const place = joinTags(dropNone(img.scene));
@@ -3467,7 +3468,8 @@ ${t.user}` : null;
                     if (reqs[i]?.kind !== 'comic' || reqs[i - 1]?.kind !== 'comic' || reqs[i].panels !== reqs[i - 1].panels) continue;
                     const pans = Array.isArray(images[i].panels) ? images[i].panels : [];
                     if (!pans.some(emphOf)) { console.log(LOG, 'koma count', `image ${i + 1} has ${reqs[i].panels} like image ${i}, no emph to drop`); continue; }
-                    images[i] = { ...images[i], panels: pans.filter(pn => !emphOf(pn)) };
+                    const lastE = pans.map(emphOf).lastIndexOf(true);
+                    images[i] = { ...images[i], panels: pans.filter((pn, k) => k !== lastE) };
                     reqs[i] = buildReq(images[i], cast, drawState);
                     console.log(LOG, 'koma count', `image ${i + 1}: emph dropped → ${reqs[i].panels}`);
                 }
