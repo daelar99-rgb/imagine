@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.100.3
+//@display-name 💠 이매진 v5.101.0
 //@api 3.0
-//@version 5.100.3
+//@version 5.101.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.100.3';
+    const VERSION = '5.101.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -419,7 +419,10 @@
         const baseOf = new Map(komas.map(km => [km, km.emph ? story[Math.min(ej++, story.length - 1)] ?? km : km]));
         const pts = km => dots && km.slots.length ? km.slots : [km];
         const rowIn = (mv, km, o) => rowOf(o) + (mv.get(km) ?? 0);
-        const margins = mv => { const rs = komas.flatMap(km => pts(km).map(o => rowIn(mv, km, o))); return [Math.min(...rs), G.rows - 1 - Math.max(...rs)]; };
+        const marginsOf = list => mv => { const rs = list.flatMap(km => pts(km).map(o => rowIn(mv, km, o))); return [Math.min(...rs), G.rows - 1 - Math.max(...rs)]; };
+        const margins = marginsOf(komas), storyMargins = marginsOf(story);
+        const uneven = f => mv => { const [t, b] = f(mv); return t !== b; };
+        const allOk = uneven(margins), storyOk = uneven(storyMargins);
         const ok = mv => {
             if (komas.some(km => pts(km).some(o => { const r = rowIn(mv, km, o); return r < 0 || r >= G.rows; }))) return false;
             if (story.some(km => pts(km).concat(km).some(o => { const r = rowIn(mv, km, o); return r < 1 || r > G.rows - 2; }))) return false;
@@ -438,12 +441,14 @@
             }
             return true;
         };
-        const [t0, b0] = margins(new Map());
-        if (t0 !== b0) return;
+        const none = new Map();
+        if (storyOk(none) && allOk(none)) return;
         const all = d => new Map(komas.map(km => [km, d]));
         const group = (s, d) => new Map(komas.filter(km => baseOf.get(km) === s).map(km => [km, d]));
         const cands = [all(-1), all(1), ...[...story].reverse().flatMap(s => [group(s, -1), group(s, 1)])];
-        const mv = cands.find(m => { if (!ok(m)) return false; const [t, b] = margins(m); return t !== b; });
+        const fine = cands.filter(ok);
+        let mv = fine.find(m => storyOk(m) && allOk(m));
+        if (!mv && !storyOk(none)) mv = fine.find(storyOk) ?? (allOk(none) ? null : fine.find(allOk));
         if (!mv) return;
         const yAt = r => r3((r + 0.5) / G.rows);
         for (const [km, d] of mv) {
@@ -1404,7 +1409,7 @@ ${TAG_STYLE}`;
     const cellRuleOne = G => { const c = k => cellIn(k, G);
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
     const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
-        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. When the page has emph panels, keep at least one empty row between the 2 story panels, because each emph panel takes the row directly above its story panel. Keep the layout off-center vertically: the number of empty rows above the top panel must differ from the number below the bottom panel (e.g. 1 above and 2 below, never 2 and 2). Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
+        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. When the page has emph panels, keep at least one empty row between the 2 story panels, because each emph panel takes the row directly above its story panel. Keep the story panels off-center vertically, even when the page has emph panels: count only the story panels, and the number of empty rows above the top story panel must differ from the number below the bottom story panel (e.g. 1 above and 2 below, never 2 and 2). Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
             ? `2 story panels ${q(['B2', 'D4'])} (left high, right low) or ${q(['D2', 'B4'])} (right high, left low)`
             : `2 story panels ${q(['C2', 'C4'])} (stacked) or ${q(['B2', 'D4'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
