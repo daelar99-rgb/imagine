@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.89.1
+//@display-name 💠 이매진 v5.90.0
 //@api 3.0
-//@version 5.89.1
+//@version 5.90.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.89.1';
+    const VERSION = '5.90.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -346,6 +346,24 @@
             Object.assign(sl, at);
             used.add(`${at.x},${at.y}`);
         });
+    }
+    const SPREAD_STEPS = [[-0.2, 0], [0.2, 0], [0, 0], [0, -0.2], [0, 0.2], [-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]];
+    function spreadKomaSlots(komas) {
+        const fit = n => Math.round(n * 10) / 10;
+        const used = new Set();
+        const d2 = (a, b) => (a.x - b.x) ** 2 + (a.y - b.y) ** 2;
+        for (const km of komas) {
+            if (km.slots.length < 2) { used.add(`${km.x},${km.y}`); continue; }
+            const others = komas.filter(o => o !== km);
+            const cand = SPREAD_STEPS.map(([dx, dy]) => ({ x: fit(km.x + dx), y: fit(km.y + dy) }))
+                .filter(xy => xy.x >= 0.1 && xy.x <= 0.9 && xy.y >= 0.1 && xy.y <= 0.9)
+                .filter(xy => others.every(o => d2(xy, km) < d2(xy, o) - 1e-9));
+            for (const sl of km.slots) {
+                const at = cand.find(xy => !used.has(`${xy.x},${xy.y}`)) ?? { x: km.x, y: km.y };
+                sl.x = at.x; sl.y = at.y;
+                used.add(`${at.x},${at.y}`);
+            }
+        }
     }
     const KOMA_MAX = 5;
     const slotNo = (sl, k) => sl?.kind === 'panel' && Number.isInteger(sl.koma) ? sl.koma + 1 : k + 1;
@@ -2214,15 +2232,22 @@ Rules
         const framed = coordMode && src.length >= 2;
         const perPerson = framed;
         const place = joinTags(dropNone(img.scene));
-        for (const pn of src) {
-            const emph = isEmph(pn);
-            const who = [];
+        const whoOf = pn => {
+            const out = [];
             for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
                 const e = findCast(cast, name);
                 const key = e?.id ?? name.toLowerCase();
-                if (who.some(x => x.key === key)) continue;
-                who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
+                if (out.some(x => x.key === key)) continue;
+                out.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
             }
+            return out;
+        };
+        const everyone = [];
+        if (perPerson) for (const pn of src) for (const x of whoOf(pn)) if (x.e && !everyone.some(y => y.key === x.key)) everyone.push(x);
+        for (const pn of src) {
+            const emph = isEmph(pn);
+            const own = whoOf(pn);
+            const who = perPerson && own.length ? [...own, ...everyone.filter(x => !own.some(y => y.key === x.key))] : own;
             for (const x of who) { labelOf(x); if (!looks.has(x.key)) looks.set(x.key, lookNegOf(x.e, state)); }
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
@@ -2235,7 +2260,7 @@ Rules
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
             const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
             const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
-            const acts = (who.length ? who : [null]).map((x, k) => refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
+            const acts = (who.length ? who : [null]).map((x, k) => own.length && k >= own.length ? '' : refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = line && who.length ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
@@ -2304,6 +2329,8 @@ Rules
         }
         const single = komas.length === 1;
         komas.forEach(km => { for (const sl of km.slots) { sl.x = km.x; sl.y = km.y; } });
+        const slotCoords = panelCoords && perPerson;
+        if (slotCoords) spreadKomaSlots(komas);
         let neg = removeTokens(p.neg, ['2koma', '3koma', '4koma', '5koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
@@ -2312,6 +2339,7 @@ Rules
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: komaN,
             useCoords: panelCoords, panelCoords,
+            ...(slotCoords ? { slotCoords: true } : {}),
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
             preset: p.id,
@@ -7765,8 +7793,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const multi = (req.panels ?? 1) !== 1;
         if (multi && !req.panelCoords) return null;
         const all = multi ? panelSlotsOf(req) : charSlotsOf(req);
-        const chars = multi ? all.filter((sl, k) => sl.koma == null || all.findIndex(o => o.koma === sl.koma) === k) : all;
-        const mates = sl => multi && sl.koma != null ? all.filter(o => o.koma === sl.koma) : [sl];
+        const byKoma = multi && !req.slotCoords;
+        const chars = byKoma ? all.filter((sl, k) => sl.koma == null || all.findIndex(o => o.koma === sl.koma) === k) : all;
+        const mates = sl => byKoma && sl.koma != null ? all.filter(o => o.koma === sl.koma) : [sl];
         if (!chars.length) return null;
         const free = coordsOn(req);
         const box = h('div', { class: 'co' });
@@ -7791,8 +7820,10 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                             class: 'co-chip' + (free && k === act ? ' on' : ''), type: 'button', disabled: !free || !!locked,
                             onclick: () => { act = k; paint(); },
                         }, h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1)),
-                            `${multi ? `${k + 1}컷${sl.name ? ` (${sl.name})` : ''}` : sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y)}` : ''}`)),
-                        h('p', { class: 'ix-hint', style: 'margin:0' }, free && multi
+                            `${multi ? `${byKoma ? k + 1 : slotNo(sl, k)}컷${sl.name ? ` (${sl.name})` : ''}` : sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y)}` : ''}`)),
+                        h('p', { class: 'ix-hint', style: 'margin:0' }, free && multi && !byKoma
+                            ? '점을 고른 뒤 칸을 누르면 그 컷의 그 인물이 페이지의 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래입니다. 컷 칸 모양은 NAI 가 정합니다.'
+                            : free && multi
                             ? '점을 고른 뒤 칸을 누르면 그 컷의 장면이 페이지의 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래입니다. 컷 칸 모양은 NAI 가 정합니다.'
                             : free
                             ? '점을 고른 뒤 칸을 누르면 그 인물이 그 자리로 옮겨 갑니다. A~E 는 왼쪽에서 오른쪽, 1~5 는 위에서 아래이고 C3 이 가운데입니다.'
