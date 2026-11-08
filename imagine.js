@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.94.0
+//@display-name 💠 이매진 v5.95.0
 //@api 3.0
-//@version 5.94.0
+//@version 5.95.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.94.0';
+    const VERSION = '5.95.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -348,36 +348,44 @@
     const coordsOn = req => !!req?.useCoords && ((req.panels ?? 1) === 1
         ? charSlotsOf(req).length >= 2
         : !!req.panelCoords && panelSlotsOf(req).length >= 2);
-    const panelCellsOf = (n, wide) => n >= 5 ? (wide ? ['B2', 'D2', 'A4', 'C4', 'E4'] : ['C1', 'B3', 'D3', 'B5', 'D5'])
-        : n === 4 ? ['B2', 'D2', 'B4', 'D4']
-        : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
-        : wide ? ['B3', 'D3'] : ['C2', 'C4'];
+    const panelCellsOf = (n, wide) => n >= 5 ? ['C1', 'B2', 'D3', 'B4', 'D5']
+        : n === 4 ? (wide ? ['A1', 'C2', 'B4', 'E5'] : ['B1', 'D2', 'B4', 'D5'])
+        : n === 3 ? (wide ? ['A1', 'C3', 'E5'] : ['C1', 'C3', 'C5'])
+        : wide ? ['B2', 'D4'] : ['C2', 'C4'];
+    const rowsApart = (list, G) => new Set(list.map(xy => axisAt(xy.y, G.rows))).size === list.length;
     function panelDefaults(pslots, wide, G = GRID5) {
         const story = pslots.filter(sl => !sl.emph);
         const cells = story.length === 1 ? [centerCell(G)] : panelCellsOf(story.length, wide).map(c => cellIn(c, G));
         story.forEach((sl, k) => Object.assign(sl, xyOfCell(cells[k], G)));
         const used = new Set(story.map(sl => `${sl.x},${sl.y}`));
+        const rowsUsed = new Set(story.map(sl => axisAt(sl.y, G.rows)));
         const cellXY = (c, r) => ({ x: r3((Math.min(G.cols - 1, Math.max(0, c)) + 0.5) / G.cols), y: r3((Math.min(G.rows - 1, Math.max(0, r)) + 0.5) / G.rows) });
         pslots.forEach((sl, k) => {
             if (!sl.emph) return;
             const base = pslots[k - 1] ?? story[0];
             const bc = axisAt(base.x, G.cols), br = axisAt(base.y, G.rows);
-            const at = [[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([dx, dy]) => cellXY(bc + dx, br + dy))
-                .find(xy => !used.has(`${xy.x},${xy.y}`))
-                ?? Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => cellXY(c, r))).flat().find(xy => !used.has(`${xy.x},${xy.y}`));
+            const free = xy => !used.has(`${xy.x},${xy.y}`) && !rowsUsed.has(axisAt(xy.y, G.rows));
+            const all = Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => cellXY(c, r))).flat();
+            const near = xy => (axisAt(xy.x, G.cols) - bc) ** 2 + (axisAt(xy.y, G.rows) - br) ** 2;
+            const at = [[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([dx, dy]) => cellXY(bc + dx, br + dy)).find(free)
+                ?? all.filter(free).sort((a, b) => near(a) - near(b))[0]
+                ?? all.find(xy => !used.has(`${xy.x},${xy.y}`));
             Object.assign(sl, at);
             used.add(`${at.x},${at.y}`);
+            rowsUsed.add(axisAt(at.y, G.rows));
         });
     }
     const SPREAD_STEPS = [[-1, 0], [1, 0], [0, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
     function spreadKomaSlots(komas, G = GRID5) {
         const used = new Set();
-        const d2 = (a, b) => ((a.x - b.x) * G.cols) ** 2 + ((a.y - b.y) * G.rows) ** 2;
+        const d2 = (a, b) => Math.abs(axisAt(a.y, G.rows) - axisAt(b.y, G.rows));
         for (const km of komas) {
             if (km.slots.length < 2) { used.add(`${km.x},${km.y}`); continue; }
             const others = komas.filter(o => o !== km);
             const kc = axisAt(km.x, G.cols), kr = axisAt(km.y, G.rows);
-            const cand = SPREAD_STEPS.map(([dx, dy]) => [kc + dx, kr + dy])
+            const far = Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => [c, r])).flat()
+                .sort((a, b) => ((a[0] - kc) ** 2 + (a[1] - kr) ** 2) - ((b[0] - kc) ** 2 + (b[1] - kr) ** 2));
+            const cand = [...SPREAD_STEPS.map(([dx, dy]) => [kc + dx, kr + dy]), ...far]
                 .filter(([c, r]) => c >= 0 && c < G.cols && r >= 0 && r < G.rows)
                 .map(([c, r]) => ({ x: r3((c + 0.5) / G.cols), y: r3((r + 0.5) / G.rows) }))
                 .filter(xy => others.every(o => d2(xy, km) < d2(xy, o) - 1e-9));
@@ -1339,9 +1347,9 @@ ${TAG_STYLE}`;
     const cellRuleOne = G => { const c = k => cellIn(k, G);
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
     const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
-        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. ${wide
-            ? `2 panels ${q(['B3', 'D3'])} (side by side); 3 panels ${q(['B2', 'D2', 'C4'])} (two on top, one wide panel below) or ${q(['A3', 'C3', 'E3'])} (in a row)`
-            : `2 panels ${q(['C2', 'C4'])} (stacked); 3 panels ${q(['C1', 'B4', 'D4'])} (one wide panel on top, two below) or ${q(['C1', 'C3', 'C5'])} (stacked)`}. The app places the panel's characters and action at that spot of the page.`; };
+        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: earlier panels sit higher. Every panel gets a different row number: no two panels share a row, so each panel sits at least one row above or below every other panel. Pick a layout that fits the canvas and the beats, e.g. ${wide
+            ? `2 panels ${q(['B2', 'D4'])} (left high, right low); 3 panels ${q(['A1', 'C3', 'E5'])} (a staircase) or ${q(['B1', 'D3', 'B5'])} (a zigzag)`
+            : `2 panels ${q(['C2', 'C4'])} (stacked); 3 panels ${q(['C1', 'C3', 'C5'])} (stacked) or ${q(['B1', 'D3', 'B5'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
         wide: 'wide koma',
         tall: 'tall koma',
@@ -1378,7 +1386,7 @@ ${TAG_STYLE}`;
         }).join(', ');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). It is an extra entry right after the panel it enlarges, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel. At most 1 per page. It is extra and does not count toward the 3 story panels: a page can have 3 story panels plus 1 emph entry.`;
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). It is an extra entry right after the panel it enlarges, with an extreme close-up camera, frame "inset" and its cell on a corner of that panel, on a row no other panel uses. At most 1 per page. It is extra and does not count toward the 3 story panels: a page can have 3 story panels plus 1 emph entry.`;
     const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
@@ -1461,7 +1469,7 @@ ${TAG_STYLE}`;
             : `- panels: 2 to 3 story entries, chosen per image${comicCoordsNow() ? ', plus at most 1 emph entry (extra, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2.`}${n > 1 ? ' Neighbouring images never have the same number of panels (e.g. 3, then 2, then 3).' : ''}`;
         const imageSchema = isIllust()
             ? `{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"${centerCell(G)}"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}`
-            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B3' : 'C2', G)}","frame":"tall","emph":false,` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B2' : 'C2', G)}","frame":"tall","emph":false,` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -2355,7 +2363,7 @@ Rules
         const panelCoords = komas.length >= 2 && comicCoordsNow();
         if (panelCoords) {
             const given = komas.map(km => xyOfCell(km.cell, G));
-            const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
+            const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length && rowsApart(given, G);
             if (ok) komas.forEach((km, k) => Object.assign(km, given[k]));
             else panelDefaults(komas, w > h, G);
         }
@@ -2367,7 +2375,7 @@ Rules
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}pannels, manga, panel borders. white border::, 0.5::diagonal border::` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}panels, manga, panel borders::, 0.5::diagonal border, black border::` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: komaN,
             ...(panelCoords ? { grid: [G.cols, G.rows] } : {}),
