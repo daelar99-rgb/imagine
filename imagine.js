@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.73.0
+//@display-name 💠 이매진 v5.74.0
 //@api 3.0
-//@version 5.73.0
+//@version 5.74.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.73.0';
+    const VERSION = '5.74.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -52,7 +52,7 @@
     };
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
-    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border';
+    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, black border';
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -1308,17 +1308,17 @@ ${TAG_STYLE}`;
         return keys.slice(0, 2);
     }
     const frameTags = (v, emph) => frameKeysOf(v, emph).map(k => FRAME_TAGS[k]).join(', ');
-    const KOMA_ADJ = { broken: 'broken-border', jagged: 'jagged-border', burst: 'border-breaking' };
+    const KOMA_ADJ = { tall: 'vertical', broken: 'broken-border', jagged: 'jagged-border', burst: 'border-breaking' };
     function komaPosOf(x, y) {
         const row = y <= 0.3 ? 'top' : y >= 0.7 ? 'bottom' : '';
         const col = x <= 0.3 ? 'left' : x >= 0.7 ? 'right' : '';
-        if (!row) return col ? `on the ${col} side` : 'in the middle';
-        return col ? `at the ${row} ${col}` : row === 'top' ? 'on top' : 'at the bottom';
+        return [row, col].filter(Boolean).join(' ') || 'middle';
     }
     function komaLayoutOf(list) {
-        return list.map(({ x, y, shape, zoom }, k) => {
-            const words = [zoom ? 'close-up' : '', ...(shape ?? []).map(s => KOMA_ADJ[s] ?? s), 'koma', komaPosOf(x, y)].filter(Boolean);
-            return [k ? (/^[aeiou]/.test(words[0]) ? 'an' : 'a') : 'one', ...words].join(' ');
+        return list.map(({ x, y, shape, shot }) => {
+            const form = (shape ?? []).map(s => KOMA_ADJ[s] ?? s).join(' ');
+            const parts = [form ? `${form} koma` : '', ...String(shot ?? '').split(',').map(t => t.trim())].filter(Boolean);
+            return parts.length ? `${komaPosOf(x, y)} koma: ${parts.join(TAG_JOIN)}` : `${komaPosOf(x, y)} koma`;
         }).join(', ');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
@@ -2233,15 +2233,14 @@ Rules
                 return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
             const lines = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : '', place ? `${place},` : ''].filter(Boolean);
-            if (who.length) {
-                for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
-                if (sayAt >= 0) lines.push(personLine(sayAt));
-            } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
+            const keep = sayAt >= 0 ? sayAt : 0;
+            if (who.length) lines.push(personLine(keep));
+            else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
             slots.push({
                 prompt: endComma(lines.join('\n')),
-                uc: tidy(pn.uc), x: 0.5, y: 0.5, cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph) : [], zoom: emph || /close-up/i.test(cam0), kind: 'panel', type: types[0] ?? 'other', ...(emph ? { emph: true } : {}),
-                name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
-                chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
+                uc: tidy(pn.uc), x: 0.5, y: 0.5, cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph) : [], shot: joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0), kind: 'panel', type: types[keep] ?? 'other', ...(emph ? { emph: true } : {}),
+                name: who[keep]?.name ?? '', keys: who.map(x => x.key),
+                chars: who.slice(keep, keep + 1).map(x => [String(x.name).toLowerCase(), labelOf(x)]),
             });
             panelN++;
         }
@@ -2266,7 +2265,7 @@ Rules
         const single = panelN === 1;
         const fallback = pslots.length >= 2 && !panelCoords ? panelCellsOf(pslots.length, w > h).map(xyOfCell) : null;
         const layout = single ? '' : komaLayoutOf(pslots.map((sl, k) => ({ ...sl, ...(fallback?.[k] ?? {}) })));
-        for (const sl of slots) { delete sl.cell; delete sl.shape; delete sl.zoom; }
+        for (const sl of slots) { delete sl.cell; delete sl.shape; delete sl.shot; }
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         return {
