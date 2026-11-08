@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.88.0
+//@display-name 💠 이매진 v5.89.0
 //@api 3.0
-//@version 5.88.0
+//@version 5.89.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.88.0';
+    const VERSION = '5.89.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2212,6 +2212,7 @@ Rules
         }
         if (src.length > KOMA_MAX) src = src.filter(pn => !isEmph(pn));
         const framed = coordMode && src.length >= 2;
+        const perPerson = framed;
         const place = joinTags(dropNone(img.scene));
         for (const pn of src) {
             const emph = isEmph(pn);
@@ -2245,24 +2246,45 @@ Rules
             };
             const lead = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
             const shared = [lead.length ? `2::${lead.join('\n')}::` : '', place ? `${place},` : ''].filter(Boolean);
-            const lines = [...shared];
-            if (who.length) {
-                for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
-                if (sayAt >= 0) lines.push(personLine(sayAt));
-            } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
-            const slot = {
+            const slotOf = (lines, extra) => ({
                 prompt: endComma(lines.join('\n')),
-                uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', koma: komas.length, type: types[0] ?? 'other', ...(emph ? { emph: true } : {}),
-                name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
-                chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
-            };
+                uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', koma: komas.length, ...(emph ? { emph: true } : {}),
+                keys: who.map(x => x.key), ...extra,
+            });
+            let made;
+            if (perPerson) {
+                const keep = sayAt >= 0 ? sayAt : 0;
+                const mk = k => slotOf([...shared, k < 0 ? [withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN) : personLine(k)], {
+                    type: k < 0 ? 'other' : types[k] ?? 'other',
+                    name: k < 0 ? '' : who[k].name ?? '',
+                    chars: k < 0 ? [] : [[String(who[k].name).toLowerCase(), labelOf(who[k])]],
+                    lead: k < 0 || k === keep,
+                });
+                made = who.length ? who.map((_, k) => mk(k)) : [mk(-1)];
+            } else {
+                const lines = [...shared];
+                if (who.length) {
+                    for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
+                    if (sayAt >= 0) lines.push(personLine(sayAt));
+                } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
+                made = [slotOf(lines, {
+                    type: types[0] ?? 'other',
+                    name: who.map(x => x.name).join(' · '),
+                    chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
+                    lead: true,
+                })];
+            }
             komas.push({
                 cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph) : [], shot: joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0),
                 x: 0.5, y: 0.5, ...(emph ? { emph: true } : {}),
-                slots: [slot],
+                slots: made,
             });
         }
-        for (const km of komas) slots.push(...km.slots);
+        let room = SLOT_MAX - komas.length;
+        for (const km of komas) {
+            km.slots = km.slots.filter(sl => sl.lead || room-- > 0);
+            for (const sl of km.slots) { delete sl.lead; slots.push(sl); }
+        }
         const labelList = [...labels.values()];
         for (const sl of slots) {
             const own = ownTagsOf(sl.prompt, labelList);
@@ -2286,7 +2308,7 @@ Rules
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? '1.5::multiple pannels, manga, panel borders::, 0.3::diagonal border::' : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: komaN,
             useCoords: panelCoords, panelCoords,
