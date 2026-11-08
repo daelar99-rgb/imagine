@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.82.1
+//@display-name 💠 이매진 v5.83.0
 //@api 3.0
-//@version 5.82.1
+//@version 5.83.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.82.1';
+    const VERSION = '5.83.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2243,7 +2243,8 @@ Rules
                 const [tg, prose] = splitAct(acts[k]);
                 return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
-            const shared = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : '', place ? `${place},` : ''].filter(Boolean);
+            const lead = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
+            const shared = [lead.length ? `2::${lead.join('\n')}::` : '', place ? `${place},` : ''].filter(Boolean);
             const keep = sayAt >= 0 ? sayAt : 0;
             const mk = k => ({
                 prompt: endComma([...shared, k < 0 ? [withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN) : personLine(k)].join('\n')),
