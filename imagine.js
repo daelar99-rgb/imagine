@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.70.0
+//@display-name 💠 이매진 v5.70.1
 //@api 3.0
-//@version 5.70.0
+//@version 5.70.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.70.0';
+    const VERSION = '5.70.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2312,7 +2312,7 @@ Rules
                     const [tg, prose] = splitAct(refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
                     x.tags.push(tg);
                     if (prose) x.prose.push(prose);
-                    if (k === sayAt) x.says.push(`${x.label}'s text: ${line} `);
+                    if (k === sayAt) x.says.push(`head next to speech bubble, speech bubble with Text: ${line} `);
                     x.centers.push({ x: spot.x, y: spot.y });
                 });
             }
@@ -2487,8 +2487,7 @@ Rules
                 const narration = !b.by || /^(narration|narrator|나레이션|내레이션)$/i.test(tidy(b.by));
                 const e = narration ? null : findCast(cast, b.by);
                 const at = narration ? -1 : chars.findIndex(x => e ? x.e === e : x.monster && tidy(x.c.name).toLowerCase() === tidy(b.by).toLowerCase());
-                const who = at >= 0 ? tidy(chars[at].e?.canon) || `char${at + 1}` : '';
-                if (who) { slots[at].prompt = `${slots[at].prompt}, ${who}'s text: ${text} `; continue; }
+                if (at >= 0) { slots[at].prompt = `${slots[at].prompt}, head next to speech bubble, speech bubble with Text: ${text} `; continue; }
                 if (slots.length < MAX_SLOTS) slots.push(bubbleSlot(b));
             }
         }
