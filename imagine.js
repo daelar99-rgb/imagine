@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.81.0
+//@display-name 💠 이매진 v5.82.0
 //@api 3.0
-//@version 5.81.0
+//@version 5.82.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.81.0';
+    const VERSION = '5.82.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2283,7 +2283,6 @@ Rules
         const single = komas.length === 1;
         const fallback = komas.length >= 2 && !panelCoords ? panelCellsOf(komas.length, w > h).map(xyOfCell) : null;
         const spots = komas.map((km, k) => ({ ...km, ...(fallback?.[k] ?? {}) }));
-        const layout = single ? '' : komaLayoutOf(spots);
         komas.forEach((km, k) => {
             for (const sl of km.slots) {
                 sl.x = km.x; sl.y = km.y;
@@ -2293,7 +2292,7 @@ Rules
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, single ? '' : BORDER_TAGS[emphOf({ emph: img.diagonal }) ? 'diagonal' : 'straight'], layout),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, single ? '' : BORDER_TAGS[emphOf({ emph: img.diagonal }) ? 'diagonal' : 'straight']),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2),
             useCoords: panelCoords, panelCoords,
@@ -2393,7 +2392,9 @@ Rules
     const withGenre = (req, img) => {
         const g = genreTags(img);
         if (!g) return req;
-        const neg = genreKey(img?.genre) === 'nsfw' ? removeTokens(req.neg, ['nsfw']) : req.neg;
+        const nsfw = genreKey(img?.genre) === 'nsfw';
+        if (!isIllust() && !nsfw) return req;
+        const neg = nsfw ? removeTokens(req.neg, ['nsfw']) : req.neg;
         return { ...req, base: joinTags(req.base, g), neg };
     };
     function buildReqRaw(img, cast, state) {
