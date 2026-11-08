@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.98.0
+//@display-name 💠 이매진 v5.98.1
 //@api 3.0
-//@version 5.98.0
+//@version 5.98.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.98.0';
+    const VERSION = '5.98.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -351,8 +351,8 @@
     const panelCellsOf = (n, wide) => n >= 5 ? (wide ? ['B2', 'D2', 'A4', 'C4', 'E4'] : ['C1', 'B2', 'D3', 'B4', 'D5'])
         : n === 4 ? (wide ? ['A2', 'C2', 'B4', 'D4'] : ['B1', 'D2', 'B4', 'D5'])
         : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
-        : wide ? ['B3', 'D3'] : ['C2', 'C4'];
-    const laneOf = (xy, G, wide) => wide ? axisAt(xy.x, G.cols) : axisAt(xy.y, G.rows);
+        : wide ? ['B2', 'D4'] : ['C2', 'C4'];
+    const laneOf = (xy, G) => axisAt(xy.y, G.rows);
     const lanesApart = (list, G, wide) => new Set(list.map(xy => laneOf(xy, G, wide))).size === list.length;
     const onEdge = (xy, G) => { const c = axisAt(xy.x, G.cols), r = axisAt(xy.y, G.rows); return c === 0 || c === G.cols - 1 || r === 0 || r === G.rows - 1; };
     function panelDefaults(pslots, wide, G = GRID5, fixed = new Set()) {
@@ -372,8 +372,8 @@
             if (fixed.has(sl)) return;
             const base = story[Math.min(k, story.length - 1)] ?? pslots[0];
             const bc = axisAt(base.x, G.cols), br = axisAt(base.y, G.rows);
-            const n = wide ? G.rows : G.cols, pos = wide ? br : bc;
-            const at = i => wide ? cellXY(bc, i) : cellXY(i, br);
+            const n = G.cols, pos = bc;
+            const at = i => cellXY(i, br);
             const side = k % 2 === 0 ? 1 : -1;
             const seq = [];
             for (const sd of [side, -side]) for (let i = sd > 0 ? n - 1 : 0; sd > 0 ? i > pos : i < pos; i -= sd) seq.push(i);
@@ -386,7 +386,7 @@
     const SPREAD_STEPS = [[-1, 0], [1, 0], [0, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
     function spreadKomaSlots(komas, G = GRID5, wide = false) {
         const used = new Set();
-        const along = (a, b) => wide ? Math.abs(axisAt(a.y, G.rows) - axisAt(b.y, G.rows)) : Math.abs(axisAt(a.x, G.cols) - axisAt(b.x, G.cols));
+        const along = (a, b) => Math.abs(axisAt(a.x, G.cols) - axisAt(b.x, G.cols));
         const d2 = (a, b, same) => same ? along(a, b) : Math.abs(laneOf(a, G, wide) - laneOf(b, G, wide));
         for (const km of komas) {
             if (km.slots.length < 2) { used.add(`${km.x},${km.y}`); continue; }
@@ -1362,8 +1362,8 @@ ${TAG_STYLE}`;
     const cellRuleOne = G => { const c = k => cellIn(k, G);
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
     const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
-        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left. The 2 story panels get different column letters: each sits at least one column left or right of the other' : 'earlier panels sit higher. The 2 story panels get different row numbers: each sits at least one row above or below the other'}. Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
-            ? `2 story panels ${q(['B3', 'D3'])} (side by side) or ${q(['B2', 'D4'])} (left high, right low)`
+        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
+            ? `2 story panels ${q(['B2', 'D4'])} (left high, right low) or ${q(['D2', 'B4'])} (right high, left low)`
             : `2 story panels ${q(['C2', 'C4'])} (stacked) or ${q(['B2', 'D4'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
         wide: 'wide koma',
@@ -1400,7 +1400,6 @@ ${TAG_STYLE}`;
             return parts.length ? `${komaPosOf(x, y)} koma: ${parts.join(TAG_JOIN)}` : `${komaPosOf(x, y)} koma`;
         }).join(', ');
     }
-    const SHOT_CLASH = /^(?:(?:extreme |medium )?close[- ]?up(?: shot)?|medium shot|cowboy shot|upper body|portrait|bust(?: shot)?|wide shot)$/;
     const EMPH_VIEWS = ['cross-section', 'three-quarter view', 'from above', 'from below', 'from side', 'from behind', 'pov', 'dutch angle'];
     function viewOf(v) {
         const t = tidy(v).toLowerCase().replace(/_/g, ' ');
@@ -1409,7 +1408,7 @@ ${TAG_STYLE}`;
         return EMPH_VIEWS.find(x => t.includes(x)) ?? (/cross ?section|x-?ray/.test(t) ? 'cross-section' : /three quarter|3\/4/.test(t) ? 'three-quarter view' : '');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell in the same row (the same column on a landscape page) as that story panel, toward the page edge. Only emph panels may sit on the outer ring of the grid. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell in the same row as that story panel (the same height), toward the page edge. An emph panel shows only the emphasized detail: its camera and tags name that detail, with no place, room, sky or other background words. Only emph panels may sit on the outer ring of the grid. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
   - view: emph entries only ("" on story panels). One tag for how the detail is seen, fitted to the situation: ${EMPH_VIEWS.join(', ')}.`;
     const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
@@ -1493,7 +1492,7 @@ ${TAG_STYLE}`;
             : `- panels: exactly 2 story entries per image (setup → reaction)${comicCoordsNow() ? `, then 0 to 2 emph entries as the 3rd and 4th entries (see emph). Story entries always come first.${n > 1 ? ' Neighbouring images never have the same number of emph entries (e.g. 1, then 0, then 2).' : ''}` : '. No more, no fewer.'}`;
         const imageSchema = isIllust()
             ? `{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"${centerCell(G)}"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}`
-            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B3' : 'C2', G)}","frame":"tall","emph":false,"view":"",` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B2' : 'C2', G)}","frame":"tall","emph":false,"view":"",` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -2319,8 +2318,8 @@ Rules
             const cam0 = joinTags(noText(dropNone(pn.camera)));
             const view = emph ? viewOf(pn.view) : '';
             const tallWide = !emph && src.length >= 2 && h > w;
-            const camIn = tallWide ? joinTags(tagsOf(cam0).filter(t => !SHOT_CLASH.test(tagCore(t)))) : cam0;
-            const cam = joinTags(tallWide ? 'wide shot' : '', emph && !/close-up/i.test(camIn) ? 'extreme close-up' : '', view && !tagsOf(camIn).some(t => t.toLowerCase() === view) ? view : '', camIn);
+            const camIn = cam0;
+            const cam = joinTags(tallWide && !tagsOf(camIn).some(t => tagCore(t) === 'wide panel') ? 'wide panel' : '', emph && !/close-up/i.test(camIn) ? 'extreme close-up' : '', view && !tagsOf(camIn).some(t => t.toLowerCase() === view) ? view : '', camIn);
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
@@ -2336,7 +2335,7 @@ Rules
                 return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
             const lead = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
-            const shared = [lead.length ? `2::${lead.join('\n')}::` : '', place ? `${place},` : ''].filter(Boolean);
+            const shared = [lead.length ? `2::${lead.join('\n')}::` : '', place && !emph ? `${place},` : ''].filter(Boolean);
             const slotOf = (lines, extra) => ({
                 prompt: endComma(lines.join('\n')),
                 uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', koma: komas.length, ...(emph ? { emph: true } : {}),
