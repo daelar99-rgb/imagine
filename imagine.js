@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.69.1
+//@display-name 💠 이매진 v5.69.2
 //@api 3.0
-//@version 5.69.1
+//@version 5.69.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.69.1';
+    const VERSION = '5.69.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -53,6 +53,7 @@
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
     const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border, tilted koma box';
+    const PANEL_TAG = 'dynamic koma';
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -2202,7 +2203,7 @@ Rules
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam0 = joinTags(noText(dropNone(pn.camera)));
-            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, framed ? frameTags(pn.frame, emph) : '');
+            const cam = joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0, framed ? frameTags(pn.frame, emph) : '', src.length >= 2 ? PANEL_TAG : '');
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
@@ -6748,7 +6749,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             /^(heterochromia|ahoge|bangs|sidelocks|ponytail|twintails|braid|hair bun|bob cut)$/,
         ];
         const HAIR_EYE_RE = /^(?!detail(ed)? |beautiful detail(ed)? )[a-z -]+ (hair|eyes)$/;
-        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', 'tilted koma box', '4koma', '2koma', 'speech bubble', 'tailless speech bubble', 'head next to speech bubble','english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
+        const LAYOUT = new Set(['comic', 'manga', 'multiple panels', 'panel borders', 'varied panel sizes', 'varied panel one-page manga', 'white border', 'tilted koma box', 'dynamic koma', '4koma', '2koma', 'speech bubble', 'tailless speech bubble', 'head next to speech bubble','english text', 'text', 'no text', 'multiple views', 'split screen', 'collage', 'border', 'sound effects', 'onomatopoeia', 'motion lines']);
         const norm = s => s.toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
         const coreOf = raw => norm(raw.replace(/^[{[]+/, '').replace(/[}\]]+$/, ''));
         const isSubject = c => SUBJECT_RE.some(r => r.test(c)) || HAIR_EYE_RE.test(c);
