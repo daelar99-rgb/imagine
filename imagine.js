@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.70.1
+//@display-name 💠 이매진 v5.70.2
 //@api 3.0
-//@version 5.70.1
+//@version 5.70.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.70.1';
+    const VERSION = '5.70.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -7773,6 +7773,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 
     const DOT_COLORS = ['#00b4ff', '#ff6fa5', '#a78bfa', '#ff914d', '#00e08a', '#facc15', '#f87171', '#38bdf8'];
     function renderCoord(req, locked) {
+        if (req.komaCoords) return renderKomaCoord(req);
         const multi = (req.panels ?? 1) !== 1;
         if (multi && !req.panelCoords) return null;
         const chars = multi ? panelSlotsOf(req) : charSlotsOf(req);
@@ -7809,6 +7810,30 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         };
         paint();
         return box;
+    }
+    function renderKomaCoord(req) {
+        const chars = charSlotsOf(req);
+        if (!chars.length) return null;
+        const free = coordsOn(req);
+        const spots = sl => (Array.isArray(sl.centers) && sl.centers.length ? sl.centers : [{ x: sl.x, y: sl.y }]).map(c => cellOf(c.x, c.y));
+        const codes = chars.map(spots);
+        const dot = k => h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1));
+        const cells = [];
+        for (let r = 1; r <= 5; r++) for (const col of CELL_COLS) {
+            const code = col + r;
+            const here = free ? chars.map((sl, k) => k).filter(k => codes[k].includes(code)) : [];
+            cells.push(h('button', { class: 'co-c', type: 'button', title: code, 'aria-label': `${code} 칸`, disabled: true }, here.map(dot)));
+        }
+        return h('div', { class: 'co' },
+            h('h3', null, '좌표평면'),
+            h('div', { class: 'co-wrap' },
+                h('div', { class: 'co-pl' }, cells, free ? null : h('span', { class: 'co-ct' }, 'NAI 자동')),
+                h('div', { class: 'co-side' },
+                    chars.map((sl, k) => h('button', { class: 'co-chip', type: 'button', disabled: true },
+                        dot(k), `${sl.name || '인물'}${free ? ` · ${[...new Set(codes[k])].join(' · ')}` : ''}`)),
+                    h('p', { class: 'ix-hint', style: 'margin:0' }, free
+                        ? '만화 한 장에서 각 인물이 나오는 컷의 자리입니다. 같은 칸의 점은 같은 컷에 함께 나오는 인물입니다. 컷 배치는 위의 본 프롬프트를 고쳐 바꿉니다.'
+                        : '위치 지정이 꺼져 있어 인물 자리는 NAI 가 정합니다.'))));
     }
 
     function renderPrompt(rec, disabled, idx, pick) {
