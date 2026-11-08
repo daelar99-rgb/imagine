@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.79.0
+//@display-name 💠 이매진 v5.80.0
 //@api 3.0
-//@version 5.79.0
+//@version 5.80.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.79.0';
+    const VERSION = '5.80.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -347,6 +347,8 @@
         });
     }
     const KOMA_MAX = 5;
+    const slotNo = (sl, k) => sl?.kind === 'panel' && Number.isInteger(sl.koma) ? sl.koma + 1 : k + 1;
+    const emphOf = pn => pn?.emph === true || String(pn?.emph).toLowerCase() === 'true';
     const SLOT_MAX = 6;
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
@@ -1404,7 +1406,7 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
-            : `- panels: 2 to 5 entries in total, chosen per image${comicCoordsNow() ? ' (an emph entry counts toward the 5, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3-5 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2-3 and avoid 4-5.`}`;
+            : `- panels: 2 to 5 entries in total, chosen per image${comicCoordsNow() ? ' (an emph entry counts toward the 5, see emph)' : ''}. 2 for setup → reaction (good for dialogue), 3-5 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2-3 and avoid 4-5.`}${n > 1 ? ' Neighbouring images never have the same number of panels (e.g. 3, then 2, then 4).' : ''}`;
         const imageSchema = isIllust()
             ? '{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"C3"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}'
             : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2","frame":"tall","emph":false,' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
@@ -2197,7 +2199,7 @@ Rules
         const kindOf = x => x.e ? x.type : x.name;
         const komas = [];
         const coordMode = comicCoordsNow();
-        const isEmph = pn => coordMode && (pn.emph === true || String(pn.emph).toLowerCase() === 'true');
+        const isEmph = pn => coordMode && emphOf(pn);
         let src = [];
         let storyN = 0, emphN = 0;
         for (const pn of img.panels) {
@@ -3362,6 +3364,14 @@ ${t.user}` : null;
                 if (askGenre()) console.log(LOG, 'genre', images.map(img => `${img.genre ?? '(none)'} → ${genreKey(img.genre) || '-'}${monoNow() ? ` · severity ${severityOf(img) || '-'}${isDynamic(img) ? ' · dynamic' : ''}` : ''}`).join(' | '));
                 const drawState = re ? { ...state, backgrounds: [re.top] } : state;
                 reqs = images.map(img => buildReq(img, cast, drawState));
+                if (!isIllust() && comicCoordsNow()) for (let i = 1; i < reqs.length; i++) {
+                    if (reqs[i]?.kind !== 'comic' || reqs[i - 1]?.kind !== 'comic' || reqs[i].panels !== reqs[i - 1].panels) continue;
+                    const pans = Array.isArray(images[i].panels) ? images[i].panels : [];
+                    if (!pans.some(emphOf)) { console.log(LOG, 'koma count', `image ${i + 1} has ${reqs[i].panels} like image ${i}, no emph to drop`); continue; }
+                    images[i] = { ...images[i], panels: pans.filter(pn => !emphOf(pn)) };
+                    reqs[i] = buildReq(images[i], cast, drawState);
+                    console.log(LOG, 'koma count', `image ${i + 1}: emph dropped → ${reqs[i].panels}`);
+                }
             }
 
             if (busy.est.P && !cogen) ilPush(planKey(busy.llm), (Date.now() - busy.at) / 1000);
@@ -7819,7 +7829,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 h('h3', null, '본 프롬프트'),
                 h('textarea', { class: 'cf-ta', disabled, oninput: e => { req.base = e.target.value; } }, req.base),
                 ...(req.slots ?? []).flatMap((sl, k) => [
-                    h('h3', null, `칸 ${k + 1} · ${sl.kind === 'char' ? sl.name || '인물' : sl.kind === 'panel' ? `컷${sl.name ? ' · ' + sl.name : ''}` : sl.kind === 'narration' ? '나레이션' : '말풍선'}`),
+                    h('h3', null, `칸 ${slotNo(sl, k)} · ${sl.kind === 'char' ? sl.name || '인물' : sl.kind === 'panel' ? `컷${sl.name ? ' · ' + sl.name : ''}` : sl.kind === 'narration' ? '나레이션' : '말풍선'}`),
                     h('textarea', { class: 'cf-ta', disabled, oninput: e => { sl.prompt = e.target.value; } }, sl.prompt),
                 ]),
                 renderCoord(req, disabled),
@@ -7838,7 +7848,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 class: 'ix-btn sm', type: 'button',
                 onclick: async ev => {
                     const b = ev.currentTarget;
-                    const text = shown.map(n => draft[n]).map(r => [r.base, ...(r.slots ?? []).map((s, k) => `[칸 ${k + 1}] ${s.prompt}`), `[부정] ${r.neg}`].join('\n')).join('\n\n');
+                    const text = shown.map(n => draft[n]).map(r => [r.base, ...(r.slots ?? []).map((s, k) => `[칸 ${slotNo(s, k)}] ${s.prompt}`), `[부정] ${r.neg}`].join('\n')).join('\n\n');
                     const done = await copyText(text);
                     b.textContent = done ? '✓ 복사했습니다' : '복사하지 못했습니다';
                     setTimeout(() => { if (b.isConnected) b.textContent = '📋 복사'; }, 1500);
