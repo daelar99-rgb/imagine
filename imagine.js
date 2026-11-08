@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.83.0
+//@display-name 💠 이매진 v5.84.0
 //@api 3.0
-//@version 5.83.0
+//@version 5.84.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.83.0';
+    const VERSION = '5.84.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2290,12 +2290,13 @@ Rules
                 if (!single && !panelCoords) sl.prompt = `${komaPosOf(spots[k].x, spots[k].y)} koma,\n${sl.prompt}`;
             }
         });
-        let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
+        let neg = removeTokens(p.neg, ['2koma', '3koma', '4koma', '5koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
+        const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, single ? '' : BORDER_TAGS[emphOf({ emph: img.diagonal }) ? 'diagonal' : 'straight']),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, single ? '' : `${komaN}koma`, single ? '' : BORDER_TAGS[emphOf({ emph: img.diagonal }) ? 'diagonal' : 'straight']),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2),
+            slots, w, h, panels: komaN,
             useCoords: panelCoords, panelCoords,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
