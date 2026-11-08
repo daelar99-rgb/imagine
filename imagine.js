@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.71.0
+//@display-name 💠 이매진 v5.71.1
 //@api 3.0
-//@version 5.71.0
+//@version 5.71.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.71.0';
+    const VERSION = '5.71.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2321,7 +2321,7 @@ Rules
                 who.forEach(x => x.centers.push({ x: spot.x, y: spot.y }));
             }
             const body = [...segs.map(tidy).filter(Boolean), say].filter(Boolean).join('+');
-            komas.push({ text: `${komaPosOf(spot)} ${first || 'koma'}${body ? `: ${body}` : ''}`, say: !!say });
+            komas.push(`${komaPosOf(spot)} ${first || 'koma'}${body ? `: ${body}` : ''}`);
             if (tidy(pn.uc)) ucs.push(tidy(pn.uc));
         });
         const slots = [...people.values()].filter(x => x.centers.length).map(x => {
@@ -2333,7 +2333,7 @@ Rules
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const kinds = [...people.values()].filter(x => x.centers.length).map(x => x.e ? x.type : x.name);
         return {
-            base: tidy(`${joinTags(kinds.length ? kindCount(kinds) : 'no humans', dropTags(p.pos, ['sound effects']), COMIC_TAGS, dropNone(img.scene), `${src.length} koma`)}, ${komas.map(k => `${k.text}${k.say ? ' ' : ', '}`).join('')}`),
+            base: tidy(`${joinTags(kinds.length ? kindCount(kinds) : 'no humans', dropTags(p.pos, ['sound effects']), COMIC_TAGS, dropNone(img.scene), `${src.length} koma`)}, ${komas.join(', ')}`),
             neg: joinTags(neg, img.uc, ucs, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: clampInt(src.length, 2, 5, 2),
             useCoords: slots.length >= 1, komaCoords: true,
