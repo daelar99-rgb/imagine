@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.99.0
+//@display-name 💠 이매진 v5.100.0
 //@api 3.0
-//@version 5.99.0
+//@version 5.100.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.99.0';
+    const VERSION = '5.100.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -409,6 +409,47 @@
                 const hit = mine.find(m => m.x === at.x && m.y === at.y);
                 if (hit) hit.n++; else mine.push({ x: at.x, y: at.y, n: 1 });
             }
+        }
+    }
+    function unevenRows(komas, G = GRID5, dots = false) {
+        if (komas.length < 2) return;
+        const rowOf = o => axisAt(o.y, G.rows);
+        const story = komas.filter(km => !km.emph);
+        let ej = 0;
+        const baseOf = new Map(komas.map(km => [km, km.emph ? story[Math.min(ej++, story.length - 1)] ?? km : km]));
+        const pts = km => dots && km.slots.length ? km.slots : [km];
+        const rowIn = (mv, km, o) => rowOf(o) + (mv.get(km) ?? 0);
+        const margins = mv => { const rs = komas.flatMap(km => pts(km).map(o => rowIn(mv, km, o))); return [Math.min(...rs), G.rows - 1 - Math.max(...rs)]; };
+        const ok = mv => {
+            if (komas.some(km => pts(km).some(o => { const r = rowIn(mv, km, o); return r < 0 || r >= G.rows; }))) return false;
+            if (story.some(km => pts(km).concat(km).some(o => { const r = rowIn(mv, km, o); return r < 1 || r > G.rows - 2; }))) return false;
+            const sr = story.map(km => rowIn(mv, km, km));
+            if (new Set(sr).size !== sr.length) return false;
+            if (komas.some(km => km.emph) && sr.some(a => sr.some(b => a !== b && Math.abs(a - b) < 2))) return false;
+            const cells = komas.map(km => `${axisAt(km.x, G.cols)},${rowIn(mv, km, km)}`);
+            if (new Set(cells).size !== cells.length) return false;
+            if (dots) {
+                const ds = komas.flatMap(km => km.slots.map(o => `${axisAt(o.x, G.cols)},${rowIn(mv, km, o)}`));
+                if (new Set(ds).size !== ds.length) return false;
+                for (const km of komas) for (const o of km.slots) {
+                    const r = rowIn(mv, km, o), mine = Math.abs(r - rowIn(mv, km, km));
+                    if (komas.some(q => q !== km && rowIn(mv, q, q) !== rowIn(mv, km, km) && Math.abs(r - rowIn(mv, q, q)) <= mine)) return false;
+                }
+            }
+            return true;
+        };
+        const [t0, b0] = margins(new Map());
+        if (t0 !== b0) return;
+        const all = d => new Map(komas.map(km => [km, d]));
+        const group = (s, d) => new Map(komas.filter(km => baseOf.get(km) === s).map(km => [km, d]));
+        const cands = [all(-1), all(1), ...[...story].reverse().flatMap(s => [group(s, -1), group(s, 1)])];
+        const mv = cands.find(m => { if (!ok(m)) return false; const [t, b] = margins(m); return t !== b; });
+        if (!mv) return;
+        const yAt = r => r3((r + 0.5) / G.rows);
+        for (const [km, d] of mv) {
+            if (!d) continue;
+            km.y = yAt(rowOf(km) + d);
+            for (const sl of km.slots) sl.y = yAt(rowOf(sl) + d);
         }
     }
     const STORY_MAX = 2;
@@ -1363,7 +1404,7 @@ ${TAG_STYLE}`;
     const cellRuleOne = G => { const c = k => cellIn(k, G);
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
     const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
-        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. When the page has emph panels, keep at least one empty row between the 2 story panels, because each emph panel takes the row directly above its story panel. Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
+        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. When the page has emph panels, keep at least one empty row between the 2 story panels, because each emph panel takes the row directly above its story panel. Keep the layout off-center vertically: the number of empty rows above the top panel must differ from the number below the bottom panel (e.g. 1 above and 2 below, never 2 and 2). Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
             ? `2 story panels ${q(['B2', 'D4'])} (left high, right low) or ${q(['D2', 'B4'])} (right high, left low)`
             : `2 story panels ${q(['C2', 'C4'])} (stacked) or ${q(['B2', 'D4'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
@@ -1409,7 +1450,7 @@ ${TAG_STYLE}`;
         return EMPH_PANELS.find(x => t.includes(x)) ?? (/cross ?-?section|x-?ray/.test(t) ? 'cross-section panel' : /hexagon/.test(t) ? 'hexagon panel' : '');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell in the row directly above that story panel (exactly one row higher: never the same row, never two or more rows up), toward the page edge. An emph panel shows only the emphasized detail: its camera and tags name that detail, with no place, room, sky or other background words. Its who is only the owner of the detail ([] for an object). No character tags: when the detail is a CAST person's body part, its tags carry only that part's look from CAST (eyes: the eye colour; hair: the hair colour and style; a hand: the glove, sleeve or ring on it; lips: the lip colour), never the rest of the look or outfit. Only emph panels may sit on the outer ring of the grid. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
+  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell in the row directly above that story panel (exactly one row higher: never the same row, never two or more rows up), toward the page edge. An emph panel shows only the emphasized detail: its camera and tags name that detail, with no place, room, sky or other background words. Its who is only the owner of the detail ([] for an object). No character tags: when the detail is a CAST person's body part, its tags start with that body part as a bare noun (hands, eyes, lips, hair; no his / her), then only that part's look from CAST (eyes: the eye colour; hair: the hair colour and style; a hand: the glove, sleeve or ring on it; lips: the lip colour), then the detail, e.g. ["hands", "black gloves", "clenched fist"]; never the rest of the look or outfit. The app writes the part with the same label that person has in the story panel (char1's hands). Only emph panels may sit on the outer ring of the grid. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
   - panelTag: emph entries only ("" on story panels). Required on every emph entry: the panel tag for how the emphasis panel is drawn, fitted to the situation, one of: ${EMPH_PANELS.join(', ')}. Viewpoint tags (from above, from side and so on) go in camera as usual.`;
     const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
     const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
@@ -2321,7 +2362,7 @@ Rules
             const emph = isEmph(pn);
             const own = whoOf(pn);
             const who = perPerson && own.length && !emph ? [...own, ...everyone.filter(x => !own.some(y => y.key === x.key))] : own;
-            const tagOf = x => emph ? `char${numOf(x)}` : labelOf(x);
+            const tagOf = labelOf;
             for (const x of who) { labelOf(x); if (!looks.has(x.key)) looks.set(x.key, lookNegOf(x.e, state)); }
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
@@ -2335,17 +2376,25 @@ Rules
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
-            const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, tagOf(x)])).sort((a, b) => b[0].length - a[0].length);
+            const refs = (emph ? [...who, ...src.flatMap(whoOf).filter(x => x.e && !who.some(y => y.key === x.key))] : who).flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, tagOf(x)])).sort((a, b) => b[0].length - a[0].length);
             const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
             const acts = (who.length ? who : [null]).map((x, k) => own.length && k >= own.length ? '' : refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = line && who.length ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
             const say = line ? `head next to speech bubble${TAG_JOIN}speech bubble with Text: ${line} ` : '';
+            const emphBody = (lb, tg, prose) => {
+                const t = [...mergeTags(tg), prose].map(s => String(s ?? '').trim().replace(/^(?:his|her|their|its)\s+/i, '')).filter(Boolean);
+                if (!t.length) return null;
+                return [t[0].toLowerCase().startsWith(`${lb.toLowerCase()}'s `) ? t[0] : `${lb}'s ${t[0]}`, ...t.slice(1)];
+            };
             const personLine = k => {
                 const [tg, prose] = splitAct(acts[k]);
-                const body = emph ? mergeTags(tg) : mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg);
-                return `${tagOf(who[k])}: ${[body.join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+                const lb = tagOf(who[k]);
+                const eb = emph ? emphBody(lb, tg, prose) : null;
+                if (eb) return [...eb, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN);
+                const body = emph ? [] : mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg);
+                return `${lb}: ${[body.join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
             const lead = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
             const shared = [lead.length ? lead.join('\n') : '', place && !emph ? `${place},` : ''].filter(Boolean);
@@ -2423,6 +2472,7 @@ Rules
         komas.forEach(km => { for (const sl of km.slots) { sl.x = km.x; sl.y = km.y; } });
         const slotCoords = panelCoords && perPerson;
         if (slotCoords) spreadKomaSlots(komas, G, w > h);
+        if (panelCoords) unevenRows(komas, G, slotCoords);
         let neg = removeTokens(p.neg, ['2koma', '3koma', '4koma', '5koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
