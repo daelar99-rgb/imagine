@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.71.1
+//@display-name 💠 이매진 v5.72.0
 //@api 3.0
-//@version 5.71.1
+//@version 5.72.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.71.1';
+    const VERSION = '5.72.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -325,7 +325,6 @@
     const panelSlotsOf = req => (req?.slots ?? []).filter(sl => sl.kind === 'panel');
     const coordsOn = req => !!req?.useCoords && ((req.panels ?? 1) === 1
         ? charSlotsOf(req).length >= 2
-        : req.komaCoords ? charSlotsOf(req).length >= 1
         : !!req.panelCoords && panelSlotsOf(req).length >= 2);
     const panelCellsOf = (n, wide) => n >= 4 ? ['B2', 'D2', 'B4', 'D4']
         : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
@@ -2188,7 +2187,6 @@ Rules
             src.push(pn);
         }
         const framed = coordMode && src.length >= 2;
-        if (framed) return buildKomaReq(img, cast, state, src, isEmph);
         for (const pn of src) {
             const emph = isEmph(pn);
             const who = [];
@@ -2259,84 +2257,6 @@ Rules
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
             slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 5, 2),
             useCoords: panelCoords, panelCoords,
-            title: tidy(img.title).slice(0, 30),
-            after: tidy(img.after).slice(0, 80),
-            preset: p.id,
-            kind: 'comic',
-        };
-    }
-    const komaPosOf = xy => [xy.y <= 0.3 ? 'top' : xy.y >= 0.7 ? 'bottom' : 'middle', xy.x <= 0.3 ? 'left' : xy.x >= 0.7 ? 'right' : ''].filter(Boolean).join(' ');
-    function buildKomaReq(img, cast, state, src, isEmph) {
-        const p = preset();
-        const [w, h] = sizeWH(sizeNow()) ?? SIZES.tall;
-        const spots = src.map(pn => ({ x: 0.5, y: 0.5, ...(isEmph(pn) ? { emph: true } : {}) }));
-        const given = src.map(pn => xyOfCell(pn.cell));
-        if (given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length) spots.forEach((s, k) => Object.assign(s, given[k]));
-        else panelDefaults(spots, w > h);
-        const people = new Map();
-        const whoOf = pn => {
-            const out = [];
-            for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
-                const e = findCast(cast, name);
-                const key = e?.id ?? name.toLowerCase();
-                if (out.some(x => x.key === key)) continue;
-                if (!people.has(key)) {
-                    if (people.size >= MAX_SLOTS) continue;
-                    people.set(key, { key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other', label: tidy(e?.canon) || `char${people.size + 1}`, centers: [] });
-                }
-                out.push(people.get(key));
-            }
-            return out;
-        };
-        const whos = src.map(whoOf);
-        const refs = [...people.values()].flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, x.label])).sort((a, b) => b[0].length - a[0].length);
-        const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
-        const plusOf = t => tagsOf(t).join('+');
-        const andOf = t => tagsOf(t).join(' and ');
-        const komas = [], ucs = [];
-        src.forEach((pn, i) => {
-            const who = whos[i], spot = spots[i], emph = !!spot.emph;
-            const [first, ...rest] = tagsOf(frameTags(pn.frame, emph));
-            const cam0 = joinTags(noText(dropNone(pn.camera)));
-            const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
-            const segs = [...rest, emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', plusOf(cam0), CJK_RE.test(layRaw) ? '' : plusOf(refOf(layRaw))];
-            const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
-            let say = '';
-            if (!who.length) {
-                segs.push(plusOf(refOf(noText(rawActs[0] ?? ''))));
-                if (line) say = `Text: ${line}`;
-            } else {
-                const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
-                const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
-                const sayAt = line ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
-                const acts = who.map((x, k) => {
-                    const act = andOf(refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
-                    const head = act.toLowerCase().startsWith(x.label.toLowerCase()) ? '' : `${x.label} `;
-                    return act ? `${head}${act}` : '';
-                });
-                const order = who.map((_, k) => k).filter(k => k !== sayAt).concat(sayAt >= 0 ? [sayAt] : []);
-                segs.push(...order.map(k => acts[k]));
-                if (sayAt >= 0) say = `${who[sayAt].label} head next to speech bubble+speech bubble with Text: ${line}`;
-                who.forEach(x => x.centers.push({ x: spot.x, y: spot.y }));
-            }
-            const body = [...segs.map(tidy).filter(Boolean), say].filter(Boolean).join('+');
-            komas.push(`${komaPosOf(spot)} ${first || 'koma'}${body ? `: ${body}` : ''}`);
-            if (tidy(pn.uc)) ucs.push(tidy(pn.uc));
-        });
-        const slots = [...people.values()].filter(x => x.centers.length).map(x => {
-            const ident = x.e ? identTags(x.type, x.e.look, k => wearOf(x.e, state, k), k => noneOf(x.e, state, k)) : [x.type === 'other' ? x.name : x.type];
-            if (tidy(x.e?.canon)) ident.unshift(tidy(x.e.canon), canonBare(x.e.canon));
-            return { prompt: mergeTags(ident).join(', '), uc: '', x: x.centers[0].x, y: x.centers[0].y, centers: x.centers, kind: 'char', type: x.type, name: x.name };
-        });
-        let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
-        if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
-        const kinds = [...people.values()].filter(x => x.centers.length).map(x => x.e ? x.type : x.name);
-        return {
-            base: tidy(`${joinTags(kinds.length ? kindCount(kinds) : 'no humans', dropTags(p.pos, ['sound effects']), COMIC_TAGS, dropNone(img.scene), `${src.length} koma`)}, ${komas.join(', ')}`),
-            neg: joinTags(neg, img.uc, ucs, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: clampInt(src.length, 2, 5, 2),
-            useCoords: slots.length >= 1, komaCoords: true,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
             preset: p.id,
@@ -2439,7 +2359,7 @@ Rules
     function buildReqRaw(img, cast, state) {
         if (!isIllust() && Array.isArray(img.panels)) {
             const req = buildComicReq(img, cast, state);
-            if (req.slots.length || req.komaCoords) return req;
+            if (req.slots.length) return req;
         }
         const panels = panelsOf(img);
         const one = panels === 1;
@@ -2519,7 +2439,6 @@ Rules
         req = { ...req, base: spaceNum(req.base), neg: spaceNum(req.neg), slots: (req.slots ?? []).map(sl => ({ ...sl, prompt: spaceNum(sl.prompt), uc: spaceNum(sl.uc) })) };
         const coords = coordsOn(req);
         const at = sl => coords && ((sl.kind ?? 'char') === 'char' || sl.kind === 'panel') ? { x: sl.x ?? 0.5, y: sl.y ?? 0.5 } : { x: 0.5, y: 0.5 };
-        const ats = sl => coords && Array.isArray(sl.centers) && sl.centers.length ? sl.centers.map(c => ({ x: grid(c.x), y: grid(c.y) })) : [at(sl)];
         const slots = req.slots ?? [];
         const g = presetGen(st.presets.find(p => p.id === req.preset) ?? preset());
         const body = {
@@ -2553,12 +2472,12 @@ Rules
                 prefer_brownian: true,
                 characterPrompts: slots.map(sl => ({ prompt: sl.prompt, uc: sl.uc ?? '', center: at(sl), enabled: true })),
                 v4_prompt: {
-                    caption: { base_caption: req.base, char_captions: slots.map(sl => ({ char_caption: sl.prompt, centers: ats(sl) })) },
+                    caption: { base_caption: req.base, char_captions: slots.map(sl => ({ char_caption: sl.prompt, centers: [at(sl)] })) },
                     use_coords: coords,
                     use_order: true,
                 },
                 v4_negative_prompt: {
-                    caption: { base_caption: req.neg, char_captions: slots.map(sl => ({ char_caption: sl.uc ?? '', centers: ats(sl) })) },
+                    caption: { base_caption: req.neg, char_captions: slots.map(sl => ({ char_caption: sl.uc ?? '', centers: [at(sl)] })) },
                     legacy_uc: false,
                 },
                 negative_prompt: req.neg,
@@ -7778,7 +7697,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 
     const DOT_COLORS = ['#00b4ff', '#ff6fa5', '#a78bfa', '#ff914d', '#00e08a', '#facc15', '#f87171', '#38bdf8'];
     function renderCoord(req, locked) {
-        if (req.komaCoords) return renderKomaCoord(req);
         const multi = (req.panels ?? 1) !== 1;
         if (multi && !req.panelCoords) return null;
         const chars = multi ? panelSlotsOf(req) : charSlotsOf(req);
@@ -7815,30 +7733,6 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         };
         paint();
         return box;
-    }
-    function renderKomaCoord(req) {
-        const chars = charSlotsOf(req);
-        if (!chars.length) return null;
-        const free = coordsOn(req);
-        const spots = sl => (Array.isArray(sl.centers) && sl.centers.length ? sl.centers : [{ x: sl.x, y: sl.y }]).map(c => cellOf(c.x, c.y));
-        const codes = chars.map(spots);
-        const dot = k => h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1));
-        const cells = [];
-        for (let r = 1; r <= 5; r++) for (const col of CELL_COLS) {
-            const code = col + r;
-            const here = free ? chars.map((sl, k) => k).filter(k => codes[k].includes(code)) : [];
-            cells.push(h('button', { class: 'co-c', type: 'button', title: code, 'aria-label': `${code} 칸`, disabled: true }, here.map(dot)));
-        }
-        return h('div', { class: 'co' },
-            h('h3', null, '좌표평면'),
-            h('div', { class: 'co-wrap' },
-                h('div', { class: 'co-pl' }, cells, free ? null : h('span', { class: 'co-ct' }, 'NAI 자동')),
-                h('div', { class: 'co-side' },
-                    chars.map((sl, k) => h('button', { class: 'co-chip', type: 'button', disabled: true },
-                        dot(k), `${sl.name || '인물'}${free ? ` · ${[...new Set(codes[k])].join(' · ')}` : ''}`)),
-                    h('p', { class: 'ix-hint', style: 'margin:0' }, free
-                        ? '만화 한 장에서 각 인물이 나오는 컷의 자리입니다. 같은 칸의 점은 같은 컷에 함께 나오는 인물입니다. 컷 배치는 위의 본 프롬프트를 고쳐 바꿉니다.'
-                        : '위치 지정이 꺼져 있어 인물 자리는 NAI 가 정합니다.'))));
     }
 
     function renderPrompt(rec, disabled, idx, pick) {
