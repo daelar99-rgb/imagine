@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.75.0
+//@display-name 💠 이매진 v5.76.0
 //@api 3.0
-//@version 5.75.0
+//@version 5.76.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.75.0';
+    const VERSION = '5.76.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -1352,6 +1352,7 @@ ${TAG_STYLE}`;
         return `SPEECH BUBBLES: on. For each image add up to ${maxB} bubbles with the most important spoken lines of that moment.
 - text: copy the line VERBATIM from the TARGET MESSAGE, in its original language and script, with the same words and punctuation. Never translate, paraphrase, merge or invent lines. Leave out only the quotation marks around it.${withInput ? '\n' + USER_LINE_RULE.illust : ''}
 - ONE sentence per bubble at most. When a line has several sentences, copy just one complete sentence of it exactly (cut only at the speaker's own punctuation: . ! ? … ~) or choose another line. Never put a second sentence in the same bubble.
+- 15 words at most per bubble. When that one sentence is longer than 15 words, shorten it to 15 words or fewer using only the speaker's own words in their order (drop clauses; never add, reword or translate). A line of 15 words or fewer stays exactly as written.
 - by: the speaker's exact CAST key, or "narration" for a caption box (at most 1 narration per image). A narration caption is also copied verbatim from the narration text of the TARGET MESSAGE.
 - List bubbles in reading order. Bubbles have no x / y.`;
     }
@@ -1361,6 +1362,7 @@ ${TAG_STYLE}`;
         return `SPEECH BUBBLES: on. A panel may carry ONE spoken line in text; the app draws it as that panel's speech bubble.
 - text: copy the line VERBATIM from the TARGET MESSAGE, in its original language and script, with the same words and punctuation. Never translate, paraphrase, merge or invent lines. Leave out only the quotation marks around it.${withInput ? '\n' + USER_LINE_RULE.comic : ''}
 - ONE sentence per panel at most. When a line has several sentences, copy just one complete sentence of it exactly (cut only at the speaker's own punctuation: . ! ? … ~) or choose another line.
+- 15 words at most per panel. When that one sentence is longer than 15 words, shorten it to 15 words or fewer using only the speaker's own words in their order (drop clauses; never add, reword or translate). A line of 15 words or fewer stays exactly as written.
 - by: the speaker's exact CAST key. The speaker must be in that panel's who. Spoken lines only: no narration captions.
 - The line goes ONLY in text. Never write "Text:", quotation marks or the spoken words inside tags or camera.
 - Give lines to the panels where the most important lines of the moment are spoken; leave text and by "" for a panel without a line.`;
@@ -2117,7 +2119,8 @@ Rules
     const hasGaze = text => String(text ?? '').split(',').some(isGazeTag);
     const dropGaze = text => tidy(String(text ?? '').split(',').filter(s => !/^(looking (?!back\b)|eye contact$|staring\b|gazing\b)/.test(tagCore(s))).join(',').replace(/,\s*,/g, ','));
     const dropViewer = text => tidy(String(text ?? '').replace(/\blooking at (the )?viewer\b,?/gi, '').replace(/,\s*,/g, ',').replace(/^\s*,|,\s*$/g, ''));
-    const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().slice(0, 80);
+    const BUBBLE_WORDS = 15;
+    const quoteText = t => String(t ?? '').replace(/["“”]/g, "'").replace(/\s+/g, ' ').trim().split(' ').slice(0, BUBBLE_WORDS).join(' ').slice(0, 120);
     const noText = t => String(t ?? '').replace(/(?:\bwith\s+)?(?:\bhead next to speech bubble\s*\+\s*)?(?:\b(?:tailless\s+)?speech bubble with\s+|\b[a-z0-9][\w.\-() ]*'s\s+)?\btext:[^,\n]*/gi, '');
     const SAY_RE = /(?:\bhead next to speech bubble \+ )?(?:\b(?:tailless )?speech bubble with |\b[A-Za-z0-9][\w.\-() ]*'s )?\b[Tt]ext:/;
     const endComma = t => {
@@ -3781,7 +3784,7 @@ This turn has two parts.
 Never mention the blocks, the app or these instructions in the reply itself; the app hides the blocks from the reader.`,
             tts,
             plan && `--- ILLUSTRATION PLAN (the <nc-plan> block) ---
-In the director instructions below, TARGET MESSAGE means the reply you are writing in this turn: copy every "after" quote and spoken line from your own reply, word for word. "Output ONE JSON object only" applies only to what goes inside the block.
+In the director instructions below, TARGET MESSAGE means the reply you are writing in this turn: copy every "after" quote and spoken line from your own reply, word for word (a spoken line longer than 15 words is shortened as the speech bubble rule says). "Output ONE JSON object only" applies only to what goes inside the block.
 
 ${plan}
 --- END OF ILLUSTRATION PLAN ---`,
