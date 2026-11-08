@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.74.0
+//@display-name 💠 이매진 v5.75.0
 //@api 3.0
-//@version 5.74.0
+//@version 5.75.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.74.0';
+    const VERSION = '5.75.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -345,6 +345,7 @@
             used.add(`${at.x},${at.y}`);
         });
     }
+    const SLOT_MAX = 6;
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -2189,7 +2190,7 @@ Rules
             return bare.toLowerCase() === tag.toLowerCase() ? [] : [bare];
         };
         const kindOf = x => x.e ? x.type : x.name;
-        let panelN = 0;
+        const komas = [];
         const coordMode = comicCoordsNow();
         const isEmph = pn => coordMode && (pn.emph === true || String(pn.emph).toLowerCase() === 'true');
         const src = [];
@@ -2232,17 +2233,25 @@ Rules
                 const [tg, prose] = splitAct(acts[k]);
                 return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
-            const lines = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : '', place ? `${place},` : ''].filter(Boolean);
+            const shared = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : '', place ? `${place},` : ''].filter(Boolean);
             const keep = sayAt >= 0 ? sayAt : 0;
-            if (who.length) lines.push(personLine(keep));
-            else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
-            slots.push({
-                prompt: endComma(lines.join('\n')),
-                uc: tidy(pn.uc), x: 0.5, y: 0.5, cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph) : [], shot: joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0), kind: 'panel', type: types[keep] ?? 'other', ...(emph ? { emph: true } : {}),
-                name: who[keep]?.name ?? '', keys: who.map(x => x.key),
-                chars: who.slice(keep, keep + 1).map(x => [String(x.name).toLowerCase(), labelOf(x)]),
+            const mk = k => ({
+                prompt: endComma([...shared, k < 0 ? [withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN) : personLine(k)].join('\n')),
+                uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', koma: komas.length, type: k < 0 ? 'other' : types[k] ?? 'other', ...(emph ? { emph: true } : {}),
+                name: k < 0 ? '' : who[k].name ?? '', keys: who.map(x => x.key),
+                chars: k < 0 ? [] : [[String(who[k].name).toLowerCase(), labelOf(who[k])]],
+                lead: k < 0 || k === keep,
             });
-            panelN++;
+            komas.push({
+                cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph) : [], shot: joinTags(emph && !/close-up/i.test(cam0) ? 'extreme close-up' : '', cam0),
+                x: 0.5, y: 0.5, ...(emph ? { emph: true } : {}),
+                slots: who.length ? who.map((_, k) => mk(k)) : [mk(-1)],
+            });
+        }
+        let room = SLOT_MAX - komas.length;
+        for (const km of komas) {
+            km.slots = km.slots.filter(sl => sl.lead || room-- > 0);
+            for (const sl of km.slots) { delete sl.lead; slots.push(sl); }
         }
         const labelList = [...labels.values()];
         for (const sl of slots) {
@@ -2254,24 +2263,29 @@ Rules
             sl.uc = joinTags(sl.uc, add);
             delete sl.keys;
         }
-        const pslots = slots.filter(sl => sl.kind === 'panel');
-        const panelCoords = pslots.length >= 2 && comicCoordsNow();
+        const panelCoords = komas.length >= 2 && comicCoordsNow();
         if (panelCoords) {
-            const given = pslots.map(sl => xyOfCell(sl.cell));
+            const given = komas.map(km => xyOfCell(km.cell));
             const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
-            if (ok) pslots.forEach((sl, k) => Object.assign(sl, given[k]));
-            else panelDefaults(pslots, w > h);
+            if (ok) komas.forEach((km, k) => Object.assign(km, given[k]));
+            else panelDefaults(komas, w > h);
         }
-        const single = panelN === 1;
-        const fallback = pslots.length >= 2 && !panelCoords ? panelCellsOf(pslots.length, w > h).map(xyOfCell) : null;
-        const layout = single ? '' : komaLayoutOf(pslots.map((sl, k) => ({ ...sl, ...(fallback?.[k] ?? {}) })));
-        for (const sl of slots) { delete sl.cell; delete sl.shape; delete sl.shot; }
+        const single = komas.length === 1;
+        const fallback = komas.length >= 2 && !panelCoords ? panelCellsOf(komas.length, w > h).map(xyOfCell) : null;
+        const spots = komas.map((km, k) => ({ ...km, ...(fallback?.[k] ?? {}) }));
+        const layout = single ? '' : komaLayoutOf(spots);
+        komas.forEach((km, k) => {
+            for (const sl of km.slots) {
+                sl.x = km.x; sl.y = km.y;
+                if (!single) sl.prompt = `${komaPosOf(spots[k].x, spots[k].y)} koma,\n${sl.prompt}`;
+            }
+        });
         let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         return {
             base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, layout),
             neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
-            slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 5, 2),
+            slots, w, h, panels: single ? 1 : clampInt(komas.length, 2, 5, 2),
             useCoords: panelCoords, panelCoords,
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
@@ -7715,7 +7729,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     function renderCoord(req, locked) {
         const multi = (req.panels ?? 1) !== 1;
         if (multi && !req.panelCoords) return null;
-        const chars = multi ? panelSlotsOf(req) : charSlotsOf(req);
+        const all = multi ? panelSlotsOf(req) : charSlotsOf(req);
+        const chars = multi ? all.filter((sl, k) => sl.koma == null || all.findIndex(o => o.koma === sl.koma) === k) : all;
+        const mates = sl => multi && sl.koma != null ? all.filter(o => o.koma === sl.koma) : [sl];
         if (!chars.length) return null;
         const free = coordsOn(req);
         const box = h('div', { class: 'co' });
@@ -7728,7 +7744,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 const here = free ? chars.map((sl, k) => [sl, k]).filter(([sl]) => cellOf(sl.x, sl.y) === code) : [];
                 cells.push(h('button', {
                     class: 'co-c', type: 'button', title: code, 'aria-label': `${code} 칸`, disabled: !free || !!locked,
-                    onclick: () => { const xy = xyOfCell(code); chars[act].x = xy.x; chars[act].y = xy.y; paint(); },
+                    onclick: () => { const xy = xyOfCell(code); for (const sl of mates(chars[act])) { sl.x = xy.x; sl.y = xy.y; } paint(); },
                 }, here.map(([, k]) => h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1)))));
             }
             add(box,
