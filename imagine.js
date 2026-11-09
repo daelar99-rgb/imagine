@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.113.0
+//@display-name 💠 이매진 v5.113.1
 //@api 3.0
-//@version 5.113.0
+//@version 5.113.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,11 +12,11 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.113.0';
+    const VERSION = '5.113.1';
     const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
     const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
-    const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#62bdff"/><stop offset=".5" stop-color="#7a6cff"/><stop offset="1" stop-color="#ff2d8a"/></linearGradient></defs>`
-        + `<path d="${d}" fill="url(#${id}) #7a6cff" stroke="none"/>`;
+    const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad8ff"/><stop offset=".5" stop-color="#c3a6ff"/><stop offset="1" stop-color="#ffb3dc"/></linearGradient></defs>`
+        + `<path d="${d}" fill="url(#${id}) #c3a6ff" stroke="none"/>`;
     const cloudSvg = (id, size, style) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" style="${style}">${cloudArt(id)}</svg>`;
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
