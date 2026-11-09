@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.103.0
+//@display-name 💠 이매진 v5.104.0
 //@api 3.0
-//@version 5.103.0
+//@version 5.104.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.103.0';
+    const VERSION = '5.104.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -413,7 +413,7 @@
     }
     const ROW_GAP_MAX = 2;
     const NEG_BORDER_END = '2::thick border, big border::';
-    const NEG_BORDER_TAGS = ['white border', 'thick border', 'big border'];
+    const NEG_BORDER_TAGS = ['white border', 'unfinished panel', 'unfinished manga', 'thick border', 'big border'];
     function unevenRows(komas, G = GRID5, dots = false) {
         if (komas.length < 2) return;
         const rowOf = o => axisAt(o.y, G.rows);
@@ -2497,7 +2497,7 @@ Rules
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
             base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}panels, manga, panel borders::, diagonal border, black border` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`, single ? '' : 'no thick border', single || /dynamic angle/i.test(p.pos) ? '' : 'dynamic angle'),
-            neg: ((t) => single ? t : joinTags(String(t).split(',').filter(s => !NEG_BORDER_TAGS.includes(tagCore(s).replace(/^-?\d*\.?\d+::\s*/, '').replace(/\s*::$/, ''))).join(','), 'white border', NEG_BORDER_END))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
+            neg: ((t) => single ? t : joinTags(String(t).split(',').filter(s => !NEG_BORDER_TAGS.includes(tagCore(s).replace(/^-?\d*\.?\d+::\s*/, '').replace(/\s*::$/, ''))).join(','), 'white border, unfinished panel, unfinished manga', NEG_BORDER_END))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
             slots, w, h, panels: komaN,
             ...(panelCoords ? { grid: [G.cols, G.rows] } : {}),
             useCoords: panelCoords, panelCoords,
