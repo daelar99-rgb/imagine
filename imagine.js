@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.105.1
+//@display-name 💠 이매진 v5.105.2
 //@api 3.0
-//@version 5.105.1
+//@version 5.105.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.105.1';
+    const VERSION = '5.105.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -412,8 +412,8 @@
         }
     }
     const ROW_GAP_MAX = 2;
-    const NEG_BORDER_END = '2::thick border, big border, negative space::, unfinished panel';
-    const NEG_BORDER_TAGS = ['white border', 'thick border', 'big border', 'negative space', 'unfinished panel'];
+    const NEG_BORDER_END = '2::thick border, big border, negative space, black blank::, unfinished panel';
+    const NEG_BORDER_TAGS = ['white border', 'thick border', 'big border', 'negative space', 'black blank', 'unfinished panel'];
     function charEmphScores(komas, G, posOf, dots) {
         const pts = km => dots && km.slots.length ? km.slots : [km];
         const story = komas.filter(km => !km.emph);
