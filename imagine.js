@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.109.1
+//@display-name 💠 이매진 v5.109.2
 //@api 3.0
-//@version 5.109.1
+//@version 5.109.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.109.1';
+    const VERSION = '5.109.2';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -8226,7 +8226,7 @@ Return JSON only: {"kind":""}`;
             }, '↶ 되돌리기') : null));
         if (busy) msgs.push(h('div', { class: 'cl-m ai wait' }, '읽는 중…'));
         return h('div', { class: 'cl-log' },
-            msgs.length ? msgs : h('div', { class: 'cl-m ai' }, '말로 등장인물을 고칩니다. 「🧹 엑스트라 정리」는 다시 나오지 않을 엑스트라를 골라 지웁니다.'),
+            msgs.length ? msgs : null,
             h('div', { class: 'cl-ex' },
                 h('button', { class: 'cl-chip main', type: 'button', disabled: busy, title: '채팅에서 생긴 인물 가운데 다시 나오지 않을 엑스트라를 모델이 골라 지웁니다', onclick: () => void castCommand(v, '', true) }, '🧹 엑스트라 정리'),
                 ...CAST_EX.map(t => h('button', { class: 'cl-chip', type: 'button', disabled: busy, onclick: () => { input.value = t; L.draft = t; input.focus(); } }, t))),
@@ -8323,7 +8323,7 @@ Return JSON only: {"kind":""}`;
             const av = h('span', { class: 'cc-av', 'aria-hidden': 'true' }, initial(e.name));
             const nm = h('span', { class: 'cc-nm' }, e.name || '이름 없음');
             const sum = ['haircolor', 'hairstyle', 'top'].map(k => wearOf(e, sv.state, k)).filter(Boolean).join(' · ') || (skipAll(e) ? tidy(e.canon) : '') || (e.skip?.look ? '' : e.look) || '태그 없음';
-            const changed = WEAR_KEYS.filter(k => now[k]).length;
+            const changed = WEAR_KEYS.filter(k => now[k] && !skipOf(e, k)).length;
             const card = h('article', { class: 'cc' + (isOpen ? ' open' : ''), style: `--cc:${HUES[n % HUES.length]}` },
                 h('div', {
                     class: 'cc-hd', role: 'button', tabindex: '0', 'aria-expanded': isOpen ? 'true' : 'false', title: isOpen ? '접기' : '펼쳐서 고치기',
@@ -8334,20 +8334,20 @@ Return JSON only: {"kind":""}`;
                         h('b', null, nm, h('span', { class: 'cc-sx' }, e.type === 'other' && tidy(e.kind) ? '기타 · ' + tidy(e.kind) : SEX[e.type] ?? '기타'), h('span', { class: 'cc-src ' + (e.src ?? '') }, SRC[e.src] ?? e.src ?? ''),
                             skipAll(e) ? h('span', { class: 'cc-skip' }, '기본 태그만') : null),
                         h('span', { class: 'cc-sum' }, sum)),
-                    changed ? h('span', { class: 'cc-chg', title: '이 채팅에서 기본과 다르게 입은 칸' }, `지금 ${changed}칸`) : null,
+                    changed ? h('span', { class: 'cc-chg', title: `이 채팅에서만 기본과 다르게 적힌 칸 ${changed}개 (펼쳐서 「지금」 열을 보세요)` }, `지금 ${changed}칸`) : null,
                     h('span', { class: 'cc-sw', onclick: ev => ev.stopPropagation(), onkeydown: ev => ev.stopPropagation() },
                         h('button', {
                             class: 'cc-clr' + (skipAll(e) ? ' on' : ''), type: 'button', disabled: !skipAll(e) && !tidy(e.canon),
-                            title: skipAll(e) ? '머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣기' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '원작 태그가 있어야 쓸 수 있습니다',
-                            'aria-label': skipAll(e) ? '다시 넣기' : '원작 태그만 남기고 클리어',
+                            title: skipAll(e) ? '복원: 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣기' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '원작 태그가 있어야 쓸 수 있습니다',
+                            'aria-label': skipAll(e) ? '복원' : '원작 태그만 남기고 클리어',
                             onclick: () => {
                                 const snap = castSnap(sv), back = skipAll(e);
                                 if (back) delete e.skip; else e.skip = normSkip({ hair: true, body: true, outfit: true, look: true });
                                 castChanged(e);
-                                castNote(e, back ? '머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : '원작 태그만 남겼습니다. 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
+                                castNote(e, back ? '복원했습니다. 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : '원작 태그만 남겼습니다. 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
                                 renderNow();
                             },
-                        }, skipAll(e) ? '↺ 다시 넣기' : '🧹'),
+                        }, skipAll(e) ? '↺ 복원' : '🧹'),
                         isPersona(e) ? null : (() => {
                             const b = armButton('✕', '한 번 더', () => {
                                 const snap = castSnap(sv);
