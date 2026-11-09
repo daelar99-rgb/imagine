@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.111.0
+//@display-name 💠 이매진 v5.112.0
 //@api 3.0
-//@version 5.111.0
+//@version 5.112.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,12 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.111.0';
+    const VERSION = '5.112.0';
+    const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
+    const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
+    const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#62bdff"/><stop offset=".5" stop-color="#7a6cff"/><stop offset="1" stop-color="#ff2d8a"/></linearGradient></defs>`
+        + `<path d="${d}" fill="url(#${id}) #7a6cff" stroke="none"/>`;
+    const cloudSvg = (id, size, style) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" style="${style}">${cloudArt(id)}</svg>`;
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -3930,7 +3935,7 @@ ${plan}
                 await body.appendChild(el);
             }
             await el.setStyleAttribute(imp({ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', zIndex: 48, display: 'flex', alignItems: 'center', gap: '9px', maxWidth: 'calc(100vw - 24px)', boxSizing: 'border-box', margin: 0, padding: '9px 16px', borderRadius: '999px', background: 'rgba(15,23,42,.88)', color: '#fff', font: '600 13px/1.4 "Malgun Gothic",sans-serif', boxShadow: '0 4px 16px rgba(0,0,0,.25)', pointerEvents: 'none' }));
-            await el.setInnerHTML(NS_WAIT_SVG + `<span style="${imp({ display: 'inline', color: '#fff', font: 'inherit', margin: 0, padding: 0 })}">💠 이매진 · 프롬프트를 받았습니다. 답변이 끝나면 창이 저절로 열립니다</span>`);
+            await el.setInnerHTML(NS_WAIT_SVG + `<span style="${imp({ display: 'inline', color: '#fff', font: 'inherit', margin: 0, padding: 0 })}">${cloudSvg('nc_cloud_w', 14, imp({ display: 'inline-block', verticalAlign: '-2px', width: '14px', height: '14px', margin: '0 5px 0 0' }))}이매진 · 프롬프트를 받았습니다. 답변이 끝나면 창이 저절로 열립니다</span>`);
         });
     }
     async function nsBotTexts() {
@@ -5087,6 +5092,8 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .ix-tcard{--mc:#2b95f0;display:flex;flex-direction:column;align-items:center;gap:10px;width:min(420px,100%);padding:26px 22px 18px;color:#1f2d45;text-align:center;background:#fff;border-radius:18px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
 .ix-tcard .ico{display:grid;place-items:center;width:84px;height:84px;margin-bottom:4px;border-radius:22px;background:linear-gradient(160deg,#9ad2ff,var(--mc) 55%,#145fa8);background:linear-gradient(160deg,color-mix(in srgb,var(--mc) 70%,#fff),var(--mc) 55%,color-mix(in srgb,var(--mc) 80%,#000));box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 6px 14px -6px rgba(0,0,0,.45)}
 .ix-tcard .ico .hi{width:52%;height:52%;color:#fff}
+.ix-tcard.m-home .ico{background:#fff;box-shadow:inset 0 0 0 1px #e3e8f0,0 6px 14px -6px rgba(0,0,0,.3)}
+.ix-tcard.m-home .ico .hi{width:70%;height:70%}
 .ix-tcard small{font-size:12px;font-weight:800;letter-spacing:.04em;color:var(--mc)}
 .ix-tcard h3{margin:0;font-size:19px;font-weight:900;line-height:1.3}
 .ix-tcard p{margin:0;font-size:14px;line-height:1.65;color:#4a5872}
@@ -5295,6 +5302,7 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .cl-bar .pg{margin-top:0}
 .cl-top{display:flex;align-items:center;gap:10px}
 .cl-av{flex:none;display:grid;place-items:center;width:26px;height:26px;font-size:.86rem;line-height:1;background:#fff;border:1px solid var(--line2);border-radius:50%;box-shadow:0 1px 2px rgba(15,23,42,.08)}
+.cl-av .hi{width:18px;height:18px}
 .cl-av.busy{animation:cl-pulse 1.2s ease-in-out infinite}
 @keyframes cl-pulse{0%,100%{box-shadow:0 0 0 0 rgba(43,149,240,.45)}50%{box-shadow:0 0 0 5px rgba(43,149,240,0)}}
 .cl-say{flex:1;min-width:0}
@@ -6104,7 +6112,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 
     const HEAD_ICON = {
         lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
-        logo: '<circle cx="13.5" cy="6.5" r="1" fill="currentColor" stroke="none"/><circle cx="17.5" cy="10.5" r="1" fill="currentColor" stroke="none"/><circle cx="8.5" cy="7.5" r="1" fill="currentColor" stroke="none"/><circle cx="6.5" cy="12.5" r="1" fill="currentColor" stroke="none"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
+        logo: cloudArt('nc_cloud_p'),
         imagine: '<path d="M3 4h18v16H3z"/><circle cx="8.5" cy="9" r="1.6"/><path d="M21 15l-5-5L5 20"/>',
         cast: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20v-1.5A4.5 4.5 0 0 1 7 14h4a4.5 4.5 0 0 1 4.5 4.5V20"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14a4.5 4.5 0 0 1 3 4.2V20"/>',
         style: '<path d="M18 3l3 3-9.5 9.5-3-3z"/><path d="M8.5 12.5C6 12.5 4.5 14 4.5 16.5c0 1.5-.8 2.6-2 3.5 4.5.5 8-1 8-4.5z"/>',
@@ -8255,7 +8263,7 @@ Return JSON only: {"kind":""}`;
         const showTools = !pre && n > 0;
         return h('div', { class: 'cl-bar' },
             h('div', { class: 'cl-top' },
-                h('span', { class: 'cl-av' + (lock ? ' busy' : ''), 'aria-hidden': 'true' }, '💠'),
+                h('span', { class: 'cl-av' + (lock ? ' busy' : ''), 'aria-hidden': 'true' }, headIcon('logo')),
                 h('div', { class: 'cl-say', role: 'status' }, h('b', { class: bad ? 'bad' : '' }, say), small),
                 topBtn),
             cmdBusy ? h('div', { class: 'cl-run' }) : null,
@@ -9087,17 +9095,15 @@ Return JSON only: {"kind":""}`;
         void checkUpdate();
     }
 
-    const ICON_ART = '<path d="M5 3.5h14a2.5 2.5 0 0 1 2.5 2.5v9a2.5 2.5 0 0 1-2.5 2.5h-6.5l-4.5 4v-4H5A2.5 2.5 0 0 1 2.5 15V6A2.5 2.5 0 0 1 5 3.5z" fill="currentColor"/>'
-        + '<path d="M5.5 15l4-4.2 3 3 2-2 4 3.2z" fill="#2b95f0"/>'
-        + '<circle cx="15.6" cy="8" r="1.9" fill="#ffc93c"/>';
+    const ICON_ART = id => cloudArt(id, CLOUD_D_LOW);
     const MENU_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
-        + '<g transform="translate(-2,-2)">' + ICON_ART + '</g>'
+        + '<g transform="translate(-2,-2)">' + ICON_ART('nc_cloud_m') + '</g>'
         + '</svg>';
     const SIDE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
-        + '<g transform="translate(-2,-8.23)">' + ICON_ART + '</g>'
+        + '<g transform="translate(-2,-8.23)">' + ICON_ART('nc_cloud_s') + '</g>'
         + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
-    const INBTN_ICON = SIDE_ICON.replace('width="20" height="20"', 'width="17" height="17"');
+    const INBTN_ICON = SIDE_ICON.replace('width="20" height="20"', 'width="17" height="17"').replace(/nc_cloud_s/g, 'nc_cloud_i');
 
     const imp = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v + '!important').join(';');
     function figStyle() {
@@ -9133,7 +9139,7 @@ Return JSON only: {"kind":""}`;
             + ACT_CSS
             + `@media (max-width:768px){.nc-fig,.nc-pt{width:${s.mo}vw!important;width:{{getvar::nc_mo}}vw!important}}</style>`;
     }
-    const ACT_LABEL = { panel: '💠 이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', undo: '↶ 되돌리기', del: '🗑 지우기' };
+    const ACT_LABEL = { panel: cloudSvg('nc_cloud_h', 13, imp({ display: 'inline-block', verticalAlign: '-2px', width: '13px', height: '13px', margin: '0 4px 0 0' })) + '이매진', draw: '🔁 다시 그리기', new: '🎬 씬 재구성', undo: '↶ 되돌리기', del: '🗑 지우기' };
     const UNDO_OFF = imp({ opacity: '.4', cursor: 'default', background: 'rgba(0,0,0,.62)' });
     const actHtml = (name, can) => `<div class="nc-act" style="${ACT_STYLE}">`
         + Object.entries(ACT_LABEL).filter(([k]) => k !== 'undo' || st.set.undo).map(([k, label]) => {
@@ -11625,7 +11631,7 @@ Rules:
         const go = d => { ui.tour = n + d; renderNow(); };
         return h('div', { class: 'ix-tour', role: 'dialog', 'aria-modal': 'true', 'aria-label': '이매진 안내' },
             h('div', { class: 'ix-tcard m-' + m },
-                h('span', { class: 'ico' }, headIcon(m)),
+                h('span', { class: 'ico' }, headIcon(m === 'home' ? 'logo' : m)),
                 h('small', null, m === 'cast' ? '공통 탭' : n ? `앱 ${n} / ${MODES.length}` : 'IMAGINE OS'),
                 h('h3', null, m === 'cast' ? '등장인물 탭' : n ? MODES.find(([x]) => x === m)?.[1] ?? m : '이매진 OS에 오신 것을 환영합니다'),
                 h('p', null, TOUR_TEXT[m]),
