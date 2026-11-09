@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.108.0
+//@display-name 💠 이매진 v5.109.1
 //@api 3.0
-//@version 5.108.0
+//@version 5.109.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.108.0';
+    const VERSION = '5.109.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -672,19 +672,25 @@
     const WEAR_KEYS = WEAR.map(w => w[0]);
     const LOOK_AT = WEAR_KEYS.indexOf('top');
     const emptyWear = () => Object.fromEntries(WEAR_KEYS.map(k => [k, '']));
+    const SKIP_KEYS = ['hair', 'body', 'outfit', 'look'];
+    const WEAR_GROUP = Object.fromEntries(WEAR.map(([k, , g]) => [k, { 머리: 'hair', 몸: 'body', 옷: 'outfit' }[g]]));
+    const skipOf = (e, k) => !!e?.skip?.[WEAR_GROUP[k] ?? k];
+    const skipAll = e => SKIP_KEYS.every(k => e?.skip?.[k]);
+    const normSkip = s => { const o = {}; for (const k of SKIP_KEYS) if (s?.[k]) o[k] = true; return Object.keys(o).length ? o : null; };
+    const lookNow = e => e?.skip?.look ? '' : (e?.look ?? '');
     const NONE_WORDS = /^(?:none(?: now)?|nothing|nude|naked|nudity|topless|bottomless|shirtless|pantsless|undressed|removed|taken off|no (?:top|bottom|shirt|pants|clothes|clothing|shoes|footwear)|없음|벗음|알몸|안 입음)$/i;
     const isNone = v => NONE_WORDS.test(tidy(tidy(String(v ?? '').split(',')[0]).replace(/^\((.*)\)$/, '$1').replace(/\([^)]*\)/g, ' ').replace(/[.!]+$/, '')));
     const bodyExtraOf = v => { const t = String(v ?? '').split(',').map(tidy).filter(x => x && !isNone(x)); return t.length ? t.join(', ') : tidy(v) ? 'none' : ''; };
     const slotVal = (k, v) => k === 'body_extra' ? bodyExtraOf(v) : tidy(v);
     const dropNone = t => String(t ?? '').split(',').map(tidy).filter(x => x && !/^(?:none(?: now)?|nothing)$/i.test(x)).join(', ');
-    const HEADWEAR = /\b(?:hat|cap|beret|beanie|hood|helmet|crown|tiara|visor|bonnet|headdress|headscarf|turban|headwear|veil|circlet)\b/i;
     const COVERS_BOTTOM = /\b(?:dress|one-piece|gown|robe|kimono|yukata|leotard|bodysuit|swimsuit|jumpsuit|overalls|bikini|cheongsam|qipao|towel)\b/i;
-    function absentTags(val, none) {
+    function absentTags(e, val, none) {
         const out = [];
-        if (!HEADWEAR.test(joinTags(['hairstyle', 'hair_extra', 'top', 'outfit_extra'].map(val)))) out.push('no headwear');
-        if (none('top')) out.push('topless');
-        if (none('bottom') && !COVERS_BOTTOM.test(val('top'))) out.push('bottomless');
-        if (none('shoes')) out.push('no shoes');
+        const gone = k => !skipOf(e, k) && (none(k) || isNone(val(k)));
+        if (!tidy(e?.canon) && gone('hair_extra')) out.push('no headwear');
+        if (!skipOf(e, 'top') && none('top')) out.push('topless');
+        if (!skipOf(e, 'bottom') && none('bottom') && !COVERS_BOTTOM.test(val('top'))) out.push('bottomless');
+        if (!skipOf(e, 'shoes') && none('shoes')) out.push('no shoes');
         return out;
     }
     const BODY_AT = WEAR_KEYS.indexOf('height');
@@ -707,9 +713,9 @@
             return true;
         });
     }
-    const identTags = (type, look, val, none = () => false) => {
-        const v = WEAR_KEYS.map(k => !wearBrief ? val(k) : k === 'bangs' ? '' : OUTFIT_KEYS.includes(k) ? briefWear(val(k)) : val(k));
-        return [type, ...v.slice(0, BODY_AT), lookOf(look), ...v.slice(BODY_AT), ...absentTags(val, none)];
+    const identTags = (e, val, none = () => false) => {
+        const v = WEAR_KEYS.map(k => skipOf(e, k) ? '' : !wearBrief ? val(k) : k === 'bangs' ? '' : OUTFIT_KEYS.includes(k) ? briefWear(val(k)) : val(k));
+        return [e?.type, ...v.slice(0, BODY_AT), lookOf(lookNow(e)), ...v.slice(BODY_AT), ...absentTags(e, val, none)];
     };
     const HAIR_TAG = /\b(?:hair|bangs|twintails|twin tails|ponytail|braids?|braided|hair bun|double bun|sidelocks|ahoge|bob cut|hime cut|drill hair|pigtails|updo|ringlets|afro|mohawk|undercut|bald|hairclip|hairband)\b/i;
     const NOT_HAIR = /\b(?:facial hair|body hair|pubic hair|chest hair|arm hair)\b/i;
@@ -749,6 +755,10 @@
         return { wear: out, look: rest };
     }
     function normCast(e) {
+        if (e.on === false) e.on = true;
+        const sk = normSkip(e.skip);
+        if (sk) e.skip = sk; else delete e.skip;
+        if (e.kind != null) { e.kind = tidy(e.kind); if (!e.kind) delete e.kind; }
         let old = null;
         if (e.wear && typeof e.wear === 'object') {
             if (!isOldWear(e.wear)) {
@@ -821,11 +831,12 @@
     }
     const baseWear = (e, k) => tidy(e?.wear?.[k]);
     function wearOf(e, state, k) {
+        if (skipOf(e, k)) return '';
         const now = tidy(state?.wear?.[e?.id]?.[k]);
         if (now) return isNone(now) ? '' : now;
         return baseWear(e, k);
     }
-    const noneOf = (e, state, k) => isNone(state?.wear?.[e?.id]?.[k]);
+    const noneOf = (e, state, k) => !skipOf(e, k) && isNone(state?.wear?.[e?.id]?.[k]);
     function writeStateInto(chat, state, cast) {
         chat.scriptstate ??= {};
         const ss = chat.scriptstate;
@@ -836,7 +847,7 @@
         ss['$nc_background'] = currentPlace(state);
         for (const e of cast?.list ?? []) {
             const n = varName(e.name);
-            ss[`$nc_${n}_look`] = e.look ?? '';
+            ss[`$nc_${n}_look`] = lookNow(e);
             for (const k of WEAR_KEYS) ss[`$nc_${n}_${k}`] = wearOf(e, state, k);
             ss[`$nc_${n}_outfit`] = joinTags(['top', 'bottom', 'outfit_extra'].map(k => wearOf(e, state, k)));
             ss[`$nc_${n}_hair`] = joinTags(['hairstyle', 'bangs', 'haircolor', 'hair_extra'].map(k => wearOf(e, state, k)));
@@ -1185,12 +1196,13 @@
 
     const castSystem = () => `You convert a roleplay bot's character sheet, first message, lorebook and the user's persona into NovelAI (NAI Diffusion V4.5) danbooru tags, so the same character is drawn identically in every image.
 Output ONE JSON object only:
-{"cast":[{"key":"short unique English id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","hairstyle":"...","bangs":"...","haircolor":"...","hair_extra":"","eyes":"...","height":"","body":"...","body_extra":"","look":"","top":"...","bottom":"...","shoes":"...","outfit_extra":"","persona":false}]}
+{"cast":[{"key":"short unique English id: lowercase a-z, 0-9 and _ (e.g. seoyeon_jung)","name":"exact name used in the story","aliases":["other names / nicknames, the name in the source's own script (e.g. Korean) and other romanizations"],"canon":"","type":"girl|boy|other","kind":"","hairstyle":"...","bangs":"...","haircolor":"...","hair_extra":"","eyes":"...","height":"","body":"...","body_extra":"","look":"","top":"...","bottom":"...","shoes":"...","outfit_extra":"","persona":false}]}
 Rules
 - One entry per recurring character who has (or clearly implies) a visual appearance. A character who appears only in the first message (the story's opening scene) counts too. ${castMaxNow() ? `At most ${castMaxNow()} entries, most important first.` : 'Most important first.'} Include the user's persona as an entry with "persona": true when a persona is given.
 - canon: judge whether this character comes from an existing published work (anime, manga, game, novel, film). If so, its Danbooru character tag followed by the series in parentheses, lowercase, e.g. "uchiha sasuke (naruto)", "gojou satoru (jujutsu kaisen)". "" for an original character, the user's persona, or when unsure.
 - key: one unique key per entry, lowercase English letters a-z, 0-9 and _ only, never Korean, Japanese, Chinese or other non-Latin letters. Write the name in Latin letters when it is not (e.g. "seoyeon_jung", "gojo_satoru"), or use an English word for a title (e.g. "demon_king"). Never give two entries the same key. The image prompts name this character only by this key.
 - type: girl for female, boy for male, other for non-human / ambiguous.
+- kind: only for type other, one short word in the story's language for what it is (e.g. "포켓몬", "드래곤", "로봇"). "" for girl / boy.
 - Every slot follows TAG STYLE below: Danbooru tags first, a short phrase only for a design no tag covers. Colors go into the tags (e.g. "red eyes", "white sailor shirt").
 - hairstyle: hair length, hairstyle and hair texture only (e.g. "long hair, high ponytail, straight hair"). No hair color, no bangs, no accessories.
 - bangs: the bangs shape (e.g. "blunt bangs", "swept bangs, hair between eyes").
@@ -1405,6 +1417,7 @@ STATE
   body: eyes (eye color), height, body (build, chest size), body_extra (body marks or states that can change: wet body, sweat, bandages, wounds, tattoos, makeup, and the bare body parts uncovered while top or bottom is none, with tags describing how they look);
   outfit: top (upper-body clothing; a dress goes here), bottom (lower-body clothing incl. socks / stockings), shoes (footwear), outfit_extra (anything else worn that is not a top, bottom or footwear: accessories, gloves, scarf, belt, bag, cape, carried weapon).
   Each item goes in exactly one slot; never repeat an item that is already in another slot. Permanent features (animal ears, horns, tail, glasses, scars) stay in look.
+  A slot shown as SKIPPED in CAST is left out on purpose (the canon tag draws it): return "" for it and never fill it in. look: SKIPPED means the same for look.
 - Update a slot when the story changes it (undressing, getting wet, getting hurt, changing clothes, tying up / letting down hair, putting on / taking off a hat, accessories or shoes); otherwise copy that slot from CAST unchanged (except body_extra: see below). bangs, haircolor, eyes, height and body almost never change. Write "none" for a slot that is empty now although CAST has something there (e.g. took the shoes off). Barefoot is shoes: "barefoot".
 - body_extra follows the TARGET MESSAGE's moment, not CAST: write it anew every time from what is on the character's body right now. CAST body_extra and PREVIOUS PROMPT only show what was there before; keep an item only while this scene still has it (e.g. a tattoo, bandages on a wound that has not healed), and drop every state that is over (dried off → no wet body / wet skin / wet hair, cooled down → no sweat, makeup washed off, dressed again → no bare-part tags). Always fill body_extra; write "none" when nothing is on the body now (a blank slot keeps the old CAST value).
 - Undressing: follow the TARGET MESSAGE's moment. Clothing a character has taken off is gone from its slot whatever the reason (changing clothes, bathing, going to bed, a medical check, sex): write "none" for each slot left empty (top, bottom, shoes, outfit_extra), even though CAST still shows the old clothes and even if they are about to put something else on. Write "none", not "nude", "naked" or a blank: a blank slot keeps the CAST value. If underwear remains, write the underwear in that slot instead (e.g. "white bra", "white panties"). A towel, sheet or blanket wrapped around the body counts as clothing: write it in top with its color (e.g. "white bath towel wrapped around body"), not "none". Write the new outfit only once the story says it is actually on.
@@ -1475,8 +1488,11 @@ ${TAG_STYLE}`;
     }
     function castLine(e, state) {
         const alias = e.aliases?.length ? `; aliases: ${e.aliases.join(', ')}` : '';
-        const now = WEAR_KEYS.map(k => `${k}: ${wearOf(e, state, k) || 'none'}`).join(' | ');
-        return `- ${e.key} (name: ${e.name}${alias})${e.persona ? ' [user persona]' : ''} | type: ${e.type} | look: ${lookOf(e.look) || '(unknown)'} | NOW ${now}`;
+        const now = WEAR_KEYS.map(k => `${k}: ${skipOf(e, k) ? 'SKIPPED' : wearOf(e, state, k) || 'none'}`).join(' | ');
+        const kind = e.type === 'other' && e.kind ? ` (${e.kind})` : '';
+        const canon = e.skip && tidy(e.canon) ? ` | canon: ${tidy(e.canon)}` : '';
+        const look = e.skip?.look ? 'SKIPPED' : lookOf(e.look) || '(unknown)';
+        return `- ${e.key} (name: ${e.name}${alias})${e.persona ? ' [user persona]' : ''} | type: ${e.type}${kind}${canon} | look: ${look} | NOW ${now}`;
     }
     const castBrief = e => `- ${e.key} (name: ${e.name}${e.aliases?.length ? `; aliases: ${e.aliases.join(', ')}` : ''})`;
     const LATIN_RE = /^[\x20-\x7e]+$/;
@@ -1673,6 +1689,7 @@ ${TAG_STYLE}`;
             aliases: (Array.isArray(raw.aliases) ? raw.aliases : []).map(tidy).filter(Boolean).slice(0, 6),
             canon: isPersona ? '' : canonTag(raw.canon),
             type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
+            kind: raw.type === 'other' ? tidy(raw.kind).slice(0, 20) : '',
             look: lookOf(raw.look),
             wear: Object.fromEntries(WEAR_KEYS.map(k => [k, tidy(raw[k])])),
             persona: isPersona,
@@ -1821,7 +1838,7 @@ Return entries only for the characters in this list that the character sheet, lo
                 (fresh.same.keys ??= []).push(key);
                 done.changed = true;
             } else if (old && old.src === 'chat') {
-                Object.assign(old, { ...fresh, id: old.id, key: old.key, keys: old.keys, on: old.on });
+                Object.assign(old, { ...fresh, id: old.id, key: old.key, keys: old.keys, on: old.on, ...keepMine(old, fresh) });
                 delete state.wear[old.id];
             } else if (!old) cast.list.push(fresh);
             else continue;
@@ -1831,6 +1848,7 @@ Return entries only for the characters in this list that the character sheet, lo
         return done;
     }
 
+    const keepMine = (old, e) => ({ ...(old.skip ? { skip: old.skip } : {}), ...(!e.kind && old.kind ? { kind: old.kind } : {}) });
     function mergeCast(cast, fresh) {
         const left = new Set(cast.list);
         const take = f => { const o = [...left].find(f); if (o) left.delete(o); return o ?? null; };
@@ -1840,7 +1858,7 @@ Return entries only for the characters in this list that the character sheet, lo
             const old = (e.personaId ? take(o => o.persona && o.personaId === e.personaId) : null)
                 ?? (TMP_KEY.test(e.key) ? null : take(o => o.key === e.key && mine(e)(o))) ?? take(o => o.name.toLowerCase() === e.name.toLowerCase() && mine(e)(o));
             if (old) {
-                const m = old.src === 'edit' ? old : { ...e, id: old.id, key: TMP_KEY.test(old.key) && !TMP_KEY.test(e.key) ? e.key : old.key, keys: old.keys, on: old.on };
+                const m = old.src === 'edit' ? old : { ...e, id: old.id, key: TMP_KEY.test(old.key) && !TMP_KEY.test(e.key) ? e.key : old.key, keys: old.keys, on: old.on, ...keepMine(old, e) };
                 out.push(m);
                 kept.add(m);
             } else out.push(e);
@@ -1940,7 +1958,7 @@ Rules
         return tags.flatMap(t => String(t ?? '').split(',')).map(tidy).find(t => CHEST_RE.test(t)) ?? '';
     }
     function fixChest(plan, cast, state, e) {
-        if (e.type === 'boy') return;
+        if (e.type === 'boy' || skipOf(e, 'body')) return;
         const body = wearOf(e, state, 'body').split(',').map(tidy).filter(Boolean);
         if (body.some(t => CHEST_RE.test(t))) return;
         const extra = wearOf(e, state, 'body_extra').split(',').map(tidy).filter(Boolean);
@@ -2001,6 +2019,7 @@ Rules
                 e = normCast({
                     id: uid(), key: freshKey(cast.list, name), name: tidy(raw.label) || name, aliases: [], canon: canonTag(raw.canon),
                     type: ['girl', 'boy', 'other'].includes(raw.type) ? raw.type : 'girl',
+                    kind: raw.type === 'other' ? tidy(raw.kind).slice(0, 20) : '',
                     look: lookOf(raw.look), wear: Object.fromEntries(WEAR_KEYS.map(k => [k, isNone(slotVal(k, raw[k])) ? '' : slotVal(k, raw[k])])),
                     src: 'chat', on: true,
                 });
@@ -2012,6 +2031,7 @@ Rules
                 continue;
             }
             for (const k of WEAR_KEYS) {
+                if (skipOf(e, k)) continue;
                 const v = slotVal(k, raw[k]);
                 if (!v) continue;
                 const base = baseWear(e, k);
@@ -2140,7 +2160,7 @@ Rules
     }
 
     const LOOK_NEG_KEYS = ['haircolor', 'hairstyle', 'bangs', 'eyes'];
-    const lookNegOf = (e, state) => !e ? [] : [...LOOK_NEG_KEYS.filter(k => !(wearBrief && k === 'bangs')).flatMap(k => tagsOf(wearOf(e, state, k))), ...tagsOf(e.look)].filter(t => !isNone(t));
+    const lookNegOf = (e, state) => !e ? [] : [...LOOK_NEG_KEYS.filter(k => !(wearBrief && k === 'bangs')).flatMap(k => tagsOf(wearOf(e, state, k))), ...tagsOf(lookNow(e))].filter(t => !isNone(t));
     const negKey = t => tidy(String(t ?? '').toLowerCase().replace(/-?\d+(?:\.\d+)?::|::/g, ' ').replace(/[{}\[\]]/g, ' ').replace(/_/g, ' '));
     const ownTagsOf = (prompt, labelList) => String(prompt ?? '').split(/[,\n]|\s\+\s/).map(t => {
         let s = tidy(t);
@@ -2178,7 +2198,7 @@ Rules
             }
             for (const x of who) { labelOf(x); if (!looks.has(x.key)) looks.set(x.key, lookNegOf(x.e, state)); }
             const types = who.map(x => x.type);
-            const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
+            const idents = who.map(({ e }) => e ? identTags(e, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
             const cam = joinTags(noText(dropNone(pn.camera)));
@@ -2378,8 +2398,8 @@ Rules
                 return { prompt: withGaze(c, dropViewer(ilRef(c.tags))), uc: tidy(c.uc), x: at.x, y: at.y, kind: 'char', type: 'monster', name: tidy(c.name) || 'monster' };
             }
             const type = e?.type ?? (['girl', 'boy', 'other'].includes(c.type) ? c.type : 'girl');
-            const ident = e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k))
-                : identTags(type, c.look, k => isNone(slotVal(k, c[k])) ? '' : slotVal(k, c[k]), k => isNone(slotVal(k, c[k])));
+            const ident = e ? identTags(e, k => wearOf(e, state, k), k => noneOf(e, state, k))
+                : identTags({ type, look: c.look }, k => isNone(slotVal(k, c[k])) ? '' : slotVal(k, c[k]), k => isNone(slotVal(k, c[k])));
             if (tidy(e?.canon)) ident.unshift(tidy(e.canon), canonBare(e.canon));
             const tags = one ? withGaze(c, dropViewer(dropNone(ilRef(c.tags)))) : '';
             const at = xyOfCell(c.cell, G) ?? snapXY(c.x ?? 0.5, c.y ?? 0.5, G);
@@ -5235,7 +5255,6 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .cc-sx{flex:none;padding:0 5px;font-size:.7rem;font-weight:700;color:var(--cc,var(--accent));border:1px solid currentColor}
 .cc-sum{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.74rem;color:var(--muted)}
 .cc-chg{flex:none;padding:1px 6px;font-size:.7rem;font-weight:700;color:var(--accent2);background:var(--soft);border:1px solid var(--accent)}
-.cc-sw{flex:none}
 .cc-cv{flex:none;font-size:.8rem;color:var(--muted);transition:transform .2s var(--ease-out)}
 .cc.open .cc-cv{transform:rotate(180deg)}
 .cc-src{flex:none;padding:1px 6px;font-size:.66rem;font-weight:400;color:#fff;background:#6f7682}
@@ -5253,8 +5272,37 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .cc-row .cf-in{font-weight:700}
 .cc-ft{display:flex;justify-content:flex-end;padding:8px 14px;background:var(--paper2);border-top:1px solid var(--paper3)}
 .cc-tags{padding:6px 8px;font:.72rem/1.5 ui-monospace,Consolas,monospace;color:#3a3f48;background:var(--paper2);border:1px dashed var(--line2);word-break:break-all}
-.cc.off .cc-av,.cc.off .cc-ti{opacity:.5}
 .cc-all{margin-left:auto}
+/* 5.109.0: 머리줄 오른쪽 🧹(원작 태그만 남기기) · ✕(두 번 눌러 지우기). 켜고 끄기 스위치 자리 */
+.cc-sw{flex:none;display:flex;align-items:center;gap:4px}
+.cc-del{flex:none;width:28px;min-width:28px;min-height:28px;padding:0;font:inherit;font-size:.9rem;font-weight:600;color:#9aa3ae;background:transparent;border:0;border-radius:50%;cursor:pointer}
+.cc-del:hover{color:var(--bad);background:#fdecea}
+.cc-del.armed{width:auto;min-width:0;padding:0 10px;font-size:.74rem;font-weight:700;color:#fff;background:var(--bad);border:1px solid var(--bad);border-radius:14px}
+.cc-clr{flex:none;min-width:28px;min-height:28px;padding:0 6px;font:inherit;font-size:.82rem;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;cursor:pointer;white-space:nowrap}
+.cc-clr:hover{border-color:var(--accent);color:var(--accent)}
+.cc-clr.on{font-size:.72rem;font-weight:700;color:#5b4300;background:#fff6dc;border-color:#e7b552}
+.cc-clr:disabled{opacity:.4;cursor:not-allowed}
+.cc-skip{flex:none;padding:1px 6px;font-size:.66rem;font-weight:700;color:#5b4300;background:#fff6dc;border:1px solid #e7b552}
+.cc-note{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 12px;font-size:.74rem;color:var(--ink);background:#fff6dc;border-bottom:1px solid #f1dca6}
+.cc-note .ix-btn{min-height:22px;padding:0 8px;font-size:.7rem}
+.cc-sec label.cc-kind{display:flex;align-items:center;gap:6px}
+.cc-row .cc-kind .cf-in{width:9em;font-weight:400}
+.wd .cc-dim{opacity:.45}
+/* 5.109.0: 등장인물 명령 상자. 최근 네 줄만 보인다 */
+.cl-log{display:grid;gap:6px;margin:10px 0 4px;padding:10px;background:var(--paper2);border:1px solid var(--line);border-radius:12px}
+.cl-m{max-width:88%;padding:6px 10px;font-size:.78rem;line-height:1.45;border-radius:12px;word-break:break-word}
+.cl-m.me{justify-self:end;color:#fff;background:var(--accent);border-bottom-right-radius:4px}
+.cl-m.ai{justify-self:start;color:var(--ink);background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+.cl-m.ai.bad{color:#8a2a20;background:#fff5f4;border-color:#f0c2bd}
+.cl-m.ai.wait{color:var(--muted)}
+.cl-m .ix-btn{margin-left:6px;min-height:22px;padding:0 8px;font-size:.7rem}
+.cl-cmd{display:flex;gap:6px}
+.cl-cmd .cf-in{flex:1;min-width:0}
+.cl-ex{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-size:.72rem;color:var(--muted)}
+.cl-chip{min-height:24px;padding:2px 10px;font:inherit;font-size:.72rem;font-weight:600;color:var(--ink);background:var(--paper2);border:1px solid var(--line2);border-radius:14px;cursor:pointer}
+.cl-chip:hover{border-color:var(--accent);color:var(--accent)}
+.cl-chip.main{color:#fff;background:var(--accent);border-color:var(--accent)}
+.cl-chip:disabled{opacity:.5;cursor:not-allowed}
 .cc.pl{margin-top:12px}
 .cc.pl .cc-av{font-size:1rem}
 .cc-sec .pl-loc{min-height:44px}
@@ -5686,7 +5734,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
   body.ix-on:has(.ix.vn-on){padding-top:8px;padding-bottom:8px}
   .ix.vn-on{height:calc(100vh - 16px);height:calc(100dvh - 16px);min-height:420px}
   .cc-hd{gap:8px;padding:10px}
-  .cc-sw .cf-tg-lb,.cc-ti .cc-src{display:none}
+  .cc-ti .cc-src,.cc-ti .cc-skip{display:none}
   .cc-sec{padding:10px}
   .ix-pane{padding:12px}
   .sz-bar{margin:16px -12px -12px;padding:10px 12px}
@@ -7901,7 +7949,9 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
 
 
     function slotPreview(e, state) {
-        return joinTags(identTags(e.type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)));
+        const ident = identTags(e, k => wearOf(e, state, k), k => noneOf(e, state, k));
+        if (tidy(e?.canon)) ident.unshift(tidy(e.canon), canonBare(e.canon));
+        return mergeTags(ident).join(', ');
     }
 
     function placeCard(v) {
@@ -7967,6 +8017,246 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return card;
     }
 
+    const CAST_EX = ['모든 인물 머리 다 지워줘', '카이토 옷 수영복으로 바꿔줘', '경비병 지워줘', '레이 원작 태그만 남겨줘', '몸 칸 다시 넣어줘'];
+    const CAST_LOG_MAX = 4;
+    const GROUP_KO = { hair: '머리', body: '몸', outfit: '옷', look: '그 밖의 특징' };
+    const WEAR_LABEL = Object.fromEntries(WEAR.map(([k, l]) => [k, l]));
+    const isPersona = e => e?.src === 'persona' || !!e?.persona;
+    const josa = (w, a, b) => { const c = String(w ?? '').trim().slice(-1).charCodeAt(0) - 0xac00; return w + (c >= 0 && c <= 11171 && c % 28 ? a : b); };
+    const nameList = es => es.map(e => e.name || e.key).join(', ');
+    function castSnap(v) {
+        return { chaId: v.chaId, chatKey: v.chatKey, list: JSON.parse(JSON.stringify(v.cast.list)), wear: JSON.parse(JSON.stringify(liveState(v).wear ?? {})) };
+    }
+    function castRestore(snap) {
+        const v = st.view;
+        if (!v || !snap || v.chaId !== snap.chaId || v.chatKey !== snap.chatKey) return false;
+        v.cast.list = JSON.parse(JSON.stringify(snap.list));
+        const w = liveState(v).wear;
+        for (const id of Object.keys(w)) if (!(id in snap.wear)) delete w[id];
+        Object.assign(w, JSON.parse(JSON.stringify(snap.wear)));
+        castChanged();
+        writeVarsSoon(v);
+        return true;
+    }
+    function castLogOf(v) {
+        const k = v.chaId + '|' + v.chatKey;
+        if (ui.castLog?.k !== k) ui.castLog = { k, msgs: [], busy: null };
+        return ui.castLog;
+    }
+    function castSay(L, me, ai, snap = null, bad = false) {
+        for (const m of L.msgs) m.undo = null;
+        if (me) L.msgs.push({ me: true, t: me });
+        if (ai) L.msgs.push({ t: ai, undo: snap, bad });
+        L.msgs = L.msgs.slice(-CAST_LOG_MAX);
+    }
+    function castModel(label, main = false) {
+        const [llm, rail] = ui.mode === 'asset' ? [st.set.acLlm, 'asset'] : ui.mode === 'talk' && voice ? [voice.castLlm(), 'talk'] : [st.set.llm, 'illust'];
+        const busy = { label, llm: main ? 'model' : llm, rail, stop: false };
+        busy.halt = new Promise(resolve => { busy.onStop = resolve; });
+        return busy;
+    }
+    async function castRecent(v, n = 6, max = 1500) {
+        const chat = await api.getChatFromIndex(v.ci, v.chi).catch(() => null);
+        return (chat?.message ?? []).slice(-n)
+            .map(m => `${m.role === 'user' ? 'USER' : 'BOT'}: ${stripOurs(m.data).slice(-max)}`).join('\n\n') || '(none)';
+    }
+    function castCmdLines(v) {
+        const s = liveState(v);
+        return v.cast.list.map(e => {
+            const now = s.wear[e.id] ?? {};
+            const slots = WEAR_KEYS.map(k => {
+                const b = tidy(e.wear?.[k]), n = tidy(now[k]);
+                return b || n ? `${k}=${n ? `${n} (now; base ${b || '-'})` : b}` : '';
+            }).filter(Boolean).join('; ');
+            const sk = SKIP_KEYS.filter(k => e.skip?.[k]);
+            return `- key: ${e.key} | name: ${e.name}${e.aliases?.length ? ` | aliases: ${e.aliases.join(', ')}` : ''} | source: ${isPersona(e) ? 'persona' : e.src ?? '-'}`
+                + ` | type: ${e.type}${e.kind ? ` (${e.kind})` : ''} | canon: ${tidy(e.canon) || '-'}${sk.length ? ` | skipped: ${sk.join(', ')}` : ''}`
+                + `\n  look: ${tidy(e.look) || '-'}\n  slots: ${slots || '-'}`;
+        }).join('\n');
+    }
+    const CAST_CMD_SYS = `You edit the character list of an image-generation plugin. The user writes one command (usually Korean). Turn it into operations.
+Return JSON only: {"understood":true,"ops":[{"op":"","key":"","groups":[],"slot":"","value":""}]}
+
+ops:
+- "skip": stop putting these groups of the character into pictures. The stored values stay. groups: "hair" (hairstyle, bangs, haircolor, hair_extra), "body" (eyes, height, body, body_extra), "outfit" (top, bottom, shoes, outfit_extra), "look" (other features).
+- "unskip": put these groups back. Empty groups = all groups.
+- "canon_only": keep only the canon tag (skip all four groups). Only for characters whose canon is not "-".
+- "set": change one slot for this chat only. slot is one of: ${WEAR_KEYS.join(', ')}. value is short English danbooru tags; "none" means not wearing it. One op per slot. A one-piece outfit such as a swimsuit or dress goes in top, with bottom "none".
+- "delete": remove the character from the list.
+
+Rules:
+- key is a key from CAST, or "*" for every character. Match names, aliases and keys.
+- 「지워줘」 · 「없애줘」 on a character alone means delete. On 머리 · 몸 · 옷 · 특징 it means skip those groups.
+- 「다시 넣어줘」 means unskip.
+- If the command is unclear, or names nobody in CAST, return {"understood":false,"ops":[]}.
+- No other ops. No explanation.`;
+    const CAST_CLEAN_SYS = `You tidy the character list of an image-generation plugin. CANDIDATES are characters the plugin picked up from the chat.
+Pick the minor extras that are unlikely to appear again: unnamed guards, clerks, passers-by, crowd members, characters that showed up once and left.
+Keep anyone who appears in the RECENT STORY, anyone close to the main characters, and anyone the plot still needs.
+Return JSON only: {"remove":["key"],"keep":[{"key":"","why":"short reason in Korean, under 15 characters"}]}`;
+    const CAST_KIND_SYS = `Name what kind of being this character is, as a short Korean noun of one to three words (examples: 포켓몬, 고양이, 로봇, 드래곤, 슬라임, 요정). If the character comes from a known series, use that series' word for its kind.
+Return JSON only: {"kind":""}`;
+
+    function castApply(v, ops) {
+        const s = liveState(v), out = [], no = [];
+        const find = key => {
+            const k = tidy(key).toLowerCase();
+            if (!k) return [];
+            if (k === '*') return [...v.cast.list];
+            return v.cast.list.filter(e => e.key?.toLowerCase() === k || tidy(e.name).toLowerCase() === k || (e.aliases ?? []).some(a => tidy(a).toLowerCase() === k));
+        };
+        const groupsOf = o => [...new Set((Array.isArray(o.groups) ? o.groups : [o.groups]).map(g => String(g ?? '').toLowerCase()).filter(g => SKIP_KEYS.includes(g)))];
+        const del = [], canon = [], skip = new Map(), unskip = new Map(), set = [];
+        const note = (m, e, gs) => { const k = gs.join(','); m.set(k, [...(m.get(k) ?? []), e]); };
+        for (const o of Array.isArray(ops) ? ops : []) {
+            if (!isObj(o)) continue;
+            const op = String(o.op ?? '').toLowerCase(), ents = find(o.key);
+            if (op === 'delete') {
+                if (tidy(o.key) === '*') { no.push('한꺼번에 모두 지우기는 하지 않습니다. 이름을 알려 주세요.'); continue; }
+                for (const e of ents) {
+                    if (isPersona(e)) { no.push(`${e.name}${josa(e.name, '은', '는')} 페르소나라서 지우지 않습니다.`); continue; }
+                    v.cast.list = v.cast.list.filter(x => x !== e);
+                    delete s.wear[e.id];
+                    ui.castOpen?.delete(e.id);
+                    del.push(e);
+                }
+                continue;
+            }
+            for (const e of ents) {
+                if (!v.cast.list.includes(e)) continue;
+                if (op === 'canon_only') {
+                    if (!tidy(e.canon)) { no.push(`${e.name}${josa(e.name, '은', '는')} 원작 태그가 없어 그대로 두었습니다.`); continue; }
+                    e.skip = normSkip({ hair: true, body: true, outfit: true, look: true });
+                    canon.push(e);
+                } else if (op === 'skip') {
+                    const gs = groupsOf(o);
+                    if (!gs.length) continue;
+                    e.skip = normSkip({ ...e.skip, ...Object.fromEntries(gs.map(g => [g, true])) });
+                    note(skip, e, gs);
+                } else if (op === 'unskip') {
+                    const gs = groupsOf(o);
+                    const all = gs.length ? gs : SKIP_KEYS;
+                    if (!all.some(g => e.skip?.[g])) continue;
+                    const nx = { ...e.skip };
+                    for (const g of all) delete nx[g];
+                    e.skip = normSkip(nx);
+                    note(unskip, e, all.filter(g => !nx[g]));
+                } else if (op === 'set') {
+                    const slot = String(o.slot ?? '').toLowerCase(), val = tidy(o.value);
+                    if (!WEAR_KEYS.includes(slot) || !val) continue;
+                    (s.wear[e.id] ??= {})[slot] = slotVal(slot, val) || val;
+                    const g = WEAR_GROUP[slot];
+                    if (g && e.skip?.[g]) { const nx = { ...e.skip }; delete nx[g]; e.skip = normSkip(nx); }
+                    set.push(`${e.name} ${WEAR_LABEL[slot]} → ${val}`);
+                }
+            }
+        }
+        for (const e of v.cast.list) if (e.skip == null) delete e.skip;
+        if (del.length) out.push(`${josa(nameList(del), '을', '를')} 지웠습니다. 이야기에 다시 나오면 그릴 때 다시 생깁니다.`);
+        if (canon.length) out.push(`${nameList(canon)}: 원작 태그만 남겼습니다. 머리 · 몸 · 옷 · 그 밖의 특징은 그림에 넣지 않습니다(적힌 값은 남겨 둡니다).`);
+        for (const [k, es] of skip) out.push(`${nameList(es)}: ${k.split(',').map(g => GROUP_KO[g]).join(' · ')} 칸을 그림에서 뺐습니다(적힌 값은 남겨 둡니다).`);
+        for (const [k, es] of unskip) out.push(`${nameList(es)}: ${k.split(',').map(g => GROUP_KO[g]).join(' · ')} 칸을 다시 넣었습니다.`);
+        if (set.length) out.push(`이 채팅에서만 바꿨습니다: ${set.join(', ')}`);
+        const changed = !!(del.length || canon.length || skip.size || unskip.size || set.length);
+        if (changed) { castChanged(); writeVarsSoon(v); }
+        return { changed, text: [...out, ...no].join(' ') };
+    }
+
+    async function castCommand(v, text, clean) {
+        const L = castLogOf(v);
+        if (L.busy) return;
+        const cmd = tidy(text);
+        if (!clean && !cmd) return;
+        const busy = L.busy = castModel(clean ? '엑스트라 정리 중' : '명령 읽는 중', true);
+        castSay(L, clean ? '🧹 엑스트라 정리' : cmd, null);
+        renderNow();
+        const live = () => { const cv = liveView(v); return cv === st.view ? cv : null; };
+        const moved = () => castSay(L, null, '그사이 다른 채팅으로 바뀌어 바꾸지 않았습니다.', null, true);
+        try {
+            if (clean) {
+                const cand = v.cast.list.filter(e => !isPersona(e) && e.src === 'chat' && !e.skip);
+                if (!cand.length) { castSay(L, null, '채팅에서 생긴 인물이 없어 지울 엑스트라가 없습니다. 로어북 · 페르소나 · 직접 고친 인물은 정리하지 않습니다.'); return; }
+                const user = `CAST (everyone)\n${castCmdLines(v)}\n\nCANDIDATES (keys)\n${cand.map(e => e.key).join(', ')}\n\nRECENT STORY\n${await castRecent(v)}`;
+                const r = await askJson(CAST_CLEAN_SYS, user, 'remove', x => Array.isArray(x.remove) ? '' : 'remove must be a list', busy);
+                const cv = live();
+                if (!cv) return void moved();
+                const want = new Set(r.remove.map(k => tidy(k).toLowerCase()));
+                const gone = cv.cast.list.filter(e => want.has(e.key?.toLowerCase()) && !isPersona(e) && e.src === 'chat' && !e.skip);
+                const keep = (Array.isArray(r.keep) ? r.keep : []).filter(isObj)
+                    .map(k => ({ e: cand.find(e => e.key?.toLowerCase() === tidy(k.key).toLowerCase()), why: tidy(k.why) }))
+                    .filter(k => k.e && !gone.includes(k.e));
+                const keepTxt = keep.length ? ` 남긴 인물: ${keep.map(k => k.why ? `${k.e.name}(${k.why})` : k.e.name).join(', ')}.` : '';
+                if (!gone.length) { castSay(L, null, `지울 엑스트라를 찾지 못했습니다.${keepTxt}`); return; }
+                const snap = castSnap(cv);
+                const res = castApply(cv, gone.map(e => ({ op: 'delete', key: e.key })));
+                castSay(L, null, `엑스트라 ${gone.length}명을 지웠습니다: ${nameList(gone)}.${keepTxt} 이야기에 다시 나오면 그릴 때 다시 생깁니다. 정리는 채팅에서 생긴 인물만 지웁니다.`, res.changed ? snap : null);
+                return;
+            }
+            const user = `CAST\n${castCmdLines(v)}\n\nRECENT STORY\n${await castRecent(v, 4, 800)}\n\nCOMMAND\n${cmd}`;
+            const r = await askJson(CAST_CMD_SYS, user, 'ops', x => Array.isArray(x.ops) ? '' : 'ops must be a list', busy);
+            const cv = live();
+            if (!cv) return void moved();
+            const snap = castSnap(cv);
+            const res = r.understood === false || !r.ops.length ? { changed: false, text: '' } : castApply(cv, r.ops);
+            if (!res.changed && !res.text) castSay(L, null, '무슨 뜻인지 못 알아들었습니다. 바꾼 것은 없습니다. 예: 「모든 인물 머리 다 지워줘」', null, true);
+            else castSay(L, null, res.text || '바꾼 것은 없습니다.', res.changed ? snap : null, !res.changed);
+        } catch (error) {
+            castSay(L, null, error?.isStop || busy.stop ? '멈췄습니다. 바꾼 것은 없습니다.' : `모델 응답을 받지 못했습니다. 바꾼 것은 없습니다. (${String(error?.message || error).slice(0, 160)})`, null, true);
+        } finally {
+            if (L.busy === busy) L.busy = null;
+            renderNow();
+        }
+    }
+    function castBox(v) {
+        const L = castLogOf(v), busy = !!L.busy;
+        const input = h('input', {
+            class: 'cf-in', type: 'text', placeholder: '예: 모든 인물 머리 다 지워줘', 'aria-label': '등장인물 명령', disabled: busy, value: L.draft ?? '',
+            oninput: ev => { L.draft = ev.target.value; },
+            onkeydown: ev => { if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); send(); } },
+        });
+        const send = () => { const t = input.value; if (!tidy(t)) return; L.draft = ''; void castCommand(v, t, false); };
+        const msgs = L.msgs.map(m => h('div', { class: 'cl-m ' + (m.me ? 'me' : 'ai' + (m.bad ? ' bad' : '')) }, m.t,
+            m.undo ? h('button', {
+                class: 'ix-btn sm', type: 'button',
+                onclick: () => {
+                    const ok = castRestore(m.undo);
+                    castSay(L, null, ok ? '되돌렸습니다.' : '다른 채팅으로 바뀌어 되돌리지 못했습니다.', null, !ok);
+                    renderNow();
+                },
+            }, '↶ 되돌리기') : null));
+        if (busy) msgs.push(h('div', { class: 'cl-m ai wait' }, '읽는 중…'));
+        return h('div', { class: 'cl-log' },
+            msgs.length ? msgs : h('div', { class: 'cl-m ai' }, '말로 등장인물을 고칩니다. 「🧹 엑스트라 정리」는 다시 나오지 않을 엑스트라를 골라 지웁니다.'),
+            h('div', { class: 'cl-ex' },
+                h('button', { class: 'cl-chip main', type: 'button', disabled: busy, title: '채팅에서 생긴 인물 가운데 다시 나오지 않을 엑스트라를 모델이 골라 지웁니다', onclick: () => void castCommand(v, '', true) }, '🧹 엑스트라 정리'),
+                ...CAST_EX.map(t => h('button', { class: 'cl-chip', type: 'button', disabled: busy, onclick: () => { input.value = t; L.draft = t; input.focus(); } }, t))),
+            h('div', { class: 'cl-cmd' }, input,
+                busy ? h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { L.busy.stop = true; L.busy.onStop?.(); } }, '■ 멈추기')
+                    : h('button', { class: 'ix-btn sm main', type: 'button', onclick: send }, '보내기')));
+    }
+    function castNote(e, t, snap) {
+        const n = ui.castNote = { id: e.id, t, snap, at: Date.now() };
+        setTimeout(() => { if (ui.castNote === n) { ui.castNote = null; renderNow(); } }, 8000);
+    }
+    async function fillKind(v, e) {
+        ui.kindBusy ??= new Set();
+        if (ui.kindBusy.has(e.id)) return;
+        ui.kindBusy.add(e.id);
+        renderNow();
+        try {
+            const user = `CHARACTER\nname: ${e.name}${e.aliases?.length ? `\naliases: ${e.aliases.join(', ')}` : ''}\ncanon: ${tidy(e.canon) || '-'}\nlook: ${tidy(e.look) || '-'}\n\nRECENT STORY\n${await castRecent(v, 3, 800)}`;
+            const r = await askJson(CAST_KIND_SYS, user, 'kind', x => tidy(x.kind) ? '' : 'kind was empty', castModel('종류 읽는 중'));
+            const cur = st.view?.cast.list.find(x => x.id === e.id);
+            const k = tidy(r.kind).slice(0, 20);
+            if (cur && k && cur.type === 'other' && !tidy(cur.kind)) { cur.kind = k; castChanged(); }
+        } catch (error) {
+            console.warn(LOG, 'kind', error);
+        } finally {
+            ui.kindBusy.delete(e.id);
+            renderNow();
+        }
+    }
+
     function renderCast() {
         const v = st.view;
         const pane = h('section', { class: 'ix-pane' });
@@ -8011,6 +8301,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         add(pane,
             h('h2', { class: 'sub' }, '장소'),
             placeCard(sv),
+            v.cast.list.length ? castBox(sv) : null,
             h('h2', { class: 'sub' }, '등장인물', h('small', null, `${v.cast.list.length}명 · 이름을 누르면 펼쳐서 고칩니다`),
                 v.cast.list.length > 1 ? h('button', {
                     class: 'ix-btn sm cc-all', type: 'button',
@@ -8031,32 +8322,60 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             const flip = () => { isOpen ? open.delete(e.id) : open.add(e.id); renderNow(); };
             const av = h('span', { class: 'cc-av', 'aria-hidden': 'true' }, initial(e.name));
             const nm = h('span', { class: 'cc-nm' }, e.name || '이름 없음');
-            const sum = ['haircolor', 'hairstyle', 'top'].map(k => wearOf(e, sv.state, k)).filter(Boolean).join(' · ') || e.look || '태그 없음';
+            const sum = ['haircolor', 'hairstyle', 'top'].map(k => wearOf(e, sv.state, k)).filter(Boolean).join(' · ') || (skipAll(e) ? tidy(e.canon) : '') || (e.skip?.look ? '' : e.look) || '태그 없음';
             const changed = WEAR_KEYS.filter(k => now[k]).length;
-            const card = h('article', { class: 'cc' + (isOpen ? ' open' : '') + (e.on === false ? ' off' : ''), style: `--cc:${HUES[n % HUES.length]}` },
+            const card = h('article', { class: 'cc' + (isOpen ? ' open' : ''), style: `--cc:${HUES[n % HUES.length]}` },
                 h('div', {
                     class: 'cc-hd', role: 'button', tabindex: '0', 'aria-expanded': isOpen ? 'true' : 'false', title: isOpen ? '접기' : '펼쳐서 고치기',
                     onclick: flip, onkeydown: ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); flip(); } },
                 },
                     av,
                     h('div', { class: 'cc-ti' },
-                        h('b', null, nm, h('span', { class: 'cc-sx' }, SEX[e.type] ?? '기타'), h('span', { class: 'cc-src ' + (e.src ?? '') }, SRC[e.src] ?? e.src ?? '')),
+                        h('b', null, nm, h('span', { class: 'cc-sx' }, e.type === 'other' && tidy(e.kind) ? '기타 · ' + tidy(e.kind) : SEX[e.type] ?? '기타'), h('span', { class: 'cc-src ' + (e.src ?? '') }, SRC[e.src] ?? e.src ?? ''),
+                            skipAll(e) ? h('span', { class: 'cc-skip' }, '기본 태그만') : null),
                         h('span', { class: 'cc-sum' }, sum)),
                     changed ? h('span', { class: 'cc-chg', title: '이 채팅에서 기본과 다르게 입은 칸' }, `지금 ${changed}칸`) : null,
                     h('span', { class: 'cc-sw', onclick: ev => ev.stopPropagation(), onkeydown: ev => ev.stopPropagation() },
-                        toggle(e.on !== false, () => { e.on = e.on === false; castChanged(); renderNow(); })),
+                        h('button', {
+                            class: 'cc-clr' + (skipAll(e) ? ' on' : ''), type: 'button', disabled: !skipAll(e) && !tidy(e.canon),
+                            title: skipAll(e) ? '머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣기' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '원작 태그가 있어야 쓸 수 있습니다',
+                            'aria-label': skipAll(e) ? '다시 넣기' : '원작 태그만 남기고 클리어',
+                            onclick: () => {
+                                const snap = castSnap(sv), back = skipAll(e);
+                                if (back) delete e.skip; else e.skip = normSkip({ hair: true, body: true, outfit: true, look: true });
+                                castChanged(e);
+                                castNote(e, back ? '머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : '원작 태그만 남겼습니다. 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
+                                renderNow();
+                            },
+                        }, skipAll(e) ? '↺ 다시 넣기' : '🧹'),
+                        isPersona(e) ? null : (() => {
+                            const b = armButton('✕', '한 번 더', () => {
+                                const snap = castSnap(sv);
+                                v.cast.list = v.cast.list.filter(x => x !== e);
+                                delete liveState(sv).wear[e.id];
+                                open.delete(e.id);
+                                castChanged();
+                                castSay(castLogOf(sv), null, `${josa(e.name || e.key, '을', '를')} 지웠습니다. 이야기에 다시 나오면 그릴 때 다시 생깁니다.`, snap);
+                                renderNow();
+                            }, 'cc-del', 'cast:' + e.id, 2);
+                            b.title = '인물 지우기 (두 번 누르기)';
+                            b.setAttribute('aria-label', '인물 지우기');
+                            return b;
+                        })()),
                     h('span', { class: 'cc-cv', 'aria-hidden': 'true' }, '▾')));
+            if (ui.castNote?.id === e.id) add(card, h('div', { class: 'cc-note' }, ui.castNote.t,
+                h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { const sn = ui.castNote?.snap; ui.castNote = null; castRestore(sn); renderNow(); } }, '↶ 되돌리기')));
             if (isOpen) {
                 const wd = h('div', { class: 'wd' }, h('span'), h('span', { class: 'wd-h' }, '기본 (이 봇 전체)'), h('span', { class: 'wd-h now' }, '지금 (이 채팅만)'));
                 for (const [k, label, group] of WEAR) add(wd,
-                    group !== WEAR[WEAR_KEYS.indexOf(k) - 1]?.[2] ? h('span', { class: 'wd-g' }, group) : null,
-                    h('span', { class: 'wd-l' }, label),
+                    group !== WEAR[WEAR_KEYS.indexOf(k) - 1]?.[2] ? h('span', { class: 'wd-g' }, group, skipOf(e, k) ? ' · 그림에 안 넣음' : '') : null,
+                    h('span', { class: 'wd-l' + (skipOf(e, k) ? ' cc-dim' : '') }, label),
                     h('input', {
-                        class: 'cf-in', value: e.wear?.[k] ?? '', 'aria-label': `기본 ${label}`,
+                        class: 'cf-in' + (skipOf(e, k) ? ' cc-dim' : ''), value: e.wear?.[k] ?? '', 'aria-label': `기본 ${label}`,
                         oninput: ev => { (e.wear ??= emptyWear())[k] = ev.target.value; castChanged(e); },
                     }),
                     h('input', {
-                        class: 'cf-in now' + (now[k] ? ' on' : ''), value: now[k] ?? '', placeholder: baseWear(e, k) || (k.endsWith('_extra') ? '없음' : group === '옷' ? '모름 (벗었으면 none)' : '모름'), 'aria-label': `지금 ${label}`,
+                        class: 'cf-in now' + (now[k] ? ' on' : '') + (skipOf(e, k) ? ' cc-dim' : ''), value: now[k] ?? '', placeholder: baseWear(e, k) || (k.endsWith('_extra') ? '없음' : group === '옷' ? '모름 (벗었으면 none)' : '모름'), 'aria-label': `지금 ${label}`,
                         oninput: ev => {
                             const t = ev.target.value.trim();
                             const w = (liveState(sv).wear[e.id] ??= {});
@@ -8081,7 +8400,13 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                                     castChanged(e);
                                 },
                             }),
-                            seg([['girl', '여'], ['boy', '남'], ['other', '기타']], e.type, t => { e.type = t; castChanged(e); renderNow(); })),
+                            seg([['girl', '여'], ['boy', '남'], ['other', '기타']], e.type, t => { e.type = t; castChanged(e); renderNow(); if (t === 'other' && !tidy(e.kind)) void fillKind(sv, e); }),
+                            e.type === 'other' ? h('label', { class: 'cc-kind' }, '종류',
+                                h('input', {
+                                    class: 'cf-in', value: ui.kindBusy?.has(e.id) ? '' : e.kind ?? '', 'aria-label': '종류', disabled: !!ui.kindBusy?.has(e.id),
+                                    placeholder: ui.kindBusy?.has(e.id) ? 'AI가 읽는 중…' : 'AI가 채웁니다',
+                                    oninput: ev => { e.kind = tidy(ev.target.value).slice(0, 20); castChanged(e); },
+                                })) : null),
                         h('label', null, '인물 키 (영어 소문자 · 숫자 · _ · 연출 모델이 이 키로 인물을 구별합니다)',
                             h('input', {
                                 class: 'cf-in cc-key', value: e.key ?? '', 'aria-label': '인물 키', spellcheck: 'false',
@@ -8104,22 +8429,14 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                         h('label', null, '원작 태그 (예: uchiha sasuke (naruto) · 비우면 번호로 구별합니다)',
                             h('input', { class: 'cf-in', value: e.canon ?? '', oninput: ev => { e.canon = canonTag(ev.target.value); castChanged(e); } }))),
                     h('div', { class: 'cc-sec' },
-                        h('h4', null, '그 밖의 특징', h('small', null, '피부 · 동물 귀 · 뿔 · 안경 · 흉터')),
-                        h('textarea', { class: 'cf-ta', 'aria-label': '그 밖의 특징', oninput: ev => { e.look = ev.target.value; castChanged(e); } }, e.look ?? '')),
+                        h('h4', null, '그 밖의 특징', h('small', null, e.skip?.look ? '그림에 안 넣음' : '피부 · 동물 귀 · 뿔 · 안경 · 흉터')),
+                        h('textarea', { class: 'cf-ta' + (e.skip?.look ? ' cc-dim' : ''), 'aria-label': '그 밖의 특징', oninput: ev => { e.look = ev.target.value; castChanged(e); } }, e.look ?? '')),
                     h('div', { class: 'cc-sec' },
                         h('h4', null, '머리 · 몸 · 옷', h('small', null, '지금 칸을 비우면 기본을 씁니다')),
                         wd),
                     h('div', { class: 'cc-sec' },
-                        h('h4', null, 'NAI 태그', h('small', null, '성별 · 머리 · 눈 · 키 · 몸 · 특징 · 상의 · 하의 · 신발 · 빠진 옷 차례로 들어갑니다. 모자가 없으면 no headwear, 「지금」 칸이 none 인 상의 · 하의 · 신발은 topless · bottomless · no shoes 를 붙입니다')),
-                        h('div', { class: 'cc-tags' }, slotPreview(e, sv.state) || '(비어 있음)')),
-                    h('div', { class: 'cc-ft' },
-                        delButton('인물 삭제', '한 번 더 누르면 삭제', () => {
-                            v.cast.list = v.cast.list.filter(x => x !== e);
-                            delete liveState(sv).wear[e.id];
-                            open.delete(e.id);
-                            castChanged();
-                            renderNow();
-                        }, undefined, 'cast:' + e.id))));
+                        h('h4', null, 'NAI 태그', h('small', null, '성별 · 머리 · 눈 · 키 · 몸 · 특징 · 상의 · 하의 · 신발 · 빠진 옷 차례로 들어갑니다. 원작 태그가 없고 머리 기타가 none 이면 no headwear, 「지금」 칸이 none 인 상의 · 하의 · 신발은 topless · bottomless · no shoes 를 붙입니다')),
+                        h('div', { class: 'cc-tags' }, slotPreview(e, sv.state) || '(비어 있음)'))));
             }
             const vn = vok ? voice.voiceMatch(e) : null;
             if (vn) { matched.add(vn); add(card, voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([vn]))])); }
@@ -10409,12 +10726,17 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     const acDoneOf = (a, e) => { const have = acHas(); return acPlan(a, e.id).filter(t => have.has(t.name)).length; };
 
     const acWear = (e, o) => k => o.key === 'base' ? baseWear(e, k) : k === 'top' ? (e.type === 'boy' && o.enBoy || o.en) : (k === 'bottom' || k === 'shoes' || k === 'outfit_extra') ? '' : baseWear(e, k);
+    const acEnt = (e, o) => e?.skip?.outfit && o.key !== 'base' ? { ...e, skip: { ...e.skip, outfit: false } } : e;
+    function acIdent(e, o) {
+        const t = identTags(acEnt(e, o), acWear(e, o));
+        if (e?.skip && tidy(e.canon)) t.unshift(tidy(e.canon), canonBare(e.canon));
+        return t;
+    }
     function acReq(a, e, o, emo, ref, p = acPreset()) {
-        const val = acWear(e, o);
         return {
             base: joinTags(countTags([e.type]), dropTags(p.pos, AC_TEXTY), emo.special ? 'solo, simple background, white background' : joinTags('solo', a.view, 'simple background, white background')),
             neg: joinTags(removeTokens(p.neg, ['simple background', 'white background']), guardTags([e.type]), 'speech bubble, text, english text, japanese text, letters, sound effects, onomatopoeia, character name, character sheet', 'comic, multiple panels, panel borders'),
-            slots: [{ prompt: joinTags(identTags(e.type, e.look, val), a.edits[`${e.id}|${emo.key}`] ?? emo.en), uc: '', x: 0.5, y: 0.5, kind: 'char', type: e.type, name: e.name }],
+            slots: [{ prompt: joinTags(acIdent(e, o), a.edits[`${e.id}|${emo.key}`] ?? emo.en), uc: '', x: 0.5, y: 0.5, kind: 'char', type: e.type, name: e.name }],
             w: 832, h: 1216, panels: 1, useCoords: false, ref, preset: p.id,
         };
     }
@@ -10898,7 +11220,7 @@ Rules:
             const others = acEmos(a).filter(m => m.key !== emo.key && !m.special).slice(0, 12).map(m => `- ${m.ko}: ${acPrompt(a, e, m)}`).join('\n');
             const user = [
                 `# CHARACTER\n${e.name} (${e.type || 'girl'})`,
-                `# FIXED LOOK (already in the prompt)\n${identTags(e.type, e.look, acWear(e, o)).filter(Boolean).join(', ')}`,
+                `# FIXED LOOK (already in the prompt)\n${acIdent(e, o).filter(Boolean).join(', ')}`,
                 emo.special
                     ? `# SPECIAL ACTION\n${emo.ko} (${emo.scene || emo.key}). Keep this action. Framing tags such as upper body or pov are allowed.`
                     : `# EMOTION\n${emo.ko} (${emo.key}). Do not add framing tags (portrait, upper body, cowboy shot, full body); the app adds the view.`,
@@ -12134,7 +12456,7 @@ Rules:
                     h('button', { class: 'ix-x', type: 'button', 'aria-label': '닫기', onclick: close }, '×')),
                 h('div', { class: 'dlg-b' },
                     h('h3', { class: 'sub' }, '고정 외형 ', h('small', null, '로어북 「이름 외형」에서 가져옵니다 · 여기서는 못 고칩니다')),
-                    h('div', { class: 'cc-tags' }, identTags(e.type, e.look, acWear(e, o)).filter(Boolean).join(', ')),
+                    h('div', { class: 'cc-tags' }, acIdent(e, o).filter(Boolean).join(', ')),
                     h('h3', { class: 'sub' }, '감정 · 자세 ', h('small', null, '이 칸만 고칩니다')),
                     ta,
                     ed.err ? h('p', { class: 'ix-hint', style: 'margin:6px 0 0;color:#b91c1c' }, `태그를 새로 받지 못했습니다: ${ed.err}`) : null,
