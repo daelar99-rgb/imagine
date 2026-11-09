@@ -1,8 +1,12 @@
-# 💠 이매진 v5.105.2
+# 💠 이매진 v5.105.3
 
 봇 답변을 읽고 장면을 골라 NovelAI로 그린 뒤, 그 장면이 나온 문단 아래에 넣어 주는 RisuAI 플러그인입니다.
 삽화·만화를 그리고, 봇이 두고 쓸 감정별 표정 그림을 애드 에셋으로 한 번에 만듭니다.
 v4.0.0부터는 제미니 TTS로 답변을 소리 내어 읽는 「TTS」 앱(v5.24.1까지 이름은 「음성」)도 함께 들어 있습니다.
+
+## 강조 koma에 wide panel (v5.105.3)
+
+- 강조 koma의 패널 태그 뒤에 `wide panel`을 붙입니다(`hexagon panel, wide panel` · `side panel, wide panel`). 이야기 koma는 그대로입니다.
 
 ## 공통 부정에 black blank (v5.105.2)
 

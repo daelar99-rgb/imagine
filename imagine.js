@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.105.2
+//@display-name 💠 이매진 v5.105.3
 //@api 3.0
-//@version 5.105.2
+//@version 5.105.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.105.2';
+    const VERSION = '5.105.3';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2483,7 +2483,7 @@ Rules
             const view = emph ? emphPt.get(pn) ?? EMPH_PANELS[0] : '';
             const tallWide = !emph && src.length >= 2 && h > w;
             const camIn = cam0;
-            const cam = joinTags(tallWide && !tagsOf(camIn).some(t => tagCore(t) === 'wide panel') ? 'wide panel' : '', emph && !/close-up/i.test(camIn) ? (ce ? 'close-up' : 'extreme close-up') : '', view && !tagsOf(camIn).some(t => t.toLowerCase() === view) ? view : '', camIn);
+            const cam = joinTags(tallWide && !tagsOf(camIn).some(t => tagCore(t) === 'wide panel') ? 'wide panel' : '', emph && !/close-up/i.test(camIn) ? (ce ? 'close-up' : 'extreme close-up') : '', view && !tagsOf(camIn).some(t => t.toLowerCase() === view) ? view : '', emph && !tagsOf(camIn).some(t => tagCore(t) === 'wide panel') ? 'wide panel' : '', camIn);
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
