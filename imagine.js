@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.101.0
+//@display-name 💠 이매진 v5.102.0
 //@api 3.0
-//@version 5.101.0
+//@version 5.102.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.101.0';
+    const VERSION = '5.102.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -411,6 +411,7 @@
             }
         }
     }
+    const ROW_GAP_MAX = 2;
     function unevenRows(komas, G = GRID5, dots = false) {
         if (komas.length < 2) return;
         const rowOf = o => axisAt(o.y, G.rows);
@@ -423,7 +424,10 @@
         const margins = marginsOf(komas), storyMargins = marginsOf(story);
         const uneven = f => mv => { const [t, b] = f(mv); return t !== b; };
         const allOk = uneven(margins), storyOk = uneven(storyMargins);
+        const tall = G.rows > G.cols;
+        const capOk = mv => !tall || Math.max(...storyMargins(mv)) <= ROW_GAP_MAX;
         const ok = mv => {
+            if (!capOk(mv)) return false;
             if (komas.some(km => pts(km).some(o => { const r = rowIn(mv, km, o); return r < 0 || r >= G.rows; }))) return false;
             if (story.some(km => pts(km).concat(km).some(o => { const r = rowIn(mv, km, o); return r < 1 || r > G.rows - 2; }))) return false;
             const sr = story.map(km => rowIn(mv, km, km));
@@ -442,13 +446,19 @@
             return true;
         };
         const none = new Map();
-        if (storyOk(none) && allOk(none)) return;
+        if (capOk(none) && storyOk(none) && allOk(none)) return;
         const all = d => new Map(komas.map(km => [km, d]));
         const group = (s, d) => new Map(komas.filter(km => baseOf.get(km) === s).map(km => [km, d]));
         const cands = [all(-1), all(1), ...[...story].reverse().flatMap(s => [group(s, -1), group(s, 1)])];
+        if (tall && story.length === 2) {
+            const pairs = [];
+            for (let a = 1 - G.rows; a < G.rows; a++) for (let b = 1 - G.rows; b < G.rows; b++) if (a || b) pairs.push([a, b]);
+            pairs.sort((p, q) => Math.abs(p[0]) + Math.abs(p[1]) - Math.abs(q[0]) - Math.abs(q[1]));
+            for (const [a, b] of pairs) cands.push(new Map([...group(story[0], a), ...group(story[1], b)]));
+        }
         const fine = cands.filter(ok);
         let mv = fine.find(m => storyOk(m) && allOk(m));
-        if (!mv && !storyOk(none)) mv = fine.find(storyOk) ?? (allOk(none) ? null : fine.find(allOk));
+        if (!mv && (!storyOk(none) || !capOk(none))) mv = fine.find(storyOk) ?? (capOk(none) && allOk(none) ? null : fine.find(allOk) ?? (capOk(none) ? null : fine[0]));
         if (!mv) return;
         const yAt = r => r3((r + 0.5) / G.rows);
         for (const [km, d] of mv) {
@@ -1409,8 +1419,10 @@ ${TAG_STYLE}`;
     const cellRuleOne = G => { const c = k => cellIn(k, G);
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
     const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
-        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. When the page has emph panels, keep at least one empty row between the 2 story panels, because each emph panel takes the row directly above its story panel. Keep the story panels off-center vertically, even when the page has emph panels: count only the story panels, and the number of empty rows above the top story panel must differ from the number below the bottom story panel (e.g. 1 above and 2 below, never 2 and 2). Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
+        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. When the page has emph panels, keep at least one empty row between the 2 story panels, because each emph panel takes the row directly above its story panel. Keep the story panels off-center vertically, even when the page has emph panels: count only the story panels, and the number of empty rows above the top story panel must differ from the number below the bottom story panel (e.g. 1 above and 2 below, never 2 and 2). ${G.rows > G.cols ? `This page is tall: never leave ${ROW_GAP_MAX + 1} or more empty rows above the top story panel or below the bottom story panel. ` : ''}Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
             ? `2 story panels ${q(['B2', 'D4'])} (left high, right low) or ${q(['D2', 'B4'])} (right high, left low)`
+            : G.rows > G.cols
+            ? `2 story panels "C2", "C${G.rows - 2}" (stacked) or "B2", "D${G.rows - 2}" (a zigzag)`
             : `2 story panels ${q(['C2', 'C4'])} (stacked) or ${q(['B2', 'D4'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
     const FRAME_TAGS = {
         wide: 'wide koma',
@@ -1447,12 +1459,12 @@ ${TAG_STYLE}`;
             return parts.length ? `${komaPosOf(x, y)} koma: ${parts.join(TAG_JOIN)}` : `${komaPosOf(x, y)} koma`;
         }).join(', ');
     }
-    const EMPH_PANELS = ['cross-section panel', 'hexagon panel'];
+    const EMPH_PANELS = ['hexagon panel', 'side panel'];
     function emphPanelOf(v) {
         const t = tidy(v).toLowerCase().replace(/_/g, ' ');
         if (!t || t === 'none') return '';
         if (EMPH_PANELS.includes(t)) return t;
-        return EMPH_PANELS.find(x => t.includes(x)) ?? (/cross ?-?section|x-?ray/.test(t) ? 'cross-section panel' : /hexagon/.test(t) ? 'hexagon panel' : '');
+        return EMPH_PANELS.find(x => t.includes(x)) ?? (/hexagon/.test(t) ? 'hexagon panel' : /side ?pann?els?/.test(t) ? 'side panel' : '');
     }
     const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
   - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with an extreme close-up camera, frame "inset" and its cell in the row directly above that story panel (exactly one row higher: never the same row, never two or more rows up), toward the page edge. An emph panel shows only the emphasized detail: its camera and tags name that detail, with no place, room, sky or other background words. Its who is only the owner of the detail ([] for an object). No character tags: when the detail is a CAST person's body part, its tags start with that body part as a bare noun (hands, eyes, lips, hair; no his / her), then only that part's look from CAST (eyes: the eye colour; hair: the hair colour and style; a hand: the glove, sleeve or ring on it; lips: the lip colour), then the detail, e.g. ["hands", "black gloves", "clenched fist"]; never the rest of the look or outfit. The app writes the part with the same label that person has in the story panel (char1's hands). Only emph panels may sit on the outer ring of the grid. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
