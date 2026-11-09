@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.105.0
+//@display-name 💠 이매진 v5.105.1
 //@api 3.0
-//@version 5.105.0
+//@version 5.105.1
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.105.0';
+    const VERSION = '5.105.1';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -2589,7 +2589,7 @@ Rules
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
         const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}panels, manga, panel borders::, diagonal border, black border` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`, single ? '' : 'no thick border', single || /dynamic angle/i.test(p.pos) ? '' : 'dynamic angle'),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}panels, manga::, diagonal border, black border` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`, single ? '' : 'no thick border', single || /dynamic angle/i.test(p.pos) ? '' : 'dynamic angle'),
             neg: ((t) => single ? t : joinTags(String(t).split(',').filter(s => !NEG_BORDER_TAGS.includes(tagCore(s).replace(/^-?\d*\.?\d+::\s*/, '').replace(/\s*::$/, ''))).join(','), 'white border', NEG_BORDER_END))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
             slots, w, h, panels: komaN,
             ...(panelCoords ? { grid: [G.cols, G.rows] } : {}),
