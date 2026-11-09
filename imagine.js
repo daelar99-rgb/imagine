@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.109.2
+//@display-name 💠 이매진 v5.110.0
 //@api 3.0
-//@version 5.109.2
+//@version 5.110.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.109.2';
+    const VERSION = '5.110.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -4983,6 +4983,7 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .ix-band.m-prompt,.ix-app.m-prompt,.ix-tcard.m-prompt{--mc:#e8930c}
 .ix-band.m-style,.ix-app.m-style,.ix-tcard.m-style{--mc:#e0508a}
 .ix-band.m-myvoice,.ix-app.m-myvoice,.ix-tcard.m-myvoice{--mc:#8e5cd9}
+.ix-tcard.m-cast{--mc:#3f6fd1}
 .ix-top{display:flex;align-items:center;gap:8px;height:38px;min-width:0}
 .ix .ix-pg{flex:none;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px 0 10px;font-size:15.5px;font-weight:900;line-height:1;color:#fff;white-space:nowrap;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);border-radius:8px;cursor:default}
 .ix-pg .hi{width:18px;height:18px}
@@ -5275,34 +5276,46 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .cc-all{margin-left:auto}
 /* 5.109.0: 머리줄 오른쪽 🧹(원작 태그만 남기기) · ✕(두 번 눌러 지우기). 켜고 끄기 스위치 자리 */
 .cc-sw{flex:none;display:flex;align-items:center;gap:4px}
-.cc-del{flex:none;width:28px;min-width:28px;min-height:28px;padding:0;font:inherit;font-size:.9rem;font-weight:600;color:#9aa3ae;background:transparent;border:0;border-radius:50%;cursor:pointer}
+/* 5.109.3: 🧹 · ✕ 를 같은 모양으로 맞춘다 (샘플 A). 둘 다 테두리 없는 28px 원, 평소엔 회색이고 올리면 🧹 는 노랑 · ✕ 는 빨강 바탕. 눌린 상태(↺ 복원 · 한 번 더)는 같은 높이의 알약 */
+.cc-clr,.cc-del{flex:none;display:inline-flex;align-items:center;justify-content:center;width:28px;min-width:28px;height:28px;min-height:28px;padding:0;font:inherit;font-size:.86rem;font-weight:600;color:#9aa3ae;background:transparent;border:1px solid transparent;border-radius:14px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s,color .15s,filter .15s}
+.cc-clr{filter:grayscale(1);opacity:.75}
+.cc-clr:hover:not(:disabled){filter:none;opacity:1;background:#fff6dc}
+.cc-clr:disabled{opacity:.3;cursor:not-allowed}
+.cc-clr.on{width:auto;padding:0 10px;filter:none;opacity:1;font-size:.72rem;font-weight:700;color:#5b4300;background:#fff6dc;border-color:#e7b552}
 .cc-del:hover{color:var(--bad);background:#fdecea}
-.cc-del.armed{width:auto;min-width:0;padding:0 10px;font-size:.74rem;font-weight:700;color:#fff;background:var(--bad);border:1px solid var(--bad);border-radius:14px}
-.cc-clr{flex:none;min-width:28px;min-height:28px;padding:0 6px;font:inherit;font-size:.82rem;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:8px;cursor:pointer;white-space:nowrap}
-.cc-clr:hover{border-color:var(--accent);color:var(--accent)}
-.cc-clr.on{font-size:.72rem;font-weight:700;color:#5b4300;background:#fff6dc;border-color:#e7b552}
-.cc-clr:disabled{opacity:.4;cursor:not-allowed}
+.cc-del.armed{width:auto;padding:0 10px;font-size:.72rem;font-weight:700;color:#fff;background:var(--bad);border-color:var(--bad)}
 .cc-skip{flex:none;padding:1px 6px;font-size:.66rem;font-weight:700;color:#5b4300;background:#fff6dc;border:1px solid #e7b552}
 .cc-note{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 12px;font-size:.74rem;color:var(--ink);background:#fff6dc;border-bottom:1px solid #f1dca6}
 .cc-note .ix-btn{min-height:22px;padding:0 8px;font-size:.7rem}
 .cc-sec label.cc-kind{display:flex;align-items:center;gap:6px}
 .cc-row .cc-kind .cf-in{width:9em;font-weight:400}
 .wd .cc-dim{opacity:.45}
-/* 5.109.0: 등장인물 명령 상자. 최근 네 줄만 보인다 */
-.cl-log{display:grid;gap:6px;margin:10px 0 4px;padding:10px;background:var(--paper2);border:1px solid var(--line);border-radius:12px}
-.cl-m{max-width:88%;padding:6px 10px;font-size:.78rem;line-height:1.45;border-radius:12px;word-break:break-word}
-.cl-m.me{justify-self:end;color:#fff;background:var(--accent);border-bottom-right-radius:4px}
-.cl-m.ai{justify-self:start;color:var(--ink);background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
-.cl-m.ai.bad{color:#8a2a20;background:#fff5f4;border-color:#f0c2bd}
-.cl-m.ai.wait{color:var(--muted)}
-.cl-m .ix-btn{margin-left:6px;min-height:22px;padding:0 8px;font-size:.7rem}
-.cl-cmd{display:flex;gap:6px}
-.cl-cmd .cf-in{flex:1;min-width:0}
-.cl-ex{display:flex;flex-wrap:wrap;align-items:center;gap:5px;font-size:.72rem;color:var(--muted)}
+/* 5.110.0: 등장인물 탭 맨 위 이매진 바 (샘플 A). 분석 · 명령 · 엑스트라 정리를 한 상자에 둔다. 말은 마지막 한 번만 보인다 */
+.cl-bar{display:grid;gap:10px;margin:0 0 4px;padding:12px;background:linear-gradient(180deg,#f3f8ff,#fff);border:1px solid var(--line);border-radius:14px}
+.cl-bar .pg{margin-top:0}
+.cl-top{display:flex;align-items:center;gap:10px}
+.cl-av{flex:none;display:grid;place-items:center;width:26px;height:26px;font-size:.86rem;line-height:1;background:#fff;border:1px solid var(--line2);border-radius:50%;box-shadow:0 1px 2px rgba(15,23,42,.08)}
+.cl-av.busy{animation:cl-pulse 1.2s ease-in-out infinite}
+@keyframes cl-pulse{0%,100%{box-shadow:0 0 0 0 rgba(43,149,240,.45)}50%{box-shadow:0 0 0 5px rgba(43,149,240,0)}}
+.cl-say{flex:1;min-width:0}
+.cl-say b{display:block;font-size:.88rem;line-height:1.4;color:var(--ink);word-break:break-word}
+.cl-say b.bad{color:var(--bad)}
+.cl-say small{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:2px;font-size:.72rem;color:var(--muted)}
+.cl-say small q{color:var(--ink);quotes:"「" "」"}
+.cl-lnk{padding:0;font:inherit;font-weight:700;color:var(--accent2);background:none;border:0;cursor:pointer}
+.cl-run{position:relative;height:3px;overflow:hidden;background:var(--paper3);border-radius:2px}
+.cl-run::after{content:"";position:absolute;inset:0 auto 0 0;width:35%;background:var(--accent);animation:cl-run 1.1s ease-in-out infinite}
+@keyframes cl-run{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+.cl-ex{display:flex;flex-wrap:wrap;align-items:center;gap:5px}
+.cl-in{display:flex;gap:6px}
+.cl-in .cf-in{flex:1;min-width:0;border-radius:18px;padding-left:14px}
+.cl-in .ix-btn{border-radius:18px}
 .cl-chip{min-height:24px;padding:2px 10px;font:inherit;font-size:.72rem;font-weight:600;color:var(--ink);background:var(--paper2);border:1px solid var(--line2);border-radius:14px;cursor:pointer}
 .cl-chip:hover{border-color:var(--accent);color:var(--accent)}
 .cl-chip.main{color:#fff;background:var(--accent);border-color:var(--accent)}
 .cl-chip:disabled{opacity:.5;cursor:not-allowed}
+.cl-chip.out{color:var(--accent2);background:#fff;border-color:var(--accent)}
+.cl-chip.stop{color:var(--bad);background:#fff;border-color:#dc8f88}
 .cc.pl{margin-top:12px}
 .cc.pl .cc-av{font-size:1rem}
 .cc-sec .pl-loc{min-height:44px}
@@ -6547,7 +6560,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         }, 250);
         return el;
     }
-    function progBar(b) {
+    function progBar(b, noStop) {
         const only = b.lore && !b.job;
         const stages = only ? LORE_STAGES : STAGES;
         const cols = only ? 'grid-template-columns:2fr 4fr 2fr' : '';
@@ -6564,7 +6577,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
             h('div', { class: 'pg-now' },
                 h('span', null, only ? [`${llmName(b.llm ?? st.set.llm)} 모델 · ${loreStepText(b)}`, now === 1 ? [' · ', secSpan(b.tryAt ?? b.lsAt)] : null, loreTry ? ` · ${loreTry}` : '']
                     : [b.stage === 0 ? (b.lore ? `${llmName(b.llm ?? st.set.llm)} 모델이 로어북을 읽어 인물표를 짜는 중` : `${b.label}: ${llmName(b.llm ?? st.set.llm)} 모델이 연출을 짜는 중`) : b.stage === 1 ? `NAI 가 그리는 중 (${b.i}/${b.n})` : '봇에 저장하는 중', ' · ', leftSpan(b)]),
-                h('button', { class: 'ix-btn sm warn', type: 'button', disabled: b.stop, onclick: only ? stopLore : cancelAll }, b.stop ? '멈추는 중' : !only && st.jobs > 1 ? '모두 중단' : '중단')),
+                noStop ? null : h('button', { class: 'ix-btn sm warn', type: 'button', disabled: b.stop, onclick: only ? stopLore : cancelAll }, b.stop ? '멈추는 중' : !only && st.jobs > 1 ? '모두 중단' : '중단')),
             h('div', { class: 'pg-bar', style: cols }, segs),
             h('div', { class: 'pg-nm', style: cols }, names),
             !only && st.jobs > 1 ? h('div', { class: 'ix-hint', style: 'margin-top:6px' }, `뒤에 ${st.jobs - 1}개가 기다리는 중입니다. 중단하면 함께 취소합니다.`) : null);
@@ -8017,8 +8030,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return card;
     }
 
-    const CAST_EX = ['모든 인물 머리 다 지워줘', '카이토 옷 수영복으로 바꿔줘', '경비병 지워줘', '레이 원작 태그만 남겨줘', '몸 칸 다시 넣어줘'];
-    const CAST_LOG_MAX = 4;
+    const CAST_EX = ['모든 등장인물 다 지워줘', '모든 캐릭터 옷 수영복으로 바꿔줘'];
     const GROUP_KO = { hair: '머리', body: '몸', outfit: '옷', look: '그 밖의 특징' };
     const WEAR_LABEL = Object.fromEntries(WEAR.map(([k, l]) => [k, l]));
     const isPersona = e => e?.src === 'persona' || !!e?.persona;
@@ -8040,14 +8052,12 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     }
     function castLogOf(v) {
         const k = v.chaId + '|' + v.chatKey;
-        if (ui.castLog?.k !== k) ui.castLog = { k, msgs: [], busy: null };
+        if (ui.castLog?.k !== k) ui.castLog = { k, ask: '', res: null, busy: null };
         return ui.castLog;
     }
     function castSay(L, me, ai, snap = null, bad = false) {
-        for (const m of L.msgs) m.undo = null;
-        if (me) L.msgs.push({ me: true, t: me });
-        if (ai) L.msgs.push({ t: ai, undo: snap, bad });
-        L.msgs = L.msgs.slice(-CAST_LOG_MAX);
+        if (me) { L.ask = me; L.res = null; }
+        if (ai) L.res = { t: ai, undo: snap, bad };
     }
     function castModel(label, main = false) {
         const [llm, rail] = ui.mode === 'asset' ? [st.set.acLlm, 'asset'] : ui.mode === 'talk' && voice ? [voice.castLlm(), 'talk'] : [st.set.llm, 'illust'];
@@ -8207,32 +8217,57 @@ Return JSON only: {"kind":""}`;
             renderNow();
         }
     }
-    function castBox(v) {
-        const L = castLogOf(v), busy = !!L.busy;
+    function castBox(v, ctx) {
+        const L = castLogOf(v);
+        const cmdBusy = !!L.busy, lore = !!ctx.busy, lock = cmdBusy || lore;
+        const n = v.cast.list.length;
+        const noLore = ctx.group && !ctx.vm && !ctx.tm;
+        const pre = !n && !noLore;
         const input = h('input', {
-            class: 'cf-in', type: 'text', placeholder: '예: 모든 인물 머리 다 지워줘', 'aria-label': '등장인물 명령', disabled: busy, value: L.draft ?? '',
+            class: 'cf-in', type: 'text', placeholder: '이매진에게 말하기…', 'aria-label': '이매진에게 말하기', disabled: lock, value: L.draft ?? '',
             oninput: ev => { L.draft = ev.target.value; },
             onkeydown: ev => { if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); send(); } },
         });
         const send = () => { const t = input.value; if (!tidy(t)) return; L.draft = ''; void castCommand(v, t, false); };
-        const msgs = L.msgs.map(m => h('div', { class: 'cl-m ' + (m.me ? 'me' : 'ai' + (m.bad ? ' bad' : '')) }, m.t,
-            m.undo ? h('button', {
-                class: 'ix-btn sm', type: 'button',
-                onclick: () => {
-                    const ok = castRestore(m.undo);
-                    castSay(L, null, ok ? '되돌렸습니다.' : '다른 채팅으로 바뀌어 되돌리지 못했습니다.', null, !ok);
-                    renderNow();
-                },
-            }, '↶ 되돌리기') : null));
-        if (busy) msgs.push(h('div', { class: 'cl-m ai wait' }, '읽는 중…'));
-        return h('div', { class: 'cl-log' },
-            msgs.length ? msgs : null,
-            h('div', { class: 'cl-ex' },
-                h('button', { class: 'cl-chip main', type: 'button', disabled: busy, title: '채팅에서 생긴 인물 가운데 다시 나오지 않을 엑스트라를 모델이 골라 지웁니다', onclick: () => void castCommand(v, '', true) }, '🧹 엑스트라 정리'),
-                ...CAST_EX.map(t => h('button', { class: 'cl-chip', type: 'button', disabled: busy, onclick: () => { input.value = t; L.draft = t; input.focus(); } }, t))),
-            h('div', { class: 'cl-cmd' }, input,
-                busy ? h('button', { class: 'ix-btn sm', type: 'button', onclick: () => { L.busy.stop = true; L.busy.onStop?.(); } }, '■ 멈추기')
-                    : h('button', { class: 'ix-btn sm main', type: 'button', onclick: send }, '보내기')));
+        const go = () => { if (!lore) { L.ask = ''; L.res = null; } ctx.go(); };
+        const stopCmd = () => { if (!L.busy) return; L.busy.stop = true; L.busy.onStop?.(); };
+        const say = cmdBusy ? (L.busy.label === '엑스트라 정리 중' ? '엑스트라를 찾는 중입니다…' : '말씀하신 대로 고치는 중입니다…')
+            : lore ? (ctx.vm || (ctx.tm && !st.lore) ? '목소리를 정하는 중입니다…' : n ? '인물을 다시 읽고 있습니다…' : '로어북에서 등장인물을 읽고 있습니다…')
+            : L.res ? L.res.t
+            : !n ? (noLore ? '그룹 채팅은 로어북을 읽을 수 없어, 그릴 때 모델이 알려 준 인물을 씁니다.'
+                : ctx.vm ? '아직 생김새를 읽은 인물이 없습니다. 여기서 분석하면 목소리만 정합니다.'
+                : '아직 이 봇의 등장인물을 모릅니다. 먼저 읽어 볼까요?')
+            : `인물 ${n}명을 알고 있습니다. 무엇을 바꿀까요?`;
+        const bad = !lock && L.res?.bad;
+        const undo = !lock && L.res?.undo ? h('button', {
+            class: 'cl-lnk', type: 'button',
+            onclick: () => {
+                const ok = castRestore(L.res.undo);
+                castSay(L, null, ok ? '되돌렸습니다.' : '다른 채팅으로 바뀌어 되돌리지 못했습니다.', null, !ok);
+                renderNow();
+            },
+        }, '↶ 되돌리기') : null;
+        const small = L.ask || undo ? h('small', null, L.ask ? ['방금: ', h('q', null, L.ask)] : null, undo) : null;
+        const topBtn = cmdBusy ? h('button', { class: 'ix-btn sm warn', type: 'button', onclick: stopCmd }, '■ 멈추기')
+            : lore && pre ? h('button', { class: 'ix-btn sm warn', type: 'button', onclick: go }, '■ 멈추기')
+            : pre ? h('button', { class: 'ix-btn sm main', type: 'button', disabled: ctx.off, onclick: go }, '📖 등장인물 분석')
+            : null;
+        const showTools = !pre && n > 0;
+        return h('div', { class: 'cl-bar' },
+            h('div', { class: 'cl-top' },
+                h('span', { class: 'cl-av' + (lock ? ' busy' : ''), 'aria-hidden': 'true' }, '💠'),
+                h('div', { class: 'cl-say', role: 'status' }, h('b', { class: bad ? 'bad' : '' }, say), small),
+                topBtn),
+            cmdBusy ? h('div', { class: 'cl-run' }) : null,
+            !ctx.vm && st.lore ? progBar(st.lore, true) : null,
+            showTools ? h('div', { class: 'cl-ex' },
+                noLore ? null
+                    : lore ? h('button', { class: 'cl-chip stop', type: 'button', onclick: go }, '■ 분석 멈추기')
+                    : h('button', { class: 'cl-chip out', type: 'button', disabled: ctx.off || cmdBusy, title: '봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 다시 읽습니다', onclick: go }, '📖 다시 분석'),
+                h('button', { class: 'cl-chip main', type: 'button', disabled: lock, title: '채팅에서 생긴 인물 가운데 다시 나오지 않을 엑스트라를 모델이 골라 지웁니다', onclick: () => void castCommand(v, '', true) }, '🧹 엑스트라 정리'),
+                ...CAST_EX.map(x => h('button', { class: 'cl-chip', type: 'button', disabled: lock, onclick: () => { input.value = x; L.draft = x; input.focus(); } }, x))) : null,
+            showTools ? h('div', { class: 'cl-in' }, input,
+                h('button', { class: 'ix-btn sm main', type: 'button', disabled: lock, onclick: send }, '보내기')) : null);
     }
     function castNote(e, t, snap) {
         const n = ui.castNote = { id: e.id, t, snap, at: Date.now() };
@@ -8280,13 +8315,8 @@ Return JSON only: {"kind":""}`;
             })();
         };
         add(pane,
-            h('div', { class: 'ix-acts', style: 'margin-top:0' },
-                h('button', { class: 'ix-btn main', type: 'button', disabled: !busy && !vm && !tm && (!!st.busy?.lore || v.group), onclick: castGo }, busy ? '■ 멈추기' : '📖 등장인물 분석')),
-            h('p', { class: 'ix-hint' }, v.group ? '그룹 채팅은 로어북을 읽을 수 없어, 그릴 때 모델이 알려 준 인물을 씁니다.'
-                : vm ? 'TTS 모드의 분석은 목소리만 정합니다. 생김새는 삽화 · 애드 에셋 · 대화 모드의 분석이 읽습니다.'
-                : tm ? '대화에는 생김새와 목소리가 모두 쓰입니다. 분석은 생김새를 읽은 뒤 목소리를 정합니다. 기본 칸과 그 밖의 특징은 이 봇 전체에, 지금 칸과 장소는 이 채팅에 저장되어 본편과 함께 씁니다.'
-                : '기본 칸과 그 밖의 특징은 이 봇 전체에, 지금 칸은 이 채팅에만 저장됩니다. 목소리는 TTS 앱에서 정한 값이며, 여기서 고쳐도 같습니다.'),
-            vm ? null : renderProgress(),
+            castBox(sv, { busy, go: castGo, vm, tm, group: v.group, off: !busy && !vm && !tm && (!!st.busy?.lore || v.group) }),
+            vm ? null : renderProgress('job'),
             st.err && ui.side === 'cast' ? h('div', { class: 'ix-msg err' }, st.err) : null);
         const vok = !!voice && voice.syncView(v.chaId + '|' + v.chatKey);
         if ((vm || tm) && vok) add(pane, voice.embed(voice.castProgress(), true, 'gt-mid'));
@@ -8301,14 +8331,13 @@ Return JSON only: {"kind":""}`;
         add(pane,
             h('h2', { class: 'sub' }, '장소'),
             placeCard(sv),
-            v.cast.list.length ? castBox(sv) : null,
             h('h2', { class: 'sub' }, '등장인물', h('small', null, `${v.cast.list.length}명 · 이름을 누르면 펼쳐서 고칩니다`),
                 v.cast.list.length > 1 ? h('button', {
                     class: 'ix-btn sm cc-all', type: 'button',
                     onclick: () => { const all = v.cast.list.every(e => ui.castOpen.has(e.id)); ui.castOpen = new Set(all ? [] : v.cast.list.map(e => e.id)); renderNow(); },
                 }, v.cast.list.every(e => ui.castOpen.has(e.id)) ? '모두 접기' : '모두 펼치기') : null));
         if (!v.cast.list.length) {
-            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), vm ? '생김새는 삽화 · 애드 에셋 · 대화 모드의 「등장인물 분석」이 읽습니다. 여기서 분석하면 목소리만 정합니다.' : '「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'), voiceTail());
+            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), vm ? '생김새는 삽화 · 애드 에셋 · 대화 모드의 「등장인물 분석」이 읽습니다. 여기서 분석하면 목소리만 정합니다.' : v.group ? '그룹 채팅은 그릴 때 모델이 알려 준 인물이 여기에 쌓입니다.' : '위 「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'), voiceTail());
             return pane;
         }
         const SRC = { lore: '로어북', persona: '페르소나', chat: '채팅에서', edit: '직접 고침' };
@@ -8355,7 +8384,9 @@ Return JSON only: {"kind":""}`;
                                 delete liveState(sv).wear[e.id];
                                 open.delete(e.id);
                                 castChanged();
-                                castSay(castLogOf(sv), null, `${josa(e.name || e.key, '을', '를')} 지웠습니다. 이야기에 다시 나오면 그릴 때 다시 생깁니다.`, snap);
+                                const L = castLogOf(sv);
+                                L.ask = '';
+                                castSay(L, null, `${josa(e.name || e.key, '을', '를')} 지웠습니다. 이야기에 다시 나오면 그릴 때 다시 생깁니다.`, snap);
                                 renderNow();
                             }, 'cc-del', 'cast:' + e.id, 2);
                             b.title = '인물 지우기 (두 번 누르기)';
@@ -11574,9 +11605,10 @@ Rules:
         prompt: '모델에게 보내는 지시문을 앱마다 직접 고칩니다. 지시문마다 on/off 토글이 있고, NSFW 프롬프트도 여기서 앱마다 켜고 끕니다.',
         style: '그림에 쓸 그림체를 만들고 고칩니다. NovelAI 그림을 넣으면 그 그림의 그림체를 가져옵니다. 삽화 · 애드 에셋 · 대화가 이 목록에서 그림체를 고릅니다.',
         myvoice: '기본 목소리에 지시문을 더해 원하는 느낌의 목소리를 저장합니다. 저장한 목소리는 TTS · 대화의 목소리 고르기 창에 「만든 목소리」로 나옵니다. 저장에는 요금이 들지 않습니다.',
+        cast: '삽화 · 애드 에셋 · TTS · 대화가 등장인물 탭을 함께 씁니다. 맨 위 이매진 바의 「등장인물 분석」은 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽고, 누르지 않아도 처음 그릴 때 자동으로 읽습니다. 기본 칸과 그 밖의 특징은 이 봇 전체에, 지금 칸과 장소는 이 채팅에만 저장됩니다. TTS의 분석은 목소리만 정하고, 대화의 분석은 생김새를 읽은 뒤 목소리를 정합니다. 그룹 채팅은 로어북을 읽을 수 없어 그릴 때 모델이 알려 준 인물을 씁니다. 이매진 바에 말로 시키면 칸을 바꾸고, 🧹 엑스트라 정리는 다시 나오지 않을 인물을 지웁니다.',
     };
     function renderTour() {
-        const steps = ['home', ...MODES.map(([m]) => m)];
+        const steps = ['home', ...MODES.map(([m]) => m), 'cast'];
         const n = Math.min(Math.max(0, ui.tour | 0), steps.length - 1), m = steps[n], last = n === steps.length - 1;
         const end = () => {
             ui.tour = null;
@@ -11587,8 +11619,8 @@ Rules:
         return h('div', { class: 'ix-tour', role: 'dialog', 'aria-modal': 'true', 'aria-label': '이매진 안내' },
             h('div', { class: 'ix-tcard m-' + m },
                 h('span', { class: 'ico' }, headIcon(m)),
-                h('small', null, n ? `앱 ${n} / ${steps.length - 1}` : 'IMAGINE OS'),
-                h('h3', null, n ? MODES.find(([x]) => x === m)?.[1] ?? m : '이매진 OS에 오신 것을 환영합니다'),
+                h('small', null, m === 'cast' ? '공통 탭' : n ? `앱 ${n} / ${MODES.length}` : 'IMAGINE OS'),
+                h('h3', null, m === 'cast' ? '등장인물 탭' : n ? MODES.find(([x]) => x === m)?.[1] ?? m : '이매진 OS에 오신 것을 환영합니다'),
                 h('p', null, TOUR_TEXT[m]),
                 last ? h('p', { class: 'ix-tnote' }, '이 안내는 홈 오른쪽 위 ? 버튼으로 다시 볼 수 있습니다.') : null,
                 h('div', { class: 'ix-tdots', 'aria-hidden': 'true' }, steps.map((x, i) => h('i', { class: i === n ? 'on' : '' }))),
