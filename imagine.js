@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.106.0
+//@display-name 💠 이매진 v5.107.0
 //@api 3.0
-//@version 5.106.0
+//@version 5.107.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.106.0';
+    const VERSION = '5.107.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -89,7 +89,6 @@
     }
     const sizeName = k => SIZE_OPTS.find(o => o[0] === k)?.[1] ?? (sizeWH(k) ? `직접 ${sizeWH(k).join('×')}` : SIZE_OPTS[0][1]);
     const modelName = id => MODELS.find(m => m[0] === id)?.[1] ?? id;
-    const MAX_SLOTS = 6;
     const MAX_RECORDS = 200;
     const MAX_RECORDS_ALL = 800;
     const DEFAULT_SET = {
@@ -351,6 +350,7 @@
         : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
         : wide ? ['B3', 'D3'] : ['C2', 'C4'];
     const slotCapOf = model => /^nai-diffusion-5/.test(String(model ?? '')) ? 32 : 6;
+    const slotCapNow = () => slotCapOf(naiModelNow());
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -1393,7 +1393,7 @@ IMAGES
 ${pick}
 - after: copy 8-30 characters VERBATIM from the TARGET MESSAGE: the end of the sentence where this moment happens. The app puts the image right below that paragraph. Same language and punctuation as the message; never translate or paraphrase. Leave out quotation marks: never put a " character inside this value.${userRules}
 ${panelChoice}
-${isIllust() ? '- List every character who is in frame in this moment in chars, however many there are: when the TARGET MESSAGE shows three or more people together (e.g. two hugging one from both sides), list them all. Someone who is not in frame may still appear as "out of frame, hand" inside scene and is NOT listed in chars. NovelAI draws at most 6 entries (a monster counts as one), so with more than 6 list the 6 most important.\n- A monster or creature that is a main subject of the moment (dragon, slime, golem, beast, a summoned or holographic monster) is listed in chars too, as one more entry with "type":"monster" (at most 1 monster). Its name is a short English name (e.g. "dragon"), its tags start with the creature tag and describe its looks, size and action (e.g. "dragon, giant, holographic, breathing fire, wings spread"), and its cell is where it is. Do not describe it in scene then, and never list it in state.cast.\n- DIRECTION: when two entries interact (talking, kissing, hugging, handing something over, holding hands, arguing, fighting, a spell or beam aimed at the other, ...), the direction must read clearly. Use the ACTUAL action of this moment, never a different one: never add attacking or fighting tags to a scene that is not a fight. One-way action: the actor gets source#<action>, the other gets target#<action> (e.g. "source#talking" / "target#talking", "source#headpat" / "target#headpat", "source#punching" / "target#punching"). Both do it together: both get mutual#<action> (e.g. "mutual#kiss", "mutual#hug", "mutual#holding hands"). Give both "facing another" in tags and "looking at another, looking at the <role of the other>" in gaze when they face each other (skip "facing another" for a hug from behind or similar). Put their cells on opposite sides so they face each other across the canvas (e.g. B3 and D3; B4 and D2 for a big monster behind), and when one aims something at the other, write it toward the other one (e.g. "reaching toward the dragon", "beam toward the dragon"). With 3 or more entries, each one-way action still pairs actors with a target.' : '- Different panels may show different characters.'}
+${isIllust() ? '- List every character who is in frame in this moment in chars, however many there are: when the TARGET MESSAGE shows three or more people together (e.g. two hugging one from both sides), list them all. Someone who is not in frame may still appear as "out of frame, hand" inside scene and is NOT listed in chars. NovelAI draws at most ' + slotCapNow() + ' entries (a monster counts as one), so with more than ' + slotCapNow() + ' list the ' + slotCapNow() + ' most important.\n- A monster or creature that is a main subject of the moment (dragon, slime, golem, beast, a summoned or holographic monster) is listed in chars too, as one more entry with "type":"monster" (at most 1 monster). Its name is a short English name (e.g. "dragon"), its tags start with the creature tag and describe its looks, size and action (e.g. "dragon, giant, holographic, breathing fire, wings spread"), and its cell is where it is. Do not describe it in scene then, and never list it in state.cast.\n- DIRECTION: when two entries interact (talking, kissing, hugging, handing something over, holding hands, arguing, fighting, a spell or beam aimed at the other, ...), the direction must read clearly. Use the ACTUAL action of this moment, never a different one: never add attacking or fighting tags to a scene that is not a fight. One-way action: the actor gets source#<action>, the other gets target#<action> (e.g. "source#talking" / "target#talking", "source#headpat" / "target#headpat", "source#punching" / "target#punching"). Both do it together: both get mutual#<action> (e.g. "mutual#kiss", "mutual#hug", "mutual#holding hands"). Give both "facing another" in tags and "looking at another, looking at the <role of the other>" in gaze when they face each other (skip "facing another" for a hug from behind or similar). Put their cells on opposite sides so they face each other across the canvas (e.g. B3 and D3; B4 and D2 for a big monster behind), and when one aims something at the other, write it toward the other one (e.g. "reaching toward the dragon", "beam toward the dragon"). With 3 or more entries, each one-way action still pairs actors with a target.' : '- Different panels may show different characters.'}
 
 ${panelRules(G)}
 
@@ -2293,7 +2293,7 @@ Rules
     const FX_RE = /^[a-z][a-z -]*$/;
     function accentsOf(img, cast) {
         const raw = Array.isArray(img?.accent) ? img.accent : String(img?.accent ?? '').split(/[;\n]/);
-        return raw.slice(0, 6).map(a => {
+        return raw.slice(0, slotCapNow()).map(a => {
             const t = tidy(a), at = t.indexOf(':');
             const who = at < 0 ? '' : tidy(t.slice(0, at)), fx = tidy(at < 0 ? t : t.slice(at + 1)).toLowerCase().slice(0, 40);
             return { who: who ? (findCast(cast ?? [], who)?.name ?? who).toLowerCase() : '', fx };
@@ -2345,6 +2345,7 @@ Rules
         const p = preset();
         const [w, h] = sizeWH(sizeNow()) ?? SIZES.tall;
         const G = gridOf(w, h, naiModelNow());
+        const MAX_SLOTS = slotCapNow();
         const chars = [];
         const seen = new Set();
         let monsters = 0;
@@ -6584,7 +6585,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                         const comp = d[z + 1], lang = d.indexOf(0, z + 3), tr = lang < 0 ? -1 : d.indexOf(0, lang + 1);
                         if (tr > 0) out[dec.decode(d.subarray(0, z))] = dec.decode(comp ? await inflate(d.subarray(tr + 1)) : d.subarray(tr + 1));
                     }
-                } catch { }
+                } catch {  }
                 if (type === 'IEND') break;
                 p += 12 + len;
             }
@@ -6712,7 +6713,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 try {
                     const meta = JSON.parse(t.Comment);
                     if (typeof meta.prompt === 'string' || meta.v4_prompt) return { kind: 'nai', source: t.Source || t.Software || '', meta };
-                } catch { }
+                } catch {  }
             }
             if (t.parameters) return { kind: 'other', why: 'NovelAI 가 아닌 도구(Stable Diffusion WebUI 등)의 그림 정보입니다' };
             return { kind: 'none' };
@@ -13150,7 +13151,7 @@ Rules:
             personaFail.delete(chaId + '|' + p.sig);
             if (bot.personaNo) delete bot.personaNo[p.name];
             await guard(ensurePersona(chaId, bot, p, castMode()));
-            if (!st.set.talkSync) { }
+            if (!st.set.talkSync) {  }
             else if (job) void castMainLines(w, bot, user, entries, q => q, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
             else try { step(4); await castMainLines(w, bot, user, entries, guard, (i, n) => { run.part = [i, n]; onStage(4); }, () => run.stop); } catch (error) { if (run.stop) throw error; console.warn(LOG, 'main lines', error); }
             return list.length;
