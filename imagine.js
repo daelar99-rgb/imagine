@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.105.3
+//@display-name 💠 이매진 v5.106.0
 //@api 3.0
-//@version 5.105.3
+//@version 5.106.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.105.3';
+    const VERSION = '5.106.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -52,8 +52,7 @@
     };
     const MONO_DROP_RE = /,\s*(?:spot color|monochrome|limited palette)(?=\s*(?:,|::))/g;
     const OLD_BUILTIN_IDS = [DEFAULT_PRESET.id, PRESET2.id, PRESET3.id];
-    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga';
-    const BORDER_TAGS = { straight: 'black border', diagonal: 'diagonal black border' };
+    const COMIC_TAGS = '1.3::comic, multiple panels, manga::, 1.1::panel borders, varied panel sizes::, varied panel one-page manga, white border';
     const NEG_V12 = DEFAULT_NEG.replace('detailed nose, fat, muscular', 'detailed nose, fat, male, man, muscular');
 
     const NAI_URL = 'https://image.novelai.net/ai/generate-image';
@@ -348,223 +347,10 @@
     const coordsOn = req => !!req?.useCoords && ((req.panels ?? 1) === 1
         ? charSlotsOf(req).length >= 2
         : !!req.panelCoords && panelSlotsOf(req).length >= 2);
-    const panelCellsOf = (n, wide) => n >= 5 ? (wide ? ['B2', 'D2', 'A4', 'C4', 'E4'] : ['C1', 'B2', 'D3', 'B4', 'D5'])
-        : n === 4 ? (wide ? ['A2', 'C2', 'B4', 'D4'] : ['B1', 'D2', 'B4', 'D5'])
+    const panelCellsOf = (n, wide) => n >= 4 ? ['B2', 'D2', 'B4', 'D4']
         : n === 3 ? (wide ? ['A3', 'C3', 'E3'] : ['C1', 'C3', 'C5'])
-        : wide ? ['B2', 'D4'] : ['C2', 'C4'];
-    const laneOf = (xy, G) => axisAt(xy.y, G.rows);
-    const lanesApart = (list, G, wide) => new Set(list.map(xy => laneOf(xy, G, wide))).size === list.length;
-    const onEdge = (xy, G) => { const c = axisAt(xy.x, G.cols), r = axisAt(xy.y, G.rows); return c === 0 || c === G.cols - 1 || r === 0 || r === G.rows - 1; };
-    function panelDefaults(pslots, wide, G = GRID5, fixed = new Set()) {
-        const story = pslots.filter(sl => !sl.emph);
-        if (!story.every(sl => fixed.has(sl))) {
-            const cells = story.length === 1 ? [centerCell(G)] : panelCellsOf(story.length, wide).map(c => cellIn(c, G));
-            story.forEach((sl, k) => Object.assign(sl, xyOfCell(cells[k], G)));
-        }
-        const used = new Set(pslots.filter(sl => !sl.emph || fixed.has(sl)).map(sl => `${sl.x},${sl.y}`));
-        const cellXY = (c, r) => ({ x: r3((Math.min(G.cols - 1, Math.max(0, c)) + 0.5) / G.cols), y: r3((Math.min(G.rows - 1, Math.max(0, r)) + 0.5) / G.rows) });
-        const free = xy => !used.has(`${xy.x},${xy.y}`);
-        const all = Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => cellXY(c, r))).flat();
-        let ej = 0;
-        pslots.forEach(sl => {
-            if (!sl.emph) return;
-            const k = ej++;
-            if (fixed.has(sl)) return;
-            const base = story[Math.min(k, story.length - 1)] ?? pslots[0];
-            const bc = axisAt(base.x, G.cols), br = Math.max(0, axisAt(base.y, G.rows) - 1);
-            const n = G.cols;
-            const at = i => cellXY(i, br);
-            const side = k % 2 === 0 ? 1 : -1;
-            const seq = side > 0 ? Array.from({ length: n }, (_, i) => n - 1 - i) : Array.from({ length: n }, (_, i) => i);
-            const storyLanes = new Set(story.map(o => laneOf(o, G)));
-            const near = xy => (axisAt(xy.x, G.cols) - bc) ** 2 + (axisAt(xy.y, G.rows) - br) ** 2;
-            const rest = all.filter(free).sort((a, b) => near(a) - near(b));
-            const got = seq.map(at).find(xy => free(xy) && !storyLanes.has(br)) ?? rest.find(xy => !storyLanes.has(laneOf(xy, G))) ?? rest[0] ?? cellXY(bc, br);
-            Object.assign(sl, got);
-            used.add(`${got.x},${got.y}`);
-        });
-    }
-    const SPREAD_STEPS = [[-1, 0], [1, 0], [0, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]];
-    function spreadKomaSlots(komas, G = GRID5, wide = false) {
-        const used = new Set();
-        const along = (a, b) => Math.abs(axisAt(a.x, G.cols) - axisAt(b.x, G.cols));
-        const d2 = (a, b, same) => same ? along(a, b) : Math.abs(laneOf(a, G, wide) - laneOf(b, G, wide));
-        for (const km of komas) {
-            if (km.slots.length < 2) { used.add(`${km.x},${km.y}`); continue; }
-            const others = komas.filter(o => o !== km);
-            const kc = axisAt(km.x, G.cols), kr = axisAt(km.y, G.rows);
-            const far = Array.from({ length: G.rows }, (_, r) => Array.from({ length: G.cols }, (_, c) => [c, r])).flat()
-                .sort((a, b) => ((a[0] - kc) ** 2 + (a[1] - kr) ** 2) - ((b[0] - kc) ** 2 + (b[1] - kr) ** 2));
-            const cand = [...SPREAD_STEPS.map(([dx, dy]) => [kc + dx, kr + dy]), ...far]
-                .filter(([c, r]) => c >= 0 && c < G.cols && r >= 0 && r < G.rows)
-                .map(([c, r]) => ({ x: r3((c + 0.5) / G.cols), y: r3((r + 0.5) / G.rows) }))
-                .filter(xy => km.emph || !onEdge(xy, G))
-                .filter(xy => others.every(o => { const same = laneOf(o, G, wide) === laneOf(km, G, wide); return d2(xy, km, same) < d2(xy, o, same) - 1e-9; }));
-            const mine = [];
-            for (const sl of km.slots) {
-                const at = cand.find(xy => !used.has(`${xy.x},${xy.y}`))
-                    ?? (mine.length ? mine.reduce((a, b) => b.n < a.n ? b : a) : { x: km.x, y: km.y, n: 0 });
-                sl.x = at.x; sl.y = at.y;
-                used.add(`${at.x},${at.y}`);
-                const hit = mine.find(m => m.x === at.x && m.y === at.y);
-                if (hit) hit.n++; else mine.push({ x: at.x, y: at.y, n: 1 });
-            }
-        }
-    }
-    const ROW_GAP_MAX = 2;
-    const NEG_BORDER_END = '2::thick border, big border, negative space, black blank::, unfinished panel';
-    const NEG_BORDER_TAGS = ['white border', 'thick border', 'big border', 'negative space', 'black blank', 'unfinished panel'];
-    function charEmphScores(komas, G, posOf, dots) {
-        const pts = km => dots && km.slots.length ? km.slots : [km];
-        const story = komas.filter(km => !km.emph);
-        const out = [];
-        let ej = 0;
-        for (const km of komas) {
-            if (!km.emph) continue;
-            const base = story[Math.min(ej++, story.length - 1)];
-            if (!km.emphChar) continue;
-            const mine = pts(km).map(o => posOf(km, o));
-            const low = Math.max(...mine.map(m => m[1]));
-            const near = [];
-            for (const q of komas) if (q !== km) for (const o of pts(q)) {
-                const [c, r] = posOf(q, o);
-                if (mine.some(([mc, mr]) => Math.max(Math.abs(mc - c), Math.abs(mr - r)) <= 1)) near.push([q, r]);
-            }
-            const lv = !near.length ? 0 : near.every(([q, r]) => q === base && r > low) ? 1 : 2;
-            out.push(lv * 100 + near.length);
-        }
-        return out;
-    }
-    function isolateCharEmph(komas, G = GRID5, dots = false) {
-        const story = komas.filter(km => !km.emph);
-        if (!story.length || !komas.some(km => km.emphChar)) return;
-        const pts = km => dots && km.slots.length ? km.slots : [km];
-        const colOf = o => axisAt(o.x, G.cols), rowOf = o => axisAt(o.y, G.rows);
-        const xAt = c => r3((c + 0.5) / G.cols), yAt = r => r3((r + 0.5) / G.rows);
-        const scoreNow = () => charEmphScores(komas, G, (km, o) => [colOf(o), rowOf(o)], dots).reduce((a, b) => a + b, 0);
-        const lt = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] < b[i]; return false; };
-        const combos = (n, list) => {
-            const out = [];
-            const rec = (i, acc) => { if (acc.length === n) { out.push(acc.slice()); return; } for (let j = i; j < list.length; j++) { acc.push(list[j]); rec(j + 1, acc); acc.pop(); } };
-            rec(0, []);
-            return out;
-        };
-        const inner = Array.from({ length: Math.max(0, G.cols - 2) }, (_, i) => i + 1);
-        const storyOpts = story.map(st => {
-            const now = pts(st).map(colOf);
-            if (!dots || pts(st).some(o => rowOf(o) !== rowOf(st)) || now.length > inner.length) return [now];
-            const order = now.map((c, i) => i).sort((a, b) => now[a] - now[b]);
-            const alt = combos(now.length, inner).map(cs => { const put = new Array(now.length); order.forEach((i, k) => { put[i] = cs[k]; }); return put; })
-                .filter(put => put.join() !== now.join());
-            return [now, ...alt];
-        });
-        const plans = storyOpts.reduce((acc, opts) => acc.flatMap(a => opts.map(o => [...a, o])), [[]]);
-        const save = km => [km.x, km.y, km.slots.map(o => [o.x, o.y]), story.map(st => pts(st).map(o => o.x))];
-        const restore = (km, [x, y, sl, sx]) => {
-            km.x = x; km.y = y;
-            km.slots.forEach((o, i) => { [o.x, o.y] = sl[i]; });
-            story.forEach((st, i) => pts(st).forEach((o, j) => { o.x = sx[i][j]; }));
-        };
-        let ej = 0;
-        komas.forEach(km => {
-            if (!km.emph) return;
-            const k = ej++;
-            if (!km.emphChar) return;
-            const base = story[Math.min(k, story.length - 1)];
-            const br = rowOf(base) - 1;
-            if (br < 0) return;
-            const seq = Array.from({ length: G.cols }, (_, i) => k % 2 === 0 ? G.cols - 1 - i : i);
-            const kc = colOf(km), kr = rowOf(km);
-            const own0 = km.slots.map(o => [colOf(o), rowOf(o)]);
-            const keep = save(km);
-            const fits = () => {
-                const all = komas.flatMap(q => pts(q).map(o => `${colOf(o)},${rowOf(o)}`));
-                if (new Set(all).size !== all.length) return false;
-                return pts(km).every(o => colOf(o) >= 0 && colOf(o) < G.cols && rowOf(o) >= 0 && rowOf(o) < G.rows);
-            };
-            let best = { key: [scoreNow(), 0, -1], st: keep };
-            seq.forEach((c, si) => {
-                if (komas.some(q => q !== km && colOf(q) === c && rowOf(q) === br)) return;
-                for (const plan of plans) {
-                    restore(km, keep);
-                    km.x = xAt(c); km.y = yAt(br);
-                    km.slots.forEach((o, i) => { o.x = xAt(own0[i][0] + c - kc); o.y = yAt(own0[i][1] + br - kr); });
-                    let cost = 0;
-                    story.forEach((st, i) => pts(st).forEach((o, j) => { cost += Math.abs(plan[i][j] - colOf(o)); o.x = xAt(plan[i][j]); }));
-                    if (!fits()) continue;
-                    const key = [scoreNow(), cost, si];
-                    if (lt(key, best.key)) best = { key, st: save(km) };
-                }
-            });
-            restore(km, best.st);
-        });
-    }
-    function unevenRows(komas, G = GRID5, dots = false) {
-        if (komas.length < 2) return;
-        const rowOf = o => axisAt(o.y, G.rows);
-        const story = komas.filter(km => !km.emph);
-        let ej = 0;
-        const baseOf = new Map(komas.map(km => [km, km.emph ? story[Math.min(ej++, story.length - 1)] ?? km : km]));
-        const pts = km => dots && km.slots.length ? km.slots : [km];
-        const rowIn = (mv, km, o) => rowOf(o) + (mv.get(km) ?? 0);
-        const marginsOf = list => mv => { const rs = list.flatMap(km => pts(km).map(o => rowIn(mv, km, o))); return [Math.min(...rs), G.rows - 1 - Math.max(...rs)]; };
-        const margins = marginsOf(komas), storyMargins = marginsOf(story);
-        const uneven = f => mv => { const [t, b] = f(mv); return t !== b; };
-        const allOk = uneven(margins), storyOk = uneven(storyMargins);
-        const tall = G.rows > G.cols;
-        const capOk = mv => !tall || Math.max(...storyMargins(mv)) <= ROW_GAP_MAX;
-        const ceOf = mv => charEmphScores(komas, G, (km, o) => [axisAt(o.x, G.cols), rowIn(mv, km, o)], dots);
-        const ce0 = ceOf(new Map());
-        const ok = mv => {
-            if (!capOk(mv)) return false;
-            if (ceOf(mv).some((v, i) => v > ce0[i])) return false;
-            if (komas.some(km => pts(km).some(o => { const r = rowIn(mv, km, o); return r < 0 || r >= G.rows; }))) return false;
-            if (story.some(km => pts(km).concat(km).some(o => { const r = rowIn(mv, km, o); return r < 1 || r > G.rows - 2; }))) return false;
-            const sr = story.map(km => rowIn(mv, km, km));
-            if (new Set(sr).size !== sr.length) return false;
-            if (komas.some(km => km.emph) && sr.some(a => sr.some(b => a !== b && Math.abs(a - b) < 2))) return false;
-            const cells = komas.map(km => `${axisAt(km.x, G.cols)},${rowIn(mv, km, km)}`);
-            if (new Set(cells).size !== cells.length) return false;
-            if (dots) {
-                const ds = komas.flatMap(km => km.slots.map(o => `${axisAt(o.x, G.cols)},${rowIn(mv, km, o)}`));
-                if (new Set(ds).size !== ds.length) return false;
-                for (const km of komas) for (const o of km.slots) {
-                    const r = rowIn(mv, km, o), mine = Math.abs(r - rowIn(mv, km, km));
-                    if (komas.some(q => q !== km && rowIn(mv, q, q) !== rowIn(mv, km, km) && Math.abs(r - rowIn(mv, q, q)) <= mine)) return false;
-                }
-            }
-            return true;
-        };
-        const none = new Map();
-        if (capOk(none) && storyOk(none) && allOk(none)) return;
-        const all = d => new Map(komas.map(km => [km, d]));
-        const group = (s, d) => new Map(komas.filter(km => baseOf.get(km) === s).map(km => [km, d]));
-        const cands = [all(-1), all(1), ...[...story].reverse().flatMap(s => [group(s, -1), group(s, 1)])];
-        if (tall && story.length === 2) {
-            const pairs = [];
-            for (let a = 1 - G.rows; a < G.rows; a++) for (let b = 1 - G.rows; b < G.rows; b++) if (a || b) pairs.push([a, b]);
-            pairs.sort((p, q) => Math.abs(p[0]) + Math.abs(p[1]) - Math.abs(q[0]) - Math.abs(q[1]));
-            for (const [a, b] of pairs) cands.push(new Map([...group(story[0], a), ...group(story[1], b)]));
-        }
-        const fine = cands.filter(ok);
-        let mv = fine.find(m => storyOk(m) && allOk(m));
-        if (!mv && (!storyOk(none) || !capOk(none))) mv = fine.find(storyOk) ?? (capOk(none) && allOk(none) ? null : fine.find(allOk) ?? (capOk(none) ? null : fine[0]));
-        if (!mv) return;
-        const yAt = r => r3((r + 0.5) / G.rows);
-        for (const [km, d] of mv) {
-            if (!d) continue;
-            km.y = yAt(rowOf(km) + d);
-            for (const sl of km.slots) sl.y = yAt(rowOf(sl) + d);
-        }
-    }
-    const STORY_MAX = 2;
-    const EMPH_MAX = 2;
-    const KOMA_MAX = STORY_MAX + EMPH_MAX;
-    const slotNo = (sl, k) => sl?.kind === 'panel' && Number.isInteger(sl.koma) ? sl.koma + 1 : k + 1;
-    const emphOf = pn => pn?.emph === true || String(pn?.emph).toLowerCase() === 'true';
-    const charEmphOf = pn => emphOf(pn) && /^(char|character|person|whole)/i.test(tidy(pn?.emphKind));
+        : wide ? ['B3', 'D3'] : ['C2', 'C4'];
     const slotCapOf = model => /^nai-diffusion-5/.test(String(model ?? '')) ? 32 : 6;
-    const slotMaxNow = () => slotCapOf(naiModelNow());
     const clampInt = (v, lo, hi, dflt) => {
         const n = Math.round(Number(v));
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
@@ -1453,7 +1239,7 @@ ${TAG_STYLE}`;
         saveSet();
         if (!was && setupDone()) ui.readyAt = Date.now();
     }
-    const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, KOMA_MAX, 2);
+    const panelsOf = img => isIllust() ? 1 : clampInt(Array.isArray(img?.panels) ? img.panels.length : img?.panels, 2, 4, 2);
 
     const PANEL_RULES = {
         one: `PANELS = 1 (one moment, no panel borders)
@@ -1461,16 +1247,15 @@ ${TAG_STYLE}`;
 - chars[].tags: first a few Danbooru tags: expression and state (expression, blush, tears, sweat, wet, a temporary mark such as a bandage), then framing (ONE view family — "portrait" or "upper body" or "cowboy shot" or "full body", do not mix — then camera angle). Then the pose and action as 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, cowboy shot, from side, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". Name another character in the image only as @ followed by its chars[].name (e.g. "behind @boudica", "hugging @gojo from behind"), never a bare name; the app turns each @name into that character's label. For interactions also add source#, target# or mutual# tags (source#hug, target#hug, mutual#holding hands). A character who speaks in this image gets "open mouth". Never "looking at viewer".
 - chars[].gaze: REQUIRED for every entry, monsters too: whom or what this one is looking at in this moment, so it reads clearly. ONE gaze tag, then the target in a few English words. With 2 or more entries, someone who looks at another entry writes "looking at another" plus that entry's role (e.g. "looking at another, looking at the dragon", "looking at another, looking at the girl beside him"); add "eye contact" when both look at each other. Looking at something else: name the thing in the scene ("looking at the letter in hand", "looking down at the fallen sword", "looking out the window", "looking up at the sky"). No target: a clear direction ("looking ahead", "looking away", "looking down") or "closed eyes". Use role words only (the dragon, the girl, the old man), never names. Never "looking at viewer".
 {{CELL_RULE}}`,
-        comic: `COMIC PAGE (2 story panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
+        comic: `COMIC PAGE (2 to 4 panels, all drawn in this one image; the app adds the manga page / panel border tags and each character's looks itself)
 - scene: short tags for the background shared by the page: location, time, lighting, weather (e.g. "classroom, afternoon, sunlight through window"). The app adds state.background (what is seen behind the characters) after scene itself, so do not repeat it; any lighting tag in scene must match its brightness and light color. No characters, no panels, no camera, no sentences.
 - panels: one entry per panel, in reading order. Each panel shows ONE character by default (the app writes "solo"); put 2 or more characters in one panel only when they physically interact (hug, handing something over, face to face).
   - who: every character in this panel (1 or more, no upper limit). A character is any entity, not only a human: people, monsters, creatures, animals, robots, spirits. Name a CAST member by its CAST key (the key at the start of its CAST line, before the parenthesis; the same for OTHER CAST); name anything in neither by a short English noun (e.g. "dragon", "goblin", "old man") and put its looks in tags. A panel with no character at all gets an empty who.
-  - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera.
+  - camera: shot distance + angle tags, e.g. "medium shot, from slightly below", "close-up, from side", "cowboy shot, dutch angle", "upper body, from above", "full body, from behind". Neighbouring panels never share the same camera. With 3-4 panels, use close-ups too (face, hands, a key object).
   - layout: with 2 or more characters in who, ONE short English phrase saying where they are relative to each other, written with the same plain kind words as the count tags (girl, boy, or the creature noun such as dragon), never names, keys or @. E.g. "girl next to boy", "boy behind girl", "girl facing boy", "girl sitting on boy's lap", "boy standing over girl", "dragon looming over girl". Two of the same kind: "side by side", "facing each other", "one behind the other". It must agree with tags and camera. With 0 or 1 character write "".
   - tags: a list with ONE entry per who entry, in the same order (a list even with one character). Each entry is what THAT character does in this panel: first a few Danbooru tags for the expression (e.g. "worried, open mouth"), then 1-2 concrete present-tense English sentences that start with the subject (She / He / The dragon), say exactly where the body, hands and eyes are and what they are doing, and end with ", against <what is directly behind this character>". Separate the sentences with a period; the only comma in them is the one before "against". E.g. "worried, She kneels in the grass behind @boudica with both fists tight on her thighs. Her eyes stay locked on @boudica's back with a worried frown, against grass". A character who speaks here gets "open mouth" or a speaking expression. No hair color, eye color, body type or clothing tags: the app adds the looks from CAST.
   - Targets: an action done to, with or toward another character in the same panel (hug, holding hands, handing over, looking at, punching, leaning on) must name that character as @ followed by its exact who entry, e.g. "hugging @gojo from behind", "looking at @gojo", "leaning head on @gojo's shoulder". A mutual action goes in BOTH entries, each pointing at the other ("hug @gojo, eye contact" / "hug @sukuna, eye contact"). Never write a name without @; the app turns each @name into that character's label.
   - Gaze: no "looking at viewer" by default. Use it only in a panel where a character faces the user's character (the [user persona] in CAST) and speaks to them directly; otherwise pick a gaze that fits the beat ("looking at @key" for another character in the panel, "looking down", "looking away", "looking to the side") or none.
-- diagonal: true when the page's panel borders should slant (action, a chase, a shock, tension snapping); false for calm or dialogue pages, which get straight borders.
 - Never use number words for panels (first, second, top panel...): the order of the panels array is the reading order.`,
     };
 
@@ -1509,61 +1294,9 @@ ${TAG_STYLE}`;
     const gridWords = G => `a ${G.cols}x${G.rows} grid (${G.cols} columns, ${G.rows} rows) laid over the ${G.cols === G.rows ? '' : 'whole '}canvas${G.cols === G.rows ? '' : ', so each cell is about square on the image'}. Letter A-${CELL_COLS[G.cols - 1]} = column, left to right; number 1-${G.rows} = row, top to bottom; A1 is the top-left corner, ${centerCell(G)} the center, ${lastCell(G)} the bottom-right corner.`;
     const cellRuleOne = G => { const c = k => cellIn(k, G);
         return `- cell: where each character sits, as a cell code on ${gridWords(G)} Put the cell on the character's face / body center. With 2 characters, give them different cells that match the composition (e.g. ${c('B3')} and ${c('D3')} side by side, ${c('B4')} and ${c('D2')} for one low and one high). With 3 or more, give each one a different cell (e.g. ${c('B3')}, ${c('C3')} and ${c('D3')} side by side; ${c('B3')} and ${c('D3')} on both sides of one at ${c('C4')} in the middle; ${c('B4')}, ${c('D4')} and ${c('C2')} for one behind; ${c('A3')}, ${c('B3')}, ${c('D3')} and ${c('E3')} for four in a row). With 1 character write "${centerCell(G)}": the app sends no position for a single character.`; };
-    const panelCellRule = (G, wide) => { const q = list => list.map(k => `"${cellIn(k, G)}"`).join(', ');
-        return `  - cell: where this panel sits on the page, as ONE cell code on ${gridWords(G)} Use the center of the panel's frame. Follow the reading order of the panels array: ${wide ? 'earlier panels sit further left' : 'earlier panels sit higher'}. The 2 story panels get different row numbers: each sits at least one row above or below the other, never at the same height. When the page has emph panels, keep at least one empty row between the 2 story panels, because each emph panel takes the row directly above its story panel. Keep the story panels off-center vertically, even when the page has emph panels: count only the story panels, and the number of empty rows above the top story panel must differ from the number below the bottom story panel (e.g. 1 above and 2 below, never 2 and 2). ${G.rows > G.cols ? `This page is tall: never leave ${ROW_GAP_MAX + 1} or more empty rows above the top story panel or below the bottom story panel. ` : ''}Story panels never sit on the outer ring of the grid (not column A or ${CELL_COLS[G.cols - 1]}, not row 1 or ${G.rows}). Pick a layout that fits the canvas and the beats, e.g. ${wide
-            ? `2 story panels ${q(['B2', 'D4'])} (left high, right low) or ${q(['D2', 'B4'])} (right high, left low)`
-            : G.rows > G.cols
-            ? `2 story panels "C2", "C${G.rows - 2}" (stacked) or "B2", "D${G.rows - 2}" (a zigzag)`
-            : `2 story panels ${q(['C2', 'C4'])} (stacked) or ${q(['B2', 'D4'])} (a zigzag)`}. The app places the panel's characters and action at that spot of the page.`; };
-    const FRAME_TAGS = {
-        wide: 'wide koma',
-        tall: 'tall koma',
-        small: 'small koma',
-        tilted: 'tilted koma box',
-        broken: 'broken koma border',
-        jagged: 'jagged koma border',
-        borderless: 'borderless koma',
-        inset: 'inset koma',
-        burst: 'outside border',
-    };
-    const FRAME_ALIAS = { horizontal: 'wide', vertical: 'tall', narrow: 'tall', diagonal: 'tilted', slanted: 'tilted', asymmetric: 'tilted', cracked: 'broken', shattered: 'broken', torn: 'broken', spiky: 'jagged', zigzag: 'jagged', frameless: 'borderless', overlay: 'inset', overlapping: 'inset', popout: 'burst', breaking: 'burst' };
-    function frameKeysOf(v, emph) {
-        const keys = [];
-        for (const w of String(v ?? '').toLowerCase().split(/[^a-z]+/).filter(Boolean)) {
-            const k = FRAME_TAGS[w] ? w : FRAME_ALIAS[w];
-            if (k && !keys.includes(k)) keys.push(k);
-        }
-        if (emph && !keys.length) keys.push('inset');
-        return keys.slice(0, 2);
-    }
-    const frameTags = (v, emph) => frameKeysOf(v, emph).map(k => FRAME_TAGS[k]).join(', ');
-    const KOMA_ADJ = { tall: 'vertical', broken: 'broken-border', jagged: 'jagged-border', burst: 'border-breaking' };
-    function komaPosOf(x, y) {
-        const row = y <= 0.3 ? 'top' : y >= 0.7 ? 'bottom' : '';
-        const col = x <= 0.3 ? 'left' : x >= 0.7 ? 'right' : '';
-        return [row, col].filter(Boolean).join(' ') || 'middle';
-    }
-    function komaLayoutOf(list) {
-        return list.map(({ x, y, shape, shot }) => {
-            const form = (shape ?? []).map(s => KOMA_ADJ[s] ?? s).join(' ');
-            const parts = [form ? `${form} koma` : '', ...String(shot ?? '').split(',').map(t => t.trim())].filter(Boolean);
-            return parts.length ? `${komaPosOf(x, y)} koma: ${parts.join(TAG_JOIN)}` : `${komaPosOf(x, y)} koma`;
-        }).join(', ');
-    }
-    const EMPH_PANELS = ['hexagon panel', 'side panel'];
-    function emphPanelOf(v) {
-        const t = tidy(v).toLowerCase().replace(/_/g, ' ');
-        if (!t || t === 'none') return '';
-        if (EMPH_PANELS.includes(t)) return t;
-        return EMPH_PANELS.find(x => t.includes(x)) ?? (/hexagon/.test(t) ? 'hexagon panel' : /side ?pann?els?/.test(t) ? 'side panel' : '');
-    }
-    const PANEL_FRAME_RULE = `  - frame: the panel's shape, 1-2 keys from: ${Object.keys(FRAME_TAGS).join(', ')}. Fit it to the beat and vary it between neighbouring panels so the page is asymmetric.
-  - emph: true for an emphasis panel, false for the others. Add one when a detail carries the beat (a kiss: the lips; anger: a clenched fist; grief: a tear). Emph entries come after the 2 story panels, as the 3rd and 4th entries, never between them. Each enlarges a detail of one story panel, with its cell in the row directly above that story panel (exactly one row higher: never the same row, never two or more rows up), toward the page edge. An emph panel shows only the emphasized detail: its camera and tags name that detail, with no place, room, sky or other background words. Its who is only the owner of the detail ([] for an object).
-  - emphKind: emph entries only ("" on story panels). "part" (the usual) enlarges a body part or an object: extreme close-up camera, frame "inset", and the part rule below. "char" shows one CAST person whole as a big close-up panel (a shocked face, a decisive pose, a dramatic entrance): close-up camera, any frame, who is only that person, and tags like a story panel's person tags (expression, pose, action); the app adds that person's look and outfit and keeps the cells around it empty. Use "char" when the person's whole reaction carries the beat, "part" when one detail does.
-  - Part rule ("part" emph panels). No character tags: when the detail is a CAST person's body part, its tags start with that body part as a bare noun (hands, eyes, lips, hair; no his / her), then only that part's look from CAST (eyes: the eye colour; hair: the hair colour and style; a hand: the glove, sleeve or ring on it; lips: the lip colour), then the detail, e.g. ["hands", "black gloves", "clenched fist"]; never the rest of the look or outfit. The app writes the part with the same label that person has in the story panel (char1's hands). Only emph panels may sit on the outer ring of the grid. 0 to 2 per page. They are extra and do not count toward the 2 story panels: a page has 2 story panels plus 0, 1 or 2 emph entries.
-  - panelTag: emph entries only ("" on story panels). Required on every emph entry: the panel tag for how the emphasis panel is drawn, fitted to the situation, one of: ${EMPH_PANELS.join(', ')}. Viewpoint tags (from above, from side and so on) go in camera as usual.`;
-    const comicRules = (G = GRID5, wide = false) => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${panelCellRule(G, wide)}\n${PANEL_FRAME_RULE}\n  - Targets:`) : PANEL_RULES.comic;
-    const panelRules = (G = GRID5, wide = false) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(G, wide), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
+    const PANEL_CELL_RULE = `  - cell: where this panel sits on the page, as ONE cell code on a 5x5 grid laid over the whole image: the center of the panel's frame. Letter A-E = column, left to right; number 1-5 = row, top to bottom; A1 is the top-left corner, C3 the center, E5 the bottom-right corner. Follow the reading order of the panels array: earlier panels sit higher, and on the same row further left. Every panel gets a different cell. Pick a layout that fits the canvas and the beats, e.g. 2 panels on a portrait page "C2" and "C4" (stacked), on a landscape page "B3" and "D3" (side by side); 3 panels "C1", "B4", "D4" (one wide panel on top, two below) or "C1", "C3", "C5" (stacked); 4 panels "B2", "D2", "B4", "D4" (2x2) or "C1", "B3", "D3", "C5". The app places the panel's characters and action at that spot of the page.`;
+    const comicRules = () => comicCoordsNow() ? PANEL_RULES.comic.replace('\n  - Targets:', `\n${PANEL_CELL_RULE}\n  - Targets:`) : PANEL_RULES.comic;
+    const panelRules = (G = GRID5) => [isIllust() ? PANEL_RULES.one.replace('{{CELL_RULE}}', cellRuleOne(G)) : comicRules(), askGenre() ? GENRE_RULE : '', monoNow() ? DYNAMIC_RULE() : '', monoNow() ? ACCENT_RULE() : ''].filter(Boolean).join('\n');
     const GENRE_ALIAS = { battle: 'action', combat: 'action', fight: 'action', fighting: 'action', chase: 'action', romantic: 'romance', love: 'romance', comic: 'comedy', funny: 'comedy', gag: 'comedy', scary: 'horror', creepy: 'horror', sadness: 'sad', melancholy: 'sad', tragic: 'sad', tense: 'suspense', tension: 'suspense', mystery: 'suspense', thriller: 'suspense', everyday: 'daily', 'slice of life': 'daily', calm: 'daily', explicit: 'nsfw', sexual: 'nsfw', erotic: 'nsfw', lewd: 'nsfw', nude: 'nsfw', nudity: 'nsfw' };
     function genreKey(v) {
         const t = tidy(v).toLowerCase();
@@ -1641,10 +1374,10 @@ ${TAG_STYLE}`;
 - When USER PRIORITY STAGING is the user's own character acting or speaking, draw them as the CAST entry marked [user persona]; if CAST has none, show it through the other character's reaction or as "out of frame, hand". When USER PRIORITY STAGING directs or narrates other characters, draw those characters doing it; the user persona does not need to appear.` : '';
         const panelChoice = isIllust()
             ? '- panels: always 1.'
-            : `- panels: exactly 2 story entries per image (setup → reaction)${comicCoordsNow() ? `, then 0 to 2 emph entries as the 3rd and 4th entries (see emph). Story entries always come first.${n > 1 ? ' Neighbouring images never have the same number of emph entries (e.g. 1, then 0, then 2).' : ''}` : '. No more, no fewer.'}`;
+            : `- panels: 2 to 4 entries, chosen per image. 2 for setup → reaction (good for dialogue), 3-4 only when the moment really has that many quick beats.${shape === 'portrait' ? '' : ` The canvas is ${shape}, so prefer 2 and avoid 3-4.`}`;
         const imageSchema = isIllust()
             ? `{"title":"...","after":"...","panels":1,"scene":"...","chars":[{"name":"...","type":"","tags":"...","gaze":"...","uc":"","cell":"${centerCell(G)}"}],"bubbles":[{"by":"...","text":"..."}],"uc":""}`
-            : `{"title":"...","after":"...","scene":"...","diagonal":false,"panels":[{"who":["..."],${comicCoordsNow() ? `"cell":"${cellIn(w > h ? 'B2' : 'C2', G)}","frame":"tall","emph":false,"emphKind":"","panelTag":"",` : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
+            : `{"title":"...","after":"...","scene":"...","panels":[{"who":["..."],${comicCoordsNow() ? '"cell":"C2",' : ''}"camera":"...","layout":"...","tags":["..."],"text":"...","by":"..."}],"uc":""}`;
         const imageOut = imageSchema.replace('"uc":""}', `${askGenre() ? '"genre":"none",' : ''}${monoNow() ? '"severity":1,"accent":[],' : ''}"uc":""}`);
         const promptFields = isIllust() ? 'scene, chars[].tags, chars[].gaze' : 'scene, panels[].camera, panels[].layout, panels[].tags';
         const lineFields = isIllust() ? 'bubbles[].text' : 'panels[].text';
@@ -1662,7 +1395,7 @@ ${pick}
 ${panelChoice}
 ${isIllust() ? '- List every character who is in frame in this moment in chars, however many there are: when the TARGET MESSAGE shows three or more people together (e.g. two hugging one from both sides), list them all. Someone who is not in frame may still appear as "out of frame, hand" inside scene and is NOT listed in chars. NovelAI draws at most 6 entries (a monster counts as one), so with more than 6 list the 6 most important.\n- A monster or creature that is a main subject of the moment (dragon, slime, golem, beast, a summoned or holographic monster) is listed in chars too, as one more entry with "type":"monster" (at most 1 monster). Its name is a short English name (e.g. "dragon"), its tags start with the creature tag and describe its looks, size and action (e.g. "dragon, giant, holographic, breathing fire, wings spread"), and its cell is where it is. Do not describe it in scene then, and never list it in state.cast.\n- DIRECTION: when two entries interact (talking, kissing, hugging, handing something over, holding hands, arguing, fighting, a spell or beam aimed at the other, ...), the direction must read clearly. Use the ACTUAL action of this moment, never a different one: never add attacking or fighting tags to a scene that is not a fight. One-way action: the actor gets source#<action>, the other gets target#<action> (e.g. "source#talking" / "target#talking", "source#headpat" / "target#headpat", "source#punching" / "target#punching"). Both do it together: both get mutual#<action> (e.g. "mutual#kiss", "mutual#hug", "mutual#holding hands"). Give both "facing another" in tags and "looking at another, looking at the <role of the other>" in gaze when they face each other (skip "facing another" for a hug from behind or similar). Put their cells on opposite sides so they face each other across the canvas (e.g. B3 and D3; B4 and D2 for a big monster behind), and when one aims something at the other, write it toward the other one (e.g. "reaching toward the dragon", "beam toward the dragon"). With 3 or more entries, each one-way action still pairs actors with a target.' : '- Different panels may show different characters.'}
 
-${panelRules(G, w > h)}
+${panelRules(G)}
 
 ${bubbleRules(4, withInput)}
 
@@ -2419,7 +2152,6 @@ Rules
     function buildComicReq(img, cast, state) {
         const p = preset();
         const [w, h] = sizeWH(sizeNow()) ?? SIZES.tall;
-        const G = gridOf(w, h, naiModelNow());
         const slots = [];
         const nums = new Map();
         const numOf = x => { if (!nums.has(x.key)) nums.set(x.key, nums.size + 1); return nums.get(x.key); };
@@ -2433,120 +2165,49 @@ Rules
             return bare.toLowerCase() === tag.toLowerCase() ? [] : [bare];
         };
         const kindOf = x => x.e ? x.type : x.name;
-        const komas = [];
-        const coordMode = comicCoordsNow();
-        const isEmph = pn => coordMode && emphOf(pn);
-        const storyPn = [], emphPn = [];
+        let panelN = 0;
         for (const pn of img.panels) {
             if (!pn || typeof pn !== 'object') continue;
-            if (isEmph(pn)) { if (emphPn.length < EMPH_MAX) emphPn.push(pn); }
-            else if (storyPn.length < STORY_MAX) storyPn.push(pn);
-        }
-        let src = storyPn.length === STORY_MAX ? [...storyPn, ...emphPn] : storyPn;
-        const emphPt = new Map();
-        {
-            const told = emphPn.map(o => emphPanelOf(o.panelTag ?? o.view));
-            const taken = new Set(told.filter(Boolean));
-            emphPn.forEach((o, i) => {
-                const t = told[i] || EMPH_PANELS.find(v => !taken.has(v)) || EMPH_PANELS[0];
-                taken.add(t);
-                emphPt.set(o, t);
-            });
-        }
-        const framed = coordMode && src.length >= 2;
-        const perPerson = framed;
-        const place = joinTags(dropNone(img.scene));
-        const whoOf = pn => {
-            const out = [];
+            if (panelN >= 4) break;
+            const who = [];
             for (const name of (Array.isArray(pn.who) ? pn.who : [pn.who]).map(tidy).filter(Boolean)) {
                 const e = findCast(cast, name);
                 const key = e?.id ?? name.toLowerCase();
-                if (out.some(x => x.key === key)) continue;
-                out.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
+                if (who.some(x => x.key === key)) continue;
+                who.push({ key, e, raw: name, name: e?.name ?? name, type: e?.type ?? 'other' });
             }
-            return out;
-        };
-        const everyone = [];
-        if (perPerson) for (const pn of src) for (const x of whoOf(pn)) if (x.e && !everyone.some(y => y.key === x.key)) everyone.push(x);
-        for (const pn of src) {
-            const emph = isEmph(pn);
-            const own = whoOf(pn);
-            const ce = emph && own.length > 0 && charEmphOf(pn);
-            const who = perPerson && own.length && !emph ? [...own, ...everyone.filter(x => !own.some(y => y.key === x.key))] : own;
-            const tagOf = labelOf;
             for (const x of who) { labelOf(x); if (!looks.has(x.key)) looks.set(x.key, lookNegOf(x.e, state)); }
             const types = who.map(x => x.type);
             const idents = who.map(({ e, type }) => e ? identTags(type, e.look, k => wearOf(e, state, k), k => noneOf(e, state, k)).slice(1) : []);
             const head = who.length ? joinTags(kindCount(who.map(kindOf)), who.length === 1 ? 'solo' : '') : 'no humans';
             const line = bubblesNow() ? quoteText(String(pn.text ?? '').trim().replace(/^["'“”‘’「」『』]+|["'“”‘’「」『』]+$/g, '')) : '';
-            const cam0 = joinTags(noText(dropNone(pn.camera)));
-            const view = emph ? emphPt.get(pn) ?? EMPH_PANELS[0] : '';
-            const tallWide = !emph && src.length >= 2 && h > w;
-            const camIn = cam0;
-            const cam = joinTags(tallWide && !tagsOf(camIn).some(t => tagCore(t) === 'wide panel') ? 'wide panel' : '', emph && !/close-up/i.test(camIn) ? (ce ? 'close-up' : 'extreme close-up') : '', view && !tagsOf(camIn).some(t => t.toLowerCase() === view) ? view : '', emph && !tagsOf(camIn).some(t => tagCore(t) === 'wide panel') ? 'wide panel' : '', camIn);
+            const cam = joinTags(noText(dropNone(pn.camera)));
             const layRaw = who.length >= 2 ? joinTags(noText(dropNone(pn.layout))).replace(/@/g, '') : '';
             const lay = CJK_RE.test(layRaw) ? '' : layRaw;
             const rawActs = (Array.isArray(pn.tags) ? pn.tags : [pn.tags]).map(dropNone);
-            const refs = (emph ? [...who, ...src.flatMap(whoOf).filter(x => x.e && !who.some(y => y.key === x.key))] : who).flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, tagOf(x)])).sort((a, b) => b[0].length - a[0].length);
+            const refs = who.flatMap(x => [...new Set([x.raw, x.name, x.e?.key, ...(x.e?.keys ?? [])])].filter(Boolean).map(n => [n, labelOf(x)])).sort((a, b) => b[0].length - a[0].length);
             const refOf = t => refs.reduce((r, [n, k]) => r.split(`@${n}`).join(k), String(t ?? '')).replace(/@(?=\S)/g, '');
-            const acts = (who.length ? who : [null]).map((x, k) => own.length && k >= own.length ? '' : refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
+            const acts = (who.length ? who : [null]).map((x, k) => refOf(noText(rawActs[k] ?? rawActs[0] ?? '')));
             const byE = tidy(pn.by) ? findCast(cast, tidy(pn.by)) : null;
             const byKey = byE?.id ?? tidy(pn.by).toLowerCase();
             const sayAt = line && who.length ? Math.max(0, who.findIndex(x => x.key === byKey)) : -1;
             const say = line ? `head next to speech bubble${TAG_JOIN}speech bubble with Text: ${line} ` : '';
-            const emphBody = (lb, tg, prose) => {
-                const t = [...mergeTags(tg), prose].map(s => String(s ?? '').trim().replace(/^(?:his|her|their|its)\s+/i, '')).filter(Boolean);
-                if (!t.length) return null;
-                return [t[0].toLowerCase().startsWith(`${lb.toLowerCase()}'s `) ? t[0] : `${lb}'s ${t[0]}`, ...t.slice(1)];
-            };
             const personLine = k => {
                 const [tg, prose] = splitAct(acts[k]);
-                const lb = tagOf(who[k]);
-                const eb = emph && !ce ? emphBody(lb, tg, prose) : null;
-                if (eb) return [...eb, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN);
-                const body = emph && !ce ? [] : mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg);
-                return `${lb}: ${[body.join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
+                return `${labelOf(who[k])}: ${[mergeTags(canonHead(who[k]), kindOf(who[k]), idents[k], tg).join(TAG_JOIN), prose, k === sayAt ? say : ''].filter(Boolean).join(TAG_JOIN)}`;
             };
-            const lead = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
-            const shared = [lead.length ? lead.join('\n') : '', place && !emph ? `${place},` : ''].filter(Boolean);
-            const slotOf = (lines, extra) => ({
+            const lines = [who.length ? `${joinTags(head, lay)},` : '', cam ? `${cam},` : ''].filter(Boolean);
+            if (who.length) {
+                for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
+                if (sayAt >= 0) lines.push(personLine(sayAt));
+            } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
+            slots.push({
                 prompt: endComma(lines.join('\n')),
-                uc: tidy(pn.uc), x: 0.5, y: 0.5, kind: 'panel', koma: komas.length, ...(emph ? { emph: true } : {}), ...(ce ? { emphChar: true } : {}),
-                keys: who.map(x => x.key), ...extra,
+                uc: tidy(pn.uc), x: 0.5, y: 0.5, cell: tidy(pn.cell), kind: 'panel', type: types[0] ?? 'other',
+                name: who.map(x => x.name).join(' · '), keys: who.map(x => x.key),
+                chars: who.map(x => [String(x.name).toLowerCase(), labelOf(x)]),
             });
-            let made;
-            if (perPerson) {
-                const keep = sayAt >= 0 ? sayAt : 0;
-                const mk = k => slotOf([...shared, k < 0 ? [withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN) : personLine(k)], {
-                    type: k < 0 ? 'other' : types[k] ?? 'other',
-                    name: k < 0 ? '' : who[k].name ?? '',
-                    chars: k < 0 ? [] : [[String(who[k].name).toLowerCase(), tagOf(who[k])]],
-                    lead: k < 0 || k === keep,
-                });
-                made = who.length ? who.map((_, k) => mk(k)) : [mk(-1)];
-            } else {
-                const lines = [...shared];
-                if (who.length) {
-                    for (const k of who.map((x, i) => i).filter(i => i !== sayAt)) lines.push(`${personLine(k)},`);
-                    if (sayAt >= 0) lines.push(personLine(sayAt));
-                } else lines.push([withTags(head, acts[0]), say].filter(Boolean).join(TAG_JOIN));
-                made = [slotOf(lines, {
-                    type: types[0] ?? 'other',
-                    name: who.map(x => x.name).join(' · '),
-                    chars: who.map(x => [String(x.name).toLowerCase(), tagOf(x)]),
-                    lead: true,
-                })];
-            }
-            komas.push({
-                cell: tidy(pn.cell), shape: framed ? frameKeysOf(pn.frame, emph && !ce) : [], shot: cam,
-                x: 0.5, y: 0.5, ...(emph ? { emph: true } : {}), ...(ce ? { emphChar: true } : {}),
-                slots: made,
-            });
-        }
-        let room = slotMaxNow() - komas.length;
-        for (const km of komas) {
-            km.slots = km.slots.filter(sl => sl.lead || room-- > 0);
-            for (const sl of km.slots) { delete sl.lead; slots.push(sl); }
+            panelN++;
         }
         const labelList = [...labels.values()];
         for (const sl of slots) {
@@ -2558,43 +2219,23 @@ Rules
             sl.uc = joinTags(sl.uc, add);
             delete sl.keys;
         }
-        const panelCoords = komas.length >= 2 && comicCoordsNow();
+        const pslots = slots.filter(sl => sl.kind === 'panel');
+        const panelCoords = pslots.length >= 2 && comicCoordsNow();
         if (panelCoords) {
-            const given = komas.map(km => xyOfCell(km.cell, G));
-            const wide = w > h, key = xy => `${xy.x},${xy.y}`;
-            const sk = komas.map((km, k) => k).filter(k => !komas[k].emph);
-            const fixed = new Set();
-            const hasEmph = komas.some(km => km.emph);
-            const gapOk = () => { const ls = sk.map(k => laneOf(given[k], G)); return !hasEmph || ls.every(a => ls.every(b => a === b || Math.abs(a - b) >= 2)); };
-            if (sk.every(k => given[k] && !onEdge(given[k], G)) && lanesApart(sk.map(k => given[k]), G, wide) && gapOk()) {
-                sk.forEach(k => { Object.assign(komas[k], given[k]); fixed.add(komas[k]); });
-                const seen = new Set(sk.map(k => key(given[k])));
-                let ej = 0;
-                komas.forEach((km, k) => {
-                    if (!km.emph) return;
-                    const base = given[sk[Math.min(ej++, sk.length - 1)]], xy = given[k];
-                    if (!xy || seen.has(key(xy)) || laneOf(xy, G, wide) !== laneOf(base, G, wide) - 1) return;
-                    Object.assign(km, xy); fixed.add(km); seen.add(key(xy));
-                });
-            }
-            panelDefaults(komas, wide, G, fixed);
+            const given = pslots.map(sl => xyOfCell(sl.cell));
+            const ok = given.every(Boolean) && new Set(given.map(xy => `${xy.x},${xy.y}`)).size === given.length;
+            const dflt = panelCellsOf(pslots.length, w > h);
+            pslots.forEach((sl, k) => Object.assign(sl, ok ? given[k] : xyOfCell(dflt[k])));
         }
-        const single = komas.length === 1;
-        komas.forEach(km => { for (const sl of km.slots) { sl.x = km.x; sl.y = km.y; } });
-        const slotCoords = panelCoords && perPerson;
-        if (slotCoords) spreadKomaSlots(komas, G, w > h);
-        if (panelCoords) isolateCharEmph(komas, G, slotCoords);
-        if (panelCoords) unevenRows(komas, G, slotCoords);
-        let neg = removeTokens(p.neg, ['2koma', '3koma', '4koma', '5koma', 'multiple views']);
+        for (const sl of slots) delete sl.cell;
+        let neg = removeTokens(p.neg, ['4koma', '2koma', 'multiple views']);
         if (bubblesNow()) neg = removeTokens(neg, ['subtitles', 'captions']);
-        const komaN = single ? 1 : clampInt(komas.length, 2, KOMA_MAX, 2);
+        const single = panelN === 1;
         return {
-            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : perPerson ? `1.5::${komaN}panels, manga::, diagonal border, black border` : `1.5::multiple koma, manga::, 0.5::${BORDER_TAGS.diagonal}::`, single ? '' : 'no thick border', single || /dynamic angle/i.test(p.pos) ? '' : 'dynamic angle'),
-            neg: ((t) => single ? t : joinTags(String(t).split(',').filter(s => !NEG_BORDER_TAGS.includes(tagCore(s).replace(/^-?\d*\.?\d+::\s*/, '').replace(/\s*::$/, ''))).join(','), 'white border', NEG_BORDER_END))(joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text')),
-            slots, w, h, panels: komaN,
-            ...(panelCoords ? { grid: [G.cols, G.rows] } : {}),
+            base: joinTags(dropTags(p.pos, ['sound effects']), single ? '' : COMIC_TAGS, dropNone(img.scene)),
+            neg: joinTags(neg, img.uc, bubblesNow() ? '' : 'speech bubble, text, english text'),
+            slots, w, h, panels: single ? 1 : clampInt(panelN, 2, 4, 2),
             useCoords: panelCoords, panelCoords,
-            ...(slotCoords ? { slotCoords: true } : {}),
             title: tidy(img.title).slice(0, 30),
             after: tidy(img.after).slice(0, 80),
             preset: p.id,
@@ -2691,9 +2332,7 @@ Rules
     const withGenre = (req, img) => {
         const g = genreTags(img);
         if (!g) return req;
-        const nsfw = genreKey(img?.genre) === 'nsfw';
-        if (!isIllust() && !nsfw) return req;
-        const neg = nsfw ? removeTokens(req.neg, ['nsfw']) : req.neg;
+        const neg = genreKey(img?.genre) === 'nsfw' ? removeTokens(req.neg, ['nsfw']) : req.neg;
         return { ...req, base: joinTags(req.base, g), neg };
     };
     function buildReqRaw(img, cast, state) {
@@ -3672,15 +3311,6 @@ ${t.user}` : null;
                 if (askGenre()) console.log(LOG, 'genre', images.map(img => `${img.genre ?? '(none)'} → ${genreKey(img.genre) || '-'}${monoNow() ? ` · severity ${severityOf(img) || '-'}${isDynamic(img) ? ' · dynamic' : ''}` : ''}`).join(' | '));
                 const drawState = re ? { ...state, backgrounds: [re.top] } : state;
                 reqs = images.map(img => buildReq(img, cast, drawState));
-                if (!isIllust() && comicCoordsNow()) for (let i = 1; i < reqs.length; i++) {
-                    if (reqs[i]?.kind !== 'comic' || reqs[i - 1]?.kind !== 'comic' || reqs[i].panels !== reqs[i - 1].panels) continue;
-                    const pans = Array.isArray(images[i].panels) ? images[i].panels : [];
-                    if (!pans.some(emphOf)) { console.log(LOG, 'koma count', `image ${i + 1} has ${reqs[i].panels} like image ${i}, no emph to drop`); continue; }
-                    const lastE = pans.map(emphOf).lastIndexOf(true);
-                    images[i] = { ...images[i], panels: pans.filter((pn, k) => k !== lastE) };
-                    reqs[i] = buildReq(images[i], cast, drawState);
-                    console.log(LOG, 'koma count', `image ${i + 1}: emph dropped → ${reqs[i].panels}`);
-                }
             }
 
             if (busy.est.P && !cogen) ilPush(planKey(busy.llm), (Date.now() - busy.at) / 1000);
@@ -6954,7 +6584,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                         const comp = d[z + 1], lang = d.indexOf(0, z + 3), tr = lang < 0 ? -1 : d.indexOf(0, lang + 1);
                         if (tr > 0) out[dec.decode(d.subarray(0, z))] = dec.decode(comp ? await inflate(d.subarray(tr + 1)) : d.subarray(tr + 1));
                     }
-                } catch {  }
+                } catch { }
                 if (type === 'IEND') break;
                 p += 12 + len;
             }
@@ -7082,7 +6712,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 try {
                     const meta = JSON.parse(t.Comment);
                     if (typeof meta.prompt === 'string' || meta.v4_prompt) return { kind: 'nai', source: t.Source || t.Software || '', meta };
-                } catch {  }
+                } catch { }
             }
             if (t.parameters) return { kind: 'other', why: 'NovelAI 가 아닌 도구(Stable Diffusion WebUI 등)의 그림 정보입니다' };
             return { kind: 'none' };
@@ -7803,7 +7433,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 keyBox(ui.reopen === 2),
                 h('p', { class: 'ix-hint', style: 'margin:8px 0 0' }, 'NovelAI 웹 › 설정 › Account › Get Persistent API Token 에서 받은 pst- 로 시작하는 키를 넣으세요.')]),
             step(3, '그림 종류 · 모델 · 장 수 · 해상도', `${kindName()} · ${modelName(st.set.model)} · ${countLabel()} · ${sizeName(sizeNow())}`, () => [
-                radio([['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~3컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']],
+                radio([['comic', '🗯️', '만화 (V5 이상)', '한 장에 2~4컷, 답변 속 대사를 말풍선으로 넣습니다'], ['illust', '🖼️', '삽화', '칸 · 말풍선 없이 한 장면을 그립니다']],
                     st.set.kind, k => { st.set = { ...st.set, kind: k }; saveSet(); renderNow(); }),
                 sub('NAI 모델', '삽화 전용 NAI 모델입니다. 애드 에셋 · 대화 그림 모델과 따로 고릅니다. 목록에 없는 모델은 id 를 직접 넣으세요.'),
                 modelPick(st.set.model, m => { st.set = { ...st.set, model: m }; saveSet(); renderNow(); }),
@@ -8054,10 +7684,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     function renderCoord(req, locked) {
         const multi = (req.panels ?? 1) !== 1;
         if (multi && !req.panelCoords) return null;
-        const all = multi ? panelSlotsOf(req) : charSlotsOf(req);
-        const byKoma = multi && !req.slotCoords;
-        const chars = byKoma ? all.filter((sl, k) => sl.koma == null || all.findIndex(o => o.koma === sl.koma) === k) : all;
-        const mates = sl => byKoma && sl.koma != null ? all.filter(o => o.koma === sl.koma) : [sl];
+        const chars = multi ? panelSlotsOf(req) : charSlotsOf(req);
         if (!chars.length) return null;
         const free = coordsOn(req);
         const box = h('div', { class: 'co' });
@@ -8076,7 +7703,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 const here = free ? chars.map((sl, k) => [sl, k]).filter(([sl]) => cellOf(sl.x, sl.y, G) === code) : [];
                 cells.push(h('button', {
                     class: 'co-c', type: 'button', title: code, 'aria-label': `${code} 칸`, disabled: !free || !!locked,
-                    onclick: () => { const xy = xyOfCell(code, G); for (const sl of mates(chars[act])) { sl.x = xy.x; sl.y = xy.y; } paint(); },
+                    onclick: () => { const xy = xyOfCell(code, G); chars[act].x = xy.x; chars[act].y = xy.y; paint(); },
                 }, here.map(([, k]) => h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1)))));
             }
             add(box,
@@ -8088,10 +7715,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                             class: 'co-chip' + (free && k === act ? ' on' : ''), type: 'button', disabled: !free || !!locked,
                             onclick: () => { act = k; paint(); },
                         }, h('i', { class: 'co-d', style: `background:${DOT_COLORS[k % DOT_COLORS.length]}` }, String(k + 1)),
-                            `${multi ? `${byKoma ? k + 1 : slotNo(sl, k)}컷${sl.name ? ` (${sl.name})` : ''}` : sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y, G)}` : ''}`)),
-                        h('p', { class: 'ix-hint', style: 'margin:0' }, free && multi && !byKoma
-                            ? `점을 고른 뒤 칸을 누르면 그 컷의 그 인물이 페이지의 그 자리로 옮겨 갑니다. ${axisHint}입니다. 컷 칸 모양은 NAI 가 정합니다.`
-                            : free && multi
+                            `${multi ? `${k + 1}컷${sl.name ? ` (${sl.name})` : ''}` : sl.name || '인물'}${free ? ` · ${cellOf(sl.x, sl.y, G)}` : ''}`)),
+                        h('p', { class: 'ix-hint', style: 'margin:0' }, free && multi
                             ? `점을 고른 뒤 칸을 누르면 그 컷의 장면이 페이지의 그 자리로 옮겨 갑니다. ${axisHint}입니다. 컷 칸 모양은 NAI 가 정합니다.`
                             : free
                             ? `점을 고른 뒤 칸을 누르면 그 인물이 그 자리로 옮겨 갑니다. ${axisHint}이고 ${centerCell(G)}${josa(centerCell(G), "이", "가")} 가운데입니다.`
@@ -8147,7 +7772,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 h('h3', null, '본 프롬프트'),
                 h('textarea', { class: 'cf-ta', disabled, oninput: e => { req.base = e.target.value; } }, req.base),
                 ...(req.slots ?? []).flatMap((sl, k) => [
-                    h('h3', null, `칸 ${slotNo(sl, k)} · ${sl.kind === 'char' ? sl.name || '인물' : sl.kind === 'panel' ? `컷${sl.name ? ' · ' + sl.name : ''}` : sl.kind === 'narration' ? '나레이션' : '말풍선'}`),
+                    h('h3', null, `칸 ${k + 1} · ${sl.kind === 'char' ? sl.name || '인물' : sl.kind === 'panel' ? `컷${sl.name ? ' · ' + sl.name : ''}` : sl.kind === 'narration' ? '나레이션' : '말풍선'}`),
                     h('textarea', { class: 'cf-ta', disabled, oninput: e => { sl.prompt = e.target.value; } }, sl.prompt),
                 ]),
                 renderCoord(req, disabled),
@@ -8166,7 +7791,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 class: 'ix-btn sm', type: 'button',
                 onclick: async ev => {
                     const b = ev.currentTarget;
-                    const text = shown.map(n => draft[n]).map(r => [r.base, ...(r.slots ?? []).map((s, k) => `[칸 ${slotNo(s, k)}] ${s.prompt}`), `[부정] ${r.neg}`].join('\n')).join('\n\n');
+                    const text = shown.map(n => draft[n]).map(r => [r.base, ...(r.slots ?? []).map((s, k) => `[칸 ${k + 1}] ${s.prompt}`), `[부정] ${r.neg}`].join('\n')).join('\n\n');
                     const done = await copyText(text);
                     b.textContent = done ? '✓ 복사했습니다' : '복사하지 못했습니다';
                     setTimeout(() => { if (b.isConnected) b.textContent = '📋 복사'; }, 1500);
@@ -8676,7 +8301,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                         num('리스케일', 'cfgRescale', '0', '1', '0.02'))),
                 stepWarn,
                 h('div', { style: 'display:grid;gap:3px;font-size:.76rem;color:var(--muted)' }, '샘플러 (노이즈 스케줄은 karras 고정)', samplerBox),
-                h('p', { class: 'ix-hint' }, '만화(2~3컷)를 그릴 때는 만화용 태그를 붙이고, 만화와 맞지 않는 태그 몇 개를 그 그림에서만 뺍니다. 저장된 그림체 프롬프트는 바뀌지 않습니다.')));
+                h('p', { class: 'ix-hint' }, '만화(2~4컷)를 그릴 때는 만화용 태그를 붙이고, 만화와 맞지 않는 태그 몇 개를 그 그림에서만 뺍니다. 저장된 그림체 프롬프트는 바뀌지 않습니다.')));
         return pane;
     }
 
@@ -8922,7 +8547,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                 toggle(s.vars, () => setVal('vars', !s.vars))));
         const gDev = fold1('dev', '개발자 설정',
             hint1('시험할 때만 바꾸는 값입니다. 평소에는 그대로 두세요.'),
-            row('만화 좌표', '두 컷 이상인 만화에서 컷마다 페이지 위 자리를 정해 그립니다. 기본은 켬입니다.',
+            row('만화 좌표', '2~4컷 만화에서 컷마다 페이지 위 자리를 정해 그립니다. 기본은 켬입니다.',
                 '그림 종류가 만화일 때만 쓰입니다. 끄면 컷 배치를 NAI 에 맡깁니다. 1컷 만화 · 삽화 · 대화 앱 만화는 이 값과 상관없습니다.',
                 toggle(s.comicCoords !== false, () => setVal('comicCoords', s.comicCoords === false))));
         const gAsset = grp('asset', '모델 · 그림체',
@@ -13525,7 +13150,7 @@ Rules:
             personaFail.delete(chaId + '|' + p.sig);
             if (bot.personaNo) delete bot.personaNo[p.name];
             await guard(ensurePersona(chaId, bot, p, castMode()));
-            if (!st.set.talkSync) {  }
+            if (!st.set.talkSync) { }
             else if (job) void castMainLines(w, bot, user, entries, q => q, () => {}, () => !!job.stop).catch(error => console.warn(LOG, 'main lines', error));
             else try { step(4); await castMainLines(w, bot, user, entries, guard, (i, n) => { run.part = [i, n]; onStage(4); }, () => run.stop); } catch (error) { if (run.stop) throw error; console.warn(LOG, 'main lines', error); }
             return list.length;
