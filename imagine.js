@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.110.0
+//@display-name 💠 이매진 v5.111.0
 //@api 3.0
-//@version 5.110.0
+//@version 5.111.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.110.0';
+    const VERSION = '5.111.0';
     const DEV_URL = 'https://github.com/daelar99-rgb';
     const UPDATE_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js';
     const NOTES_URL = 'https://raw.githubusercontent.com/daelar99-rgb/imagine/main/CHANGELOG.md';
@@ -8263,7 +8263,7 @@ Return JSON only: {"kind":""}`;
             showTools ? h('div', { class: 'cl-ex' },
                 noLore ? null
                     : lore ? h('button', { class: 'cl-chip stop', type: 'button', onclick: go }, '■ 분석 멈추기')
-                    : h('button', { class: 'cl-chip out', type: 'button', disabled: ctx.off || cmdBusy, title: '봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 다시 읽습니다', onclick: go }, '📖 다시 분석'),
+                    : h('button', { class: 'cl-chip out', type: 'button', disabled: ctx.off || cmdBusy, title: ctx.vm ? '봇 설명 · 첫 메시지 · 로어북에서 인물마다 목소리를 다시 정합니다' : ctx.tm ? '인물을 다시 읽고 목소리도 다시 정합니다' : '봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 다시 읽습니다', onclick: go }, '📖 다시 분석'),
                 h('button', { class: 'cl-chip main', type: 'button', disabled: lock, title: '채팅에서 생긴 인물 가운데 다시 나오지 않을 엑스트라를 모델이 골라 지웁니다', onclick: () => void castCommand(v, '', true) }, '🧹 엑스트라 정리'),
                 ...CAST_EX.map(x => h('button', { class: 'cl-chip', type: 'button', disabled: lock, onclick: () => { input.value = x; L.draft = x; input.focus(); } }, x))) : null,
             showTools ? h('div', { class: 'cl-in' }, input,
@@ -8320,24 +8320,19 @@ Return JSON only: {"kind":""}`;
             st.err && ui.side === 'cast' ? h('div', { class: 'ix-msg err' }, st.err) : null);
         const vok = !!voice && voice.syncView(v.chaId + '|' + v.chatKey);
         if ((vm || tm) && vok) add(pane, voice.embed(voice.castProgress(), true, 'gt-mid'));
-        const matched = new Set();
-        const voiceTail = () => {
-            if (!vok) return null;
-            const rest = voice.voiceNames().filter(n => !matched.has(n));
-            return [rest.length ? [h('h2', { class: 'sub' }, '목소리만 있는 인물', h('small', null, `${rest.length}명 · 생김새 카드와 이름이 맞지 않는 인물`)),
-                voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows(rest))])] : null,
-                voice.embed([...(vm || tm ? [] : [voice.castMsg()]), ...voice.castFoot()], !(vm || tm))];
-        };
+        const vonly = vok ? voice.voiceNames().filter(n => !v.cast.list.some(e => voice.voiceMatch(e) === n)) : [];
+        const total = v.cast.list.length + vonly.length;
+        const voiceFoot = () => vok ? voice.embed([...(vm || tm ? [] : [voice.castMsg()]), ...voice.castFoot()], !(vm || tm)) : null;
         add(pane,
             h('h2', { class: 'sub' }, '장소'),
             placeCard(sv),
-            h('h2', { class: 'sub' }, '등장인물', h('small', null, `${v.cast.list.length}명 · 이름을 누르면 펼쳐서 고칩니다`),
+            h('h2', { class: 'sub' }, '등장인물', h('small', null, `${total}명 · 이름을 누르면 펼쳐서 고칩니다`),
                 v.cast.list.length > 1 ? h('button', {
                     class: 'ix-btn sm cc-all', type: 'button',
                     onclick: () => { const all = v.cast.list.every(e => ui.castOpen.has(e.id)); ui.castOpen = new Set(all ? [] : v.cast.list.map(e => e.id)); renderNow(); },
                 }, v.cast.list.every(e => ui.castOpen.has(e.id)) ? '모두 접기' : '모두 펼치기') : null));
-        if (!v.cast.list.length) {
-            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), vm ? '생김새는 삽화 · 애드 에셋 · 대화 모드의 「등장인물 분석」이 읽습니다. 여기서 분석하면 목소리만 정합니다.' : v.group ? '그룹 채팅은 그릴 때 모델이 알려 준 인물이 여기에 쌓입니다.' : '위 「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'), voiceTail());
+        if (!total) {
+            add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), vm ? '생김새는 삽화 · 애드 에셋 · 대화 모드의 「등장인물 분석」이 읽습니다. 여기서 분석하면 목소리만 정합니다.' : v.group ? '그룹 채팅은 그릴 때 모델이 알려 준 인물이 여기에 쌓입니다.' : '위 「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'), voiceFoot());
             return pane;
         }
         const SRC = { lore: '로어북', persona: '페르소나', chat: '채팅에서', edit: '직접 고침' };
@@ -8470,10 +8465,22 @@ Return JSON only: {"kind":""}`;
                         h('div', { class: 'cc-tags' }, slotPreview(e, sv.state) || '(비어 있음)'))));
             }
             const vn = vok ? voice.voiceMatch(e) : null;
-            if (vn) { matched.add(vn); add(card, voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([vn]))])); }
+            if (vn) add(card, voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([vn]))]));
             add(pane, card);
         });
-        add(pane, voiceTail());
+        const VSEX = { female: '여', male: '남' };
+        vonly.forEach((name, i) => {
+            const x = voice.voiceInfo(name) ?? {};
+            add(pane, h('article', { class: 'cc', style: `--cc:${HUES[(v.cast.list.length + i) % HUES.length]}` },
+                h('div', { class: 'cc-hd', style: 'cursor:default' },
+                    h('span', { class: 'cc-av', 'aria-hidden': 'true' }, initial(name)),
+                    h('div', { class: 'cc-ti' },
+                        h('b', null, h('span', { class: 'cc-nm' }, name), h('span', { class: 'cc-sx' }, VSEX[x.gender] ?? '?'),
+                            x.persona ? h('span', { class: 'cc-src persona' }, SRC.persona) : null),
+                        h('span', { class: 'cc-sum' }, '태그 없음'))),
+                voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([name]))])));
+        });
+        add(pane, voiceFoot());
         return pane;
     }
 
@@ -17440,6 +17447,7 @@ Rules:
         talkReady, talkLit: () => talkReady(), talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
         castLlm: castMode, castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
         castProgress, castFoot, castMsg: msgBox, syncView, voiceMatch, voiceRows, voiceNames, setPart, castAutoRow, embed,
+        voiceInfo: name => { const x = ui.view?.bot.voices[name]; return x ? { gender: x.gender, persona: !!x.persona } : null; },
         ttsHead: () => String(st.set.ttsHead ?? ''), setTtsHead: v => { st.set.ttsHead = v; void saveSet(); },
         talkPresetId: () => st.set.talkPreset, setTalkPreset: id => { st.set.talkPreset = id; void saveSet(); },
         myCount: () => myList().length,
