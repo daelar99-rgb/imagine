@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.114.4
+//@display-name 💠 이매진 v5.115.2
 //@api 3.0
-//@version 5.114.4
+//@version 5.115.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.114.4';
+    const VERSION = '5.115.2';
     const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
     const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
     const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad8ff"/><stop offset=".5" stop-color="#c3a6ff"/><stop offset="1" stop-color="#ffb3dc"/></linearGradient></defs>`
@@ -637,6 +637,30 @@
         }
     }
     const saveSet = () => save('nc:set', st.set);
+    let botAuto = {};
+    let lastCha = '';
+    async function loadBotAuto() {
+        const r = await readStored('nc:auto');
+        if (!r.ok) { blockSave('nc:auto'); return; }
+        const v = r.value;
+        botAuto = {};
+        if (v && typeof v === 'object' && !Array.isArray(v)) {
+            for (const [id, o] of Object.entries(v)) {
+                if (!id || !o || typeof o !== 'object') continue;
+                const e = {};
+                if (typeof o.img === 'boolean') e.img = o.img;
+                if (typeof o.tts === 'boolean') e.tts = o.tts;
+                if (Object.keys(e).length) botAuto[id] = e;
+            }
+        }
+    }
+    const saveBotAuto = () => save('nc:auto', botAuto);
+    const botPick = (kind, chaId) => {
+        const v = chaId ? botAuto[chaId]?.[kind] : undefined;
+        return typeof v === 'boolean' ? v : undefined;
+    };
+    const autoImgOf = chaId => botPick('img', chaId) ?? !!st.set.auto;
+    const anyBotOn = kind => Object.values(botAuto).some(o => o?.[kind] === true);
     const acModelOf = () => st.set.acModel || DEFAULT_SET.model;
     const talkNaiModelOf = () => st.set.talkNaiModel || DEFAULT_SET.model;
     const savePresets = () => { save('nc:presets', st.presets); save('nc:preset', st.presetId); };
@@ -3730,7 +3754,7 @@ ${t.user}` : null;
     }
     async function onOutput(ev) {
         try {
-            if (!st.set.auto || !setupDone() || await retired()) return;
+            if (!autoImgOf(ev?.char?.chaId) || !setupDone() || await retired()) return;
             const { characterIndex: ci, chatIndex: chi, messageIndex } = ev ?? {};
             const msg = ev?.chat?.message?.[messageIndex];
             if (!msg || msg.role !== 'char' || !Number.isInteger(ci) || !Number.isInteger(chi)) return;
@@ -3765,7 +3789,7 @@ ${t.user}` : null;
             if (ns.got) {
                 clearTimeout(ns.timer);
                 ns.timer = setTimeout(() => void nsBack(), 2500);
-            } else if (!ns.armed && Date.now() >= ns.mute && (blk.cur?.tts || blk.cur?.plan || st.set.auto && setupDone())) {
+            } else if (!ns.armed && Date.now() >= ns.mute && (blk.cur?.tts || blk.cur?.plan || (st.set.auto || anyBotOn('img')) && setupDone())) {
                 clearTimeout(settleTimer);
                 settleTimer = setTimeout(() => {
                     settleTimer = null;
@@ -3790,7 +3814,7 @@ ${t.user}` : null;
             cogenLive = 0;
         }
         try { await blkClaim(ev.char?.chaId, ev.chat, ev.messageIndex); } catch (error) { console.warn(LOG, 'blk claim', error); }
-        if (!st.set.auto || !setupDone()) return;
+        if (!autoImgOf(ev.char?.chaId) || !setupDone()) return;
         await onOutput(ev);
     }
     function stripProcess(text) {
@@ -3840,11 +3864,12 @@ ${plan}
     async function cogenInject(messages, model) {
         if (!Array.isArray(messages)) return;
         if (model !== 'model' || nsSelf > 0) return;
-        const art = !!st.set.cogen && !!st.set.auto && setupDone(), tts = !!voice?.ttsInject?.();
+        const chaId = await curChaId().catch(() => '');
+        const art = !!st.set.cogen && autoImgOf(chaId) && setupDone(), tts = !!voice?.ttsInject?.(chaId);
         if (!messages.some(m => m?.memo || (m?.role === 'system' && nsNorm(nsText(m)).split('\n').some(l => NS_SYSCHAT.test(l))))) return art || tts ? cogenSkip('no chat history in request') : undefined;
         const retry = messages.some(m => nsText(m).includes(COGEN_MARK));
         blkOpen(retry);
-        if (st.set.cogen && !art) cogenSkip(st.set.auto ? 'setup not done' : 'auto draw off');
+        if (st.set.cogen && !art) cogenSkip(autoImgOf(chaId) ? 'setup not done' : 'auto draw off');
         if (!art && !tts) return;
         if (ns.armed || ns.got) return cogenSkip('nsfw import');
         if (talkOv) return cogenSkip('talk app open');
@@ -5594,6 +5619,8 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .cf-tx>b{display:block;font-size:.9rem;line-height:1.4}
 .cf-tx p{margin:3px 0 0;font-size:.76rem;line-height:1.6;color:var(--muted)}
 .cf-key{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+.cf-keyops{display:flex;flex:none;gap:8px}
+.cf-key .cf-in{flex-basis:140px}
 .cf-tg{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:38px;padding:0 2px;background:none;border:0}
 .cf-tg-lb{min-width:2.4em;font-size:.8rem;color:var(--muted);text-align:right}
 .cf-tg-tr{position:relative;width:46px;height:26px;background:var(--line2);border-radius:13px;transition:background .15s}
@@ -6625,6 +6652,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (key === 'pc' || key === 'mo') st.sizeNote = { cls: 'wait', text: SIZE_WAIT };
         renderNow();
         if (['ubtn', 'vbtn', 'panelBtn', 'pc', 'mo'].includes(key)) void syncRoot(key);
+        if (key === 'auto') void rootQueue(paintAuto);
         if (key === 'ubtn' || key === 'vbtn' || key === 'vdl') void sizeChanged(false, true);
         if (key === 'pc' || key === 'mo') sizeChanged();
         else if (key === 'ptOff' || key === 'undo') sizeChanged(false);
@@ -6712,7 +6740,8 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                     onkeydown: e => { if (e.key === 'Enter' && !e.isComposing) void save(); },
                 }),
                 h('button', { class: 'ix-btn main', type: 'button', onclick: save }, '저장'),
-                full ? h('button', {
+                full ? h('span', { class: 'cf-keyops' },
+                h('button', {
                     class: 'ix-btn', type: 'button', 'aria-pressed': st.keyShow ? 'true' : 'false',
                     onclick: async () => {
                         if (st.keyShow) { st.keyShow = false; input.type = 'password'; renderNow(); return; }
@@ -6721,15 +6750,15 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
                         st.keyShow = true;
                         renderNow();
                     },
-                }, st.keyShow ? '키 가리기' : '키 확인') : null,
-                full && v?.hasKey ? delButton('키 지우기', '한 번 더', async () => {
+                }, st.keyShow ? '키 가리기' : '키 확인'),
+                v?.hasKey ? delButton('키 지우기', '한 번 더', async () => {
                     try { await setNaiKey(''); } catch (error) { await api.alert?.('키를 지우지 못했습니다: ' + (error?.message ?? error)); return; }
                     if (st.view) st.view.hasKey = false;
                     st.keyShow = false;
                     st.keyDraft = '';
                     renderNow();
                     void rootQueue(() => paintBusy());
-                }, 'ix-btn warn', 'key') : null));
+                }, 'ix-btn warn', 'key') : null) : null));
         input.addEventListener('input', () => { st.keyDraft = input.value; });
         if (st.keyDraft) input.value = st.keyDraft;
         else if (v?.hasKey) void naiKey().then(k => { if (k && !input.value) input.value = k; }).catch(() => {});
@@ -7676,14 +7705,14 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return [h('div', { class: 'fn-card' + (fresh ? ' fn-rise' : ''), style: fresh ? `--fe:${el}ms` : null },
             h('div', { class: 'fn-top' }, ok,
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
-                    h('span', null, st.set.auto ? '채팅을 진행하면 자동으로 이미지가 생성됩니다.' : '자동 그리기가 꺼져 있으니, 봇 답변 아래의 「이미지 생성」 버튼을 눌러 그 답변을 그리세요.'))),
+                    h('span', null, st.set.auto ? '채팅을 진행하면 자동으로 이미지가 생성됩니다. 봇마다 첫 메시지 아래 「자동」을 눌러 끌 수 있습니다.' : '자동 그리기가 기본으로 꺼져 있습니다. 봇마다 첫 메시지 아래 「자동」을 눌러 켜거나, 봇 답변 아래 「이미지 생성」 버튼으로 그리세요.'))),
             h('ul', { class: 'fn-ck' },
                 li(isIllust() ? '삽화 한 장 그림으로 그립니다' : '만화 한 페이지로 그립니다', `그림체 ${preset().name || '이름 없음'} · ${sizeName(sizeNow())}`),
                 li(`봇 답변마다 ${countLabel()}을 그립니다`, randomCount() && n > 1 ? '답변마다 장 수를 새로 고르고, 장마다 다른 장면' : n > 1 ? '장마다 다른 장면' : ''),
                 li(`장면은 ${llmName(st.set.llm)} 모델이 정하고 ${modelName(st.set.model)} 로 그립니다`),
                 li(nsfwSum('illust', true))),
             h('div', { class: 'cf-row sw' },
-                h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 그리기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 이 설정대로 그립니다 (다시 굴리기 포함).')),
+                h('div', { class: 'cf-tx' }, h('b', null, '자동 그리기 기본 상태'), h('p', null, '첫 메시지 아래 「자동」을 아직 누르지 않은 봇에 씁니다. 켜면 그런 봇은 답변이 끝날 때마다 그리고, 끄면 그리지 않습니다. 이미 고른 봇은 그 봇의 값대로 둡니다.')),
                 toggle(st.set.auto, () => setVal('auto', !st.set.auto))),
             h('div', { class: 'fn-go' },
                 h('button', { class: 'ix-btn main' + (st.set.auto ? '' : ' gray'), type: 'button', onclick: () => closePanel() }, '채팅으로 돌아가기')))];
@@ -9124,10 +9153,7 @@ Return JSON only: {"kind":""}`;
                 '리수 설정 → 이미지 생성에 넣은 키는 플러그인이 읽을 수 없게 막혀 있어, 여기에 한 번 더 넣습니다.',
                 keyBox(true), { wide: true, tag: true }));
         const gDraw = grp('draw', '그리기',
-            hint1('연출 방식(동시생성 · 연출 모델) · 만화/삽화 · NAI 모델 · 장 수는 ', toReady, '에서, 그림체는 ', h('button', { class: 'lnk', type: 'button', onclick: () => openApp('style') }, '그림체 앱'), '에서 바꿉니다. 애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe()),
-            row('답변이 오면 자동으로 그리기', '봇 답변이 끝날 때마다 그 답변을 그립니다 (다시 굴리기 포함).',
-                '끄면 답변 아래 「생성」 버튼이나 「삽화 목록」 탭으로만 그립니다. 삽화 › 준비를 마치기 전에는 켜져 있어도 그리지 않습니다.',
-                toggle(s.auto, () => setVal('auto', !s.auto))),
+            hint1('연출 방식(동시생성 · 연출 모델) · 만화/삽화 · NAI 모델 · 장 수 · 자동 그리기 기본 상태는 ', toReady, '에서, 그림체는 ', h('button', { class: 'lnk', type: 'button', onclick: () => openApp('style') }, '그림체 앱'), '에서 바꿉니다. 애드 에셋의 연출 모델은 애드 에셋 › 준비에서 따로 고릅니다. 지금: ', recipe()),
             row('동시생성', '켜면 메인 모델이 답변을 쓰면서 그 답변의 삽화 연출도 함께 씁니다. 연출 모델에 따로 묻지 않아 그림이 빨리 시작됩니다.',
                 '메인 모델에 보내는 글이 조금 길어집니다. 함께 쓴 연출은 채팅 화면에 보이지 않습니다. 자동 그리기를 끄면 메인 모델에 연출을 붙이지 않습니다. 연출을 받지 못한 답변과 그룹 봇 · 이어 쓰기 · 씬 재구성은 연출 모델이 따로 맡습니다. 삽화 › 준비 ② 연출 방식에서 고른 값과 같습니다(기본 켬).',
                 toggle(!!s.cogen, () => setVal('cogen', !s.cogen))),
@@ -9268,9 +9294,10 @@ Return JSON only: {"kind":""}`;
         const ci = await api.getCurrentCharacterIndex();
         if (!Number.isInteger(ci) || ci < 0) return '';
         const hit = chaIdAt.get(ci);
-        if (hit && Date.now() - hit.t < CHA_TTL) return hit.p;
+        if (hit && Date.now() - hit.t < CHA_TTL) { void hit.p.then(id => { if (id) lastCha = id; }); return hit.p; }
         const p = api.getCharacterFromIndex(ci).then(c => c?.chaId ?? '', () => '');
         chaIdAt.set(ci, { p, t: Date.now() });
+        void p.then(id => { if (id) lastCha = id; });
         return p;
     }
 
@@ -9361,11 +9388,14 @@ Return JSON only: {"kind":""}`;
     const ICON_SHADOW = `<path d="${CLOUD_D_LOW}" fill="#0f172a59" transform="translate(.9,1.1)"/><path d="${CLOUD_D_LOW}" fill="#0f172a40" transform="translate(.45,.55)"/>`;
     const ICON_ART = id => '<g transform="translate(12,14.1) scale(1.35) translate(-12,-13.3)">'
         + cloudArt(id, CLOUD_D_LOW).replace('</defs>', '</defs>' + ICON_SHADOW) + '</g>';
+    const ICON_TEXT_SHADOW = [['1.2', '1.5', '#0f172a59'], ['.6', '.75', '#0f172a40']].map(([x, y, c]) =>
+        `<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="${c}" transform="translate(${x},${y})">이매진</text>`).join('');
     const MENU_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
         + '<g transform="translate(-2,-2)">' + ICON_ART('nc_cloud_m') + '</g>'
         + '</svg>';
     const SIDE_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
         + '<g transform="translate(-2,-8.23)">' + ICON_ART('nc_cloud_s') + '</g>'
+        + ICON_TEXT_SHADOW
         + '<text x="10" y="26.97" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">이매진</text>'
         + '</svg>';
     const INBTN_ICON = SIDE_ICON.replace('width="20" height="20"', 'width="17" height="17"').replace(/nc_cloud_s/g, 'nc_cloud_i');
@@ -9465,11 +9495,38 @@ Return JSON only: {"kind":""}`;
         const off = keyKnown === false;
         return `<span class="nc-gen nc-at-{{chat_index}}${div ? ' nc-gd' : ''}" style="${genStyle(off ? 'need' : 'idle', false, div)}">${IMG_SVG}${off ? GEN_TEXT.nokey : GEN_TEXT.idle}</span>`;
     }
+    const AUTO_SPK = ico(15, '<path d="M11 5 6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/>');
+    const AUTO_BASE = { display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', boxSizing: 'border-box', minWidth: '40px', minHeight: '28px', margin: '0', padding: '3px 13px 3px 11px',
+        fontSize: '12.5px', lineHeight: '1.3', borderWidth: '0', borderStyle: 'solid', borderColor: PILL_LINE, borderRadius: '0', background: 'transparent', color: PILL_INK,
+        userSelect: 'none', cursor: 'pointer', transition: 'filter .18s,opacity .18s', whiteSpace: 'nowrap' };
+    const AUTO_DOT_OFF = { '--nc-dot': '#6b6f80', '--nc-glow': 'none' };
+    const AUTO_LOOKS = {
+        on: { opacity: '1', '--nc-dot': '#5ff0b0', '--nc-glow': '0 0 4px 1px rgba(95,240,176,.9),0 0 10px 3px rgba(79,191,143,.45)' },
+        off: { opacity: '1', ...AUTO_DOT_OFF },
+        need: { opacity: '.35', ...AUTO_DOT_OFF },
+    };
+    const AUTO_DOT = cssImp({ display: 'inline-block', flex: '0 0 auto', width: '7px', height: '7px', margin: '0', padding: '0', border: '0', borderRadius: '50%',
+        background: 'var(--nc-dot)', boxShadow: 'var(--nc-glow)', transition: 'background .18s,box-shadow .18s' });
+    const autoStyle = (look, div) => cssImp({ ...AUTO_BASE, ...AUTO_LOOKS[look], ...(div ? { borderWidth: '0 1px 0 0' } : {}) });
+    function autoLook(kind, chaId) {
+        if (kind === 'img') return keyKnown === false || !setupDone() ? 'need' : autoImgOf(chaId) ? 'on' : 'off';
+        return !voice?.ttsReady?.() ? 'need' : voice.autoOn(chaId) ? 'on' : 'off';
+    }
+    const AUTO_TITLE = { img: '이 봇의 그림 자동 생성 켜기 · 끄기', tts: '이 봇의 TTS 자동 생성 켜기 · 끄기' };
+    function autoCell(kind, chaId, div) {
+        const look = autoLook(kind, chaId);
+        return `<span class="nc-auto-c nc-auto-${kind} nc-al-${look}${div ? ' nc-ad' : ''}" title="${AUTO_TITLE[kind]}" style="${autoStyle(look, div)}"><span class="nc-auto-dot" style="${AUTO_DOT}"></span>${kind === 'img' ? IMG_SVG : AUTO_SPK}자동</span>`;
+    }
+    function autoHtml() {
+        const tts = !!voice;
+        return `<div class="nc-auto" style="${UNI_STYLE}">${autoCell('img', lastCha, tts)}${tts ? autoCell('tts', lastCha, false) : ''}</div>`;
+    }
     const IF_CHAR = '{{#if {{equal::{{role}}::char}}}}';
     function uniHtml() {
         if (rootDenied()) return '';
         const slot = voice?.slot?.() ?? '';
-        const tail = slot ? IF_CHAR + slot + '{{/if}}' : '';
+        const first = '{{#if {{and::{{equal::{{role}}::char}}::{{isfirstmsg}}}}}}' + autoHtml() + '{{/if}}';
+        const tail = first + (slot ? IF_CHAR + slot + '{{/if}}' : '');
         const gen = st.set.ubtn !== 'none';
         const tts = st.set.vbtn !== 'none' ? voice?.seg?.() ?? '' : '';
         if (!gen && !tts) return tail;
@@ -9631,8 +9688,8 @@ Return JSON only: {"kind":""}`;
     const rootDenied = () => root.done && !root.doc;
     const panSel = () => st.set.panelBtn ? '.nc-panbtn' : '';
     const inRect = (r, e) => !!r && e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-    const HOVER_SEL = '.nc-panbtn:hover, .x-risu-nc-gen:hover, .x-risu-nc-act-b:hover, .x-risu-nc-fig:hover';
-    const HOVER_STATE_RE = /^(x-risu-)?nc-(s-[\w-]+|uv|on|armed|u-on|u-off)$/;
+    const HOVER_SEL = '.nc-panbtn:hover, .x-risu-nc-gen:hover, .x-risu-nc-act-b:hover, .x-risu-nc-fig:hover, .x-risu-nc-auto-c:hover';
+    const HOVER_STATE_RE = /^(x-risu-)?nc-(s-[\w-]+|uv|on|armed|u-on|u-off|al-on|al-off|al-need)$/;
     const hoverKey = cls => String(cls ?? '').split(/\s+/).filter(c => c && !HOVER_STATE_RE.test(c)).sort().join(' ');
     async function hoverCheck(d, event) {
         const ours = (async () => {
@@ -10012,6 +10069,42 @@ Return JSON only: {"kind":""}`;
         await paintGen();
         await paintFigs();
         await paintUndo();
+        await paintAuto();
+    }
+    async function paintAuto() {
+        const d = root.doc;
+        if (!root.on || !d) return;
+        const els = await d.querySelectorAll('.x-risu-nc-auto-c');
+        const n = await els.length();
+        if (!n) return;
+        const chaId = await curChaId().catch(() => '');
+        for (let i = 0; i < n; i++) {
+            const el = await els.at(i);
+            const cls = String(await el.getClassName() ?? '');
+            const kind = /(?:^|\s)x-risu-nc-auto-(img|tts)(?:\s|$)/.exec(cls)?.[1];
+            if (!kind) continue;
+            const look = autoLook(kind, chaId);
+            if (new RegExp('(?:^|\\s)(?:x-risu-)?nc-al-' + look + '(?:\\s|$)').test(cls)) continue;
+            await el.setStyleAttribute(autoStyle(look, /(?:^|\s)(?:x-risu-)?nc-ad(?:\s|$)/.test(cls)));
+            await el.setClassName(cls.split(/\s+/).filter(c => c && !/^(x-risu-)?nc-al-/.test(c)).concat(['x-risu-nc-al-' + look]).join(' '));
+        }
+    }
+    async function autoClick(kind) {
+        if (doubleTap('a:' + kind)) return;
+        try {
+            const chaId = await curChaId().catch(() => '');
+            if (!chaId) return;
+            if (kind === 'img' && (!(await naiKey()) || !setupDone())) { await openSettings(); return; }
+            if (kind === 'tts' && !voice?.ttsReady?.()) { if (!voice) return; ui.vtab = 'ready'; await openPanel({ mode: 'voice' }); return; }
+            const cur = kind === 'img' ? autoImgOf(chaId) : voice.autoOn(chaId);
+            botAuto = { ...botAuto, [chaId]: { ...(botAuto[chaId] ?? {}), [kind]: !cur } };
+            await saveBotAuto();
+            if (kind === 'tts') await voice.syncListen?.();
+            await paintAuto();
+            renderNow();
+        } catch (error) {
+            console.error(LOG, 'auto click', error);
+        }
     }
     async function paintUndo() {
         const d = root.doc;
@@ -10044,6 +10137,19 @@ Return JSON only: {"kind":""}`;
         if (pb && inRect(await pb.getBoundingClientRect(), event)) {
             if (await onTop(pb)) void openPanel().catch(error => console.error(LOG, 'panel', error));
             return;
+        }
+        {
+            const autos = await d.querySelectorAll('.x-risu-nc-auto-c');
+            const n = await autos.length();
+            for (let i = 0; i < n; i++) {
+                const el = await autos.at(i);
+                const r = await el.getBoundingClientRect();
+                if (!(r?.width > 0) || !inRect(r, event)) continue;
+                if (!await onTop(el)) return;
+                const kind = /(?:^|\s)x-risu-nc-auto-(img|tts)(?:\s|$)/.exec(String(await el.getClassName() ?? ''))?.[1];
+                if (kind) await autoClick(kind);
+                return;
+            }
         }
         if (st.set.ubtn !== 'none') {
             const gens = await d.querySelectorAll('.x-risu-nc-gen');
@@ -11809,7 +11915,7 @@ Rules:
         const ptOff = !!st.view?.chaId && st.set.ptOff.includes(st.view.chaId);
         const nPr = PTABS.filter(([id]) => prFilled(id)).length;
         const nMy = voice?.myCount?.() ?? 0;
-        const lit = { imagine: !!st.set.auto && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice?.lit?.(), talk: !!voice?.talkLit?.(), prompt: nPr > 0, style: true, myvoice: nMy > 0 };
+        const lit = { imagine: autoImgOf(lastCha) && setupDone(), asset: nAst > 0 && !ptOff, voice: !!voice?.lit?.(), talk: !!voice?.talkLit?.(), prompt: nPr > 0, style: true, myvoice: nMy > 0 };
         const tip = {
             imagine: lit.imagine ? '자동 그리기 on' : setupDone() ? '자동 그리기 off' : '준비 전',
             asset: lit.asset ? `에셋 ${nAst}장 있음` : nAst ? `에셋 ${nAst}장 · 채팅에 보이기 off` : '아직 만든 에셋 없음',
@@ -15938,10 +16044,15 @@ Rules:
     }
 
     let listenOn = false;
+    const autoOn = chaId => {
+        const v = host.botAuto?.(chaId);
+        return typeof v === 'boolean' ? v : !!st.set.auto;
+    };
+    const wantListen = () => !!st.set.auto || !!host.anyBotTts?.();
     async function onChatOutput(arg) {
         try {
             const idx = Number(arg?.messageIndex);
-            if (!st.set.auto || !root.on || !Number.isInteger(idx) || idx < 0) return;
+            if (!autoOn(arg?.char?.chaId) || !root.on || !Number.isInteger(idx) || idx < 0) return;
             if (ns.armed || ns.got || Date.now() < ns.mute) return;
             const w = { ci: arg.characterIndex, chi: arg.chatIndex, char: arg.char, chat: arg.chat };
             if (jobAt(w.ci, w.chi, idx) || keyKnown === false) return;
@@ -15951,11 +16062,12 @@ Rules:
         }
     }
     async function syncListen() {
-        if (st.set.auto === listenOn) return;
+        const want = wantListen();
+        if (want === listenOn) return;
         try {
-            if (st.set.auto) await api.addRisuChatListener('output', onChatOutput);
+            if (want) await api.addRisuChatListener('output', onChatOutput);
             else await api.removeRisuChatListener?.('output', onChatOutput);
-            listenOn = !!st.set.auto;
+            listenOn = want;
         } catch (error) {
             console.warn(LOG, 'chat listener', error);
         }
@@ -16666,10 +16778,10 @@ Rules:
         if (part === 'voice') return [
             msgBox(),
             sGrp('vread', '읽기 설정',
-                sRow('자동 읽기', (st.set.auto
-                        ? '봇 답변이 다 만들어지면 「🔊 읽기」를 누르지 않아도 바로 만들어 틉니다. 처음 켤 때 리수가 권한을 묻습니다. 거절하면 자동 읽기가 되지 않으니, 그때는 플러그인을 다시 켜고 허용해 주세요.'
-                        : '「🔊 읽기」를 누를 때만 읽습니다.'),
-                    seg([['on', 'on (기본)'], ['off', 'off']], st.set.auto ? 'on' : 'off', id => { set('auto', id === 'on'); void syncListen(); })),
+                sRow('자동 읽기 기본 상태', (st.set.auto
+                        ? '첫 메시지 아래 「🔊 자동」을 아직 누르지 않은 봇은 답변이 다 만들어지면 「🔊 읽기」를 누르지 않아도 바로 만들어 틉니다. 처음 켤 때 리수가 권한을 묻습니다. 거절하면 자동 읽기가 되지 않으니, 그때는 플러그인을 다시 켜고 허용해 주세요.'
+                        : '첫 메시지 아래 「🔊 자동」을 아직 누르지 않은 봇은 「🔊 읽기」를 누를 때만 읽습니다.') + ' 봇마다 다르게 하려면 그 봇 첫 메시지 아래 「🔊 자동」을 누르세요. 한 번 고른 봇은 이 값을 바꿔도 그대로입니다.',
+                    seg([['on', 'on (기본)'], ['off', 'off']], st.set.auto ? 'on' : 'off', id => { set('auto', id === 'on'); void syncListen(); host.paintAuto?.(); })),
                 sRow('언어 코드', '한국어 ko-KR · 일본어 ja-JP · 영어 en-US. 모델은 글을 보고 읽을 언어를 알아서 정합니다. 이 값으로는 라이브러리 창이 처음 보여 줄 언어와, 모델이 새 인물 목소리를 고를 라이브러리 언어(ja로 시작하면 일본어, en으로 시작하면 영어, 그 밖에는 한국어)도 이 값으로 정합니다.',
                     seg([['ko-KR', '한국어'], ['ja-JP', '일본어'], ['en-US', '영어']], st.set.lang, id => set('lang', id), 'sm'),
                     h('input', { class: 'vf-num', style: 'width:110px;text-align:left', value: st.set.lang, onchange: e => set('lang', e.target.value.trim() || 'ko-KR') })),
@@ -17147,15 +17259,15 @@ Rules:
         return h('div', { class: 'fn-card' + (fresh ? ' fn-rise' : ''), style: fresh ? `--fe:${el}ms` : null },
             h('div', { class: 'fn-top' }, ok,
                 h('div', { class: 'fn-tt' }, h('b', null, '준비가 끝났습니다.'),
-                    h('span', null, st.set.auto ? '봇 답변이 끝날 때마다 자동으로 읽어 줍니다.' : '자동 읽기가 꺼져 있으니, 봇 답변 아래 「🔊 읽기」를 눌러 들으세요.'))),
+                    h('span', null, st.set.auto ? '봇 답변이 끝날 때마다 자동으로 읽어 줍니다. 봇마다 첫 메시지 아래 「🔊 자동」을 눌러 끌 수 있습니다.' : '자동 읽기가 기본으로 꺼져 있습니다. 봇마다 첫 메시지 아래 「🔊 자동」을 눌러 켜거나, 봇 답변 아래 「🔊 읽기」를 눌러 들으세요.'))),
             h('ul', { class: 'fn-ck' },
                 li(st.set.castLlm === 'submodel' ? '등장인물은 보조 모델이 분석합니다' : '등장인물은 메인 모델이 분석합니다'),
                 li(`${MODELS.find(m => m[0] === st.set.model)?.[1] ?? st.set.model} 모델로 목소리를 만듭니다`),
                 li(st.set.read === 'all' ? '대사와 내레이션을 모두 읽습니다' : '따옴표 안의 대사만 읽습니다', st.set.read === 'all' ? '내레이션은 내레이션 목소리로' : '내레이션은 화자를 정할 때만 참고'),
                 li('화자는 메인 모델이 답변과 함께 정합니다', `↻ 다시 만들기는 ${st.set.regen === 'model' ? '메인' : '보조'} 모델이 다시 나눕니다`)),
             h('div', { class: 'cf-row sw' },
-                h('div', { class: 'cf-tx' }, h('b', null, '답변이 오면 자동으로 읽기'), h('p', null, '봇 답변이 끝날 때마다 그 답변을 바로 읽어 줍니다. 처음 켤 때 리수가 권한을 묻습니다.')),
-                host.toggle(st.set.auto, () => { st.set.auto = !st.set.auto; void saveSet(); void syncListen(); render(); paintSoon(true); })),
+                h('div', { class: 'cf-tx' }, h('b', null, '자동 읽기 기본 상태'), h('p', null, '첫 메시지 아래 「🔊 자동」을 아직 누르지 않은 봇에 씁니다. 켜면 그런 봇은 답변이 끝날 때마다 읽고, 끄면 읽지 않습니다. 이미 고른 봇은 그 봇의 값대로 둡니다. 처음 켤 때 리수가 권한을 묻습니다.')),
+                host.toggle(st.set.auto, () => { st.set.auto = !st.set.auto; void saveSet(); void syncListen(); render(); paintSoon(true); host.paintAuto?.(); })),
             h('div', { class: 'fn-go' },
                 h('button', { class: 'ix-btn main' + (st.set.auto ? '' : ' gray'), type: 'button', onclick: () => host.closePanel() }, '채팅으로 돌아가기')));
     }
@@ -17740,8 +17852,9 @@ Rules:
     wantRoot();
     await syncListen();
     return { pane, chipText, status, bar: btnHtml, seg: segHtml, slot: slotHtml, onOpen, onClose, unload, talkList: () => { ui.talk.list = true; }, talkListOn: () => !!(ui.talk.list && ui.view), talkFull: () => !!st.set.talkFull, talkCount: () => Object.values(ui.view?.talk ?? {}).reduce((n, log) => n + log.filter(m => m.r === 'c').length, 0), ready: () => keyKnown === true && setupOf() >= SETUP.length,
-        lit: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto && ui.conn !== false,
-        ttsInject: () => keyKnown === true && setupOf() >= SETUP.length && !!st.set.auto,
+        lit: () => keyKnown === true && setupOf() >= SETUP.length && autoOn(host.curCha?.()) && ui.conn !== false,
+        ttsInject: chaId => keyKnown === true && setupOf() >= SETUP.length && autoOn(chaId),
+        ttsReady: () => keyKnown === true && setupOf() >= SETUP.length, autoOn, autoDefault: () => !!st.set.auto, syncListen,
         talkReady, talkLit: () => talkReady(), talkStatus: () => talkReady() ? '대화 가능' : `준비 ${talkSetupOf()}/${TSETUP.length}`,
         castLlm: castMode, castBusy: () => !!cast, castRun: () => cast ? Promise.resolve() : castClick(), castStop: () => { if (cast) void castClick(); },
         castProgress, castFoot, castMsg: msgBox, syncView, voiceMatch, voiceRows, voiceNames, setPart, castAutoRow, embed,
@@ -17791,10 +17904,12 @@ Rules:
     }
 
     await loadPrefs();
+    await loadBotAuto();
     await nsLoad();
     voice = await startVoice({ ui, rootDoc, dropBlocks, render: renderNow, setRow: r1, setHint: hint1, setGrp: g1, nsfwText, nsLowText, nsfwBody: nsBody, talkReply: () => prOff('talkReply') ? '' : st.set.talkReply, prOff, introBody, nsfwSt: () => !!st.set.nsfw?.st, nsfwHas: () => { const c = nsCount(); return c.got + c.my > 0; }, nsfwOn: rail => !!st.set.nsfw?.on?.[rail], setNsfwOn: (rail, on) => nsSet({ on: { ...(st.set.nsfw?.on ?? {}), [rail]: !!on } }), mainArt: () => ({ preset: st.presetId, llm: st.set.llm, bubbles: !!st.set.bubbles }), openPanel, copyText, closePanel, toggle, armButton, delButton, goMode, openApp, openStyleFor, goRet, talkDraw, talkRedraw, talkAssetPrune, talkBrief, talkPlanOf, naiKey, SIZES, sizeWH, presets: () => st.presets,
         thumbUrl, dropThumb, showBig, loadThumbs, anlas: () => nlChip(false), acAnlas, faceKeysOf,
-        presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn, vdl: () => !!st.set.vdl, saveFile: bkSave }).catch(error => { console.error(LOG, 'voice', error); return null; });
+        presetGrid, modelPick, talkNaiModel: talkNaiModelOf, setTalkNaiModel: m => { st.set = { ...st.set, talkNaiModel: m }; saveSet(); }, vbtn: () => st.set.vbtn, vdl: () => !!st.set.vdl, saveFile: bkSave,
+        botAuto: chaId => botPick('tts', chaId), anyBotTts: () => anyBotOn('tts'), curCha: () => lastCha, paintAuto: () => void rootQueue(paintAuto) }).catch(error => { console.error(LOG, 'voice', error); return null; });
     void ilLoadPlan();
     const onPanelButton = () => { openPanel().catch(error => console.error(LOG, 'panel', error)); };
     const panelButtons = [];
