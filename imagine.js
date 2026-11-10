@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.113.4
+//@display-name 💠 이매진 v5.114.0
 //@api 3.0
-//@version 5.113.4
+//@version 5.114.0
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.113.4';
+    const VERSION = '5.114.0';
     const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
     const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
     const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad8ff"/><stop offset=".5" stop-color="#c3a6ff"/><stop offset="1" stop-color="#ffb3dc"/></linearGradient></defs>`
@@ -8094,41 +8094,47 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         if (t && snap) snap.voices.push(t);
         return !!t;
     }
-    function castCmdLines(v) {
+    function castRecords(v) {
         const s = liveState(v);
+        const fill = o => Object.fromEntries(WEAR_KEYS.map(k => [k, tidy(o?.[k])]).filter(([, x]) => x));
         const own = v.cast.list.map(e => {
-            const now = s.wear[e.id] ?? {};
-            const slots = WEAR_KEYS.map(k => {
-                const b = tidy(e.wear?.[k]), n = tidy(now[k]);
-                return b || n ? `${k}=${n ? `${n} (now; base ${b || '-'})` : b}` : '';
-            }).filter(Boolean).join('; ');
+            const r = { key: e.key, name: e.name };
+            if (e.aliases?.length) r.aliases = e.aliases;
+            r.source = isPersona(e) ? 'persona' : e.src ?? '-';
+            r.type = e.type;
+            if (e.kind) r.kind = e.kind;
+            r.canon = tidy(e.canon);
+            r.look = tidy(e.look);
+            r.base = fill(e.wear);
+            const now = fill(s.wear[e.id]);
+            if (Object.keys(now).length) r.now = now;
             const sk = SKIP_KEYS.filter(k => e.skip?.[k]);
-            return `- key: ${e.key} | name: ${e.name}${e.aliases?.length ? ` | aliases: ${e.aliases.join(', ')}` : ''} | source: ${isPersona(e) ? 'persona' : e.src ?? '-'}`
-                + ` | type: ${e.type}${e.kind ? ` (${e.kind})` : ''} | canon: ${tidy(e.canon) || '-'}${sk.length ? ` | skipped: ${sk.join(', ')}` : ''}`
-                + ` | voice: ${castVoiceOf(v, e) ? 'yes' : '-'}`
-                + `\n  look: ${tidy(e.look) || '-'}\n  slots: ${slots || '-'}`;
+            if (sk.length) r.skip = Object.fromEntries(sk.map(k => [k, true]));
+            r.voice = !!castVoiceOf(v, e);
+            return JSON.stringify(r);
         }).join('\n');
         const vo = voiceOnlyOf(v);
-        return own + (vo.length ? `\n\nVOICE ONLY (a TTS voice but no appearance entry; key is the name)\n${vo.map(x => `- key: ${x.name}${x.aliases.length ? ` | aliases: ${x.aliases.join(', ')}` : ''} | gender: ${x.gender}${x.persona ? ' | persona' : ''}`).join('\n')}` : '');
+        return own + (vo.length ? `\n\nVOICE ONLY (a TTS voice but no appearance record; key is the name)\n${vo.map(x => JSON.stringify({ key: x.name, ...(x.aliases.length ? { aliases: x.aliases } : {}), gender: x.gender, ...(x.persona ? { source: 'persona' } : {}), voice_only: true })).join('\n')}` : '');
     }
-    const CAST_CMD_SYS = `You edit the character list of an image-generation plugin. The user writes one command (usually Korean). Turn it into operations.
-Return JSON only: {"understood":true,"ops":[{"op":"","key":"","groups":[],"slot":"","value":""}]}
+    const SLOT_HELP = `hairstyle (hair length and style), bangs, haircolor, hair_extra (hats, hair ornaments), eyes (eye color), height, body (body size and build), body_extra (changing body states: sweat, bandages, wounds, tattoos, makeup), top, bottom, shoes, outfit_extra (necklaces, gloves, bags, capes and anything not in top · bottom · shoes)`;
+    const CAST_EDIT_SYS = `You edit the character database of an image-generation plugin directly. CAST has one JSON record per character. The user writes one command (usually Korean). Change the records to carry it out.
+Return JSON only: {"understood":true,"entries":[{"key":"<key from CAST>", ...only the fields you change}]}
 
-ops:
-- "skip": stop putting these groups of the character into pictures. The stored values stay. groups: "hair" (hairstyle, bangs, haircolor, hair_extra), "body" (eyes, height, body, body_extra), "outfit" (top, bottom, shoes, outfit_extra), "look" (other features).
-- "unskip": put these groups back. Empty groups = all groups.
-- "canon_only": keep only the canon tag (skip all four groups). Only for characters whose canon is not "-".
-- "set": change one slot for this chat only. slot is one of: ${WEAR_KEYS.join(', ')}. value is short English danbooru tags; "none" means not wearing it. One op per slot. A one-piece outfit such as a swimsuit or dress goes in top, with bottom "none".
-- "delete": remove the character from the list. Its TTS voice is removed too.
-- "delete_voice": remove only the TTS voice of the character. The appearance entry stays.
+Fields you may change
+- name; aliases (list, at most 6); type: "girl" | "boy" | "other"; kind (short Korean noun for what the being is, only with type "other"); canon (danbooru character tag such as "uchiha sasuke (naruto)", "" to clear); look (other permanent features such as ears, horns, tail, glasses).
+- base: the character's usual appearance, an object of slots. Slots: ${SLOT_HELP}.
+- now: this chat only (the current scene), same slots. "none" means not wearing it now. "" removes the override so base applies again.
+- skip: {"hair":true} leaves that group out of pictures (stored values stay), false puts it back. Groups: hair (hairstyle, bangs, haircolor, hair_extra), body (eyes, height, body, body_extra), outfit (top, bottom, shoes, outfit_extra), look.
+- voice: null removes only the character's TTS voice.
+- delete: true removes the character together with its TTS voice.
 
-Rules:
-- key is a key from CAST (VOICE ONLY included), or "*" for every character. Match names, aliases and keys.
-- 「지워줘」 · 「없애줘」 on a character alone means delete. On 머리 · 몸 · 옷 · 특징 it means skip those groups. On 목소리 · 음성 · 보이스 it means delete_voice.
-- VOICE ONLY characters have only a voice: delete and delete_voice both remove that voice. No other op works on them.
-- 「다시 넣어줘」 means unskip.
-- If the command is unclear, or names nobody in CAST, return {"understood":false,"ops":[]}.
-- No other ops. No explanation.`;
+Rules
+- Return only the records you change, and in them only the fields you change. Copy key exactly from CAST. Never change a key and never add a new key.
+- Clothes and states for the current scene (changing clothes, undressing, getting wet or hurt) go in now. Permanent appearance or identity (hair color, gender, canon) goes in base or the top-level fields.
+- All tag values are short English danbooru tags. A one-piece outfit such as a swimsuit or dress goes in top, with bottom "none".
+- VOICE ONLY records have only a voice: only delete or voice: null works on them.
+- 「지워줘」 · 「없애줘」 on a character alone means delete. On 머리 · 몸 · 옷 · 특징 it means skip those groups. On 목소리 · 음성 · 보이스 it means voice: null. 「다시 넣어줘」 means skip false.
+- If the command is unclear, or names nobody in CAST, return {"understood":false,"entries":[]}. No explanation.`;
     const CAST_CLEAN_SYS = `You tidy the character list of an image-generation plugin. CANDIDATES are characters the plugin picked up from the chat.
 Pick the minor extras that are unlikely to appear again: unnamed guards, clerks, passers-by, crowd members, characters that showed up once and left.
 Keep anyone who appears in the RECENT STORY, anyone close to the main characters, and anyone the plot still needs.
@@ -8136,87 +8142,125 @@ Return JSON only: {"remove":["key"],"keep":[{"key":"","why":"short reason in Kor
     const CAST_KIND_SYS = `Name what kind of being this character is, as a short Korean noun of one to three words (examples: 포켓몬, 고양이, 로봇, 드래곤, 슬라임, 요정). If the character comes from a known series, use that series' word for its kind.
 Return JSON only: {"kind":""}`;
 
-    function castApply(v, ops, snap = null) {
-        const s = liveState(v), out = [], no = [];
-        const find = key => {
-            const k = tidy(key).toLowerCase();
-            if (!k) return [];
-            if (k === '*') return [...v.cast.list];
-            return v.cast.list.filter(e => e.key?.toLowerCase() === k || tidy(e.name).toLowerCase() === k || (e.aliases ?? []).some(a => tidy(a).toLowerCase() === k));
+    function castDelete(v, ents, snap, no = []) {
+        const s = liveState(v), del = [];
+        let voices = 0;
+        for (const e of ents) {
+            if (!v.cast.list.includes(e)) continue;
+            if (isPersona(e)) { no.push(`${josa(e.name, '은', '는')} 페르소나라서 지우지 않습니다.`); continue; }
+            const f = castVoiceOf(v, e);
+            if (f && !f.persona && takeVoice(v, f.name, snap)) voices++;
+            v.cast.list = v.cast.list.filter(x => x !== e);
+            delete s.wear[e.id];
+            ui.castOpen?.delete(e.id);
+            del.push(e);
+        }
+        return { del, voices };
+    }
+    const TYPE_KO = { girl: '여자', boy: '남자', other: '기타' };
+    function castPatch(v, entries, snap) {
+        const s = liveState(v), out = [], no = [], vdel = [], dels = [];
+        const find = r => {
+            const id = tidy(r.id), k = tidy(r.key).toLowerCase();
+            if (id) { const e = v.cast.list.find(x => x.id === id); if (e) return e; }
+            if (!k) return null;
+            return v.cast.list.find(e => e.key?.toLowerCase() === k)
+                ?? v.cast.list.find(e => tidy(e.name).toLowerCase() === k || (e.aliases ?? []).some(a => tidy(a).toLowerCase() === k)) ?? null;
         };
-        const groupsOf = o => [...new Set((Array.isArray(o.groups) ? o.groups : [o.groups]).map(g => String(g ?? '').toLowerCase()).filter(g => SKIP_KEYS.includes(g)))];
-        const del = [], canon = [], skip = new Map(), unskip = new Map(), set = [], vdel = [];
-        let delV = 0;
-        const note = (m, e, gs) => { const k = gs.join(','); m.set(k, [...(m.get(k) ?? []), e]); };
+        const show = x => tidy(x) || '(비움)';
         const dropVoice = (f, label) => {
-            if (!f) return false;
-            if (f.persona) { no.push(`${josa(label, '은', '는')} 페르소나 목소리라서 지우지 않습니다.`); return false; }
-            return takeVoice(v, f.name, snap);
+            if (!f || vdel.includes(label)) return;
+            if (f.persona) { no.push(`${josa(label, '은', '는')} 페르소나 목소리라서 지우지 않습니다.`); return; }
+            if (takeVoice(v, f.name, snap)) vdel.push(label);
         };
-        for (const o of Array.isArray(ops) ? ops : []) {
-            if (!isObj(o)) continue;
-            const op = String(o.op ?? '').toLowerCase(), ents = find(o.key);
-            if (op === 'delete' || op === 'delete_voice') {
-                if (tidy(o.key) === '*') { no.push('한꺼번에 모두 지우기는 하지 않습니다. 이름을 알려 주세요.'); continue; }
-                if (!ents.length) {
-                    const f = voice?.voiceFind(v.chaId, o.key);
-                    if (f && !vdel.includes(f.name) && dropVoice(f, f.name)) vdel.push(f.name);
-                    continue;
-                }
-                for (const e of ents) {
-                    if (op === 'delete_voice') {
-                        const f = castVoiceOf(v, e), label = e.name || e.key;
-                        if (!f) { no.push(`${josa(label, '은', '는')} 목소리가 없습니다.`); continue; }
-                        if (!vdel.includes(label) && dropVoice(f, label)) vdel.push(label);
-                        continue;
-                    }
-                    if (isPersona(e)) { no.push(`${e.name}${josa(e.name, '은', '는')} 페르소나라서 지우지 않습니다.`); continue; }
-                    const f = castVoiceOf(v, e);
-                    if (f && !f.persona && takeVoice(v, f.name, snap)) delV++;
-                    v.cast.list = v.cast.list.filter(x => x !== e);
-                    delete s.wear[e.id];
-                    ui.castOpen?.delete(e.id);
-                    del.push(e);
-                }
+        let touched = false;
+        for (const r of Array.isArray(entries) ? entries : []) {
+            if (!isObj(r)) continue;
+            const e = find(r);
+            if (!e) {
+                if (r.delete === true || r.voice === null) { const f = voice?.voiceFind(v.chaId, tidy(r.key)); if (f) dropVoice(f, f.name); }
                 continue;
             }
-            for (const e of ents) {
-                if (!v.cast.list.includes(e)) continue;
-                if (op === 'canon_only') {
-                    if (!tidy(e.canon)) { no.push(`${e.name}${josa(e.name, '은', '는')} 원작 태그가 없어 그대로 두었습니다.`); continue; }
-                    e.skip = normSkip({ hair: true, body: true, outfit: true, look: true });
-                    canon.push(e);
-                } else if (op === 'skip') {
-                    const gs = groupsOf(o);
-                    if (!gs.length) continue;
-                    e.skip = normSkip({ ...e.skip, ...Object.fromEntries(gs.map(g => [g, true])) });
-                    note(skip, e, gs);
-                } else if (op === 'unskip') {
-                    const gs = groupsOf(o);
-                    const all = gs.length ? gs : SKIP_KEYS;
-                    if (!all.some(g => e.skip?.[g])) continue;
-                    const nx = { ...e.skip };
-                    for (const g of all) delete nx[g];
-                    e.skip = normSkip(nx);
-                    note(unskip, e, all.filter(g => !nx[g]));
-                } else if (op === 'set') {
-                    const slot = String(o.slot ?? '').toLowerCase(), val = tidy(o.value);
-                    if (!WEAR_KEYS.includes(slot) || !val) continue;
-                    (s.wear[e.id] ??= {})[slot] = slotVal(slot, val) || val;
-                    const g = WEAR_GROUP[slot];
-                    if (g && e.skip?.[g]) { const nx = { ...e.skip }; delete nx[g]; e.skip = normSkip(nx); }
-                    set.push(`${e.name} ${WEAR_LABEL[slot]} → ${val}`);
+            if (r.delete === true) { if (!dels.includes(e)) dels.push(e); continue; }
+            const label = e.name || e.key, ch = [];
+            let base = false, meta = false;
+            const setTop = (k, val, ko, fmt = show) => {
+                if (val === undefined || (e[k] ?? '') === val) return;
+                ch.push(`${ko} ${fmt(e[k])} → ${fmt(val)}`);
+                e[k] = val; base = true;
+            };
+            const nm = typeof r.name === 'string' ? tidy(r.name) : '';
+            if (Array.isArray(r.aliases)) {
+                const al = [...new Set(r.aliases.map(tidy).filter(a => a && a !== (nm || e.name)))].slice(0, 6);
+                if (al.join('|') !== (e.aliases ?? []).join('|')) { ch.push(`별칭 → ${al.join(', ') || '(없음)'}`); e.aliases = al; base = true; }
+            }
+            if (nm && nm !== e.name) {
+                const old = e.name;
+                e.aliases = [...new Set([old, ...(e.aliases ?? [])].filter(a => tidy(a) && a !== nm))].slice(0, 6);
+                setTop('name', nm, '이름');
+            }
+            if (['girl', 'boy', 'other'].includes(r.type) && r.type !== e.type) {
+                setTop('type', r.type, '성별', x => TYPE_KO[x] ?? show(x));
+                if (e.type !== 'other') delete e.kind;
+            }
+            if (typeof r.kind === 'string' && e.type === 'other') setTop('kind', tidy(r.kind).slice(0, 20), '종류');
+            if (typeof r.canon === 'string') {
+                if (isPersona(e)) { if (tidy(r.canon)) no.push(`${josa(label, '은', '는')} 페르소나라서 원작 태그를 넣지 않습니다.`); }
+                else setTop('canon', canonTag(r.canon), '원작 태그');
+            }
+            if (typeof r.look === 'string') setTop('look', lookOf(r.look), '그 밖의 특징');
+            if (isObj(r.base)) {
+                for (const k of WEAR_KEYS) {
+                    if (typeof r.base[k] !== 'string') continue;
+                    const val = slotVal(k, r.base[k]);
+                    if (val === tidy(e.wear?.[k])) continue;
+                    ch.push(`${WEAR_LABEL[k]} ${show(e.wear?.[k])} → ${show(val)} (기본)`);
+                    (e.wear ??= emptyWear())[k] = val; base = true;
                 }
             }
+            if (isObj(r.skip)) {
+                const nx = { ...e.skip };
+                for (const g of SKIP_KEYS) { if (r.skip[g] === true) nx[g] = true; else if (r.skip[g] === false) delete nx[g]; }
+                const sk = normSkip(nx);
+                if (sk && SKIP_KEYS.every(g => sk[g]) && !tidy(e.canon)) no.push(`${josa(label, '은', '는')} 원작 태그가 없어 모든 칸을 빼지 않았습니다.`);
+                else if (JSON.stringify(sk) !== JSON.stringify(normSkip(e.skip))) {
+                    const on = SKIP_KEYS.filter(g => sk?.[g] && !e.skip?.[g]), off = SKIP_KEYS.filter(g => !sk?.[g] && e.skip?.[g]);
+                    if (on.length) ch.push(`${on.map(g => GROUP_KO[g]).join(' · ')} 칸을 그림에서 뺌(값은 남김)`);
+                    if (off.length) ch.push(`${off.map(g => GROUP_KO[g]).join(' · ')} 칸을 다시 넣음`);
+                    if (sk) e.skip = sk; else delete e.skip;
+                    meta = true;
+                }
+            }
+            if (isObj(r.now)) {
+                for (const k of WEAR_KEYS) {
+                    if (typeof r.now[k] !== 'string') continue;
+                    const raw = tidy(r.now[k]), cur = tidy(s.wear[e.id]?.[k]);
+                    if (!raw) {
+                        if (!cur) continue;
+                        delete s.wear[e.id][k];
+                        ch.push(`${WEAR_LABEL[k]} 기본값으로 (이 채팅만)`);
+                    } else {
+                        const val = slotVal(k, raw) || raw;
+                        if (val === cur) continue;
+                        (s.wear[e.id] ??= {})[k] = val;
+                        ch.push(`${WEAR_LABEL[k]} → ${val} (이 채팅만)`);
+                        const g = WEAR_GROUP[k];
+                        if (g && e.skip?.[g]) { const nx = { ...e.skip }; delete nx[g]; const sk = normSkip(nx); if (sk) e.skip = sk; else delete e.skip; meta = true; ch.push(`${GROUP_KO[g]} 칸을 다시 넣음`); }
+                    }
+                    touched = true;
+                }
+            }
+            if (r.voice === null) { const f = castVoiceOf(v, e); if (f) dropVoice(f, label); else no.push(`${josa(label, '은', '는')} 목소리가 없습니다.`); }
+            if (base) { normCast(e); castChanged(e); touched = true; } else if (meta) touched = true;
+            if (ch.length) out.push(`${label}: ${ch.join(', ')}`);
         }
-        for (const e of v.cast.list) if (e.skip == null) delete e.skip;
-        if (del.length) out.push(`${josa(nameList(del), '을', '를')} 지웠습니다${delV ? `(목소리 ${delV}개도 함께)` : ''}. 이야기에 다시 나오면 그릴 때 다시 생깁니다.`);
+        const others = v.cast.list.filter(e => !isPersona(e));
+        let del = [], delV = 0;
+        if (dels.length && others.length > 1 && others.every(e => dels.includes(e))) no.push('한꺼번에 모두 지우기는 하지 않습니다. 이름을 알려 주세요.');
+        else if (dels.length) ({ del, voices: delV } = castDelete(v, dels, snap, no));
+        if (del.length) out.unshift(`${josa(nameList(del), '을', '를')} 지웠습니다${delV ? `(목소리 ${delV}개도 함께)` : ''}. 이야기에 다시 나오면 그릴 때 다시 생깁니다.`);
         if (vdel.length) out.push(`${vdel.join(', ')}의 목소리를 지웠습니다. TTS가 이 인물의 대사를 다시 읽으면 목소리를 새로 정합니다.`);
-        if (canon.length) out.push(`${nameList(canon)}: 원작 태그만 남겼습니다. 머리 · 몸 · 옷 · 그 밖의 특징은 그림에 넣지 않습니다(적힌 값은 남겨 둡니다).`);
-        for (const [k, es] of skip) out.push(`${nameList(es)}: ${k.split(',').map(g => GROUP_KO[g]).join(' · ')} 칸을 그림에서 뺐습니다(적힌 값은 남겨 둡니다).`);
-        for (const [k, es] of unskip) out.push(`${nameList(es)}: ${k.split(',').map(g => GROUP_KO[g]).join(' · ')} 칸을 다시 넣었습니다.`);
-        if (set.length) out.push(`이 채팅에서만 바꿨습니다: ${set.join(', ')}`);
-        const changed = !!(del.length || canon.length || skip.size || unskip.size || set.length || vdel.length);
+        const changed = !!(touched || del.length || vdel.length);
         if (changed) { castChanged(); writeVarsSoon(v); }
         return { changed, voices: delV + vdel.length, text: [...out, ...no].join(' ') };
     }
@@ -8236,7 +8280,7 @@ Return JSON only: {"kind":""}`;
             if (clean) {
                 const cand = v.cast.list.filter(e => !isPersona(e) && e.src === 'chat' && !e.skip);
                 if (!cand.length) { castSay(L, null, '채팅에서 생긴 인물이 없어 지울 엑스트라가 없습니다. 로어북 · 페르소나 · 직접 고친 인물은 정리하지 않습니다.'); return; }
-                const user = `CAST (everyone)\n${castCmdLines(v)}\n\nCANDIDATES (keys)\n${cand.map(e => e.key).join(', ')}\n\nRECENT STORY\n${await castRecent(v)}`;
+                const user = `CAST (everyone)\n${castRecords(v)}\n\nCANDIDATES (keys)\n${cand.map(e => e.key).join(', ')}\n\nRECENT STORY\n${await castRecent(v)}`;
                 const r = await askJson(CAST_CLEAN_SYS, user, 'remove', x => Array.isArray(x.remove) ? '' : 'remove must be a list', busy);
                 const cv = live();
                 if (!cv) return void moved();
@@ -8248,16 +8292,17 @@ Return JSON only: {"kind":""}`;
                 const keepTxt = keep.length ? ` 남긴 인물: ${keep.map(k => k.why ? `${k.e.name}(${k.why})` : k.e.name).join(', ')}.` : '';
                 if (!gone.length) { castSay(L, null, `지울 엑스트라를 찾지 못했습니다.${keepTxt}`); return; }
                 const snap = castSnap(cv);
-                const res = castApply(cv, gone.map(e => ({ op: 'delete', key: e.key })), snap);
-                castSay(L, null, `엑스트라 ${gone.length}명을 지웠습니다: ${nameList(gone)}.${res.voices ? ` 목소리 ${res.voices}개도 함께 지웠습니다.` : ''}${keepTxt} 이야기에 다시 나오면 그릴 때 다시 생깁니다. 정리는 채팅에서 생긴 인물만 지웁니다.`, res.changed ? snap : null);
+                const res = castDelete(cv, gone, snap);
+                if (res.del.length) { castChanged(); writeVarsSoon(cv); }
+                castSay(L, null, `엑스트라 ${gone.length}명을 지웠습니다: ${nameList(gone)}.${res.voices ? ` 목소리 ${res.voices}개도 함께 지웠습니다.` : ''}${keepTxt} 이야기에 다시 나오면 그릴 때 다시 생깁니다. 정리는 채팅에서 생긴 인물만 지웁니다.`, res.del.length ? snap : null);
                 return;
             }
-            const user = `CAST\n${castCmdLines(v)}\n\nRECENT STORY\n${await castRecent(v, 4, 800)}\n\nCOMMAND\n${cmd}`;
-            const r = await askJson(CAST_CMD_SYS, user, 'ops', x => Array.isArray(x.ops) ? '' : 'ops must be a list', busy);
+            const user = `CAST (one JSON record per character)\n${castRecords(v)}\n\nRECENT STORY\n${await castRecent(v, 4, 800)}\n\nCOMMAND\n${cmd}`;
+            const r = await askJson(CAST_EDIT_SYS, user, 'entries', x => Array.isArray(x.entries) ? '' : 'entries must be a list', busy);
             const cv = live();
             if (!cv) return void moved();
             const snap = castSnap(cv);
-            const res = r.understood === false || !r.ops.length ? { changed: false, text: '' } : castApply(cv, r.ops, snap);
+            const res = r.understood === false || !r.entries.length ? { changed: false, text: '' } : castPatch(cv, r.entries, snap);
             if (!res.changed && !res.text) castSay(L, null, '무슨 뜻인지 못 알아들었습니다. 바꾼 것은 없습니다. 예: 「모든 인물 머리 다 지워줘」', null, true);
             else castSay(L, null, res.text || '바꾼 것은 없습니다.', res.changed ? snap : null, !res.changed);
         } catch (error) {
