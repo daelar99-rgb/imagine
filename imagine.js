@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.114.2
+//@display-name 💠 이매진 v5.114.3
 //@api 3.0
-//@version 5.114.2
+//@version 5.114.3
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.114.2';
+    const VERSION = '5.114.3';
     const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
     const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
     const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad8ff"/><stop offset=".5" stop-color="#c3a6ff"/><stop offset="1" stop-color="#ffb3dc"/></linearGradient></defs>`
@@ -8454,13 +8454,13 @@ Return JSON only: {"kind":""}`;
                     h('span', { class: 'cc-sw', onclick: ev => ev.stopPropagation(), onkeydown: ev => ev.stopPropagation() },
                         h('button', {
                             class: 'cc-clr' + (skipAll(e) ? ' on' : ''), type: 'button',
-                            title: skipAll(e) ? '복원: 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣기' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '머리 · 몸 · 옷 · 그 밖의 특징을 그림에서 빼기 (성별 · 동작만 남음)',
-                            'aria-label': skipAll(e) ? '복원' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '그림에서 칸 빼기',
+                            title: skipAll(e) ? '복원: 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣기' : tidy(e.canon) ? '기본 태그만 남기고 클리어' : '머리 · 몸 · 옷 · 그 밖의 특징을 그림에서 빼기 (성별 · 동작만 남음)',
+                            'aria-label': skipAll(e) ? '복원' : tidy(e.canon) ? '기본 태그만 남기고 클리어' : '그림에서 칸 빼기',
                             onclick: () => {
                                 const snap = castSnap(sv), back = skipAll(e);
                                 if (back) delete e.skip; else e.skip = normSkip({ hair: true, body: true, outfit: true, look: true });
                                 castChanged(e);
-                                castNote(e, back ? '복원했습니다. 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : (tidy(e.canon) ? '원작 태그만 남겼습니다.' : '머리 · 몸 · 옷 · 그 밖의 특징을 뺐습니다. 성별 · 동작만으로 그립니다.') + ' 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
+                                castNote(e, back ? '복원했습니다. 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : (tidy(e.canon) ? '기본 태그만 남겼습니다.' : '머리 · 몸 · 옷 · 그 밖의 특징을 뺐습니다. 성별 · 동작만으로 그립니다.') + ' 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
                                 renderNow();
                             },
                         }, skipAll(e) ? '↺ 복원' : '🧹'),
