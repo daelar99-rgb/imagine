@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.113.1
+//@display-name 💠 이매진 v5.113.2
 //@api 3.0
-//@version 5.113.1
+//@version 5.113.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.113.1';
+    const VERSION = '5.113.2';
     const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
     const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
     const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad8ff"/><stop offset=".5" stop-color="#c3a6ff"/><stop offset="1" stop-color="#ffb3dc"/></linearGradient></defs>`
@@ -9138,7 +9138,8 @@ Return JSON only: {"kind":""}`;
         void checkUpdate();
     }
 
-    const ICON_ART = id => cloudArt(id, CLOUD_D_LOW);
+    const ICON_ART = id => '<circle cx="12" cy="12.5" r="10.5" fill="#fff" stroke="none"/>'
+        + '<g transform="translate(12,12.5) scale(.68) translate(-12,-12.5)">' + cloudArt(id, CLOUD_D_LOW) + '</g>';
     const MENU_ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="20" height="20" overflow="visible">'
         + '<g transform="translate(-2,-2)">' + ICON_ART('nc_cloud_m') + '</g>'
         + '</svg>';
