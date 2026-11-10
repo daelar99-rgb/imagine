@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.114.3
+//@display-name 💠 이매진 v5.114.4
 //@api 3.0
-//@version 5.114.3
+//@version 5.114.4
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.114.3';
+    const VERSION = '5.114.4';
     const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
     const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
     const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad8ff"/><stop offset=".5" stop-color="#c3a6ff"/><stop offset="1" stop-color="#ffb3dc"/></linearGradient></defs>`
@@ -174,7 +174,35 @@
     const castCache = new Map();
     const recCache = new Map();
 
-    const save = (key, value) => api.pluginStorage.setItem(key, value).catch(error => console.warn(LOG, 'save', key, error));
+    const saveBlocked = new Set();
+    function blockSave(...keys) {
+        for (const key of keys) {
+            if (saveBlocked.has(key)) continue;
+            saveBlocked.add(key);
+            console.warn(LOG, 'read failed, save blocked until reload', key);
+        }
+    }
+    const save = (key, value) => {
+        if (saveBlocked.has(key)) {
+            console.warn(LOG, 'save skipped (read failed)', key);
+            return Promise.resolve();
+        }
+        return api.pluginStorage.setItem(key, value).catch(error => console.warn(LOG, 'save', key, error));
+    };
+    async function readStored(key) {
+        const waits = [100, 300];
+        for (let i = 0; ; i++) {
+            try {
+                return { ok: true, value: await api.pluginStorage.getItem(key) };
+            } catch (error) {
+                if (i >= waits.length) {
+                    console.warn(LOG, 'read failed', key, error);
+                    return { ok: false, value: null };
+                }
+                await new Promise(resolve => setTimeout(resolve, waits[i]));
+            }
+        }
+    }
     const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6).padEnd(4, '0');
     const randSeed = () => Math.floor(Math.random() * 4294967295);
     const INST = uid();
@@ -250,7 +278,12 @@
     async function blkMap(chaId) {
         if (!chaId) return {};
         if (!blk.maps.has(chaId)) {
-            const v = await api.pluginStorage.getItem('nc:blk:' + chaId).catch(() => null);
+            const r = await readStored('nc:blk:' + chaId);
+            if (!r.ok) {
+                blockSave('nc:blk:' + chaId);
+                return blk.maps.get(chaId) ?? {};
+            }
+            const v = r.value;
             if (!blk.maps.has(chaId)) blk.maps.set(chaId, v && typeof v === 'object' && !Array.isArray(v) ? v : {});
         }
         return blk.maps.get(chaId);
@@ -384,11 +417,9 @@
 
     let sizeMoved = false;
     async function loadPrefs() {
-        const [set, presets, presetId] = await Promise.all([
-            api.pluginStorage.getItem('nc:set').catch(() => null),
-            api.pluginStorage.getItem('nc:presets').catch(() => null),
-            api.pluginStorage.getItem('nc:preset').catch(() => null),
-        ]);
+        const reads = await Promise.all(['nc:set', 'nc:presets', 'nc:preset'].map(readStored));
+        if (reads.some(r => !r.ok)) blockSave('nc:set', 'nc:presets', 'nc:preset');
+        const [set, presets, presetId] = reads.map(r => r.value);
         if (set && typeof set === 'object') {
             st.set = { ...DEFAULT_SET, ...set };
             if (!(set.sv >= 2)) { st.set.count = 1; delete st.set.format; }
@@ -621,8 +652,13 @@
 
     async function loadCast(chaId) {
         if (castCache.has(chaId)) return castCache.get(chaId);
-        const v = await api.pluginStorage.getItem('nc:cast:' + chaId).catch(() => null);
+        const r = await readStored('nc:cast:' + chaId);
         if (castCache.has(chaId)) return castCache.get(chaId);
+        if (!r.ok) {
+            blockSave('nc:cast:' + chaId);
+            return { list: [], at: 0 };
+        }
+        const v = r.value;
         const cast = v && Array.isArray(v.list) ? v : { list: [], at: 0 };
         cast.list = cast.list.filter(e => e && typeof e === 'object').map(normCast);
         if (uniqKeys(cast.list)) Promise.resolve().then(() => saveCast(chaId, cast)).catch(e => console.warn(LOG, 'cast key', e));
@@ -633,8 +669,13 @@
 
     async function loadRecs(chaId) {
         if (recCache.has(chaId)) return recCache.get(chaId);
-        const v = await api.pluginStorage.getItem('nc:img:' + chaId).catch(() => null);
+        const r = await readStored('nc:img:' + chaId);
         if (recCache.has(chaId)) return recCache.get(chaId);
+        if (!r.ok) {
+            blockSave('nc:img:' + chaId);
+            return {};
+        }
+        const v = r.value;
         const recs = v && typeof v === 'object' ? v : {};
         let moved = false;
         for (const [k, r] of Object.entries(recs)) {
@@ -873,7 +914,7 @@
             }
             if (out.wear[id] && !Object.keys(out.wear[id]).length) delete out.wear[id];
         }
-        if (Array.isArray(mine.looked)) out.looked = [...new Set([...(live.looked ?? []), ...mine.looked])];
+        if (Array.isArray(mine.looked)) out.looked = [...new Set([...(Array.isArray(live.looked) ? live.looked : []), ...mine.looked])];
         const rb = bgRaw(base.backgrounds), rm = bgRaw(mine.backgrounds), bs = bgSlots(rb), ms = bgSlots(rm);
         let ls = bgSlots(live.backgrounds);
         if (sameJson(ms, bs)) {
@@ -1839,8 +1880,9 @@ Return entries only for the characters in this list that the character sheet, lo
             const old = cast.list.find(e => e.key === key || e.keys?.includes(key));
             if (fresh.same) {
                 if (old && old.src !== 'chat') continue;
-                if (old) { cast.list.splice(cast.list.indexOf(old), 1); delete state.wear[old.id]; }
-                (fresh.same.keys ??= []).push(key);
+                if (old && old !== fresh.same) { cast.list.splice(cast.list.indexOf(old), 1); delete state.wear[old.id]; }
+                const ks = (fresh.same.keys ??= []);
+                if (fresh.same.key !== key && !ks.includes(key)) ks.push(key);
                 done.changed = true;
             } else if (old && old.src === 'chat') {
                 Object.assign(old, { ...fresh, id: old.id, key: old.key, keys: old.keys, on: old.on, ...keepMine(old, fresh) });
@@ -2018,6 +2060,11 @@ Rules
             if (!name || name.toLowerCase() === 'narration') continue;
             if (tidy(raw?.type).toLowerCase() === 'monster') continue;
             let e = findCast(cast, name);
+            if (!e) {
+                const ns = [name, tidy(raw?.label)].filter(Boolean).map(x => x.toLowerCase());
+                const hits = (cast?.list ?? []).filter(x => [x.name, ...(x.aliases ?? [])].some(a => ns.includes(tidy(a).toLowerCase())));
+                if (hits.length === 1) { e = hits[0]; if (e.key && e.key !== name) renamePlan(plan, name, e.key); }
+            }
             if (fresh.has(e?.key ?? charKey(name))) continue;
             if (!e) {
                 if (![lookOf(raw.look), raw.eyes, raw.haircolor, raw.hairstyle].some(tidy)) continue;
@@ -2443,7 +2490,14 @@ Rules
     function naiBody(req, seed, s = st.set) {
         req = { ...req, base: spaceNum(req.base), neg: spaceNum(req.neg), slots: (req.slots ?? []).map(sl => ({ ...sl, prompt: spaceNum(sl.prompt), uc: spaceNum(sl.uc) })) };
         const cap = slotCapOf(s.model);
-        if (req.slots.length > cap) { console.log(LOG, 'slots', `${req.slots.length} → ${cap} (${s.model})`); req.slots = req.slots.slice(0, cap); }
+        if (req.slots.length > cap) {
+            console.log(LOG, 'slots', `${req.slots.length} → ${cap} (${s.model})`);
+            const typesOf = list => list.filter(sl => (sl.kind ?? 'char') === 'char').map(sl => sl.type);
+            const kept = req.slots.slice(0, cap);
+            const old = countTags(typesOf(req.slots)), now = countTags(typesOf(kept));
+            if (old !== now && typeof req.base === 'string' && (req.base === old || req.base.startsWith(`${old}, `))) req.base = now + req.base.slice(old.length);
+            req.slots = kept;
+        }
         const coords = coordsOn(req);
         const free = freeformOf(s.model);
         const at = sl => coords && ((sl.kind ?? 'char') === 'char' || sl.kind === 'panel')
@@ -2619,6 +2673,9 @@ Rules
     const midStreamError = () => new Error('NAI 그림을 받는 도중에 연결이 끊겼습니다. Anlas 가 두 번 나가지 않게 다시 보내지 않았습니다. 다시 시도해 주세요.');
     const naiOddError = () => new Error('NAI 가 보낸 그림을 읽지 못했습니다. Anlas 가 두 번 나가지 않게 다시 보내지 않았습니다. 다시 시도해 주세요.');
     const naiLate = () => Object.assign(new Error('NAI 응답이 오지 않아 기다리기를 그만두었습니다. NAI 가 늦게라도 그림을 만들었다면 Anlas 가 나갔을 수 있어 다시 보내지 않았습니다. 다시 시도해 주세요.'), { timeout: true });
+    const naiLost = () => new Error('NAI 와 연결이 끊겨 그림을 받지 못했습니다. 요청은 이미 보냈으므로 Anlas 가 쓰였을 수 있어 다시 보내지 않았습니다. 다시 시도해 주세요.');
+    const naiUnsureStatus = s => s === 408 || s >= 500;
+    const naiUnsure = s => Object.assign(new Error(`NAI 서버에 문제가 생겨 그림을 받지 못했습니다(오류 ${s}). 그림이 만들어졌다면 Anlas 가 쓰였을 수 있어 다시 보내지 않았습니다. 다시 시도해 주세요.`), { status: s });
     async function naiStream(key, body, stopped, onStep) {
         const sb = { ...body, parameters: { ...body.parameters, stream: 'msgpack' } };
         const t0 = Date.now();
@@ -2631,9 +2688,16 @@ Rules
             }), NAI_WAIT, 'NAI');
         } catch (error) {
             if (error.timeout) throw naiLate();
-            console.warn(LOG, 'NAI stream fetch', error); return null;
+            if (stopped()) return null;
+            console.warn(LOG, 'NAI stream fetch', error);
+            naiStreamOff = true;
+            throw naiLost();
         }
-        if (!res.ok) { console.warn(LOG, 'NAI stream status', res.status); return null; }
+        if (!res.ok) {
+            console.warn(LOG, 'NAI stream status', res.status);
+            if (naiUnsureStatus(res.status)) throw naiUnsure(res.status);
+            return null;
+        }
         let buf = new Uint8Array(0), pos = 0, firstAt = 0, finalImg = null;
         const take = () => {
             const { out, rest } = naiFrames(buf.subarray(pos));
@@ -2695,7 +2759,6 @@ Rules
             if (img) return img;
             if (stopped()) throw stopError();
         }
-        let flaky = 0;
         for (let attempt = 0; ; attempt++) {
             if (stopped()) throw stopError();
             let res, buf;
@@ -2708,17 +2771,19 @@ Rules
                     });
                     return [r, new Uint8Array(await r.arrayBuffer())];
                 })(), NAI_WAIT, 'NAI');
-                if (res.ok) return await firstImage(buf);
             } catch (error) {
                 if (error.timeout) throw naiLate();
                 if (stopped()) throw stopError();
-                if (flaky++ < 2) { console.warn(LOG, 'NAI retry', error); await sleep(3000); continue; }
-                throw error;
+                console.warn(LOG, 'NAI fetch', error);
+                throw naiLost();
+            }
+            if (res.ok) {
+                try { return await firstImage(buf); } catch (error) { console.warn(LOG, 'NAI image', error); throw naiOddError(); }
             }
             const error = naiError(res.status, new TextDecoder().decode(buf));
             if (stopped()) throw stopError();
             if (res.status === 429 && attempt < 3) { await sleep(4000 + attempt * 3000); continue; }
-            if ((res.status === 408 || res.status >= 500) && flaky++ < 2) { console.warn(LOG, 'NAI retry', error); await sleep(3000); continue; }
+            if (naiUnsureStatus(res.status)) { console.warn(LOG, 'NAI unsure', error); throw naiUnsure(res.status); }
             throw error;
         }
     }
@@ -2952,9 +3017,13 @@ Rules
     const TALK_LOG_MAX = 24;
     const talkKeyOf = (chaId, chat, chi) => chaId + '|' + chatKeyOf(chat, chi);
     async function adoptOld(key, old) {
-        const v = await api.pluginStorage.getItem(key).catch(() => null);
+        const r = await readStored(key);
+        if (!r.ok) throw new Error('read failed: ' + key);
+        const v = r.value;
         if (isObj(v)) return v;
-        const was = await api.pluginStorage.getItem(old).catch(() => null);
+        const o = await readStored(old);
+        if (!o.ok) throw new Error('read failed: ' + old);
+        const was = o.value;
         if (!isObj(was)) return null;
         await Promise.resolve(api.pluginStorage.setItem(key, was)).catch(() => {});
         await Promise.resolve(api.pluginStorage.removeItem(old)).catch(() => {});
@@ -4061,7 +4130,7 @@ ${plan}
                     let x;
                     if (!s) L.k = 'blank';
                     else if ((x = s.match(NS_TAG)) && !x[2].endsWith('/')) {
-                        Object.assign(L, { k: x[1] ? 'close' : 'open', name: x[1] || !x[2].includes('=') ? x[2].trim() : x[2].split(/\s/)[0] });
+                        Object.assign(L, { k: x[1] ? 'close' : 'open', name: x[1] || !x[2].includes('=') ? x[2].trim() : x[2].split(/\s/)[0], key: x[2].trim().split(/\s/)[0] });
                     } else if ((x = s.match(/^(#{1,6})\s+(\S.*)$/))) Object.assign(L, { k: 'head', lv: x[1].length, ti: x[2].replace(/#+\s*$/, '').trim() });
                     else if (/^\[[^\]\n]{1,80}\]$/.test(s)) Object.assign(L, { k: 'head', lv: 7, ti: s.slice(1, -1).trim() });
                     else if (NS_SEP.test(s)) L.k = 'sep';
@@ -4076,7 +4145,7 @@ ${plan}
         lines.forEach((L, i) => {
             if (L.k === 'open') stack.push(i);
             else if (L.k === 'close') {
-                const j = stack.findLastIndex(o => lines[o].name === L.name);
+                const j = stack.findLastIndex(o => lines[o].name === L.name || lines[o].key === L.name);
                 if (j < 0) return;
                 pair.set(stack[j], i);
                 stack.length = j;
@@ -4678,6 +4747,11 @@ Output a single JSON object only:
             for (let i = t.text.indexOf(find, at + find.length); i >= 0; i = t.text.indexOf(find, i + find.length)) ats.push(i);
             if (ats.length > 1 && !/^<[a-zA-Z][\w-]*\s+[^\s>]/.test(find)) return 'find occurs more than once and has no attribute; a repeated "tag" find must include its attributes';
             if (t.lua && !ats.every(inLua)) return 'in a Lua trigger, find must lie inside one Lua string literal';
+            const cut = ats.find(a => !/[\s>/]/.test(t.text[a + m[0].length] ?? ''));
+            if (cut != null) {
+                const real = /^<[^\s>/]{1,80}/.exec(t.text.slice(cut))?.[0] ?? '';
+                return `find stops inside a longer tag name: the source has "${real}", not "${m[0]}"; copy the full tag name`;
+            }
             const more = ats.slice(1).map(a => ({ at: a, pos: a + m[0].length }));
             return { kind, at, pos: at + m[0].length, ...(more.length ? { more } : {}) };
         }
@@ -4693,7 +4767,29 @@ Output a single JSON object only:
         if (!cbs.startsWith('{{') || !cbsWhole(cbs)) return 'a "cbs" find must be one whole {{…}} (no text between separate CBS)';
         const start = at + find.indexOf(cbs);
         const before = t.text.slice(0, start);
-        if (before.lastIndexOf('<') > before.lastIndexOf('>')) return 'this CBS is inside an HTML tag; report that tag with kind "tag" instead';
+        const inTag = (() => {
+            const strs = t.lua ? luaStrings(t.text) : null;
+            let tag = false, k = 0;
+            for (let i = 0; i < start; i++) {
+                if (strs) {
+                    while (k < strs.length && strs[k][1] <= i) k++;
+                    if (k >= strs.length || i < strs[k][0]) continue;
+                }
+                const c = before[i];
+                if (!tag) { if (c === '<' && /[A-Za-z/]/.test(before[i + 1] ?? '')) tag = true; continue; }
+                if (c === '>') { tag = false; continue; }
+                if (c !== '=') continue;
+                let j = i + 1;
+                while (j < start && /\s/.test(before[j])) j++;
+                const q = before[j];
+                if (q !== '"' && q !== "'") continue;
+                const e = before.indexOf(q, j + 1);
+                if (e < 0) return true;
+                i = e;
+            }
+            return tag;
+        })();
+        if (inTag) return 'this CBS is inside an HTML tag; report that tag with kind "tag" instead';
         if (/url\(\s*["']?$/i.test(before) || before.toLowerCase().lastIndexOf('<style') > before.toLowerCase().lastIndexOf('</style')) return 'this CBS is inside CSS; report its CSS rule with kind "rule" instead';
         return { kind, at: start, pos: start + cbs.length };
     }
@@ -4859,6 +4955,7 @@ Output a single JSON object only:
                 cls: 'ok', chaId: job.chaId,
                 text: `그림 ${n}곳과 메시지에 바로 쓴 에셋 그림을 숨겼습니다.` + (summary ? ' ' + summary : '')
                     + (bad.length ? ` 모델이 고른 ${bad.length}곳은 원문과 맞지 않아 넣지 않았습니다.` : '')
+                    + (job.unsafe ? ` ${job.unsafe}곳은 안전하게 숨길 수 없어 건너뛰었습니다.` : '')
                     + (mode === 'cut' ? ' 원문이 길어 Lua 트리거는 그림 줄만 보냈습니다.' : mode === 'none' ? ' 원문이 길어 Lua 트리거는 빼고 보냈고, Lua 속 그림은 그대로입니다.' : ''),
             };
         } catch (error) {
@@ -4880,14 +4977,18 @@ Output a single JSON object only:
         for (const it of ok) groups.set(it.target, [...(groups.get(it.target) ?? []), it]);
         const backup = [];
         let n = 0;
+        job.unsafe = 0;
         for (const [id, items] of groups) {
             const t = byId[id];
             const slot = hideSlot(char, t);
             if (!slot || slot.get() !== t.text) continue;
+            const next = applyHide(t.text, items);
+            if (unhide(next) !== unhide(t.text)) { job.unsafe += items.length; console.warn(LOG, 'hide roundtrip', id); continue; }
             backup.push({ id, label: t.label, comment: t.comment ?? '', text: t.text });
-            slot.set(applyHide(t.text, items));
+            slot.set(next);
             n += items.length;
         }
+        if (!n && job.unsafe) throw new Error('고른 그림 자리를 안전하게 숨길 수 없어 봇을 바꾸지 않았습니다.');
         if (!n) throw new Error('그사이 봇의 정규식 · 트리거가 바뀌어 저장하지 않았습니다. 다시 눌러 주세요.');
         await api.setCharacterToIndex(job.ci, char);
         await save('nc:hide:' + job.chaId, { at: Date.now(), backup });
@@ -8044,16 +8145,39 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
     const josa = (w, a, b) => { const c = String(w ?? '').trim().slice(-1).charCodeAt(0) - 0xac00; return w + (c >= 0 && c <= 11171 && c % 28 ? a : b); };
     const nameList = es => es.map(e => e.name || e.key).join(', ');
     function castSnap(v) {
-        return { chaId: v.chaId, chatKey: v.chatKey, list: JSON.parse(JSON.stringify(v.cast.list)), wear: JSON.parse(JSON.stringify(liveState(v).wear ?? {})), voices: [] };
+        return { chaId: v.chaId, chatKey: v.chatKey, list: JSON.parse(JSON.stringify(v.cast.list)), wear: JSON.parse(JSON.stringify(liveState(v).wear ?? {})), voices: [], ids: [], slots: {} };
+    }
+    function snapMark(snap, id, k) {
+        if (!snap || !id) return;
+        if (k === undefined) { if (!snap.ids.includes(id)) snap.ids.push(id); return; }
+        const cur = snap.slots[id];
+        if (k === '*' || cur === '*') snap.slots[id] = '*';
+        else if (!cur) snap.slots[id] = [k];
+        else if (!cur.includes(k)) cur.push(k);
     }
     function castRestore(snap) {
         const v = st.view;
         if (!v || !snap || v.chaId !== snap.chaId || v.chatKey !== snap.chatKey) return false;
         if (snap.voices?.length) voice?.voicePut(snap.chaId, snap.voices);
-        v.cast.list = JSON.parse(JSON.stringify(snap.list));
+        const list = v.cast.list, copy = x => JSON.parse(JSON.stringify(x));
+        for (const id of snap.ids ?? []) {
+            const at = snap.list.findIndex(x => x.id === id), cur = list.findIndex(x => x.id === id);
+            if (at < 0) continue;
+            if (cur >= 0) { list[cur] = copy(snap.list[at]); continue; }
+            voice?.voiceGone?.(snap.chaId, [snap.list[at].name, snap.list[at].key], false);
+            let pos = 0;
+            for (let i = at - 1; i >= 0; i--) { const j = list.findIndex(x => x.id === snap.list[i].id); if (j >= 0) { pos = j + 1; break; } }
+            list.splice(pos, 0, copy(snap.list[at]));
+        }
         const w = liveState(v).wear;
-        for (const id of Object.keys(w)) if (!(id in snap.wear)) delete w[id];
-        Object.assign(w, JSON.parse(JSON.stringify(snap.wear)));
+        for (const [id, keys] of Object.entries(snap.slots ?? {})) {
+            const was = snap.wear[id];
+            if (keys === '*') { if (was) w[id] = copy(was); else delete w[id]; continue; }
+            for (const k of keys) {
+                if (was && k in was) (w[id] ??= {})[k] = was[k];
+                else if (w[id]) { delete w[id][k]; if (!Object.keys(w[id]).length) delete w[id]; }
+            }
+        }
         castChanged();
         writeVarsSoon(v);
         return true;
@@ -8078,10 +8202,21 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return (chat?.message ?? []).slice(-n)
             .map(m => `${m.role === 'user' ? 'USER' : 'BOT'}: ${stripOurs(m.data).slice(-max)}`).join('\n\n') || '(none)';
     }
-    function castVoiceOf(v, e) {
+    function castVoiceOf(v, e, strict = false) {
         if (!voice) return null;
-        for (const k of [e?.name, e?.key, ...(e?.aliases ?? [])]) { const f = voice.voiceFind(v.chaId, k); if (f) return f; }
-        return null;
+        if (!strict) {
+            for (const k of [e?.name, e?.key, ...(e?.aliases ?? [])]) { const f = voice.voiceFind(v.chaId, k); if (f) return f; }
+            return null;
+        }
+        const low = x => String(x ?? '').trim().toLowerCase();
+        const list = voice.voiceListOf?.(v.chaId) ?? [];
+        const own = [e?.name, e?.key].map(low).filter(Boolean);
+        for (const o of own) { const f = list.find(x => low(x.name) === o); if (f) return f; }
+        const hits = list.filter(x => (x.aliases ?? []).some(a => own.includes(low(a))));
+        if (hits.length !== 1) return null;
+        const its = [hits[0].name, ...(hits[0].aliases ?? [])].map(low).filter(Boolean);
+        const clash = v.cast.list.some(x => x !== e && x.id !== e?.id && [x.name, x.key, ...(x.aliases ?? [])].some(t => its.includes(low(t))));
+        return clash ? null : hits[0];
     }
     function voiceOnlyOf(v) {
         if (!voice) return [];
@@ -8092,6 +8227,19 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         const t = voice?.voiceTake(v.chaId, name);
         if (t && snap) snap.voices.push(t);
         return !!t;
+    }
+    function voiceDelBtn(sv, name) {
+        if (!voice || (voice.voiceListOf?.(sv.chaId) ?? []).find(x => x.name === name)?.persona) return null;
+        const b = armButton('×', '한 번 더', () => {
+            const snap = castSnap(sv), L = castLogOf(sv);
+            L.ask = '';
+            if (!takeVoice(sv, name, snap)) castSay(L, null, `${name}의 목소리를 지우지 못했습니다. 등장인물 탭을 다시 열어 주세요.`, null, true);
+            else castSay(L, null, `${name}의 목소리를 지웠습니다.`, snap);
+            renderNow();
+        }, 'gt-b sm warn', 'voice:' + sv.chaId + ':' + name, 2);
+        b.title = '목소리 지우기 (두 번 누르기)';
+        b.setAttribute('aria-label', '목소리 지우기');
+        return b;
     }
     function castRecords(v) {
         const s = liveState(v);
@@ -8149,10 +8297,12 @@ Return JSON only: {"kind":""}`;
         for (const e of ents) {
             if (!v.cast.list.includes(e)) continue;
             if (isPersona(e)) { no.push(`${josa(e.name, '은', '는')} 페르소나라서 지우지 않습니다.`); continue; }
-            const f = castVoiceOf(v, e);
+            const f = castVoiceOf(v, e, true);
             if (f && !f.persona && takeVoice(v, f.name, snap)) voices++;
+            voice?.voiceGone?.(v.chaId, [e.name, e.key]);
             v.cast.list = v.cast.list.filter(x => x !== e);
             delete s.wear[e.id];
+            snapMark(snap, e.id); snapMark(snap, e.id, '*');
             ui.castOpen?.delete(e.id);
             del.push(e);
         }
@@ -8161,12 +8311,16 @@ Return JSON only: {"kind":""}`;
     const TYPE_KO = { girl: '여자', boy: '남자', other: '기타' };
     function castPatch(v, entries, snap) {
         const s = liveState(v), out = [], no = [], vdel = [], dels = [];
+        const MANY = {};
         const find = r => {
             const id = tidy(r.id), k = tidy(r.key).toLowerCase();
             if (id) { const e = v.cast.list.find(x => x.id === id); if (e) return e; }
             if (!k) return null;
-            return v.cast.list.find(e => e.key?.toLowerCase() === k)
-                ?? v.cast.list.find(e => tidy(e.name).toLowerCase() === k || (e.aliases ?? []).some(a => tidy(a).toLowerCase() === k)) ?? null;
+            const byKey = v.cast.list.find(e => e.key?.toLowerCase() === k);
+            if (byKey) return byKey;
+            const hits = v.cast.list.filter(e => tidy(e.name).toLowerCase() === k || (e.aliases ?? []).some(a => tidy(a).toLowerCase() === k));
+            if (hits.length > 1) { no.push(`이름이 「${tidy(r.key)}」인 인물이 ${hits.length}명이라 누구인지 알 수 없어 바꾸지 않았습니다. 카드에서 직접 고쳐 주세요.`); return MANY; }
+            return hits[0] ?? null;
         };
         const show = x => tidy(x) || '(비움)';
         const dropVoice = (f, label) => {
@@ -8178,8 +8332,13 @@ Return JSON only: {"kind":""}`;
         for (const r of Array.isArray(entries) ? entries : []) {
             if (!isObj(r)) continue;
             const e = find(r);
+            if (e === MANY) continue;
             if (!e) {
-                if (r.delete === true || r.voice === null) { const f = voice?.voiceFind(v.chaId, tidy(r.key)); if (f) dropVoice(f, f.name); }
+                if (r.delete === true || r.voice === null) {
+                    const k = tidy(r.key).toLowerCase(), hit = k ? (voice?.voiceListOf?.(v.chaId) ?? []).filter(x => x.name.toLowerCase() === k) : [];
+                    const f = hit.find(x => x.name === tidy(r.key)) ?? (hit.length === 1 ? hit[0] : null);
+                    if (f) dropVoice(f, f.name);
+                }
                 continue;
             }
             if (r.delete === true) { if (!dels.includes(e)) dels.push(e); continue; }
@@ -8235,13 +8394,16 @@ Return JSON only: {"kind":""}`;
                 for (const k of WEAR_KEYS) {
                     if (typeof r.now[k] !== 'string') continue;
                     const raw = tidy(r.now[k]), cur = tidy(s.wear[e.id]?.[k]);
-                    if (!raw) {
+                    const same = !!raw && (slotVal(k, raw) || raw) === baseWear(e, k) && !e.skip?.[WEAR_GROUP[k]];
+                    if (!raw || same) {
                         if (!cur) continue;
+                        snapMark(snap, e.id, k);
                         delete s.wear[e.id][k];
                         ch.push(`${WEAR_LABEL[k]} 기본값으로 (이 채팅만)`);
                     } else {
                         const val = slotVal(k, raw) || raw;
                         if (val === cur) continue;
+                        snapMark(snap, e.id, k);
                         (s.wear[e.id] ??= {})[k] = val;
                         ch.push(`${WEAR_LABEL[k]} → ${val} (이 채팅만)`);
                         const g = WEAR_GROUP[k];
@@ -8250,8 +8412,14 @@ Return JSON only: {"kind":""}`;
                     touched = true;
                 }
             }
-            if (r.voice === null) { const f = castVoiceOf(v, e); if (f) dropVoice(f, label); else no.push(`${josa(label, '은', '는')} 목소리가 없습니다.`); }
+            if (r.voice === null) {
+                const f = castVoiceOf(v, e, true);
+                if (f) dropVoice(f, label);
+                else if (castVoiceOf(v, e)) no.push(`${josa(label, '은', '는')} 별명으로만 이어진 목소리라서 지우지 않았습니다. 목소리 줄의 ×로 지워 주세요.`);
+                else no.push(`${josa(label, '은', '는')} 목소리가 없습니다.`);
+            }
             if (base) { normCast(e); castChanged(e); touched = true; } else if (meta) touched = true;
+            if (base || meta) snapMark(snap, e.id);
             if (ch.length) out.push(`${label}: ${ch.join(', ')}`);
         }
         let del = [], delV = 0;
@@ -8459,7 +8627,8 @@ Return JSON only: {"kind":""}`;
                             onclick: () => {
                                 const snap = castSnap(sv), back = skipAll(e);
                                 if (back) delete e.skip; else e.skip = normSkip({ hair: true, body: true, outfit: true, look: true });
-                                castChanged(e);
+                                snapMark(snap, e.id);
+                                castChanged();
                                 castNote(e, back ? '복원했습니다. 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : (tidy(e.canon) ? '기본 태그만 남겼습니다.' : '머리 · 몸 · 옷 · 그 밖의 특징을 뺐습니다. 성별 · 동작만으로 그립니다.') + ' 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
                                 renderNow();
                             },
@@ -8467,9 +8636,11 @@ Return JSON only: {"kind":""}`;
                         isPersona(e) ? null : (() => {
                             const b = armButton('✕', '한 번 더', () => {
                                 const snap = castSnap(sv);
-                                const vf = castVoiceOf(sv, e), vgone = !!vf && !vf.persona && takeVoice(sv, vf.name, snap);
+                                const vf = castVoiceOf(sv, e, true), vgone = !!vf && !vf.persona && takeVoice(sv, vf.name, snap);
+                                voice?.voiceGone?.(sv.chaId, [e.name, e.key]);
                                 v.cast.list = v.cast.list.filter(x => x !== e);
                                 delete liveState(sv).wear[e.id];
+                                snapMark(snap, e.id); snapMark(snap, e.id, '*');
                                 open.delete(e.id);
                                 castChanged();
                                 const L = castLogOf(sv);
@@ -8558,7 +8729,7 @@ Return JSON only: {"kind":""}`;
                         h('div', { class: 'cc-tags' }, slotPreview(e, sv.state) || '(비어 있음)'))));
             }
             const vn = vok ? voice.voiceMatch(e) : null;
-            if (vn) add(card, voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([vn]))]));
+            if (vn) add(card, voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([vn], n => voiceDelBtn(sv, n)))]));
             add(pane, card);
         });
         const VSEX = { female: '여', male: '남' };
@@ -8571,7 +8742,7 @@ Return JSON only: {"kind":""}`;
                         h('b', null, h('span', { class: 'cc-nm' }, name), h('span', { class: 'cc-sx' }, VSEX[x.gender] ?? '?'),
                             x.persona ? h('span', { class: 'cc-src persona' }, SRC.persona) : null),
                         h('span', { class: 'cc-sum' }, '태그 없음'))),
-                voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([name]))])));
+                voice.embed([h('div', { class: 'vf-card' }, voice.voiceRows([name], n => voiceDelBtn(sv, n)))])));
         });
         add(pane, voiceFoot());
         return pane;
@@ -8875,10 +9046,17 @@ Return JSON only: {"kind":""}`;
             if (verCmp(file.version, VERSION) > 0) throw new Error(`이매진 v${file.version} 에서 만든 파일입니다. 이매진을 v${file.version} 이상으로 올린 뒤 불러오세요.`);
             if (bkBusyWork()) { bk.busy = ''; bkSay(BK_BUSY_MSG, 'err'); return; }
             let wrote = 0, same = 0, old = isObj(file.images) ? Object.keys(file.images).length : 0;
+            let setNow = null;
+            if (isObj(file.data['nc:set'])) {
+                try { setNow = await api.pluginStorage.getItem('nc:set'); } catch (error) {
+                    console.warn(LOG, 'restore read', error);
+                    throw new Error('지금 설정을 읽지 못했습니다. 잠시 뒤 다시 불러와 주세요.');
+                }
+            }
             for (const [k, v0] of Object.entries(file.data)) {
                 if (v0 == null) continue;
                 if (!BK_KEYS.includes(k)) { old++; continue; }
-                const cur = await api.pluginStorage.getItem(k).catch(() => null);
+                const cur = k === 'nc:set' ? setNow : await api.pluginStorage.getItem(k).catch(() => null);
                 let v = v0;
                 if (k === 'nc:set') {
                     if (!isObj(v0)) continue;
@@ -9230,6 +9408,7 @@ Return JSON only: {"kind":""}`;
     const UNDO_OFF = imp({ opacity: '.4', cursor: 'default', background: 'rgba(0,0,0,.62)' });
     const actHtml = (name, can) => `<div class="nc-act" style="${ACT_STYLE}">`
         + Object.entries(ACT_LABEL).filter(([k]) => k !== 'undo' || st.set.undo).map(([k, label]) => {
+            if (k === 'panel') label = label.replace(/nc_cloud_h/g, 'nc_cloud_h_' + String(name).replace(/[^\w-]/g, '_') + '_{{chat_index}}');
             const on = k !== 'undo' || !!can?.has(String(name).toLowerCase());
             return `<span class="nc-act-b nc-${k} nc-for-${name} nc-at-{{chat_index}}${k === 'undo' && on ? ' nc-uv' : ''}" style="${on ? BTN_STYLE : BTN_STYLE + ';' + UNDO_OFF}">${label}</span>`;
         }).join('')
@@ -9922,10 +10101,11 @@ Return JSON only: {"kind":""}`;
         try {
             const ci = await api.getCurrentCharacterIndex();
             const chi = await api.getCurrentChatIndex();
+            const chat = await api.getChatFromIndex(ci, chi).catch(() => null);
             const b = st.busy;
-            if (b && b.ci === ci && b.chi === chi && b.idx === idx) { if (!b.stop) cancelAll(); return; }
+            const busyAt = !b?.key || !chat ? b?.idx : b.chat && b.chat !== chatKeyOf(chat, chi) ? -1 : findMsg(chat, b.key, b.idx);
+            if (b && b.ci === ci && b.chi === chi && busyAt === idx) { if (!b.stop) cancelAll(); return; }
             if (!(await naiKey()) || !setupDone()) { void rootQueue(() => paintBusy(true)); await openSettings(); return; }
-            const chat = await api.getChatFromIndex(ci, chi);
             const msg = chat?.message?.[idx];
             if (msg?.role !== 'char') return;
             const key = msgKeyOf(msg, idx, chat.message);
@@ -10725,7 +10905,7 @@ Return JSON only: {"kind":""}`;
 
     const acs = {
         nsOpen: false,
-        run: null, edit: null, pe: null, asking: false, askErr: '', tr: false, msg: '', msgOk: false, cu: false, cuAt: 0, cuErr: '', cuNeed: false, cuH: '',
+        run: null, edit: null, pe: null, asking: false, askErr: '', tr: false, msg: '', msgOk: false, cu: false, cuAt: 0, cuErr: '', cuCha: '', cuNeed: false, cuH: '',
         an: null, anAt: 0, anBusy: false, anErr: '', anShow: false, anFlash: false, quota: null, anT0: 0,
         refs: new Map(), times: [], timer: 0, fail: new Map(), menu: '', who: '', outfit: '', adv: false, trErr: '', lw: 'all',
         reopen: 0, reopenCha: '', llmOpen: false,
@@ -10925,11 +11105,9 @@ Return JSON only: {"kind":""}`;
     }
     function acRefPick(a, t, have) {
         const ok = n => typeof n === 'string' && n !== t.name && !!have?.has(n);
-        if (t.again) {
-            const r = a.refName[`${t.e.id}|${t.o.key}`];
-            if (ok(r) && acEmos(a).some(m => acName(t.slug, t.o.key, m.key) === r)) return r;
-            if (ok(a.refOf[t.name])) return a.refOf[t.name];
-        }
+        const r = a.refName[`${t.e.id}|${t.o.key}`];
+        if (ok(r) && acEmos(a).some(m => acName(t.slug, t.o.key, m.key) === r)) return r;
+        if (t.again && ok(a.refOf[t.name])) return a.refOf[t.name];
         if (!a.ref) return null;
         const rn = acRefName(a, t.e, t.slug, t.o);
         return ok(rn) ? rn : null;
@@ -11183,6 +11361,7 @@ Return JSON only: {"kind":""}`;
         acReadHave(char);
         a.made = made;
         delete a.prompts[name];
+        acs.fail.delete(name);
         for (const [k, n] of Object.entries(a.refName)) if (n === name) delete a.refName[k];
         for (const [k, n] of Object.entries(a.refOf)) if (k === name || n === name) delete a.refOf[k];
         for (const p of gone) dropThumb(p);
@@ -11248,6 +11427,7 @@ Return JSON only: {"kind":""}`;
         await api.setCharacterToIndex(ci, char);
         acReadHave(char);
         a.made = [];
+        acs.fail.clear();
         for (const k of Object.keys(a.prompts)) if (mine.has(k)) delete a.prompts[k];
         for (const [k, n] of Object.entries(a.refName)) if (mine.has(n)) delete a.refName[k];
         for (const [k, n] of Object.entries(a.refOf)) if (mine.has(k) || mine.has(n)) delete a.refOf[k];
@@ -11462,11 +11642,12 @@ Rules:
         const raw = acCustomItems(a.customText).join(', ');
         if (!raw) throw new Error('감정을 하나 이상 적어 주세요. ' + AC_CUSTOM_EX);
         if (a.custom?.raw === raw && a.custom.emos.length) return a.custom.emos.length;
+        const was = a.count;
         const res = parseJson(await requestModel(AC_CUSTOM_SYSTEM, raw, true, st.set.acLlm, 'asset'), 'emos');
         const emos = acCleanEmos(res?.emos);
         if (!emos.length) throw new Error('모델이 감정을 태그로 옮기지 못했습니다. 다시 누르거나, 영어로 적어 주세요 (예: smile, crying, happy).');
         a.custom = { raw, emos };
-        a.count = 'custom';
+        if (a.count === was) a.count = 'custom';
         saveAst(chaId);
         return emos.length;
     }
@@ -11878,11 +12059,13 @@ Rules:
                 renderNow();
                 void acResolveCustom(a, v.chaId).then(() => {
                     acs.cu = false;
+                    if (a.count !== 'custom') { renderNow(); return; }
                     try { next(3); } catch (error) { console.warn(LOG, 'custom next', error); }
                 }, error => {
                     console.warn(LOG, 'custom emos', error);
                     acs.cu = false;
                     acs.cuErr = String(error?.message ?? error);
+                    acs.cuCha = v.chaId;
                     renderNow();
                 });
                 return;
@@ -12018,7 +12201,7 @@ Rules:
             }), cCard()),
             acs.cu ? h('button', { class: 'ix-btn run', type: 'button', disabled: true, style: 'width:100%;margin-top:10px' },
                 h('span', { class: 'gf', style: gaugeStyle(acs.cuAt, 10) }), '감정을 태그로 옮기는 중', loadDots()) : null,
-            acs.cuErr ? h('p', { class: 'ix-msg err' }, `감정을 태그로 옮기지 못했습니다: ${acs.cuErr}`)
+            acs.cuErr && acs.cuCha === v.chaId ? h('p', { class: 'ix-msg err' }, `감정을 태그로 옮기지 못했습니다: ${acs.cuErr}`)
                 : acs.cuNeed && a.count === 'custom' ? h('p', { class: 'ix-msg err' }, '커스텀 칸에 감정을 하나 이상 적으세요. 쉼표로 나눕니다.') : null,
             acs.cu ? null : nextBtn(false, ro === 3 && a.count === 'custom' ? '완료' : '다음'),
         ];
@@ -12704,6 +12887,8 @@ Rules:
     const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const imp = o => Object.entries(o).map(([k, v]) => k.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) + ':' + v + ' !important').join(';');
     const st = { set: { ...DEF_SET }, bots: new Map() };
+    const voiceGoneAt = new Map();
+    const goneKey = (chaId, name) => chaId + '|' + String(name ?? '').trim().toLowerCase();
     const saveSet = () => api.pluginStorage.setItem('gt:set', st.set).catch(error => console.warn(LOG, 'save set', error));
     async function loadSet() {
         const v = await api.pluginStorage.getItem('gt:set').catch(() => null);
@@ -12750,14 +12935,23 @@ Rules:
     }
     async function botOf(chaId) {
         if (st.bots.has(chaId)) return st.bots.get(chaId);
-        const v = await api.pluginStorage.getItem('gt:bot:' + chaId).catch(() => null);
-        const b = { ...clone(DEF_BOT), ...(v && typeof v === 'object' ? v : {}) };
-        b.voices = { ...(b.voices ?? {}) };
-        for (const k of Object.keys(OLD_DEF)) if (b[k] === OLD_DEF[k]) b[k] = DEF_BOT[k];
-        st.bots.set(chaId, b);
-        return b;
+        const loads = st.loads ??= new Map();
+        if (loads.has(chaId)) return loads.get(chaId);
+        const p = (async () => {
+            const r = await readStored('gt:bot:' + chaId);
+            if (!r.ok) blockSave('gt:bot:' + chaId);
+            const v = r.value;
+            const b = { ...clone(DEF_BOT), ...(v && typeof v === 'object' ? v : {}) };
+            b.voices = { ...(b.voices ?? {}) };
+            for (const k of Object.keys(OLD_DEF)) if (b[k] === OLD_DEF[k]) b[k] = DEF_BOT[k];
+            if (r.ok && loads.get(chaId) === p) st.bots.set(chaId, b);
+            return b;
+        })();
+        loads.set(chaId, p);
+        try { return await p; }
+        finally { if (loads.get(chaId) === p) loads.delete(chaId); }
     }
-    const saveBot = (chaId, b) => api.pluginStorage.setItem('gt:bot:' + chaId, b).catch(error => console.warn(LOG, 'save bot', error));
+    const saveBot = (chaId, b) => saveBlocked.has('gt:bot:' + chaId) ? Promise.resolve(console.warn(LOG, 'save bot skipped (read failed)', chaId)) : api.pluginStorage.setItem('gt:bot:' + chaId, b).catch(error => console.warn(LOG, 'save bot', error));
 
     function parseKey(raw) {
         let j;
@@ -13687,16 +13881,23 @@ Rules:
     const talks = new Map();
     function talkOf(tk, ci) {
         const chaId = String(tk).split('|')[0];
-        if (!talks.has(tk)) talks.set(tk, (async () => {
-            const had = await api.pluginStorage.getItem('gt:talk:' + tk).catch(() => null);
-            const v = await adoptOld('gt:talk:' + tk, 'gt:talk:' + chaId);
+        let p;
+        if (!talks.has(tk)) talks.set(tk, p = (async () => {
+            const r = await readStored('gt:talk:' + tk);
+            const v = r.ok ? await adoptOld('gt:talk:' + tk, 'gt:talk:' + chaId).catch(() => undefined) : undefined;
+            if (v === undefined) {
+                blockSave('gt:talk:' + tk);
+                if (talks.get(tk) === p) talks.delete(tk);
+                return {};
+            }
+            const had = r.value;
             if (!v || Array.isArray(v)) return {};
             if (!isObj(had) && Number.isInteger(ci)) for (const [name, log] of Object.entries(v)) if (log?.length) talkLoreSoon(tk, ci, name);
             return v;
         })());
         return talks.get(tk);
     }
-    const saveTalk = (tk, t, ci) => api.pluginStorage.setItem('gt:talk:' + tk, t).then(() => talkAssetSoon(tk, ci), error => console.warn(LOG, 'save talk', error));
+    const saveTalk = (tk, t, ci) => saveBlocked.has('gt:talk:' + tk) ? Promise.resolve(console.warn(LOG, 'save talk skipped (read failed)', tk)) : api.pluginStorage.setItem('gt:talk:' + tk, t).then(() => talkAssetSoon(tk, ci), error => console.warn(LOG, 'save talk', error));
     const talkAssetTimers = new Map();
     const TALK_SYNC_RETRY = 15000;
     function talkAssetSoon(tk, ci, ms = 5000, left = 2) {
@@ -13855,6 +14056,7 @@ Rules:
 - Write each asset name exactly as listed, character for character. Use "" when no asset fits a character.
 Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
     const faceAsking = new Set();
+    const faceRetry = new Map(), FACE_RETRY_MS = 30000;
     let faceT0 = 0;
     function faceSig(v, names) {
         const ext = v.fkeys ?? [];
@@ -13865,8 +14067,7 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
         if (!v || st.set.talkImgSrc !== 'asset' || !v.bot.castAt || cast || !pool.length || names.length < 1) return;
         const sig = faceSig(v, names);
         const tag = v.chaId + ':' + sig;
-        if (v.bot.faceAi?.sig === sig || faceAsking.has(tag)) return;
-        faceAsking.add(tag);
+        if (v.bot.faceAi?.sig === sig || faceAsking.has(tag) || (faceRetry.get(tag) ?? 0) > Date.now()) return;
         const ext = v.fkeys ?? [];
         const keysOf = n => {
             const lows = new Set([n, ...(v.bot.voices[n]?.aliases ?? [])].map(x => String(x).trim().toLowerCase()));
@@ -13880,6 +14081,7 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
             ...(others.length ? ['', 'OTHER PEOPLE (not in the list; never give their assets to anyone):', ...others] : []),
             '', 'ASSETS:', ...pool.map(f => `[${f.src === 'emo' ? 'emotion' : 'asset'}] ${f.name}`),
         ].join('\n');
+        faceAsking.add(tag);
         faceBusy = v.chaId;
         faceT0 = Date.now();
         setTimeout(render, 0);
@@ -13898,6 +14100,8 @@ Output only JSON: {"faces":{"<character name>":"<exact asset name or empty>"}}`;
         finally {
             if (faceBusy === v.chaId) faceBusy = null;
             faceFlash = ok ? v.chaId : null;
+            if (ok) faceRetry.delete(tag); else faceRetry.set(tag, Date.now() + FACE_RETRY_MS);
+            faceAsking.delete(tag);
             render();
             if (ok) setTimeout(() => { if (faceFlash === v.chaId) { faceFlash = null; render(); } }, 1400);
         }
@@ -14281,6 +14485,7 @@ ${art}
             if (v) return v;
         }
         const bot = await botOf(chaId);
+        if (!bot.voices[name]?.voice && job?.since != null && (voiceGoneAt.get(goneKey(chaId, name)) ?? 0) >= job.since) throw Object.assign(stopError(), { stop: true });
         const v0 = voiceFor(bot, name, bot.voices[name]?.gender ?? 'unknown');
         const voice = realOf(v0, bot.voices[name]?.gender);
         if (bot.dirty) { delete bot.dirty; void saveBot(chaId, bot); }
@@ -15270,7 +15475,7 @@ Rules:
         if (T.voiceQ.some(q => q.at === at)) return;
         let i = T.voiceQ.findIndex(q => q.at > at);
         if (i < 0) i = T.voiceQ.length;
-        T.voiceQ.splice(i, 0, { v, name, at });
+        T.voiceQ.splice(i, 0, { v, name, at, t: Date.now() });
         talkPaint();
     }
     function talkVoiceNext() {
@@ -15279,14 +15484,14 @@ Rules:
             const q = T.voiceQ.shift();
             const entry = q.v.talk[q.name]?.find(m => m.at === q.at);
             if (!entry || keyKnown === false) continue;
-            void talkVoiceGo(q.v, q.name, entry);
+            void talkVoiceGo(q.v, q.name, entry, q.t);
         }
         talkMark();
     }
-    async function talkVoiceGo(v, name, entry) {
+    async function talkVoiceGo(v, name, entry, since) {
         const T = ui.talk;
         const at = entry.at;
-        const job = { stop: false, note: '', at };
+        const job = { stop: false, note: '', at, since: since ?? Date.now() };
         T.voices.add(job);
         T.voicing.set(at, { t0: Date.now(), sec: talkEst(v.chaId, name, entry.t, entry.tone), job });
         talkPaint();
@@ -15320,7 +15525,7 @@ Rules:
         if (keyKnown === false) { T.err = { name, text: '키가 없어 소리를 만들 수 없습니다. TTS · 대화 › 준비에서 키를 등록해 주세요.' }; talkPaint(); return; }
         talkUnlock();
         talkQuiet();
-        const job = { stop: false, note: '', at: k };
+        const job = { stop: false, note: '', at: k, since: Date.now() };
         T.voices.add(job);
         T.voicing.set(k, { t0: Date.now(), sec: talkEst(chaId, name, text, tone), job });
         talkMark();
@@ -16515,7 +16720,7 @@ Rules:
                 : '한 번도 분석하지 않은 봇이면 「💬 대화하기」로 대화 화면을 열 때나 그 봇의 답변을 처음 읽을 때 목소리 분석을 한 번 합니다. 메인 모델 요청이 한 번 늘고, 읽기라면 소리가 조금 늦게 나옵니다.'),
             seg([['on', 'on (기본)'], ['off', 'off']], st.set.castAuto ? 'on' : 'off', id => set('castAuto', id === 'on')));
     }
-    function voiceRow(name) {
+    function voiceRow(name, mkDel) {
         const v = ui.view, b = v.bot, x = b.voices[name];
         const pv = ui.preview;
         const botSave = () => void saveBot(v.chaId, v.bot);
@@ -16524,12 +16729,12 @@ Rules:
             seg([['female', '여'], ['male', '남'], ['unknown', '?']], x.gender ?? 'unknown', id => { x.gender = id; botSave(); render(); }, 'sm'),
             voiceField('p:' + name, x.voice, val => { x.voice = val; botSave(); render(); }),
             h('button', { class: 'gt-b sm', type: 'button', 'data-pv': '', disabled: pv?.busy, onclick: () => void preview(x.voice, [b.talkStyle, x.style].filter(Boolean).join(' ')) }, '▶ 듣기'),
-            h('button', { class: 'gt-b sm warn', type: 'button', title: '지우기', onclick: () => { delete b.voices[name]; botSave(); render(); } }, '×'),
+            x.persona ? null : mkDel ? mkDel(name) : h('button', { class: 'gt-b sm warn', type: 'button', title: '지우기', onclick: () => { delete b.voices[name]; botSave(); render(); } }, '×'),
             ui.pick?.key === 'p:' + name ? pickPanel() : null,
             h('textarea', { class: 'vf-ta gt-st', rows: 2, placeholder: '이 인물의 목소리 지시문. 비워 두면 다음에 읽을 때 나이대 · 음색 · 속도 · 말버릇을 담아 자동으로 채웁니다.', onchange: e => { x.style = e.target.value; botSave(); } }, x.style ?? ''));
     }
     const voiceNames = () => ui.view ? Object.keys(ui.view.bot.voices).filter(n => n !== NARR) : [];
-    const voiceRows = names => ui.view ? names.filter(n => ui.view.bot.voices[n]).map(voiceRow) : [];
+    const voiceRows = (names, mkDel) => ui.view ? names.filter(n => ui.view.bot.voices[n]).map(n => voiceRow(n, mkDel)) : [];
     function voiceMatch(e) {
         const b = ui.view?.bot;
         if (!b) return null;
@@ -17557,13 +17762,22 @@ Rules:
             if (!b || name === NARR || !b.voices[name]) return null;
             const rec = clone(b.voices[name]);
             delete b.voices[name];
+            voiceGoneAt.set(goneKey(chaId, name), Date.now());
             void saveBot(chaId, b);
             return { name, rec };
+        },
+        voiceGone: (chaId, names, on = true) => {
+            if (!chaId) return;
+            for (const n of names ?? []) {
+                if (!String(n ?? '').trim()) continue;
+                if (on) voiceGoneAt.set(goneKey(chaId, n), Date.now());
+                else voiceGoneAt.delete(goneKey(chaId, n));
+            }
         },
         voicePut: (chaId, list) => {
             const b = st.bots.get(chaId);
             if (!b || !list?.length) return false;
-            for (const x of list) if (x?.name && x.rec) b.voices[x.name] = clone(x.rec);
+            for (const x of list) if (x?.name && x.rec) { b.voices[x.name] = clone(x.rec); voiceGoneAt.delete(goneKey(chaId, x.name)); }
             void saveBot(chaId, b);
             return true;
         },
@@ -17572,7 +17786,7 @@ Rules:
         myCount: () => myList().length,
         setupOk: () => setupOf() >= SETUP.length,
         ttsBrief,
-        reload: async () => { await loadSet(); await loadMy(); st.bots.clear(); talks.clear(); },
+        reload: async () => { await loadSet(); await loadMy(); st.bots.clear(); st.loads?.clear(); talks.clear(); ui.view = null; synced = ''; await refreshView().catch(() => {}); },
         busy: () => !!busy || jobs.length > 0 || !!cast || !!ui.talk.busy };
     }
 
