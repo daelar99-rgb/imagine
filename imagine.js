@@ -1,7 +1,7 @@
 //@name imagine
-//@display-name 💠 이매진 v5.114.0
+//@display-name 💠 이매진 v5.114.2
 //@api 3.0
-//@version 5.114.0
+//@version 5.114.2
 //@update-url https://raw.githubusercontent.com/daelar99-rgb/imagine/main/imagine.js
 //@link https://github.com/daelar99-rgb/imagine 깃허브
 //@arg nai_api_key string NovelAI API 키 (pst- 로 시작하는 영구 토큰)
@@ -12,7 +12,7 @@
     'use strict';
     const api = typeof Risuai !== 'undefined' ? Risuai : risuai;
     const LOG = '[이매진]';
-    const VERSION = '5.114.0';
+    const VERSION = '5.114.2';
     const CLOUD_D = 'M6 18.25A3.5 3.5 0 1 1 6.03 11.25A5 5 0 0 1 15.4 8.37A5 5 0 1 1 16.5 18.25Z';
     const CLOUD_D_LOW = 'M6 18.75A3.5 3.5 0 1 1 6.03 11.75A5 5 0 0 1 15.4 8.87A5 5 0 1 1 16.5 18.75Z';
     const cloudArt = (id, d = CLOUD_D) => `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ad8ff"/><stop offset=".5" stop-color="#c3a6ff"/><stop offset="1" stop-color="#ffb3dc"/></linearGradient></defs>`
@@ -5291,7 +5291,6 @@ body.ix-on:has(.ix.vn-on.vn-full){padding:0}
 .cc-clr.on{width:auto;padding:0 10px;filter:none;opacity:1;font-size:.72rem;font-weight:700;color:#5b4300;background:#fff6dc;border-color:#e7b552}
 .cc-del:hover{color:var(--bad);background:#fdecea}
 .cc-del.armed{width:auto;padding:0 10px;font-size:.72rem;font-weight:700;color:#fff;background:var(--bad);border-color:var(--bad)}
-.cc-skip{flex:none;padding:1px 6px;font-size:.66rem;font-weight:700;color:#5b4300;background:#fff6dc;border:1px solid #e7b552}
 .cc-note{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 12px;font-size:.74rem;color:var(--ink);background:#fff6dc;border-bottom:1px solid #f1dca6}
 .cc-note .ix-btn{min-height:22px;padding:0 8px;font-size:.7rem}
 .cc-sec label.cc-kind{display:flex;align-items:center;gap:6px}
@@ -5755,7 +5754,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
   body.ix-on:has(.ix.vn-on){padding-top:8px;padding-bottom:8px}
   .ix.vn-on{height:calc(100vh - 16px);height:calc(100dvh - 16px);min-height:420px}
   .cc-hd{gap:8px;padding:10px}
-  .cc-ti .cc-src,.cc-ti .cc-skip{display:none}
+  .cc-ti .cc-src{display:none}
   .cc-sec{padding:10px}
   .ix-pane{padding:12px}
   .sz-bar{margin:16px -12px -12px;padding:10px 12px}
@@ -8038,7 +8037,7 @@ details.joined pre{max-height:260px;overflow:auto;margin:6px 0 0;padding:10px 12
         return card;
     }
 
-    const CAST_EX = ['모든 등장인물 다 지워줘', '모든 캐릭터 옷 수영복으로 바꿔줘'];
+    const CAST_EX = ['모든 등장인물 태그 빼줘', '모든 캐릭터 옷 수영복으로 바꿔줘'];
     const GROUP_KO = { hair: '머리', body: '몸', outfit: '옷', look: '그 밖의 특징' };
     const WEAR_LABEL = Object.fromEntries(WEAR.map(([k, l]) => [k, l]));
     const isPersona = e => e?.src === 'persona' || !!e?.persona;
@@ -8133,7 +8132,9 @@ Rules
 - Clothes and states for the current scene (changing clothes, undressing, getting wet or hurt) go in now. Permanent appearance or identity (hair color, gender, canon) goes in base or the top-level fields.
 - All tag values are short English danbooru tags. A one-piece outfit such as a swimsuit or dress goes in top, with bottom "none".
 - VOICE ONLY records have only a voice: only delete or voice: null works on them.
-- 「지워줘」 · 「없애줘」 on a character alone means delete. On 머리 · 몸 · 옷 · 특징 it means skip those groups. On 목소리 · 음성 · 보이스 it means voice: null. 「다시 넣어줘」 means skip false.
+- 「지워줘」 · 「없애줘」 · 「다 지워줘」 on a character alone (no 머리 · 몸 · 옷 · 특징 · 목소리 word) means delete: true. On 머리 · 몸 · 옷 · 특징 it means skip those groups. On 목소리 · 음성 · 보이스 it means voice: null. 「다시 넣어줘」 means skip false.
+- 「태그 빼줘」 · 「태그 다 빼줘」 on a character means skip all four groups (hair, body, outfit, look). canon stays.
+- 「모든 인물」 · 「모든 등장인물」 · 「모든 캐릭터」 · 「전원」 · 「다들」 means every record in CAST, VOICE ONLY records too. Write one entry per CAST key, each listed separately; never use a wildcard key such as "all" or "*". Include the persona too: the plugin itself keeps the persona and tells the user. So 「모든 등장인물 다 지워줘」 means delete: true on every key.
 - If the command is unclear, or names nobody in CAST, return {"understood":false,"entries":[]}. No explanation.`;
     const CAST_CLEAN_SYS = `You tidy the character list of an image-generation plugin. CANDIDATES are characters the plugin picked up from the chat.
 Pick the minor extras that are unlikely to appear again: unnamed guards, clerks, passers-by, crowd members, characters that showed up once and left.
@@ -8222,8 +8223,7 @@ Return JSON only: {"kind":""}`;
                 const nx = { ...e.skip };
                 for (const g of SKIP_KEYS) { if (r.skip[g] === true) nx[g] = true; else if (r.skip[g] === false) delete nx[g]; }
                 const sk = normSkip(nx);
-                if (sk && SKIP_KEYS.every(g => sk[g]) && !tidy(e.canon)) no.push(`${josa(label, '은', '는')} 원작 태그가 없어 모든 칸을 빼지 않았습니다.`);
-                else if (JSON.stringify(sk) !== JSON.stringify(normSkip(e.skip))) {
+                if (JSON.stringify(sk) !== JSON.stringify(normSkip(e.skip))) {
                     const on = SKIP_KEYS.filter(g => sk?.[g] && !e.skip?.[g]), off = SKIP_KEYS.filter(g => !sk?.[g] && e.skip?.[g]);
                     if (on.length) ch.push(`${on.map(g => GROUP_KO[g]).join(' · ')} 칸을 그림에서 뺌(값은 남김)`);
                     if (off.length) ch.push(`${off.map(g => GROUP_KO[g]).join(' · ')} 칸을 다시 넣음`);
@@ -8254,10 +8254,8 @@ Return JSON only: {"kind":""}`;
             if (base) { normCast(e); castChanged(e); touched = true; } else if (meta) touched = true;
             if (ch.length) out.push(`${label}: ${ch.join(', ')}`);
         }
-        const others = v.cast.list.filter(e => !isPersona(e));
         let del = [], delV = 0;
-        if (dels.length && others.length > 1 && others.every(e => dels.includes(e))) no.push('한꺼번에 모두 지우기는 하지 않습니다. 이름을 알려 주세요.');
-        else if (dels.length) ({ del, voices: delV } = castDelete(v, dels, snap, no));
+        if (dels.length) ({ del, voices: delV } = castDelete(v, dels, snap, no));
         if (del.length) out.unshift(`${josa(nameList(del), '을', '를')} 지웠습니다${delV ? `(목소리 ${delV}개도 함께)` : ''}. 이야기에 다시 나오면 그릴 때 다시 생깁니다.`);
         if (vdel.length) out.push(`${vdel.join(', ')}의 목소리를 지웠습니다. TTS가 이 인물의 대사를 다시 읽으면 목소리를 새로 정합니다.`);
         const changed = !!(touched || del.length || vdel.length);
@@ -8430,7 +8428,7 @@ Return JSON only: {"kind":""}`;
             add(pane, h('div', { class: 'ix-empty' }, h('b', null, '아직 인물 태그가 없습니다'), vm ? '생김새는 삽화 · 애드 에셋 · 대화 모드의 「등장인물 분석」이 읽습니다. 여기서 분석하면 목소리만 정합니다.' : v.group ? '그룹 채팅은 그릴 때 모델이 알려 준 인물이 여기에 쌓입니다.' : '위 「등장인물 분석」을 누르면 봇 설명 · 첫 메시지 · 로어북 · 페르소나에서 인물을 읽어 옵니다. 누르지 않아도 처음 그릴 때 자동으로 읽습니다.'), voiceFoot());
             return pane;
         }
-        const SRC = { lore: '로어북', persona: '페르소나', chat: '채팅에서', edit: '직접 고침' };
+        const SRC = { lore: '로어북', persona: '페르소나', chat: '세션추가', edit: '직접추가' };
         const SEX = { girl: '여', boy: '남', other: '기타' };
         const HUES = ['#3d5afe', '#c2185b', '#00897b', '#ef6c00', '#7b1fa2', '#2e7d32', '#0277bd', '#6d4c41'];
         const open = ui.castOpen;
@@ -8450,20 +8448,19 @@ Return JSON only: {"kind":""}`;
                 },
                     av,
                     h('div', { class: 'cc-ti' },
-                        h('b', null, nm, h('span', { class: 'cc-sx' }, e.type === 'other' && tidy(e.kind) ? '기타 · ' + tidy(e.kind) : SEX[e.type] ?? '기타'), h('span', { class: 'cc-src ' + (e.src ?? '') }, SRC[e.src] ?? e.src ?? ''),
-                            skipAll(e) ? h('span', { class: 'cc-skip' }, '기본 태그만') : null),
+                        h('b', null, nm, h('span', { class: 'cc-sx' }, e.type === 'other' && tidy(e.kind) ? '기타 · ' + tidy(e.kind) : SEX[e.type] ?? '기타'), h('span', { class: 'cc-src ' + (e.src ?? '') }, SRC[e.src] ?? e.src ?? '')),
                         h('span', { class: 'cc-sum' }, sum)),
                     changed ? h('span', { class: 'cc-chg', title: `이 채팅에서만 기본과 다르게 적힌 칸 ${changed}개 (펼쳐서 「지금」 열을 보세요)` }, `지금 ${changed}칸`) : null,
                     h('span', { class: 'cc-sw', onclick: ev => ev.stopPropagation(), onkeydown: ev => ev.stopPropagation() },
                         h('button', {
-                            class: 'cc-clr' + (skipAll(e) ? ' on' : ''), type: 'button', disabled: !skipAll(e) && !tidy(e.canon),
-                            title: skipAll(e) ? '복원: 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣기' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '원작 태그가 있어야 쓸 수 있습니다',
-                            'aria-label': skipAll(e) ? '복원' : '원작 태그만 남기고 클리어',
+                            class: 'cc-clr' + (skipAll(e) ? ' on' : ''), type: 'button',
+                            title: skipAll(e) ? '복원: 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣기' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '머리 · 몸 · 옷 · 그 밖의 특징을 그림에서 빼기 (성별 · 동작만 남음)',
+                            'aria-label': skipAll(e) ? '복원' : tidy(e.canon) ? '원작 태그만 남기고 클리어' : '그림에서 칸 빼기',
                             onclick: () => {
                                 const snap = castSnap(sv), back = skipAll(e);
                                 if (back) delete e.skip; else e.skip = normSkip({ hair: true, body: true, outfit: true, look: true });
                                 castChanged(e);
-                                castNote(e, back ? '복원했습니다. 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : '원작 태그만 남겼습니다. 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
+                                castNote(e, back ? '복원했습니다. 머리 · 몸 · 옷 · 그 밖의 특징을 다시 그림에 넣습니다.' : (tidy(e.canon) ? '원작 태그만 남겼습니다.' : '머리 · 몸 · 옷 · 그 밖의 특징을 뺐습니다. 성별 · 동작만으로 그립니다.') + ' 적힌 값은 그대로 두고 그림에만 넣지 않습니다.', snap);
                                 renderNow();
                             },
                         }, skipAll(e) ? '↺ 복원' : '🧹'),
